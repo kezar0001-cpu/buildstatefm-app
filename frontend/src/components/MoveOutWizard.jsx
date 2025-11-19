@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Stepper,
   Step,
@@ -8,6 +8,9 @@ import {
   Typography,
   Box,
   TextField,
+  Stack,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -40,32 +43,27 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
       const response = await apiClient.get(`/inspections?unitId=${unitId}&type=MOVE_IN`);
       return response.data?.inspections?.[0];
     },
-    onSuccess: (data) => {
-      if (data) {
-        setFormData((prev) => ({ ...prev, moveInFindings: data.findings }));
-      }
-    },
   });
 
-  const scheduleInspectionMutation = useMutation({
-    mutationFn: (inspectionDate) => apiClient.post('/inspections', { 
-      title: `Move-out inspection for Unit ${unitId}`,
-      type: 'MOVE_OUT',
-      scheduledDate: inspectionDate,
-      unitId,
-    }),
-    onSuccess: () => {
-      toast.success('Inspection scheduled successfully');
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to schedule inspection');
-    },
-  });
+  // Update form data when move-in inspection is loaded
+  useEffect(() => {
+    if (moveInInspection?.findings) {
+      setFormData((prev) => ({ ...prev, moveInFindings: moveInInspection.findings }));
+    }
+  }, [moveInInspection]);
 
   const moveOutMutation = useMutation({
     mutationFn: (data) => apiClient.post(`/units/${unitId}/move-out`, data),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      // Show appropriate success message based on step
+      if (variables.step === 0) {
+        toast.success('Move-out notice given successfully');
+      } else if (variables.step === 1) {
+        toast.success('Move-out inspection scheduled successfully');
+      } else if (variables.step === 5) {
+        toast.success('Unit marked as available');
+      }
+
       if (activeStep === steps.length - 1) {
         queryClient.invalidateQueries({ queryKey: ['units', unitId] });
         onComplete();
@@ -73,12 +71,24 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
         setActiveStep((prevActiveStep) => prevActiveStep + 1);
       }
     },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to process move-out step');
+    },
   });
 
   const handleNext = () => {
+    // Validate required fields before proceeding
     if (activeStep === 0) {
+      if (!formData.moveOutDate) {
+        toast.error('Please select a move-out date');
+        return;
+      }
       moveOutMutation.mutate({ step: 0, moveOutDate: formData.moveOutDate });
     } else if (activeStep === 1) {
+      if (!formData.inspectionDate) {
+        toast.error('Please select an inspection date');
+        return;
+      }
       moveOutMutation.mutate({ step: 1, inspectionDate: formData.inspectionDate });
     } else if (activeStep === 5) {
       moveOutMutation.mutate({ step: 5 });
@@ -91,6 +101,22 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
+  // Helper function to check if Next button should be disabled
+  const isNextDisabled = () => {
+    if (moveOutMutation.isPending) return true;
+
+    if (activeStep === 0 && !formData.moveOutDate) return true;
+    if (activeStep === 1 && !formData.inspectionDate) return true;
+
+    return false;
+  };
+
+  // Get today's date in YYYY-MM-DD format for min date attribute
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   const getStepContent = (step) => {
     switch (step) {
       case 0:
@@ -100,8 +126,13 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
             type="date"
             value={formData.moveOutDate}
             onChange={(e) => setFormData({ ...formData, moveOutDate: e.target.value })}
+            fullWidth
+            required
             InputLabelProps={{
               shrink: true,
+            }}
+            inputProps={{
+              min: getTodayDate(),
             }}
           />
         );
@@ -112,8 +143,13 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
             type="date"
             value={formData.inspectionDate}
             onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })}
+            fullWidth
+            required
             InputLabelProps={{
               shrink: true,
+            }}
+            inputProps={{
+              min: getTodayDate(),
             }}
           />
         );
@@ -126,6 +162,7 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
               rows={4}
               value={formData.moveInFindings}
               disabled
+              fullWidth
             />
             <TextField
               label="Move-out Findings"
@@ -133,6 +170,7 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
               rows={4}
               value={formData.moveOutFindings}
               onChange={(e) => setFormData({ ...formData, moveOutFindings: e.target.value })}
+              fullWidth
             />
           </Stack>
         );
@@ -143,6 +181,11 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
             type="number"
             value={formData.deductions}
             onChange={(e) => setFormData({ ...formData, deductions: e.target.value })}
+            fullWidth
+            inputProps={{
+              min: 0,
+              step: 0.01,
+            }}
           />
         );
       case 4:
@@ -181,7 +224,7 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
             Back
           </Button>
           <Box sx={{ flex: '1 1 auto' }} />
-          <Button onClick={handleNext} disabled={scheduleInspectionMutation.isLoading}>
+          <Button onClick={handleNext} disabled={isNextDisabled()}>
             {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
           </Button>
         </Box>
