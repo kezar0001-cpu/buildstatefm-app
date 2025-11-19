@@ -8,6 +8,7 @@ import {
   Description as DescriptionIcon,
   PlayCircle as PlayCircleIcon,
 } from '@mui/icons-material';
+import { resolveFileUrl } from '../utils/fileUtils';
 
 function isImageAttachment(attachment) {
   return attachment.mimeType?.startsWith('image/');
@@ -23,7 +24,7 @@ const AttachmentPreview = ({ attachment }) => {
       <CardMedia
         component="img"
         height="160"
-        image={attachment.url}
+        image={resolveFileUrl(attachment.url)}
         alt={attachment.name}
         sx={{ objectFit: 'cover' }}
       />

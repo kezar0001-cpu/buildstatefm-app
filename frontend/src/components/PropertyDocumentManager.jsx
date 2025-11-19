@@ -43,6 +43,7 @@ import {
 } from '../hooks/usePropertyDocuments.js';
 import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
+import { resolveFileUrl, downloadFile } from '../utils/fileUtils.js';
 
 const getDocumentIcon = (mimeType) => {
   const type = mimeType || '';
@@ -199,7 +200,8 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   };
 
   const handleDownload = (document) => {
-    window.open(document.fileUrl, '_blank');
+    // Use the downloadFile utility to ensure proper URL resolution
+    downloadFile(document.fileUrl, document.fileName);
   };
 
   const handlePreview = (document) => {
@@ -229,13 +231,15 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     if (!document) return null;
 
     const { fileUrl, mimeType, fileName } = document;
+    // Resolve the file URL to ensure it works in all environments
+    const resolvedUrl = resolveFileUrl(fileUrl);
 
     // PDF preview
     if (mimeType?.includes('pdf')) {
       return (
         <Box sx={{ width: '100%', height: '70vh' }}>
           <iframe
-            src={fileUrl}
+            src={resolvedUrl}
             title={fileName}
             style={{
               width: '100%',
@@ -252,7 +256,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
           <img
-            src={fileUrl}
+            src={resolvedUrl}
             alt={fileName}
             style={{
               maxWidth: '100%',
@@ -269,7 +273,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       return (
         <Box sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
           <iframe
-            src={fileUrl}
+            src={resolvedUrl}
             title={fileName}
             style={{
               width: '100%',
