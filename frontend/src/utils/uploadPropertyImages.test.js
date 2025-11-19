@@ -42,7 +42,7 @@ describe('uploadPropertyImages', () => {
 
     expect(postSpy).toHaveBeenCalledTimes(1);
     const [url, body, config] = postSpy.mock.calls[0];
-    expect(url).toBe('/uploads/multiple');
+    expect(url).toBe('/upload/multiple');
     expect(body).toBeInstanceOf(FormData);
     expect(config).toBeUndefined();
     expect(result).toEqual([

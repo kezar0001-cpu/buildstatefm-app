@@ -18,7 +18,7 @@ export async function uploadPropertyImages(files) {
 
   // Bug Fix: Add comprehensive error handling for upload endpoint
   try {
-    const response = await apiClient.post('/uploads/multiple', formData);
+    const response = await apiClient.post('/upload/multiple', formData);
 
     // Bug Fix: Validate response structure before accessing nested properties
     if (!response || !response.data) {

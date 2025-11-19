@@ -19,7 +19,7 @@ export function useImageUpload(options = {}) {
   const {
     onSuccess,
     onError,
-    endpoint = '/uploads/multiple',
+    endpoint = '/upload/multiple',
     compressImages = true,
     maxConcurrent = 3,
     initialImages = [],

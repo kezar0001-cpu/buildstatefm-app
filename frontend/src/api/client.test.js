@@ -64,7 +64,7 @@ describe('apiClient request configuration', () => {
       return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
     };
 
-    await apiClient.post('/uploads/multiple', formData);
+    await apiClient.post('/upload/multiple', formData);
 
     apiClient.defaults.adapter = originalAdapter;
 
@@ -80,7 +80,7 @@ describe('apiClient request configuration', () => {
 
     expect(contentType).toBeTruthy();
     expect(contentType).not.toMatch(/application\/json/i);
-    expect(capturedConfig?.url).toBe('/api/uploads/multiple');
+    expect(capturedConfig?.url).toBe('/api/upload/multiple');
   });
 
   it('does not double-prefix /api when base URL already includes it', async () => {
