@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
-import apiClient from '../utils/apiClient';
+import { apiClient } from '../api/client';
 
 export default function AssignOwnerDialog({ open, onClose, propertyId }) {
   const [selectedOwnerId, setSelectedOwnerId] = useState('');
