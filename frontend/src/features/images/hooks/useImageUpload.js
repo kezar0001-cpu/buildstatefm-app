@@ -52,6 +52,46 @@ export function useImageUpload(options = {}) {
   // Refs
   const uploadCounterRef = useRef(0);
   const abortControllersRef = useRef(new Map());
+  const initialImagesProcessedRef = useRef(false);
+
+  /**
+   * Sync initialImages to state when they change (for edit mode)
+   * This handles the case where initialImages prop updates after initial mount
+   */
+  useEffect(() => {
+    // Skip if no initial images or if we've already processed them
+    if (!initialImages || initialImages.length === 0) {
+      return;
+    }
+
+    // Create a unique signature for the current initialImages
+    const signature = initialImages.map(img => img.id || img.url || img.imageUrl).join(',');
+
+    // Only update if the signature has changed
+    if (initialImagesProcessedRef.current === signature) {
+      return;
+    }
+
+    console.log('[useImageUpload] Syncing initialImages to state:', initialImages.length, 'images');
+    initialImagesProcessedRef.current = signature;
+
+    // Convert initialImages to internal format
+    const formattedImages = initialImages.map((img, index) => ({
+      id: img.id || `existing-${Date.now()}-${index}`,
+      file: null,
+      localPreview: null,
+      remoteUrl: img.url || img.imageUrl || img.remoteUrl,
+      status: 'complete',
+      progress: 100,
+      error: null,
+      isPrimary: img.isPrimary || false,
+      caption: img.altText || img.caption || '',
+      order: img.order !== undefined ? img.order : index,
+      dimensions: img.dimensions || null,
+    }));
+
+    setImages(formattedImages);
+  }, [initialImages]);
 
   /**
    * Generate unique ID for image
