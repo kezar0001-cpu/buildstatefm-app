@@ -313,7 +313,7 @@ export default function UnitDetailPage() {
   const error = unitQuery.error || tenantsQuery.error;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
       <DataState
         isLoading={isLoading}
         error={error}
@@ -322,8 +322,8 @@ export default function UnitDetailPage() {
       >
         {unit && (
           <>
-            {/* Header */}
-            <Box sx={{ mb: 3 }}>
+            {/* Top Navigation */}
+            <Container maxWidth="xl" sx={{ pt: 3, pb: 2 }}>
               <Breadcrumbs
                 labelOverrides={breadcrumbOverrides}
                 extraCrumbs={breadcrumbExtras}
@@ -331,554 +331,198 @@ export default function UnitDetailPage() {
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={handleBack}
-                sx={{ mb: 2 }}
+                sx={{ mt: 1 }}
               >
                 Back to Property
               </Button>
+            </Container>
 
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: 2,
-                }}
-              >
-                <Box>
-                  <Typography variant="h4" gutterBottom>
-                    Unit {unit.unitNumber}
-                  </Typography>
-                  {unit.property && (
-                    <Typography variant="body1" color="text.secondary">
-                      {unit.property.name}
-                      {unit.property.address && ` • ${unit.property.address}`}
-                    </Typography>
-                  )}
-                </Box>
-
-                <Stack direction="row" spacing={1}>
-                  <Chip
-                    label={unit.status?.replace('_', ' ')}
-                    color={getStatusColor(unit.status)}
-                  />
-                  <Button
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={handleEditUnit}
-                  >
-                    Edit Unit
-                  </Button>
-                  {unit.status === 'AVAILABLE' && (
-                    <Button
-                      variant="contained"
-                      onClick={() => setMoveInWizardOpen(true)}
-                    >
-                      Move In
-                    </Button>
-                  )}
-                  {unit.status === 'OCCUPIED' && (
-                    <Button
-                      variant="contained"
-                      onClick={() => setMoveOutWizardOpen(true)}
-                    >
-                      Move Out
-                    </Button>
-                  )}
-                </Stack>
-              </Box>
-            </Box>
-
-            <Grid container spacing={3}>
-              {/* Unit Information */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Unit Information
-                    </Typography>
-                    <Divider sx={{ mb: 2 }} />
-
-                    <Stack spacing={2}>
-                      {unit.bedrooms !== null && unit.bedrooms !== undefined && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <BedIcon color="action" />
-                          <Typography>
-                            {unit.bedrooms} {unit.bedrooms === 1 ? 'Bedroom' : 'Bedrooms'}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      {unit.bathrooms !== null && unit.bathrooms !== undefined && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <BathtubIcon color="action" />
-                          <Typography>
-                            {unit.bathrooms} {unit.bathrooms === 1 ? 'Bathroom' : 'Bathrooms'}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      {unit.area && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <AreaIcon color="action" />
-                          <Typography>{unit.area} sq ft</Typography>
-                        </Box>
-                      )}
-
-                      {unit.rentAmount && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <MoneyIcon color="action" />
-                          <Typography>${unit.rentAmount.toLocaleString()}/month</Typography>
-                        </Box>
-                      )}
-
-                      {unit.floor !== null && unit.floor !== undefined && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HomeIcon color="action" />
-                          <Typography>Floor {unit.floor}</Typography>
-                        </Box>
-                      )}
-
-                      {unit.description && (
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                            Description
-                          </Typography>
-                          <Typography variant="body2">{unit.description}</Typography>
-                        </Box>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Current Tenant */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mb: 2,
-                      }}
-                    >
-                      <Typography variant="h6">Current Tenant</Typography>
-                      {!activeTenant && (
-                        <Stack direction="row" spacing={1}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<MailOutlineIcon />}
-                            onClick={handleInviteTenant}
-                            size="small"
-                          >
-                            Invite Tenant
-                          </Button>
-                          <Button
-                            variant="contained"
-                            startIcon={<PersonAddIcon />}
-                            onClick={handleAssignTenant}
-                            size="small"
-                          >
-                            Assign Tenant
-                          </Button>
-                        </Stack>
-                      )}
-                    </Box>
-
-                    <Divider sx={{ mb: 2 }} />
-
-                    {activeTenant ? (
-                      <Box>
-                        <Box
+            {/* Hero Section with Image Gallery */}
+            <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+              <Container maxWidth="xl" sx={{ py: 0 }}>
+                <Grid container spacing={0}>
+                  {/* Image Gallery - Takes full width on mobile, left side on desktop */}
+                  <Grid item xs={12} lg={8}>
+                    {unitCarouselImages.length > 0 ? (
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: unitCarouselImages.length === 1
+                            ? '1fr'
+                            : { xs: '1fr', md: '2fr 1fr' },
+                          gap: 1,
+                          overflow: 'hidden',
+                          height: { xs: 300, md: 400, lg: 450 },
+                        }}
+                      >
+                        {/* Main Large Image */}
+                        <Paper
                           sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2,
-                            mb: 2,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            borderRadius: 0,
+                            height: '100%',
+                            transition: 'transform 0.3s ease',
+                            '&:hover': {
+                              '& img': {
+                                filter: 'brightness(1.05)',
+                              },
+                            },
                           }}
+                          onClick={() => handleOpenLightbox(0)}
+                          elevation={0}
                         >
-                          <Avatar sx={{ bgcolor: 'primary.main' }}>
-                            <PersonIcon />
-                          </Avatar>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1" fontWeight={600}>
-                              {activeTenant.tenant?.firstName} {activeTenant.tenant?.lastName}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {activeTenant.tenant?.email}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        <Stack spacing={1.5}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Lease Period
-                            </Typography>
-                            <Typography variant="body2">
-                              {formatDate(activeTenant.leaseStart)} - {formatDate(activeTenant.leaseEnd)}
-                            </Typography>
-                          </Box>
-
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Monthly Rent
-                            </Typography>
-                            <Typography variant="body2">
-                              ${activeTenant.rentAmount?.toLocaleString()}
-                            </Typography>
-                          </Box>
-
-                          {activeTenant.depositAmount && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">
-                                Security Deposit
-                              </Typography>
-                              <Typography variant="body2">
-                                ${activeTenant.depositAmount.toLocaleString()}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleEditTenant(activeTenant)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            color="error"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => handleRemoveTenant(activeTenant)}
-                          >
-                            Remove
-                          </Button>
-                        </Stack>
-                      </Box>
-                    ) : (
-                      <Box sx={{ textAlign: 'center', py: 3 }}>
-                        <PersonIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                        <Typography color="text.secondary" gutterBottom>
-                          No tenant assigned to this unit
-                        </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mt: 1, justifyContent: 'center' }}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<MailOutlineIcon />}
-                            onClick={handleInviteTenant}
-                          >
-                            Invite Tenant
-                          </Button>
-                          <Button
-                            variant="contained"
-                            startIcon={<PersonAddIcon />}
-                            onClick={handleAssignTenant}
-                          >
-                            Assign Tenant
-                          </Button>
-                        </Stack>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Current Owners */}
-              <Grid item xs={12}>
-                <Card>
-                  <CardContent>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mb: 2,
-                      }}
-                    >
-                      <Typography variant="h6">Unit Owners</Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          variant="outlined"
-                          startIcon={<MailOutlineIcon />}
-                          onClick={handleInviteOwner}
-                          size="small"
-                        >
-                          Invite Owner
-                        </Button>
-                        <Button
-                          variant="contained"
-                          startIcon={<PersonAddIcon />}
-                          onClick={handleAssignOwner}
-                          size="small"
-                        >
-                          Assign Owner
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Divider sx={{ mb: 2 }} />
-
-                    {unit?.owners && unit.owners.length > 0 ? (
-                      <List sx={{ p: 0 }}>
-                        {unit.owners.map((ownerRecord) => (
-                          <ListItem
-                            key={ownerRecord.id}
+                          <Box
+                            component="img"
+                            src={typeof unitCarouselImages[0] === 'string' ? unitCarouselImages[0] : unitCarouselImages[0].imageUrl}
+                            alt={typeof unitCarouselImages[0] === 'object' && unitCarouselImages[0].caption ? unitCarouselImages[0].caption : `Unit ${unit.unitNumber} main image`}
                             sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              mb: 1,
-                              '&:last-child': { mb: 0 },
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              transition: 'filter 0.3s ease',
+                            }}
+                          />
+                          <Chip
+                            label="Primary"
+                            size="small"
+                            color="primary"
+                            sx={{
+                              position: 'absolute',
+                              top: 12,
+                              left: 12,
+                              zIndex: 2,
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </Paper>
+
+                        {/* 2x2 Grid of Thumbnails (desktop only) */}
+                        {unitCarouselImages.length > 1 && (
+                          <Box
+                            sx={{
+                              display: { xs: 'none', md: 'grid' },
+                              gridTemplateColumns: '1fr 1fr',
+                              gridTemplateRows: '1fr 1fr',
+                              gap: 1,
+                              height: '100%',
                             }}
                           >
-                            <ListItemAvatar>
-                              <Avatar sx={{ bgcolor: 'primary.main' }}>
-                                <PersonIcon />
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                              primary={
-                                ownerRecord.owner
-                                  ? `${ownerRecord.owner.firstName} ${ownerRecord.owner.lastName}`
-                                  : 'Unknown Owner'
-                              }
-                              secondary={
-                                <Box component="span">
-                                  <Typography variant="body2" component="span">
-                                    {ownerRecord.owner?.email}
-                                  </Typography>
-                                  <br />
-                                  <Typography variant="caption" component="span">
-                                    Ownership: {ownerRecord.ownershipPercentage}%
-                                    {ownerRecord.startDate &&
-                                      ` • Since ${formatDate(ownerRecord.startDate)}`}
-                                  </Typography>
-                                </Box>
-                              }
-                            />
-                            <IconButton
-                              edge="end"
-                              onClick={() => handleRemoveOwner(ownerRecord)}
-                              color="error"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Box sx={{ textAlign: 'center', py: 3 }}>
-                        <PersonIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                        <Typography color="text.secondary" gutterBottom>
-                          No owners assigned to this unit
-                        </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mt: 1, justifyContent: 'center' }}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<MailOutlineIcon />}
-                            onClick={handleInviteOwner}
-                          >
-                            Invite Owner
-                          </Button>
-                          <Button
-                            variant="contained"
-                            startIcon={<PersonAddIcon />}
-                            onClick={handleAssignOwner}
-                          >
-                            Assign Owner
-                          </Button>
-                        </Stack>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
+                            {unitCarouselImages.slice(1, 5).map((image, idx) => {
+                              const imageUrl = typeof image === 'string' ? image : image.imageUrl;
+                              const caption = typeof image === 'object' ? image.caption : null;
+                              const actualIndex = idx + 1;
 
-              {/* Unit Image Gallery - Modern Split Layout */}
-              <Grid item xs={12}>
-                {unitCarouselImages.length > 0 ? (
-                  <Box>
-                    {/* Desktop: Split layout (large left + 2x2 grid right) */}
-                    {/* Mobile: Stacked layout */}
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: unitCarouselImages.length === 1
-                          ? '1fr'
-                          : { xs: '1fr', md: '2fr 1fr' },
-                        gap: 1,
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {/* Main Large Image */}
-                      <Paper
-                        sx={{
-                          position: 'relative',
-                          paddingTop: { xs: '56.25%', md: '66.67%' }, // 16:9 mobile, 3:2 desktop
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          borderRadius: { xs: 3, md: 0 },
-                          transition: 'transform 0.3s ease',
-                          '&:hover': {
-                            transform: 'scale(1.01)',
-                            '& img': {
-                              filter: 'brightness(1.05)',
-                            },
-                          },
-                        }}
-                        onClick={() => handleOpenLightbox(0)}
-                        elevation={0}
-                      >
-                        <Box
-                          component="img"
-                          src={typeof unitCarouselImages[0] === 'string' ? unitCarouselImages[0] : unitCarouselImages[0].imageUrl}
-                          alt={typeof unitCarouselImages[0] === 'object' && unitCarouselImages[0].caption ? unitCarouselImages[0].caption : `Unit ${unit.unitNumber} main image`}
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            transition: 'filter 0.3s ease',
-                          }}
-                        />
-                        <Chip
-                          label="Primary"
-                          size="small"
-                          color="primary"
-                          sx={{
-                            position: 'absolute',
-                            top: 12,
-                            left: 12,
-                            zIndex: 2,
-                            fontSize: '0.7rem',
-                            fontWeight: 600,
-                          }}
-                        />
-                      </Paper>
+                              return (
+                                <Paper
+                                  key={image.id || actualIndex}
+                                  sx={{
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    borderRadius: 0,
+                                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                    '&:hover': {
+                                      transform: 'scale(1.05)',
+                                      boxShadow: 4,
+                                      zIndex: 1,
+                                      '& img': {
+                                        filter: 'brightness(1.1)',
+                                      },
+                                    },
+                                  }}
+                                  onClick={() => handleOpenLightbox(actualIndex)}
+                                  elevation={0}
+                                >
+                                  <Box
+                                    component="img"
+                                    src={imageUrl}
+                                    alt={caption || `Unit ${unit.unitNumber} image ${actualIndex + 1}`}
+                                    sx={{
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'cover',
+                                      transition: 'filter 0.2s ease',
+                                    }}
+                                  />
+                                </Paper>
+                              );
+                            })}
 
-                      {/* 2x2 Grid of Thumbnails (desktop only) */}
-                      {unitCarouselImages.length > 1 && (
-                        <Box
-                          sx={{
-                            display: { xs: 'none', md: 'grid' },
-                            gridTemplateColumns: '1fr 1fr',
-                            gridTemplateRows: '1fr 1fr',
-                            gap: 1,
-                          }}
-                        >
-                          {unitCarouselImages.slice(1, 5).map((image, idx) => {
-                            const imageUrl = typeof image === 'string' ? image : image.imageUrl;
-                            const caption = typeof image === 'object' ? image.caption : null;
-                            const actualIndex = idx + 1;
-
-                            return (
+                            {/* "+N more" tile */}
+                            {unitCarouselImages.length > 5 && (
                               <Paper
-                                key={image.id || actualIndex}
                                 sx={{
                                   position: 'relative',
                                   overflow: 'hidden',
                                   cursor: 'pointer',
                                   borderRadius: 0,
-                                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                  bgcolor: 'rgba(0,0,0,0.75)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'background-color 0.2s ease',
                                   '&:hover': {
-                                    transform: 'scale(1.05)',
-                                    boxShadow: 4,
-                                    zIndex: 1,
-                                    '& img': {
-                                      filter: 'brightness(1.1)',
-                                    },
+                                    bgcolor: 'rgba(0,0,0,0.85)',
                                   },
+                                  ...(unitCarouselImages[4] && {
+                                    backgroundImage: `url(${typeof unitCarouselImages[4] === 'string' ? unitCarouselImages[4] : unitCarouselImages[4].imageUrl})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    '&::before': {
+                                      content: '""',
+                                      position: 'absolute',
+                                      inset: 0,
+                                      backgroundColor: 'rgba(0,0,0,0.6)',
+                                      zIndex: 1,
+                                    },
+                                  }),
                                 }}
-                                onClick={() => handleOpenLightbox(actualIndex)}
+                                onClick={() => handleOpenLightbox(4)}
                                 elevation={0}
                               >
-                                <Box
-                                  component="img"
-                                  src={imageUrl}
-                                  alt={caption || `Unit ${unit.unitNumber} image ${actualIndex + 1}`}
+                                <Typography
+                                  variant="h5"
                                   sx={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                    transition: 'filter 0.2s ease',
+                                    color: 'white',
+                                    fontWeight: 700,
+                                    zIndex: 2,
                                   }}
-                                />
+                                >
+                                  +{unitCarouselImages.length - 4}
+                                </Typography>
                               </Paper>
-                            );
-                          })}
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    ) : (
+                      <Paper
+                        sx={{
+                          height: { xs: 300, md: 400, lg: 450 },
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: 'grey.100',
+                          borderRadius: 0,
+                          color: 'grey.400',
+                        }}
+                        elevation={0}
+                      >
+                        <HomeIcon sx={{ fontSize: { xs: 72, md: 100 } }} />
+                      </Paper>
+                    )}
 
-                          {/* "+N more" tile - shown in last position if there are more than 5 images */}
-                          {unitCarouselImages.length > 5 && (
-                            <Paper
-                              sx={{
-                                position: 'relative',
-                                overflow: 'hidden',
-                                cursor: 'pointer',
-                                borderRadius: 0,
-                                bgcolor: 'rgba(0,0,0,0.75)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'background-color 0.2s ease',
-                                '&:hover': {
-                                  bgcolor: 'rgba(0,0,0,0.85)',
-                                },
-                                ...(unitCarouselImages.length > 5 && unitCarouselImages[4] && {
-                                  backgroundImage: `url(${typeof unitCarouselImages[4] === 'string' ? unitCarouselImages[4] : unitCarouselImages[4].imageUrl})`,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  '&::before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    backgroundColor: 'rgba(0,0,0,0.6)',
-                                    zIndex: 1,
-                                  },
-                                }),
-                              }}
-                              onClick={() => handleOpenLightbox(4)}
-                              elevation={0}
-                            >
-                              <Typography
-                                variant="h5"
-                                sx={{
-                                  color: 'white',
-                                  fontWeight: 700,
-                                  zIndex: 2,
-                                  position: 'relative',
-                                }}
-                              >
-                                +{unitCarouselImages.length - 4}
-                              </Typography>
-                            </Paper>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Mobile: Horizontal scroll gallery for additional images */}
+                    {/* Mobile: Horizontal scroll for additional images */}
                     {unitCarouselImages.length > 1 && (
                       <Box
                         sx={{
                           display: { xs: 'flex', md: 'none' },
                           gap: 1,
                           overflowX: 'auto',
-                          mt: 1,
-                          pb: 1,
+                          p: 2,
                           '&::-webkit-scrollbar': {
                             height: 6,
                           },
@@ -903,9 +547,7 @@ export default function UnitDetailPage() {
                                 overflow: 'hidden',
                                 cursor: 'pointer',
                                 borderRadius: 2,
-                                '&:hover': {
-                                  boxShadow: 3,
-                                },
+                                flexShrink: 0,
                               }}
                               onClick={() => handleOpenLightbox(actualIndex)}
                             >
@@ -924,279 +566,685 @@ export default function UnitDetailPage() {
                         })}
                       </Box>
                     )}
-                  </Box>
-                ) : (
-                  <Paper
-                    sx={{
-                      height: { xs: 220, sm: 280, md: 350 },
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: 'grey.100',
-                      borderRadius: 3,
-                      color: 'grey.400',
-                    }}
-                  >
-                    <HomeIcon sx={{ fontSize: { xs: 72, md: 100 } }} />
-                  </Paper>
-                )}
-              </Grid>
+                  </Grid>
 
-              {/* Jobs and Inspections Tabs */}
-              <Grid item xs={12}>
-                <Paper>
-                  <Tabs
-                    value={currentTab}
-                    onChange={(e, newValue) => setCurrentTab(newValue)}
-                    sx={{ borderBottom: 1, borderColor: 'divider' }}
-                  >
-                    <Tab label="Overview" />
-                    <Tab label={`Jobs (${jobs.length})`} icon={<WorkIcon />} iconPosition="start" />
-                    <Tab
-                      label={`Inspections (${inspections.length})`}
-                      icon={<InspectionIcon />}
-                      iconPosition="start"
-                    />
-                  </Tabs>
-
-                  <Box sx={{ p: 3 }}>
-                    {/* Overview Tab */}
-                    {currentTab === 0 && (
+                  {/* Unit Summary Card - Right side on desktop */}
+                  <Grid item xs={12} lg={4}>
+                    <Box
+                      sx={{
+                        p: 4,
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      {/* Header */}
                       <Box>
-                        <Typography variant="h6" gutterBottom>
-                          Recent Activity
-                        </Typography>
-                        <DataState
-                          isLoading={activityQuery.isLoading}
-                          error={activityQuery.error}
-                          isEmpty={activities.length === 0}
-                          emptyMessage="No recent activity for this unit"
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                          <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>
+                            Unit {unit.unitNumber}
+                          </Typography>
+                          <Chip
+                            label={unit.status?.replace('_', ' ')}
+                            color={getStatusColor(unit.status)}
+                            sx={{ fontWeight: 600 }}
+                          />
+                        </Box>
+
+                        {unit.property && (
+                          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                            {unit.property.name}
+                            {unit.property.address && ` • ${unit.property.address}`}
+                          </Typography>
+                        )}
+
+                        {/* Key Stats */}
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                          {unit.bedrooms !== null && unit.bedrooms !== undefined && (
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                                <BedIcon sx={{ fontSize: 32, color: 'primary.main', mb: 1 }} />
+                                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                                  {unit.bedrooms}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {unit.bedrooms === 1 ? 'Bedroom' : 'Bedrooms'}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {unit.bathrooms !== null && unit.bathrooms !== undefined && (
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                                <BathtubIcon sx={{ fontSize: 32, color: 'primary.main', mb: 1 }} />
+                                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                                  {unit.bathrooms}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {unit.bathrooms === 1 ? 'Bathroom' : 'Bathrooms'}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {unit.area && (
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                                <AreaIcon sx={{ fontSize: 32, color: 'primary.main', mb: 1 }} />
+                                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                                  {unit.area}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  sq ft
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {unit.rentAmount && (
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.lighter', borderRadius: 2 }}>
+                                <MoneyIcon sx={{ fontSize: 32, color: 'success.main', mb: 1 }} />
+                                <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>
+                                  ${unit.rentAmount.toLocaleString()}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  /month
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Box>
+
+                      {/* Actions */}
+                      <Stack spacing={1.5}>
+                        {unit.status === 'AVAILABLE' && (
+                          <Button
+                            variant="contained"
+                            size="large"
+                            fullWidth
+                            onClick={() => setMoveInWizardOpen(true)}
+                            sx={{ fontWeight: 600 }}
+                          >
+                            Move In Tenant
+                          </Button>
+                        )}
+                        {unit.status === 'OCCUPIED' && (
+                          <Button
+                            variant="contained"
+                            size="large"
+                            fullWidth
+                            onClick={() => setMoveOutWizardOpen(true)}
+                            sx={{ fontWeight: 600 }}
+                          >
+                            Move Out Tenant
+                          </Button>
+                        )}
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          fullWidth
+                          startIcon={<EditIcon />}
+                          onClick={handleEditUnit}
                         >
-                          <List>
-                            {activities.map((activity) => {
-                              let icon;
-                              let activityColor = 'default';
+                          Edit Unit Details
+                        </Button>
+                      </Stack>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Container>
+            </Box>
 
-                              switch (activity.type) {
-                                case 'job':
-                                  icon = <WorkIcon />;
-                                  activityColor = 'primary';
-                                  break;
-                                case 'inspection':
-                                  icon = <InspectionIcon />;
-                                  activityColor = 'success';
-                                  break;
-                                case 'service_request':
-                                  icon = <ServiceIcon />;
-                                  activityColor = 'warning';
-                                  break;
-                                case 'tenant_assignment':
-                                  icon = <PersonIcon />;
-                                  activityColor = 'info';
-                                  break;
-                                default:
-                                  icon = <ScheduleIcon />;
-                              }
+            {/* Main Content Area */}
+            <Container maxWidth="xl" sx={{ py: 4 }}>
+              <Grid container spacing={3}>
+                {/* Main Content Column */}
+                <Grid item xs={12} lg={8}>
+                  <Stack spacing={3}>
+                    {/* Current Tenant Card */}
+                    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mb: 3,
+                          }}
+                        >
+                          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                            Current Tenant
+                          </Typography>
+                          {!activeTenant && (
+                            <Stack direction="row" spacing={1}>
+                              <Button
+                                variant="outlined"
+                                startIcon={<MailOutlineIcon />}
+                                onClick={handleInviteTenant}
+                                size="small"
+                              >
+                                Invite
+                              </Button>
+                              <Button
+                                variant="contained"
+                                startIcon={<PersonAddIcon />}
+                                onClick={handleAssignTenant}
+                                size="small"
+                              >
+                                Assign
+                              </Button>
+                            </Stack>
+                          )}
+                        </Box>
 
-                              return (
-                                <ListItem
-                                  key={`${activity.type}-${activity.id}`}
-                                  sx={{
-                                    border: 1,
-                                    borderColor: 'divider',
-                                    borderRadius: 1,
-                                    mb: 1,
-                                    cursor: activity.type !== 'tenant_assignment' ? 'pointer' : 'default',
-                                    '&:hover': activity.type !== 'tenant_assignment' ? { bgcolor: 'action.hover' } : {},
-                                  }}
-                                  onClick={() => {
-                                    if (activity.type === 'job') {
-                                      navigate(`/jobs?jobId=${activity.id}`);
-                                    } else if (activity.type === 'inspection') {
-                                      navigate(`/inspections/${activity.id}`);
-                                    } else if (activity.type === 'service_request') {
-                                      // Service requests don't have a detail page yet, so we don't navigate
-                                    }
-                                  }}
-                                >
-                                  <ListItemAvatar>
-                                    <Avatar sx={{ bgcolor: `${activityColor}.main` }}>
-                                      {icon}
-                                    </Avatar>
-                                  </ListItemAvatar>
-                                  <ListItemText
-                                    primary={activity.title}
-                                    secondary={
-                                      <>
-                                        <Typography variant="body2" color="text.secondary">
-                                          {activity.description}
-                                        </Typography>
-                                        <Box sx={{ mt: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
-                                          <Chip
-                                            label={activity.status}
-                                            size="small"
-                                            color={
-                                              activity.status === 'COMPLETED' || activity.status === 'ACTIVE'
-                                                ? 'success'
-                                                : activity.status === 'IN_PROGRESS'
-                                                ? 'primary'
-                                                : activity.status === 'PENDING'
-                                                ? 'warning'
-                                                : 'default'
-                                            }
-                                          />
-                                          {activity.priority && (
+                        {activeTenant ? (
+                          <Box>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 2,
+                                mb: 3,
+                                p: 2,
+                                bgcolor: 'action.hover',
+                                borderRadius: 2,
+                              }}
+                            >
+                              <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
+                                <PersonIcon sx={{ fontSize: 32 }} />
+                              </Avatar>
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="h6" fontWeight={600}>
+                                  {activeTenant.tenant?.firstName} {activeTenant.tenant?.lastName}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {activeTenant.tenant?.email}
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                              <Grid item xs={12} sm={6}>
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                    Lease Period
+                                  </Typography>
+                                  <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                    {formatDate(activeTenant.leaseStart)} - {formatDate(activeTenant.leaseEnd)}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+
+                              <Grid item xs={12} sm={6}>
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                    Monthly Rent
+                                  </Typography>
+                                  <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                    ${activeTenant.rentAmount?.toLocaleString()}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+
+                              {activeTenant.depositAmount && (
+                                <Grid item xs={12} sm={6}>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                      Security Deposit
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                      ${activeTenant.depositAmount.toLocaleString()}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                              )}
+                            </Grid>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Stack direction="row" spacing={1}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<EditIcon />}
+                                onClick={() => handleEditTenant(activeTenant)}
+                              >
+                                Edit Lease
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                startIcon={<DeleteIcon />}
+                                onClick={() => handleRemoveTenant(activeTenant)}
+                              >
+                                Remove Tenant
+                              </Button>
+                            </Stack>
+                          </Box>
+                        ) : (
+                          <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <PersonIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                              No tenant assigned
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              Assign a tenant or send an invitation to get started
+                            </Typography>
+                            <Stack direction="row" spacing={2} sx={{ justifyContent: 'center' }}>
+                              <Button
+                                variant="outlined"
+                                startIcon={<MailOutlineIcon />}
+                                onClick={handleInviteTenant}
+                              >
+                                Invite Tenant
+                              </Button>
+                              <Button
+                                variant="contained"
+                                startIcon={<PersonAddIcon />}
+                                onClick={handleAssignTenant}
+                              >
+                                Assign Tenant
+                              </Button>
+                            </Stack>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Activity Tabs */}
+                    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+                      <Tabs
+                        value={currentTab}
+                        onChange={(e, newValue) => setCurrentTab(newValue)}
+                        sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
+                      >
+                        <Tab label="Recent Activity" />
+                        <Tab label={`Jobs (${jobs.length})`} icon={<WorkIcon />} iconPosition="start" />
+                        <Tab
+                          label={`Inspections (${inspections.length})`}
+                          icon={<InspectionIcon />}
+                          iconPosition="start"
+                        />
+                      </Tabs>
+
+                      <Box sx={{ p: 3 }}>
+                        {/* Overview Tab */}
+                        {currentTab === 0 && (
+                          <Box>
+                            <DataState
+                              isLoading={activityQuery.isLoading}
+                              error={activityQuery.error}
+                              isEmpty={activities.length === 0}
+                              emptyMessage="No recent activity for this unit"
+                            >
+                              <Stack spacing={1.5}>
+                                {activities.map((activity) => {
+                                  let icon;
+                                  let activityColor = 'default';
+
+                                  switch (activity.type) {
+                                    case 'job':
+                                      icon = <WorkIcon />;
+                                      activityColor = 'primary';
+                                      break;
+                                    case 'inspection':
+                                      icon = <InspectionIcon />;
+                                      activityColor = 'success';
+                                      break;
+                                    case 'service_request':
+                                      icon = <ServiceIcon />;
+                                      activityColor = 'warning';
+                                      break;
+                                    case 'tenant_assignment':
+                                      icon = <PersonIcon />;
+                                      activityColor = 'info';
+                                      break;
+                                    default:
+                                      icon = <ScheduleIcon />;
+                                  }
+
+                                  return (
+                                    <Box
+                                      key={`${activity.type}-${activity.id}`}
+                                      sx={{
+                                        p: 2,
+                                        border: 1,
+                                        borderColor: 'divider',
+                                        borderRadius: 2,
+                                        cursor: activity.type !== 'tenant_assignment' ? 'pointer' : 'default',
+                                        transition: 'all 0.2s',
+                                        '&:hover': activity.type !== 'tenant_assignment' ? {
+                                          bgcolor: 'action.hover',
+                                          borderColor: 'primary.main',
+                                          transform: 'translateX(4px)',
+                                        } : {},
+                                      }}
+                                      onClick={() => {
+                                        if (activity.type === 'job') {
+                                          navigate(`/jobs?jobId=${activity.id}`);
+                                        } else if (activity.type === 'inspection') {
+                                          navigate(`/inspections/${activity.id}`);
+                                        }
+                                      }}
+                                    >
+                                      <Box sx={{ display: 'flex', gap: 2 }}>
+                                        <Avatar sx={{ bgcolor: `${activityColor}.main` }}>
+                                          {icon}
+                                        </Avatar>
+                                        <Box sx={{ flexGrow: 1 }}>
+                                          <Typography variant="subtitle1" fontWeight={600}>
+                                            {activity.title}
+                                          </Typography>
+                                          <Typography variant="body2" color="text.secondary">
+                                            {activity.description}
+                                          </Typography>
+                                          <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                                             <Chip
-                                              label={activity.priority}
+                                              label={activity.status}
                                               size="small"
                                               color={
-                                                activity.priority === 'URGENT'
-                                                  ? 'error'
-                                                  : activity.priority === 'HIGH'
+                                                activity.status === 'COMPLETED' || activity.status === 'ACTIVE'
+                                                  ? 'success'
+                                                  : activity.status === 'IN_PROGRESS'
+                                                  ? 'primary'
+                                                  : activity.status === 'PENDING'
                                                   ? 'warning'
                                                   : 'default'
                                               }
                                             />
-                                          )}
-                                          <Typography variant="caption" color="text.secondary">
-                                            {formatDateTime(activity.date)}
-                                          </Typography>
+                                            {activity.priority && (
+                                              <Chip
+                                                label={activity.priority}
+                                                size="small"
+                                                color={
+                                                  activity.priority === 'URGENT'
+                                                    ? 'error'
+                                                    : activity.priority === 'HIGH'
+                                                    ? 'warning'
+                                                    : 'default'
+                                                }
+                                              />
+                                            )}
+                                            <Typography variant="caption" color="text.secondary">
+                                              {formatDateTime(activity.date)}
+                                            </Typography>
+                                          </Box>
                                         </Box>
-                                      </>
-                                    }
-                                  />
-                                </ListItem>
-                              );
-                            })}
-                          </List>
-                        </DataState>
-                      </Box>
-                    )}
+                                      </Box>
+                                    </Box>
+                                  );
+                                })}
+                              </Stack>
+                            </DataState>
+                          </Box>
+                        )}
 
-                    {/* Jobs Tab */}
-                    {currentTab === 1 && (
-                      <Box>
-                        <DataState
-                          isLoading={jobsQuery.isLoading}
-                          error={jobsQuery.error}
-                          isEmpty={jobs.length === 0}
-                          emptyMessage="No jobs for this unit"
-                        >
-                          <List>
-                            {jobs.map((job) => (
-                              <ListItem
-                                key={job.id}
-                                sx={{
-                                  border: 1,
-                                  borderColor: 'divider',
-                                  borderRadius: 1,
-                                  mb: 1,
-                                  cursor: 'pointer',
-                                  '&:hover': { bgcolor: 'action.hover' },
-                                }}
-                                onClick={() => navigate(`/jobs?jobId=${job.id}`)}
-                              >
-                                <ListItemAvatar>
-                                  <Avatar>
-                                    <WorkIcon />
-                                  </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText
-                                  primary={job.title}
-                                  secondary={
-                                    <>
-                                      {job.description && (
-                                        <Typography variant="body2" color="text.secondary">
-                                          {job.description}
+                        {/* Jobs Tab */}
+                        {currentTab === 1 && (
+                          <Box>
+                            <DataState
+                              isLoading={jobsQuery.isLoading}
+                              error={jobsQuery.error}
+                              isEmpty={jobs.length === 0}
+                              emptyMessage="No jobs for this unit"
+                            >
+                              <Stack spacing={1.5}>
+                                {jobs.map((job) => (
+                                  <Box
+                                    key={job.id}
+                                    sx={{
+                                      p: 2,
+                                      border: 1,
+                                      borderColor: 'divider',
+                                      borderRadius: 2,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      '&:hover': {
+                                        bgcolor: 'action.hover',
+                                        borderColor: 'primary.main',
+                                        transform: 'translateX(4px)',
+                                      },
+                                    }}
+                                    onClick={() => navigate(`/jobs?jobId=${job.id}`)}
+                                  >
+                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                      <Avatar>
+                                        <WorkIcon />
+                                      </Avatar>
+                                      <Box sx={{ flexGrow: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight={600}>
+                                          {job.title}
                                         </Typography>
-                                      )}
-                                      <Box sx={{ mt: 0.5 }}>
-                                        <Chip
-                                          label={job.status}
-                                          size="small"
-                                          sx={{ mr: 1 }}
-                                        />
-                                        <Chip
-                                          label={job.priority}
-                                          size="small"
-                                          color={
-                                            job.priority === 'URGENT'
-                                              ? 'error'
-                                              : job.priority === 'HIGH'
-                                              ? 'warning'
-                                              : 'default'
-                                          }
-                                        />
+                                        {job.description && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            {job.description}
+                                          </Typography>
+                                        )}
+                                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                          <Chip label={job.status} size="small" />
+                                          <Chip
+                                            label={job.priority}
+                                            size="small"
+                                            color={
+                                              job.priority === 'URGENT'
+                                                ? 'error'
+                                                : job.priority === 'HIGH'
+                                                ? 'warning'
+                                                : 'default'
+                                            }
+                                          />
+                                        </Box>
                                       </Box>
-                                    </>
-                                  }
-                                />
-                              </ListItem>
-                            ))}
-                          </List>
-                        </DataState>
-                      </Box>
-                    )}
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            </DataState>
+                          </Box>
+                        )}
 
-                    {/* Inspections Tab */}
-                    {currentTab === 2 && (
-                      <Box>
-                        <DataState
-                          isLoading={inspectionsQuery.isLoading}
-                          error={inspectionsQuery.error}
-                          isEmpty={inspections.length === 0}
-                          emptyMessage="No inspections for this unit"
+                        {/* Inspections Tab */}
+                        {currentTab === 2 && (
+                          <Box>
+                            <DataState
+                              isLoading={inspectionsQuery.isLoading}
+                              error={inspectionsQuery.error}
+                              isEmpty={inspections.length === 0}
+                              emptyMessage="No inspections for this unit"
+                            >
+                              <Stack spacing={1.5}>
+                                {inspections.map((inspection) => (
+                                  <Box
+                                    key={inspection.id}
+                                    sx={{
+                                      p: 2,
+                                      border: 1,
+                                      borderColor: 'divider',
+                                      borderRadius: 2,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      '&:hover': {
+                                        bgcolor: 'action.hover',
+                                        borderColor: 'primary.main',
+                                        transform: 'translateX(4px)',
+                                      },
+                                    }}
+                                    onClick={() => navigate(`/inspections/${inspection.id}`)}
+                                  >
+                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                      <Avatar>
+                                        <InspectionIcon />
+                                      </Avatar>
+                                      <Box sx={{ flexGrow: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight={600}>
+                                          {inspection.title}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {formatDateTime(inspection.scheduledDate)}
+                                        </Typography>
+                                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                          <Chip label={inspection.status} size="small" />
+                                          <Chip label={inspection.type} size="small" />
+                                        </Box>
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            </DataState>
+                          </Box>
+                        )}
+                      </Box>
+                    </Card>
+                  </Stack>
+                </Grid>
+
+                {/* Sidebar */}
+                <Grid item xs={12} lg={4}>
+                  <Stack spacing={3}>
+                    {/* Unit Details Card */}
+                    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                          Unit Details
+                        </Typography>
+
+                        <Stack spacing={2}>
+                          {unit.floor !== null && unit.floor !== undefined && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                Floor
+                              </Typography>
+                              <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                Floor {unit.floor}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {unit.description && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                Description
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+                                {unit.description}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    {/* Unit Owners Card */}
+                    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mb: 2,
+                          }}
                         >
-                          <List>
-                            {inspections.map((inspection) => (
-                              <ListItem
-                                key={inspection.id}
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            Owners
+                          </Typography>
+                          <Stack direction="row" spacing={0.5}>
+                            <IconButton
+                              size="small"
+                              onClick={handleInviteOwner}
+                              title="Invite Owner"
+                            >
+                              <MailOutlineIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={handleAssignOwner}
+                              title="Assign Owner"
+                            >
+                              <PersonAddIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Box>
+
+                        {unit?.owners && unit.owners.length > 0 ? (
+                          <Stack spacing={1.5}>
+                            {unit.owners.map((ownerRecord) => (
+                              <Box
+                                key={ownerRecord.id}
                                 sx={{
+                                  p: 1.5,
                                   border: 1,
                                   borderColor: 'divider',
-                                  borderRadius: 1,
-                                  mb: 1,
-                                  cursor: 'pointer',
-                                  '&:hover': { bgcolor: 'action.hover' },
+                                  borderRadius: 2,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1.5,
                                 }}
-                                onClick={() => navigate(`/inspections/${inspection.id}`)}
                               >
-                                <ListItemAvatar>
-                                  <Avatar>
-                                    <InspectionIcon />
-                                  </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText
-                                  primary={inspection.title}
-                                  secondary={
-                                    <>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {formatDateTime(inspection.scheduledDate)}
-                                      </Typography>
-                                      <Box sx={{ mt: 0.5 }}>
-                                        <Chip
-                                          label={inspection.status}
-                                          size="small"
-                                          sx={{ mr: 1 }}
-                                        />
-                                        <Chip
-                                          label={inspection.type}
-                                          size="small"
-                                        />
-                                      </Box>
-                                    </>
-                                  }
-                                />
-                              </ListItem>
+                                <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                                  <PersonIcon fontSize="small" />
+                                </Avatar>
+                                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                  <Typography variant="subtitle2" fontWeight={600} noWrap>
+                                    {ownerRecord.owner
+                                      ? `${ownerRecord.owner.firstName} ${ownerRecord.owner.lastName}`
+                                      : 'Unknown Owner'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                                    {ownerRecord.owner?.email}
+                                  </Typography>
+                                  <Typography variant="caption" color="primary.main" fontWeight={600}>
+                                    {ownerRecord.ownershipPercentage}% ownership
+                                  </Typography>
+                                </Box>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveOwner(ownerRecord)}
+                                  color="error"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
                             ))}
-                          </List>
-                        </DataState>
-                      </Box>
-                    )}
-                  </Box>
-                </Paper>
+                          </Stack>
+                        ) : (
+                          <Box sx={{ textAlign: 'center', py: 3 }}>
+                            <PersonIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              No owners assigned
+                            </Typography>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1.5, justifyContent: 'center' }}>
+                              <Button
+                                variant="text"
+                                size="small"
+                                startIcon={<MailOutlineIcon />}
+                                onClick={handleInviteOwner}
+                              >
+                                Invite
+                              </Button>
+                              <Button
+                                variant="text"
+                                size="small"
+                                startIcon={<PersonAddIcon />}
+                                onClick={handleAssignOwner}
+                              >
+                                Assign
+                              </Button>
+                            </Stack>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Stack>
+                </Grid>
               </Grid>
-            </Grid>
+            </Container>
 
             {/* Edit Unit Dialog */}
             <UnitForm
