@@ -14,6 +14,12 @@ export default defineConfig({
         // local test traffic to the production API by accident.
         target: devProxyTarget,
         changeOrigin: true,
+      },
+      '/uploads': {
+        // Proxy /uploads to backend for document viewing/downloading
+        // This ensures iframes and direct file access work in development
+        target: devProxyTarget,
+        changeOrigin: true,
       }
     }
   },

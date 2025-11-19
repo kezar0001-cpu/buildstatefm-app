@@ -27,6 +27,7 @@ import { apiClient } from '../api/client';
 import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
+import { resolveFileUrl } from '../utils/fileUtils';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -339,7 +340,7 @@ export default function ReportsPage() {
                         <Button
                           variant="outlined"
                           size="small"
-                          href={report.fileUrl}
+                          href={resolveFileUrl(report.fileUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

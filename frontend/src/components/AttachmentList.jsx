@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import AttachmentPreview from './AttachmentPreview';
 import { formatDateTime } from '../utils/date';
+import { resolveFileUrl } from '../utils/fileUtils';
 
 const formatFileSize = (bytes) => {
   if (!bytes && bytes !== 0) return 'Unknown size';
@@ -64,7 +65,7 @@ const AttachmentList = ({ attachments, canEdit, annotationDrafts, onAnnotationCh
                 <CardActions sx={{ justifyContent: 'space-between' }}>
                   <Stack direction="row" spacing={1}>
                     <Tooltip title="Preview">
-                      <IconButton component="a" href={attachment.url} target="_blank" rel="noopener">
+                      <IconButton component="a" href={resolveFileUrl(attachment.url)} target="_blank" rel="noopener">
                         <VisibilityIcon />
                       </IconButton>
                     </Tooltip>

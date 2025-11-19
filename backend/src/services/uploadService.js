@@ -30,8 +30,8 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-const DEFAULT_LOCAL_UPLOADS_PUBLIC_PATH = '/uploads';
-const LEGACY_LOCAL_UPLOAD_PREFIXES = ['/api/uploads'];
+const DEFAULT_LOCAL_UPLOADS_PUBLIC_PATH = '/api/uploads';
+const LEGACY_LOCAL_UPLOAD_PREFIXES = ['/uploads'];
 
 function normalisePublicPath(pathValue) {
   const value = typeof pathValue === 'string' ? pathValue.trim() : '';
