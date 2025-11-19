@@ -564,10 +564,7 @@ export default function PropertyDetailPage() {
     }, 100);
   };
 
-  const handleEditUnit = (unit = null) => {
-    if (unit) {
-      setSelectedUnit(unit);
-    }
+  const handleEditUnit = () => {
     setUnitDialogOpen(true);
     handleUnitMenuClose();
   };
