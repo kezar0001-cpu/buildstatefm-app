@@ -100,7 +100,7 @@ const localDiskStorage = multer.diskStorage({
   },
 });
 
-// Cloudinary storage configuration
+// Cloudinary storage configuration for images
 const cloudinaryStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -122,6 +122,27 @@ const cloudinaryStorage = new CloudinaryStorage({
         .toLowerCase()
         .replace(/[^a-z0-9-_]+/g, '-')
         .slice(0, 40) || 'file';
+      const unique = randomUUID();
+      return `${base}-${unique}`;
+    },
+  },
+});
+
+// Cloudinary storage configuration for documents
+const cloudinaryDocumentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'agentfm/documents',
+    allowed_formats: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'],
+    resource_type: 'auto', // Automatically detect resource type (image, raw, video, auto)
+    // Use original filename with UUID for uniqueness
+    public_id: (_req, file) => {
+      const base = path
+        .basename(file.originalname || 'document', path.extname(file.originalname || ''))
+        .replace(/[\/\\.\x00]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]+/g, '-')
+        .slice(0, 40) || 'document';
       const unique = randomUUID();
       return `${base}-${unique}`;
     },
@@ -171,6 +192,46 @@ export const createUploadMiddleware = (options = {}) => {
             )
           );
         }
+      }
+
+      cb(null, true);
+    },
+  });
+};
+
+// Create multer upload instance for documents (PDFs, Word docs, Excel, etc.)
+export const createDocumentUploadMiddleware = (options = {}) => {
+  const storage = isCloudinaryConfigured ? cloudinaryDocumentStorage : localDiskStorage;
+
+  const allowedMimeTypes = (options.allowedMimeTypes ?? [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+  ]).map((type) => type.toLowerCase());
+
+  return multer({
+    storage: storage,
+    limits: {
+      fileSize: options.maxFileSize || 50 * 1024 * 1024, // 50MB default for documents
+      files: options.maxFiles || 10,
+    },
+    fileFilter: (_req, file, cb) => {
+      const mimetype = file.mimetype?.toLowerCase();
+      if (!mimetype || !allowedMimeTypes.includes(mimetype)) {
+        return cb(
+          new multer.MulterError(
+            'LIMIT_UNEXPECTED_FILE',
+            'file'
+          )
+        );
       }
 
       cb(null, true);
@@ -252,7 +313,7 @@ export const getUploadedFileUrls = (files) => {
 };
 
 /**
- * Delete an image from Cloudinary or local storage
+ * Delete an image or document from Cloudinary or local storage
  */
 export const deleteImage = async (imageUrl) => {
   if (!imageUrl) return;
@@ -260,12 +321,19 @@ export const deleteImage = async (imageUrl) => {
   try {
     // Cloudinary URL
     if (imageUrl.startsWith('http') && imageUrl.includes('cloudinary.com')) {
-      // Extract public_id from Cloudinary URL
-      const matches = imageUrl.match(/\/agentfm\/properties\/([^/.]+)/);
-      if (matches && matches[1]) {
-        const publicId = `agentfm/properties/${matches[1]}`;
+      // Extract public_id from Cloudinary URL - handle both properties and documents folders
+      const propertiesMatch = imageUrl.match(/\/agentfm\/properties\/([^/.]+)/);
+      const documentsMatch = imageUrl.match(/\/agentfm\/documents\/([^/.]+)/);
+
+      if (propertiesMatch && propertiesMatch[1]) {
+        const publicId = `agentfm/properties/${propertiesMatch[1]}`;
         await cloudinary.uploader.destroy(publicId);
         console.log(`Deleted image from Cloudinary: ${publicId}`);
+      } else if (documentsMatch && documentsMatch[1]) {
+        const publicId = `agentfm/documents/${documentsMatch[1]}`;
+        // For documents (non-image files), need to specify resource_type
+        await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+        console.log(`Deleted document from Cloudinary: ${publicId}`);
       }
     }
     // Local file (support modern and legacy paths)
@@ -280,7 +348,7 @@ export const deleteImage = async (imageUrl) => {
       }
     }
   } catch (error) {
-    console.error('Error deleting image:', error);
+    console.error('Error deleting image/document:', error);
     // Don't throw - deletion failure shouldn't break the application
   }
 };
