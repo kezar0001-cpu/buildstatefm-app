@@ -8,6 +8,9 @@ import {
   Typography,
   Box,
   TextField,
+  Stack,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -30,39 +33,23 @@ const MoveInWizard = ({ unitId, onComplete }) => {
     leaseEnd: '',
     rentAmount: '',
     depositAmount: '',
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: (email) => apiClient.post('/invites', { email, role: 'TENANT', unitId }),
-    onSuccess: (data) => {
-      setFormData({ ...formData, tenantId: data.invitedUser.id });
-      toast.success('Tenant invited successfully');
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to invite tenant');
-    },
-  });
-
-  const scheduleInspectionMutation = useMutation({
-    mutationFn: (inspectionDate) => apiClient.post('/inspections', { 
-      title: `Move-in inspection for Unit ${unitId}`,
-      type: 'MOVE_IN',
-      scheduledDate: inspectionDate,
-      unitId,
-    }),
-    onSuccess: () => {
-      toast.success('Inspection scheduled successfully');
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to schedule inspection');
-    },
+    inspectionDate: '',
+    findings: '',
+    depositCollected: false,
   });
 
   const moveInMutation = useMutation({
     mutationFn: (data) => apiClient.post(`/units/${unitId}/move-in`, data),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      // Show appropriate success message based on step
+      if (variables.step === 0) {
+        toast.success('Tenant lease created successfully');
+      } else if (variables.step === 1) {
+        toast.success('Move-in inspection scheduled successfully');
+      } else if (variables.step === 4) {
+        toast.success('Lease activated - Move-in complete!');
+      }
+
       if (activeStep === steps.length - 1) {
         queryClient.invalidateQueries({ queryKey: ['units', unitId] });
         onComplete();
@@ -70,12 +57,51 @@ const MoveInWizard = ({ unitId, onComplete }) => {
         setActiveStep((prevActiveStep) => prevActiveStep + 1);
       }
     },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to process move-in step');
+    },
   });
 
   const handleNext = () => {
+    // Validate required fields before proceeding
     if (activeStep === 0) {
-      moveInMutation.mutate({ step: 0, ...formData });
+      if (!formData.email) {
+        toast.error('Please enter tenant email');
+        return;
+      }
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+      if (!formData.leaseStart) {
+        toast.error('Please select a lease start date');
+        return;
+      }
+      if (!formData.leaseEnd) {
+        toast.error('Please select a lease end date');
+        return;
+      }
+      if (!formData.rentAmount || parseFloat(formData.rentAmount) <= 0) {
+        toast.error('Please enter a valid rent amount');
+        return;
+      }
+      // Convert to numbers before sending
+      const payload = {
+        step: 0,
+        email: formData.email,
+        leaseStart: formData.leaseStart,
+        leaseEnd: formData.leaseEnd,
+        rentAmount: parseFloat(formData.rentAmount),
+        depositAmount: formData.depositAmount ? parseFloat(formData.depositAmount) : 0,
+      };
+      moveInMutation.mutate(payload);
     } else if (activeStep === 1) {
+      if (!formData.inspectionDate) {
+        toast.error('Please select an inspection date');
+        return;
+      }
       moveInMutation.mutate({ step: 1, inspectionDate: formData.inspectionDate });
     } else if (activeStep === 4) {
       moveInMutation.mutate({ step: 4 });
@@ -88,6 +114,26 @@ const MoveInWizard = ({ unitId, onComplete }) => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
+  // Helper function to check if Next button should be disabled
+  const isNextDisabled = () => {
+    if (moveInMutation.isPending) return true;
+
+    if (activeStep === 0) {
+      return !formData.email || !formData.leaseStart || !formData.leaseEnd || !formData.rentAmount;
+    }
+    if (activeStep === 1) {
+      return !formData.inspectionDate;
+    }
+
+    return false;
+  };
+
+  // Get today's date in YYYY-MM-DD format for min date attribute
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   const getStepContent = (step) => {
     switch (step) {
       case 0:
@@ -95,16 +141,25 @@ const MoveInWizard = ({ unitId, onComplete }) => {
           <Stack spacing={2}>
             <TextField
               label="Tenant Email"
+              type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              fullWidth
+              required
+              placeholder="tenant@example.com"
             />
             <TextField
               label="Lease Start Date"
               type="date"
               value={formData.leaseStart}
               onChange={(e) => setFormData({ ...formData, leaseStart: e.target.value })}
+              fullWidth
+              required
               InputLabelProps={{
                 shrink: true,
+              }}
+              inputProps={{
+                min: getTodayDate(),
               }}
             />
             <TextField
@@ -112,8 +167,13 @@ const MoveInWizard = ({ unitId, onComplete }) => {
               type="date"
               value={formData.leaseEnd}
               onChange={(e) => setFormData({ ...formData, leaseEnd: e.target.value })}
+              fullWidth
+              required
               InputLabelProps={{
                 shrink: true,
+              }}
+              inputProps={{
+                min: formData.leaseStart || getTodayDate(),
               }}
             />
             <TextField
@@ -121,12 +181,23 @@ const MoveInWizard = ({ unitId, onComplete }) => {
               type="number"
               value={formData.rentAmount}
               onChange={(e) => setFormData({ ...formData, rentAmount: e.target.value })}
+              fullWidth
+              required
+              inputProps={{
+                min: 0,
+                step: 0.01,
+              }}
             />
             <TextField
               label="Deposit Amount"
               type="number"
               value={formData.depositAmount}
               onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
+              fullWidth
+              inputProps={{
+                min: 0,
+                step: 0.01,
+              }}
             />
           </Stack>
         );
@@ -137,8 +208,13 @@ const MoveInWizard = ({ unitId, onComplete }) => {
             type="date"
             value={formData.inspectionDate}
             onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })}
+            fullWidth
+            required
             InputLabelProps={{
               shrink: true,
+            }}
+            inputProps={{
+              min: getTodayDate(),
             }}
           />
         );
@@ -150,6 +226,8 @@ const MoveInWizard = ({ unitId, onComplete }) => {
             rows={4}
             value={formData.findings}
             onChange={(e) => setFormData({ ...formData, findings: e.target.value })}
+            fullWidth
+            placeholder="Document the condition of the unit..."
           />
         );
       case 3:
@@ -181,14 +259,25 @@ const MoveInWizard = ({ unitId, onComplete }) => {
         <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
           <Button
             color="inherit"
-            disabled={activeStep === 0}
+            disabled={activeStep === 0 || moveInMutation.isPending}
             onClick={handleBack}
             sx={{ mr: 1 }}
           >
             Back
           </Button>
           <Box sx={{ flex: '1 1 auto' }} />
-          <Button onClick={handleNext} disabled={inviteMutation.isLoading || scheduleInspectionMutation.isLoading}>
+          <Button
+            onClick={onComplete}
+            disabled={moveInMutation.isPending}
+            sx={{ mr: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleNext}
+            disabled={isNextDisabled()}
+          >
             {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
           </Button>
         </Box>
