@@ -181,7 +181,11 @@ export const createUploadMiddleware = (options = {}) => {
 /**
  * Extract the URL from an uploaded file
  * For Cloudinary: returns the secure_url
- * For local: returns /uploads/filename
+ * For local: returns /api/uploads/filename
+ *
+ * This function detects the storage type from the file object properties,
+ * not from configuration. This allows mixed storage scenarios where some
+ * uploads use Cloudinary and others use local disk storage.
  */
 export const getUploadedFileUrl = (file) => {
   if (!file) {
@@ -189,42 +193,29 @@ export const getUploadedFileUrl = (file) => {
     return null;
   }
 
-  // Cloudinary file - check multiple properties for robustness
-  // multer-storage-cloudinary can set these properties:
-  // - file.path (should be secure_url)
-  // - file.url or file.secure_url (from Cloudinary response)
-  if (isCloudinaryConfigured) {
-    // First try file.path (standard multer-storage-cloudinary)
-    if (file.path && typeof file.path === 'string' && file.path.startsWith('http')) {
-      console.log(`[Upload] Cloudinary URL from file.path: ${file.path.substring(0, 100)}...`);
-      return file.path;
-    }
+  // Try to detect Cloudinary upload by checking for HTTP URLs in file properties
+  // Cloudinary uploads will have file.path, file.url, or file.secure_url as HTTP URLs
 
-    // Fallback to secure_url if available
-    if (file.secure_url && typeof file.secure_url === 'string') {
-      console.log(`[Upload] Cloudinary URL from file.secure_url: ${file.secure_url.substring(0, 100)}...`);
-      return file.secure_url;
-    }
-
-    // Fallback to url if available
-    if (file.url && typeof file.url === 'string' && file.url.startsWith('http')) {
-      console.log(`[Upload] Cloudinary URL from file.url: ${file.url.substring(0, 100)}...`);
-      return file.url;
-    }
-
-    // If we got here with Cloudinary configured, something is wrong
-    console.error('[Upload] Cloudinary is configured but no URL found in file object:', {
-      hasPath: !!file.path,
-      pathValue: file.path,
-      hasSecureUrl: !!file.secure_url,
-      hasUrl: !!file.url,
-      filename: file.filename,
-      fieldname: file.fieldname,
-    });
-    return null;
+  // Check file.path (standard multer-storage-cloudinary)
+  if (file.path && typeof file.path === 'string' && file.path.startsWith('http')) {
+    console.log(`[Upload] Cloudinary URL from file.path: ${file.path.substring(0, 100)}...`);
+    return file.path;
   }
 
-  // Local file
+  // Check secure_url property
+  if (file.secure_url && typeof file.secure_url === 'string') {
+    console.log(`[Upload] Cloudinary URL from file.secure_url: ${file.secure_url.substring(0, 100)}...`);
+    return file.secure_url;
+  }
+
+  // Check url property (must be HTTP URL)
+  if (file.url && typeof file.url === 'string' && file.url.startsWith('http')) {
+    console.log(`[Upload] Cloudinary URL from file.url: ${file.url.substring(0, 100)}...`);
+    return file.url;
+  }
+
+  // If no Cloudinary properties found, assume local file upload
+  // Local uploads have file.filename set by multer disk storage
   if (file.filename) {
     const filename = sanitiseFilename(file.filename);
     if (!filename) {
@@ -237,9 +228,16 @@ export const getUploadedFileUrl = (file) => {
     return localUrl;
   }
 
-  console.warn('[Upload] Could not extract URL from file object:', {
+  // If we got here, the file object is missing expected properties
+  console.error('[Upload] Could not extract URL from file object:', {
     hasPath: !!file.path,
+    pathValue: file.path,
+    pathType: typeof file.path,
+    hasSecureUrl: !!file.secure_url,
+    hasUrl: !!file.url,
     hasFilename: !!file.filename,
+    filename: file.filename,
+    fieldname: file.fieldname,
     keys: Object.keys(file),
   });
   return null;
