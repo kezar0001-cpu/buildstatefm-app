@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
+  Paper,
   Typography,
   Button,
   Stack,
@@ -10,12 +12,14 @@ import {
 import { ArrowBack } from '@mui/icons-material';
 import PropertyForm from '../components/PropertyForm';
 import useApiQuery from '../hooks/useApiQuery';
+import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys.js';
 import Breadcrumbs from '../components/Breadcrumbs';
 
 export default function EditPropertyPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [submitError, setSubmitError] = useState(null);
 
   const {
     data,
@@ -28,10 +32,26 @@ export default function EditPropertyPage() {
     url: `/properties/${id}`,
   });
 
+  const { mutateAsync, isPending } = useApiMutation({
+    url: `/properties/${id}`,
+    method: 'patch',
+  });
+
   const property = data?.property || data;
 
-  const handleSuccess = () => {
-    navigate(`/properties/${id}`);
+  const handleSubmit = async (formData) => {
+    try {
+      setSubmitError(null);
+      const response = await mutateAsync({ data: formData });
+      if (response?.success !== false) {
+        navigate(`/properties/${id}`);
+      } else {
+        throw new Error(response?.message || 'Failed to update property');
+      }
+    } catch (err) {
+      setSubmitError(err?.message || 'Failed to update property');
+      throw err;
+    }
   };
 
   const handleCancel = () => {
@@ -117,6 +137,7 @@ export default function EditPropertyPage() {
               variant="outlined"
               startIcon={<ArrowBack />}
               onClick={() => navigate(`/properties/${id}`)}
+              disabled={isPending}
               fullWidth
               sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
             >
@@ -124,16 +145,18 @@ export default function EditPropertyPage() {
             </Button>
           </Stack>
         </Box>
-      </Stack>
 
-      {/* PropertyForm as Dialog - always open on this page */}
-      <PropertyForm
-        key={property?.id || 'loading'}
-        open={true}
-        onClose={handleCancel}
-        property={property}
-        onSuccess={handleSuccess}
-      />
+        <Paper sx={{ p: { xs: 2, md: 4 } }}>
+          <PropertyForm
+            mode="edit"
+            initialData={property}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            isSubmitting={isPending}
+            submitError={submitError}
+          />
+        </Paper>
+      </Stack>
     </Box>
   );
 }
