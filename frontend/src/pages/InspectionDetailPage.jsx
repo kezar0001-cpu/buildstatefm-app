@@ -33,6 +33,7 @@ import {
   Edit as EditIcon,
   History as HistoryIcon,
   NotificationsActive as NotificationsActiveIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -41,6 +42,7 @@ import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import InspectionAttachmentManager from '../components/InspectionAttachmentManager';
 import InspectionForm from '../components/InspectionForm';
+import InspectionConductForm from '../components/InspectionConductForm';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
@@ -55,6 +57,7 @@ export default function InspectionDetailPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [conductDialogOpen, setConductDialogOpen] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
 
@@ -260,30 +263,55 @@ export default function InspectionDetailPage() {
             Scheduled for {formatDateTime(inspection.scheduledDate)}
           </Typography>
         </Box>
-        {canManage && (
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditDialogOpen(true)}>
-              Edit
+        <Stack direction="row" spacing={1}>
+          {inspection.status === 'COMPLETED' && (
+            <Button
+              variant="contained"
+              startIcon={<DescriptionIcon />}
+              onClick={() => navigate(`/inspections/${id}/report`)}
+            >
+              View Report
             </Button>
-            {canComplete && (
+          )}
+          {canManage && (
+            <>
               <Button
-                variant="contained"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => {
-                  setCompleteData({
-                    findings: inspection.findings || '',
-                    notes: inspection.notes || '',
-                    tags: inspection.tags || [],
-                  });
-                  setCompleteDialogOpen(true);
-                }}
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => setEditDialogOpen(true)}
               >
-                Complete
+                {inspection.status === 'COMPLETED' ? 'Edit Details' : 'Edit'}
               </Button>
-            )}
-          </Stack>
-        )}
+              {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddTaskIcon />}
+                  onClick={() => setConductDialogOpen(true)}
+                >
+                  Conduct Inspection
+                </Button>
+              )}
+              {canComplete && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => {
+                    setCompleteData({
+                      findings: inspection.findings || '',
+                      notes: inspection.notes || '',
+                      tags: inspection.tags || [],
+                    });
+                    setCompleteDialogOpen(true);
+                  }}
+                >
+                  Complete
+                </Button>
+              )}
+            </>
+          )}
+        </Stack>
       </Stack>
 
       <Grid container spacing={3}>
@@ -745,6 +773,24 @@ export default function InspectionDetailPage() {
             Create job
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Conduct Inspection Dialog */}
+      <Dialog
+        open={conductDialogOpen}
+        onClose={() => setConductDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen
+      >
+        <InspectionConductForm
+          inspection={inspection}
+          onComplete={() => {
+            setConductDialogOpen(false);
+            queryClient.invalidateQueries(queryKeys.inspections.detail(id));
+          }}
+          onCancel={() => setConductDialogOpen(false)}
+        />
       </Dialog>
     </Container>
   );

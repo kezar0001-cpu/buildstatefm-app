@@ -30,6 +30,7 @@ model User {
   inspectionAuditLogs     InspectionAuditLog[]
   inspectionReminders     InspectionReminder[]
   uploadedAttachments     InspectionAttachment[] @relation("InspectionAttachmentUploadedBy")
+  uploadedInspectionPhotos InspectionPhoto[]      @relation("InspectionPhotoUploadedBy")
   sentInvites             Invite[]                @relation("InvitedBy")
   receivedInvite          Invite?                 @relation("InvitedUser")
   assignedJobs            Job[]                   @relation("AssignedTechnician")
@@ -338,6 +339,9 @@ model Inspection {
   reminders       InspectionReminder[]
   jobs            Job[]
   report          Report?
+  rooms           InspectionRoom[]
+  inspectionIssues InspectionIssue[]
+  inspectionPhotos InspectionPhoto[]
 
   @@index([propertyId])
   @@index([unitId])
@@ -587,6 +591,79 @@ model InspectionReminder {
   @@index([createdById])
 }
 
+model InspectionRoom {
+  id              String                    @id @default(cuid())
+  inspectionId    String
+  name            String
+  roomType        RoomType?
+  notes           String?
+  order           Int                       @default(0)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  inspection      Inspection                @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  checklistItems  InspectionChecklistItem[]
+  issues          InspectionIssue[]
+  photos          InspectionPhoto[]
+
+  @@index([inspectionId])
+}
+
+model InspectionChecklistItem {
+  id          String               @id @default(cuid())
+  roomId      String
+  description String
+  status      ChecklistItemStatus  @default(PENDING)
+  notes       String?
+  order       Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  room        InspectionRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  issues      InspectionIssue[]
+
+  @@index([roomId])
+}
+
+model InspectionIssue {
+  id              String                   @id @default(cuid())
+  inspectionId    String
+  roomId          String?
+  checklistItemId String?
+  title           String
+  description     String?
+  severity        IssueSeverity            @default(MEDIUM)
+  status          IssueStatus              @default(OPEN)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  inspection      Inspection               @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  room            InspectionRoom?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  checklistItem   InspectionChecklistItem? @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
+  photos          InspectionPhoto[]
+
+  @@index([inspectionId])
+  @@index([roomId])
+  @@index([checklistItemId])
+}
+
+model InspectionPhoto {
+  id           String           @id @default(cuid())
+  inspectionId String
+  roomId       String?
+  issueId      String?
+  url          String
+  caption      String?
+  order        Int              @default(0)
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+  inspection   Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  room         InspectionRoom?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  issue        InspectionIssue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  uploadedBy   User?            @relation("InspectionPhotoUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([inspectionId])
+  @@index([roomId])
+  @@index([issueId])
+}
+
 model Org {
   id        String   @id
   name      String
@@ -672,6 +749,45 @@ enum InspectionType {
   MOVE_OUT
   EMERGENCY
   COMPLIANCE
+}
+
+enum RoomType {
+  BEDROOM
+  BATHROOM
+  KITCHEN
+  LIVING_ROOM
+  DINING_ROOM
+  HALLWAY
+  LAUNDRY_ROOM
+  GARAGE
+  BASEMENT
+  ATTIC
+  BALCONY
+  PATIO
+  STORAGE
+  OFFICE
+  OTHER
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  PASSED
+  FAILED
+  NA
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 enum JobStatus {

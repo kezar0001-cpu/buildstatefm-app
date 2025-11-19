@@ -15,6 +15,9 @@ import {
   Stack,
   Dialog,
   Tooltip,
+  Menu,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -24,8 +27,10 @@ import {
   Schedule as ScheduleIcon,
   PlayArrow as PlayArrowIcon,
   FilterList as FilterListIcon,
+  MoreVert as MoreVertIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
@@ -44,6 +49,8 @@ const InspectionsPage = () => {
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
+  const [statusMenuInspection, setStatusMenuInspection] = useState(null);
 
   // Build query params
   const queryParams = new URLSearchParams();
@@ -90,6 +97,19 @@ const InspectionsPage = () => {
 
   const properties = propertiesData?.items || [];
 
+  // Mutation for updating inspection status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }) => {
+      const response = await apiClient.patch(`/inspections/${id}`, { status });
+      return response.data;
+    },
+    onSuccess: () => {
+      refetch();
+      setStatusMenuAnchor(null);
+      setStatusMenuInspection(null);
+    },
+  });
+
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -116,6 +136,26 @@ const InspectionsPage = () => {
 
   const handleView = (id) => {
     navigate(`/inspections/${id}`);
+  };
+
+  const handleStatusMenuOpen = (event, inspection) => {
+    event.stopPropagation();
+    setStatusMenuAnchor(event.currentTarget);
+    setStatusMenuInspection(inspection);
+  };
+
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchor(null);
+    setStatusMenuInspection(null);
+  };
+
+  const handleStatusChange = (newStatus) => {
+    if (statusMenuInspection) {
+      updateStatusMutation.mutate({
+        id: statusMenuInspection.id,
+        status: newStatus,
+      });
+    }
   };
 
   const getStatusColor = (status) => {
@@ -412,6 +452,15 @@ const InspectionsPage = () => {
                       </IconButton>
                     </Tooltip>
                   )}
+                  <Tooltip title="Change Status">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={(e) => handleStatusMenuOpen(e, inspection)}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               </Card>
             </Grid>
@@ -448,6 +497,50 @@ const InspectionsPage = () => {
           onCancel={handleCloseDialog}
         />
       </Dialog>
+
+      {/* Status Change Menu */}
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={Boolean(statusMenuAnchor)}
+        onClose={handleStatusMenuClose}
+      >
+        <MenuItem
+          onClick={() => handleStatusChange('SCHEDULED')}
+          disabled={statusMenuInspection?.status === 'SCHEDULED'}
+        >
+          <ListItemIcon>
+            <ScheduleIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Scheduled</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleStatusChange('IN_PROGRESS')}
+          disabled={statusMenuInspection?.status === 'IN_PROGRESS'}
+        >
+          <ListItemIcon>
+            <PlayArrowIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>In Progress</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleStatusChange('COMPLETED')}
+          disabled={statusMenuInspection?.status === 'COMPLETED'}
+        >
+          <ListItemIcon>
+            <CheckCircleIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Completed</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleStatusChange('CANCELLED')}
+          disabled={statusMenuInspection?.status === 'CANCELLED'}
+        >
+          <ListItemIcon>
+            <CancelIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Cancelled</ListItemText>
+        </MenuItem>
+      </Menu>
     </Container>
   );
 };
