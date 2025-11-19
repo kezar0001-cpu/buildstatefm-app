@@ -135,6 +135,7 @@ const cloudinaryDocumentStorage = new CloudinaryStorage({
     folder: 'agentfm/documents',
     allowed_formats: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'],
     resource_type: 'raw', // Store as raw files (PDFs, DOCX, etc.) - CRITICAL for correct URL format
+    access_mode: 'public', // CRITICAL: Make files publicly accessible (default is authenticated for raw files)
     // Use original filename with UUID for uniqueness - MUST include extension for raw files
     public_id: (_req, file) => {
       const ext = path.extname(file.originalname || '');
