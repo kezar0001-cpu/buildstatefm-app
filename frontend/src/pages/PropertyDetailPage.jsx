@@ -47,7 +47,10 @@ import {
   ArrowBackIos,
   ArrowForwardIos,
   Close as CloseIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
+import { ListItemIcon } from '@mui/material';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../api/client';
 import useApiQuery from '../hooks/useApiQuery';
@@ -60,6 +63,7 @@ import UnitForm from '../components/UnitForm';
 import PropertyDocumentManager from '../components/PropertyDocumentManager';
 import PropertyNotesSection from '../components/PropertyNotesSection';
 import InviteOwnerDialog from '../components/InviteOwnerDialog.jsx';
+import AssignOwnerDialog from '../components/AssignOwnerDialog.jsx';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import { normaliseArray } from '../utils/error';
 import {
@@ -148,6 +152,8 @@ export default function PropertyDetailPage() {
   const unitDialogOpenRef = useRef(unitDialogOpen);
   const deleteUnitDialogOpenRef = useRef(deleteUnitDialogOpen);
   const [ownerInviteDialogOpen, setOwnerInviteDialogOpen] = useState(false);
+  const [assignOwnerDialogOpen, setAssignOwnerDialogOpen] = useState(false);
+  const [ownerMenuAnchor, setOwnerMenuAnchor] = useState(null);
 
   useEffect(() => {
     unitDialogOpenRef.current = unitDialogOpen;
@@ -1646,18 +1652,45 @@ export default function PropertyDetailPage() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Property Owners
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<PersonAddIcon />}
-                    disabled={!canInviteOwners || !property}
-                    onClick={() => {
-                      if (canInviteOwners && property) {
-                        setOwnerInviteDialogOpen(true);
-                      }
-                    }}
-                  >
-                    Add Owner
-                  </Button>
+                  <Box>
+                    <Button
+                      variant="outlined"
+                      startIcon={<PersonAddIcon />}
+                      endIcon={<KeyboardArrowDownIcon />}
+                      disabled={!canInviteOwners || !property}
+                      onClick={(e) => setOwnerMenuAnchor(e.currentTarget)}
+                    >
+                      Add Owner
+                    </Button>
+                    <Menu
+                      anchorEl={ownerMenuAnchor}
+                      open={Boolean(ownerMenuAnchor)}
+                      onClose={() => setOwnerMenuAnchor(null)}
+                    >
+                      <MenuItem
+                        onClick={() => {
+                          setOwnerMenuAnchor(null);
+                          setAssignOwnerDialogOpen(true);
+                        }}
+                      >
+                        <ListItemIcon>
+                          <PersonAddIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText primary="Assign Existing Owner" />
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          setOwnerMenuAnchor(null);
+                          setOwnerInviteDialogOpen(true);
+                        }}
+                      >
+                        <ListItemIcon>
+                          <EmailIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText primary="Invite New Owner" />
+                      </MenuItem>
+                    </Menu>
+                  </Box>
                 </Box>
 
                 {property.owners && property.owners.length > 0 ? (
@@ -1896,6 +1929,12 @@ export default function PropertyDetailPage() {
             propertyQuery.refetch();
           }
         }}
+      />
+
+      <AssignOwnerDialog
+        open={assignOwnerDialogOpen}
+        onClose={() => setAssignOwnerDialogOpen(false)}
+        propertyId={id}
       />
 
       {/* Image Lightbox Dialog */}

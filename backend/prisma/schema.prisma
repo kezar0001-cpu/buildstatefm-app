@@ -50,6 +50,7 @@ model User {
   TechnicianProfile       TechnicianProfile?
   TenantProfile           TenantProfile?
   tenantUnits             UnitTenant[]
+  unitOwners              UnitOwner[]             @relation("UnitOwners")
   reportRequests          ReportRequest[]         @relation("ReportRequestsCreated")
   passwordResets          PasswordReset[]
   auditLogs               AuditLog[]
@@ -267,6 +268,7 @@ model Unit {
   serviceRequests ServiceRequest[]
   property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   tenants         UnitTenant[]
+  owners          UnitOwner[]
   unitImages      UnitImage[]
 
   @@unique([propertyId, unitNumber])
@@ -291,6 +293,23 @@ model UnitTenant {
   @@index([unitId])
   @@index([tenantId])
   @@index([isActive])
+}
+
+model UnitOwner {
+  id                  String    @id @default(cuid())
+  unitId              String
+  ownerId             String
+  ownershipPercentage Float     @default(100.0)
+  startDate           DateTime  @default(now())
+  endDate             DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  owner               User      @relation("UnitOwners", fields: [ownerId], references: [id], onDelete: Cascade)
+  unit                Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, ownerId])
+  @@index([unitId])
+  @@index([ownerId])
 }
 
 model Inspection {

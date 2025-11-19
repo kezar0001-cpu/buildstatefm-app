@@ -2794,6 +2794,152 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
   }
 });
 
+// POST /properties/:id/owners - Assign existing owner to property
+router.post('/:id/owners', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const propertyId = req.params.id;
+  const assignOwnerSchema = z.object({
+    ownerId: z.string(),
+    ownershipPercentage: z.number().min(0).max(100).optional(),
+  });
+
+  try {
+    const { ownerId, ownershipPercentage } = assignOwnerSchema.parse(req.body);
+
+    // Verify property exists and user has access
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    // Verify the owner exists and has OWNER role
+    const owner = await prisma.user.findUnique({
+      where: { id: ownerId },
+    });
+
+    if (!owner) {
+      return sendError(res, 404, 'Owner not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    if (owner.role !== 'OWNER') {
+      return sendError(res, 400, 'User must have OWNER role', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Check if owner is already assigned to this property
+    const existingOwner = await prisma.propertyOwner.findUnique({
+      where: {
+        propertyId_ownerId: {
+          propertyId,
+          ownerId,
+        },
+      },
+    });
+
+    if (existingOwner) {
+      return sendError(res, 400, 'Owner is already assigned to this property', ErrorCodes.RES_ALREADY_EXISTS);
+    }
+
+    // Create property owner relationship
+    const propertyOwner = await prisma.propertyOwner.create({
+      data: {
+        propertyId,
+        ownerId,
+        ownershipPercentage: ownershipPercentage || 100.0,
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // Invalidate caches
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches([...cacheUserIds, ownerId]);
+
+    res.status(201).json({
+      success: true,
+      propertyOwner,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
+    }
+
+    console.error('Assign property owner error:', error);
+    return sendError(res, 500, 'Failed to assign owner to property', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /properties/:id/owners/:ownerId - Remove owner from property
+router.delete('/:id/owners/:ownerId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const { id: propertyId, ownerId } = req.params;
+
+  try {
+    // Verify property exists and user has access
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    // Check if owner is assigned to this property
+    const propertyOwner = await prisma.propertyOwner.findUnique({
+      where: {
+        propertyId_ownerId: {
+          propertyId,
+          ownerId,
+        },
+      },
+    });
+
+    if (!propertyOwner) {
+      return sendError(res, 404, 'Owner is not assigned to this property', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Delete property owner relationship
+    await prisma.propertyOwner.delete({
+      where: {
+        propertyId_ownerId: {
+          propertyId,
+          ownerId,
+        },
+      },
+    });
+
+    // Invalidate caches
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches([...cacheUserIds, ownerId]);
+
+    res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error('Remove property owner error:', error);
+    return sendError(res, 500, 'Failed to remove owner from property', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 router._test = {
   propertySchema,
   propertyUpdateSchema,
