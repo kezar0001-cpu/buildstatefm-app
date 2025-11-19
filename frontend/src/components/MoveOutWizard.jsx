@@ -217,14 +217,25 @@ const MoveOutWizard = ({ unitId, onComplete }) => {
         <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
           <Button
             color="inherit"
-            disabled={activeStep === 0}
+            disabled={activeStep === 0 || moveOutMutation.isPending}
             onClick={handleBack}
             sx={{ mr: 1 }}
           >
             Back
           </Button>
           <Box sx={{ flex: '1 1 auto' }} />
-          <Button onClick={handleNext} disabled={isNextDisabled()}>
+          <Button
+            onClick={onComplete}
+            disabled={moveOutMutation.isPending}
+            sx={{ mr: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleNext}
+            disabled={isNextDisabled()}
+          >
             {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
           </Button>
         </Box>
