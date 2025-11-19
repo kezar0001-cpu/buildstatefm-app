@@ -1046,7 +1046,6 @@ export default function PropertiesPage() {
 
       {/* Property Form Dialog */}
       <PropertyForm
-        key={selectedProperty?.id || 'new-property'}
         open={dialogOpen && editMode}
         onClose={() => {
           setDialogOpen(false);
