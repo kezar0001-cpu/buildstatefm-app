@@ -44,6 +44,9 @@ export const queryKeys = {
     audit: (inspectionId) => ['inspections', inspectionId, 'audit'],
     inspectors: () => ['inspections', 'inspectors'],
     owner: () => ['inspections', 'owner'],
+    rooms: (inspectionId) => ['inspections', inspectionId, 'rooms'],
+    issues: (inspectionId) => ['inspections', inspectionId, 'issues'],
+    photos: (inspectionId) => ['inspections', inspectionId, 'photos'],
   },
   auth: {
     profile: (userId) => ['auth', 'profile', userId],
