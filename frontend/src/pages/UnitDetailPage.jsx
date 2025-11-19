@@ -43,6 +43,8 @@ import {
   ArrowBackIos,
   ArrowForwardIos,
   Close as CloseIcon,
+  BuildCircle as ServiceIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -123,6 +125,16 @@ export default function UnitDetailPage() {
     enabled: currentTab === 2,
   });
 
+  // Fetch unit activity
+  const activityQuery = useQuery({
+    queryKey: ['units', id, 'activity'],
+    queryFn: async () => {
+      const response = await apiClient.get(`/units/${id}/activity?limit=20`);
+      return response.data?.activities || [];
+    },
+    enabled: currentTab === 0,
+  });
+
   // Fetch unit images
   const unitImagesQuery = useQuery({
     queryKey: ['units', id, 'images'],
@@ -155,6 +167,7 @@ export default function UnitDetailPage() {
   const activeTenant = tenants.find((t) => t.isActive);
   const jobs = jobsQuery.data || [];
   const inspections = inspectionsQuery.data || [];
+  const activities = activityQuery.data || [];
   const unitImages = unitImagesQuery.data || [];
   const unitCarouselImages = unitImages.length
     ? unitImages
@@ -778,10 +791,110 @@ export default function UnitDetailPage() {
                         <Typography variant="h6" gutterBottom>
                           Recent Activity
                         </Typography>
-                        <Alert severity="info" sx={{ mt: 2 }}>
-                          Activity timeline coming soon. Switch to Jobs or Inspections tabs to view
-                          unit-specific items.
-                        </Alert>
+                        <DataState
+                          isLoading={activityQuery.isLoading}
+                          error={activityQuery.error}
+                          isEmpty={activities.length === 0}
+                          emptyMessage="No recent activity for this unit"
+                        >
+                          <List>
+                            {activities.map((activity) => {
+                              let icon;
+                              let activityColor = 'default';
+
+                              switch (activity.type) {
+                                case 'job':
+                                  icon = <WorkIcon />;
+                                  activityColor = 'primary';
+                                  break;
+                                case 'inspection':
+                                  icon = <InspectionIcon />;
+                                  activityColor = 'success';
+                                  break;
+                                case 'service_request':
+                                  icon = <ServiceIcon />;
+                                  activityColor = 'warning';
+                                  break;
+                                case 'tenant_assignment':
+                                  icon = <PersonIcon />;
+                                  activityColor = 'info';
+                                  break;
+                                default:
+                                  icon = <ScheduleIcon />;
+                              }
+
+                              return (
+                                <ListItem
+                                  key={`${activity.type}-${activity.id}`}
+                                  sx={{
+                                    border: 1,
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
+                                    mb: 1,
+                                    cursor: activity.type !== 'tenant_assignment' ? 'pointer' : 'default',
+                                    '&:hover': activity.type !== 'tenant_assignment' ? { bgcolor: 'action.hover' } : {},
+                                  }}
+                                  onClick={() => {
+                                    if (activity.type === 'job') {
+                                      navigate(`/jobs?jobId=${activity.id}`);
+                                    } else if (activity.type === 'inspection') {
+                                      navigate(`/inspections/${activity.id}`);
+                                    } else if (activity.type === 'service_request') {
+                                      // Service requests don't have a detail page yet, so we don't navigate
+                                    }
+                                  }}
+                                >
+                                  <ListItemAvatar>
+                                    <Avatar sx={{ bgcolor: `${activityColor}.main` }}>
+                                      {icon}
+                                    </Avatar>
+                                  </ListItemAvatar>
+                                  <ListItemText
+                                    primary={activity.title}
+                                    secondary={
+                                      <>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {activity.description}
+                                        </Typography>
+                                        <Box sx={{ mt: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
+                                          <Chip
+                                            label={activity.status}
+                                            size="small"
+                                            color={
+                                              activity.status === 'COMPLETED' || activity.status === 'ACTIVE'
+                                                ? 'success'
+                                                : activity.status === 'IN_PROGRESS'
+                                                ? 'primary'
+                                                : activity.status === 'PENDING'
+                                                ? 'warning'
+                                                : 'default'
+                                            }
+                                          />
+                                          {activity.priority && (
+                                            <Chip
+                                              label={activity.priority}
+                                              size="small"
+                                              color={
+                                                activity.priority === 'URGENT'
+                                                  ? 'error'
+                                                  : activity.priority === 'HIGH'
+                                                  ? 'warning'
+                                                  : 'default'
+                                              }
+                                            />
+                                          )}
+                                          <Typography variant="caption" color="text.secondary">
+                                            {formatDateTime(activity.date)}
+                                          </Typography>
+                                        </Box>
+                                      </>
+                                    }
+                                  />
+                                </ListItem>
+                              );
+                            })}
+                          </List>
+                        </DataState>
                       </Box>
                     )}
 
