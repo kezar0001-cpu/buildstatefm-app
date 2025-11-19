@@ -1316,4 +1316,163 @@ unitImagesRouter.post('/reorder', requireRole('PROPERTY_MANAGER'), async (req, r
   }
 });
 
+// GET /:id/activity - Get recent activity for a unit
+router.get('/:id/activity', async (req, res) => {
+  try {
+    const unitId = req.params.id;
+
+    // Fetch the unit with property ownership info for access control
+    const unit = await prisma.unit.findUnique({
+      where: { id: unitId },
+      include: {
+        property: {
+          include: {
+            owners: {
+              select: { ownerId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!unit) {
+      return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
+    }
+
+    // Check access (managers and property owners can access)
+    const isManager = req.user.role === 'PROPERTY_MANAGER';
+    const isOwner = unit.property?.owners?.some(o => o.ownerId === req.user.id);
+    const hasAccess = isManager || isOwner;
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
+    // Parse and validate limit
+    const parsedLimit = parseInt(req.query.limit);
+    const limit = Math.min(Number.isNaN(parsedLimit) ? 20 : parsedLimit, 50);
+
+    // Fetch jobs for this unit
+    const jobs = await prisma.job.findMany({
+      where: { unitId },
+      include: {
+        assignedTo: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+
+    // Fetch inspections for this unit
+    const inspections = await prisma.inspection.findMany({
+      where: { unitId },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+
+    // Fetch service requests for this unit
+    const serviceRequests = await prisma.serviceRequest.findMany({
+      where: { unitId },
+      include: {
+        requestedBy: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+
+    // Fetch tenant assignments for this unit
+    const tenantAssignments = await prisma.unitTenant.findMany({
+      where: { unitId },
+      include: {
+        tenant: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+
+    // Transform and combine all activities
+    const activities = [];
+
+    jobs.forEach((job) => {
+      activities.push({
+        type: 'job',
+        id: job.id,
+        title: job.title,
+        description: job.assignedTo
+          ? `Assigned to ${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+          : 'Job update',
+        status: job.status,
+        priority: job.priority,
+        date: job.updatedAt,
+      });
+    });
+
+    inspections.forEach((inspection) => {
+      activities.push({
+        type: 'inspection',
+        id: inspection.id,
+        title: inspection.title,
+        description: inspection.status ? `Inspection ${inspection.status.toLowerCase()}` : 'Inspection update',
+        status: inspection.status,
+        date: inspection.updatedAt,
+      });
+    });
+
+    serviceRequests.forEach((sr) => {
+      activities.push({
+        type: 'service_request',
+        id: sr.id,
+        title: sr.title,
+        description: sr.requestedBy
+          ? `Requested by ${sr.requestedBy.firstName} ${sr.requestedBy.lastName}`
+          : 'Service request update',
+        status: sr.status,
+        priority: sr.priority,
+        date: sr.updatedAt,
+      });
+    });
+
+    tenantAssignments.forEach((assignment) => {
+      activities.push({
+        type: 'tenant_assignment',
+        id: assignment.id,
+        title: assignment.tenant
+          ? `${assignment.tenant.firstName} ${assignment.tenant.lastName}`
+          : 'Tenant',
+        description: assignment.isActive
+          ? `Lease: ${assignment.leaseStart?.toLocaleDateString()} - ${assignment.leaseEnd?.toLocaleDateString()}`
+          : 'Past tenant',
+        status: assignment.isActive ? 'ACTIVE' : 'INACTIVE',
+        date: assignment.updatedAt,
+      });
+    });
+
+    // Sort all activities by date (most recent first) and limit
+    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const limitedActivities = activities.slice(0, limit);
+
+    res.json({
+      success: true,
+      activities: limitedActivities,
+    });
+  } catch (error) {
+    console.error('Get unit activity error:', error);
+    return sendError(res, 500, 'Failed to fetch unit activity', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 export default router;
