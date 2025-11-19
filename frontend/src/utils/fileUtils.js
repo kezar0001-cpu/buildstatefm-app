@@ -87,6 +87,51 @@ export function normalizeDocumentUrl(fileUrl) {
 }
 
 /**
+ * Transform a Cloudinary document URL to add download flags
+ * This ensures proper Content-Disposition headers for downloads
+ *
+ * @param {string} cloudinaryUrl - The Cloudinary URL
+ * @param {string} fileName - The filename to use for download
+ * @returns {string} The transformed URL with download flags
+ */
+export function addCloudinaryDownloadFlags(cloudinaryUrl, fileName) {
+  if (!cloudinaryUrl ||!cloudinaryUrl.includes('cloudinary.com')) {
+    return cloudinaryUrl;
+  }
+
+  try {
+    // For Cloudinary raw files, add fl_attachment flag to force download with correct filename
+    // URL format: https://res.cloudinary.com/{cloud}/raw/upload/v{version}/{path}
+    // Transform to: https://res.cloudinary.com/{cloud}/raw/upload/fl_attachment:{filename}/v{version}/{path}
+
+    // Sanitize filename for URL (remove special characters)
+    const sanitizedFileName = fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
+
+    // Check if URL already has flags
+    if (cloudinaryUrl.includes('/upload/fl_')) {
+      return cloudinaryUrl;
+    }
+
+    // Insert fl_attachment flag after /upload/
+    const transformedUrl = cloudinaryUrl.replace(
+      /\/upload\//,
+      `/upload/fl_attachment:${encodeURIComponent(sanitizedFileName)}/`
+    );
+
+    console.log('[FileUtils] Transformed Cloudinary URL for download:', {
+      original: cloudinaryUrl,
+      transformed: transformedUrl,
+      fileName: sanitizedFileName,
+    });
+
+    return transformedUrl;
+  } catch (error) {
+    console.error('[FileUtils] Error transforming Cloudinary URL:', error);
+    return cloudinaryUrl;
+  }
+}
+
+/**
  * Download a file by creating a temporary anchor element and clicking it
  * This works better than window.open() for actual downloads
  *
@@ -96,9 +141,14 @@ export function normalizeDocumentUrl(fileUrl) {
 export function downloadFile(fileUrl, fileName) {
   const resolvedUrl = resolveFileUrl(fileUrl);
 
+  // For Cloudinary URLs, add download flags to ensure proper filename
+  const downloadUrl = resolvedUrl.includes('cloudinary.com')
+    ? addCloudinaryDownloadFlags(resolvedUrl, fileName)
+    : resolvedUrl;
+
   // Create a temporary anchor element
   const link = document.createElement('a');
-  link.href = resolvedUrl;
+  link.href = downloadUrl;
   link.download = fileName || 'download';
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
