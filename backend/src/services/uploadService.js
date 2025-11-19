@@ -262,6 +262,14 @@ export const getUploadedFileUrl = (file) => {
   // Check file.path (standard multer-storage-cloudinary)
   if (file.path && typeof file.path === 'string' && file.path.startsWith('http')) {
     console.log(`[Upload] Cloudinary URL from file.path: ${file.path.substring(0, 100)}...`);
+    console.log(`[Upload] Full Cloudinary file object:`, JSON.stringify({
+      path: file.path,
+      filename: file.filename,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      resource_type: file.resource_type,
+      format: file.format,
+    }, null, 2));
     return file.path;
   }
 
