@@ -112,7 +112,6 @@ export default function UnitDetailPage() {
       const response = await apiClient.get(`/jobs?unitId=${id}`);
       return ensureArray(response.data, ['items', 'data.items', 'jobs']);
     },
-    enabled: currentTab === 1,
   });
 
   // Fetch unit inspections
@@ -122,7 +121,6 @@ export default function UnitDetailPage() {
       const response = await apiClient.get(`/inspections?unitId=${id}`);
       return ensureArray(response.data, ['items', 'data.items', 'inspections']);
     },
-    enabled: currentTab === 2,
   });
 
   // Fetch unit activity
@@ -132,7 +130,6 @@ export default function UnitDetailPage() {
       const response = await apiClient.get(`/units/${id}/activity?limit=20`);
       return response.data?.activities || [];
     },
-    enabled: currentTab === 0,
   });
 
   // Fetch unit images
