@@ -45,12 +45,14 @@ import {
   Close as CloseIcon,
   BuildCircle as ServiceIcon,
   Schedule as ScheduleIcon,
+  MailOutline as MailOutlineIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import UnitForm from '../components/UnitForm';
 import TenantAssignmentDialog from '../components/TenantAssignmentDialog';
+import InviteTenantDialog from '../components/InviteTenantDialog';
 import { formatDate, formatDateTime } from '../utils/date';
 import toast from 'react-hot-toast';
 import ensureArray from '../utils/ensureArray';
@@ -79,6 +81,7 @@ export default function UnitDetailPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [inviteTenantDialogOpen, setInviteTenantDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState(0);
@@ -242,6 +245,10 @@ export default function UnitDetailPage() {
   const handleAssignTenant = () => {
     setSelectedTenant(null);
     setAssignDialogOpen(true);
+  };
+
+  const handleInviteTenant = () => {
+    setInviteTenantDialogOpen(true);
   };
 
   const handleEditTenant = (tenant) => {
@@ -417,14 +424,24 @@ export default function UnitDetailPage() {
                     >
                       <Typography variant="h6">Current Tenant</Typography>
                       {!activeTenant && (
-                        <Button
-                          variant="contained"
-                          startIcon={<PersonAddIcon />}
-                          onClick={handleAssignTenant}
-                          size="small"
-                        >
-                          Assign Tenant
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<MailOutlineIcon />}
+                            onClick={handleInviteTenant}
+                            size="small"
+                          >
+                            Invite Tenant
+                          </Button>
+                          <Button
+                            variant="contained"
+                            startIcon={<PersonAddIcon />}
+                            onClick={handleAssignTenant}
+                            size="small"
+                          >
+                            Assign Tenant
+                          </Button>
+                        </Stack>
                       )}
                     </Box>
 
@@ -510,14 +527,22 @@ export default function UnitDetailPage() {
                         <Typography color="text.secondary" gutterBottom>
                           No tenant assigned to this unit
                         </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<PersonAddIcon />}
-                          onClick={handleAssignTenant}
-                          sx={{ mt: 1 }}
-                        >
-                          Assign Tenant
-                        </Button>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1, justifyContent: 'center' }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<MailOutlineIcon />}
+                            onClick={handleInviteTenant}
+                          >
+                            Invite Tenant
+                          </Button>
+                          <Button
+                            variant="contained"
+                            startIcon={<PersonAddIcon />}
+                            onClick={handleAssignTenant}
+                          >
+                            Assign Tenant
+                          </Button>
+                        </Stack>
                       </Box>
                     )}
                   </CardContent>
@@ -1042,6 +1067,14 @@ export default function UnitDetailPage() {
               }}
               unitId={id}
               tenant={selectedTenant}
+            />
+
+            {/* Invite Tenant Dialog */}
+            <InviteTenantDialog
+              open={inviteTenantDialogOpen}
+              onClose={() => setInviteTenantDialogOpen(false)}
+              unitId={id}
+              unitNumber={unit?.unitNumber}
             />
 
             {/* Confirm Remove Dialog */}
