@@ -1536,6 +1536,6 @@ export default function UnitDetailPage() {
           </>
         )}
       </DataState>
-    </Container>
+    </Box>
   );
 }
