@@ -564,13 +564,9 @@ export default function PropertyDetailPage() {
     }, 100);
   };
 
-  const handleEditUnit = (unit = null) => {
-    if (unit) {
-      setSelectedUnit(unit);
-    }
-    // Close menu but don't clear selectedUnit yet (UnitForm needs it)
-    setUnitMenuAnchor(null);
+  const handleEditUnit = () => {
     setUnitDialogOpen(true);
+    handleUnitMenuClose();
   };
 
   const handleDeleteUnit = () => {
@@ -1817,7 +1813,6 @@ export default function PropertyDetailPage() {
 
       {/* Edit Property Dialog */}
       <PropertyForm
-        key={property?.id || 'loading'}
         open={editDialogOpen}
         onClose={() => setEditDialogOpen(false)}
         property={property}
