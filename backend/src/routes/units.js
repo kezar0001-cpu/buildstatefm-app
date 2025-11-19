@@ -159,6 +159,25 @@ const tenantListArgs = {
   ],
 };
 
+const ownerIncludeSelection = {
+  include: {
+    owner: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+      },
+    },
+  },
+};
+
+const ownerListArgs = {
+  ...ownerIncludeSelection,
+  orderBy: { createdAt: 'desc' },
+};
+
 const unitIncludeConfig = {
   property: {
     select: {
@@ -180,6 +199,7 @@ const unitIncludeConfig = {
     orderBy: { displayOrder: 'asc' },
   },
   tenants: tenantListArgs,
+  owners: ownerListArgs,
 };
 
 const unitCreateSchema = z.object({
@@ -252,10 +272,34 @@ const toPublicTenant = (tenant) => {
   };
 };
 
+const toPublicOwner = (owner) => {
+  if (!owner) return owner;
+
+  return {
+    id: owner.id,
+    unitId: owner.unitId,
+    ownerId: owner.ownerId,
+    ownershipPercentage: owner.ownershipPercentage,
+    startDate: owner.startDate,
+    endDate: owner.endDate ?? null,
+    createdAt: owner.createdAt,
+    updatedAt: owner.updatedAt,
+    owner: owner.owner
+      ? {
+          id: owner.owner.id,
+          firstName: owner.owner.firstName,
+          lastName: owner.owner.lastName,
+          email: owner.owner.email,
+          phone: owner.owner.phone,
+        }
+      : null,
+  };
+};
+
 const toPublicUnit = (unit) => {
   if (!unit) return unit;
 
-  const { property, tenants, unitImages, ...rest } = unit;
+  const { property, tenants, owners, unitImages, ...rest } = unit;
 
   return {
     ...rest,
@@ -279,6 +323,7 @@ const toPublicUnit = (unit) => {
         }
       : null,
     tenants: Array.isArray(tenants) ? tenants.map(toPublicTenant) : [],
+    owners: Array.isArray(owners) ? owners.map(toPublicOwner) : [],
   };
 };
 
@@ -1472,6 +1517,160 @@ router.get('/:id/activity', async (req, res) => {
   } catch (error) {
     console.error('Get unit activity error:', error);
     return sendError(res, 500, 'Failed to fetch unit activity', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// POST /units/:id/owners - Assign owner to unit
+router.post('/:id/owners', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const unitId = req.params.id;
+  const assignOwnerSchema = z.object({
+    ownerId: z.string(),
+    ownershipPercentage: z.number().min(0).max(100).optional(),
+  });
+
+  try {
+    const { ownerId, ownershipPercentage } = assignOwnerSchema.parse(req.body);
+
+    // Get unit with property to verify access
+    const unit = await prisma.unit.findUnique({
+      where: { id: unitId },
+      include: {
+        property: {
+          include: {
+            owners: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+
+    if (!unit) {
+      return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
+    }
+
+    // Verify user has access to the property
+    const access = ensurePropertyAccess(unit.property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      return sendError(res, access.status, access.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
+    // Verify the owner exists and has OWNER role
+    const owner = await prisma.user.findUnique({
+      where: { id: ownerId },
+    });
+
+    if (!owner) {
+      return sendError(res, 404, 'Owner not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    if (owner.role !== 'OWNER') {
+      return sendError(res, 400, 'User must have OWNER role', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Check if owner is already assigned to this unit
+    const existingOwner = await prisma.unitOwner.findUnique({
+      where: {
+        unitId_ownerId: {
+          unitId,
+          ownerId,
+        },
+      },
+    });
+
+    if (existingOwner) {
+      return sendError(res, 400, 'Owner is already assigned to this unit', ErrorCodes.RES_ALREADY_EXISTS);
+    }
+
+    // Create unit owner relationship
+    const unitOwner = await prisma.unitOwner.create({
+      data: {
+        unitId,
+        ownerId,
+        ownershipPercentage: ownershipPercentage || 100.0,
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      unitOwner,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
+    }
+
+    console.error('Assign unit owner error:', error);
+    return sendError(res, 500, 'Failed to assign owner to unit', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /units/:id/owners/:ownerId - Remove owner from unit
+router.delete('/:id/owners/:ownerId', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const { id: unitId, ownerId } = req.params;
+
+  try {
+    // Get unit with property to verify access
+    const unit = await prisma.unit.findUnique({
+      where: { id: unitId },
+      include: {
+        property: {
+          include: {
+            owners: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+
+    if (!unit) {
+      return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
+    }
+
+    // Verify user has access to the property
+    const access = ensurePropertyAccess(unit.property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      return sendError(res, access.status, access.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
+    // Check if owner is assigned to this unit
+    const unitOwner = await prisma.unitOwner.findUnique({
+      where: {
+        unitId_ownerId: {
+          unitId,
+          ownerId,
+        },
+      },
+    });
+
+    if (!unitOwner) {
+      return sendError(res, 404, 'Owner is not assigned to this unit', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Delete unit owner relationship
+    await prisma.unitOwner.delete({
+      where: {
+        unitId_ownerId: {
+          unitId,
+          ownerId,
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error('Remove unit owner error:', error);
+    return sendError(res, 500, 'Failed to remove owner from unit', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

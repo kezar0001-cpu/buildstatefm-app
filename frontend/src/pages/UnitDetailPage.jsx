@@ -53,6 +53,8 @@ import DataState from '../components/DataState';
 import UnitForm from '../components/UnitForm';
 import TenantAssignmentDialog from '../components/TenantAssignmentDialog';
 import InviteTenantDialog from '../components/InviteTenantDialog';
+import UnitOwnerAssignmentDialog from '../components/UnitOwnerAssignmentDialog';
+import InviteOwnerDialog from '../components/InviteOwnerDialog';
 import { formatDate, formatDateTime } from '../utils/date';
 import toast from 'react-hot-toast';
 import ensureArray from '../utils/ensureArray';
@@ -82,8 +84,12 @@ export default function UnitDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [inviteTenantDialogOpen, setInviteTenantDialogOpen] = useState(false);
+  const [assignOwnerDialogOpen, setAssignOwnerDialogOpen] = useState(false);
+  const [inviteOwnerDialogOpen, setInviteOwnerDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
+  const [selectedOwner, setSelectedOwner] = useState(null);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [confirmRemoveOwnerOpen, setConfirmRemoveOwnerOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState(0);
   const [moveInWizardOpen, setMoveInWizardOpen] = useState(false);
   const [moveOutWizardOpen, setMoveOutWizardOpen] = useState(false);
@@ -159,6 +165,23 @@ export default function UnitDetailPage() {
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to remove tenant');
+    },
+  });
+
+  // Remove owner mutation
+  const removeOwnerMutation = useMutation({
+    mutationFn: async (ownerId) => {
+      const response = await apiClient.delete(`/units/${id}/owners/${ownerId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.units.detail(id) });
+      toast.success('Owner removed successfully');
+      setConfirmRemoveOwnerOpen(false);
+      setSelectedOwner(null);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to remove owner');
     },
   });
 
@@ -264,6 +287,25 @@ export default function UnitDetailPage() {
   const confirmRemove = () => {
     if (selectedTenant) {
       removeTenantMutation.mutate(selectedTenant.tenantId);
+    }
+  };
+
+  const handleAssignOwner = () => {
+    setAssignOwnerDialogOpen(true);
+  };
+
+  const handleInviteOwner = () => {
+    setInviteOwnerDialogOpen(true);
+  };
+
+  const handleRemoveOwner = (owner) => {
+    setSelectedOwner(owner);
+    setConfirmRemoveOwnerOpen(true);
+  };
+
+  const confirmRemoveOwner = () => {
+    if (selectedOwner) {
+      removeOwnerMutation.mutate(selectedOwner.ownerId);
     }
   };
 
@@ -541,6 +583,117 @@ export default function UnitDetailPage() {
                             onClick={handleAssignTenant}
                           >
                             Assign Tenant
+                          </Button>
+                        </Stack>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Current Owners */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 2,
+                      }}
+                    >
+                      <Typography variant="h6">Unit Owners</Typography>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<MailOutlineIcon />}
+                          onClick={handleInviteOwner}
+                          size="small"
+                        >
+                          Invite Owner
+                        </Button>
+                        <Button
+                          variant="contained"
+                          startIcon={<PersonAddIcon />}
+                          onClick={handleAssignOwner}
+                          size="small"
+                        >
+                          Assign Owner
+                        </Button>
+                      </Stack>
+                    </Box>
+
+                    <Divider sx={{ mb: 2 }} />
+
+                    {unit?.owners && unit.owners.length > 0 ? (
+                      <List sx={{ p: 0 }}>
+                        {unit.owners.map((ownerRecord) => (
+                          <ListItem
+                            key={ownerRecord.id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              '&:last-child': { mb: 0 },
+                            }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: 'primary.main' }}>
+                                <PersonIcon />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                ownerRecord.owner
+                                  ? `${ownerRecord.owner.firstName} ${ownerRecord.owner.lastName}`
+                                  : 'Unknown Owner'
+                              }
+                              secondary={
+                                <Box component="span">
+                                  <Typography variant="body2" component="span">
+                                    {ownerRecord.owner?.email}
+                                  </Typography>
+                                  <br />
+                                  <Typography variant="caption" component="span">
+                                    Ownership: {ownerRecord.ownershipPercentage}%
+                                    {ownerRecord.startDate &&
+                                      ` • Since ${formatDate(ownerRecord.startDate)}`}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleRemoveOwner(ownerRecord)}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 3 }}>
+                        <PersonIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                        <Typography color="text.secondary" gutterBottom>
+                          No owners assigned to this unit
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1, justifyContent: 'center' }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<MailOutlineIcon />}
+                            onClick={handleInviteOwner}
+                          >
+                            Invite Owner
+                          </Button>
+                          <Button
+                            variant="contained"
+                            startIcon={<PersonAddIcon />}
+                            onClick={handleAssignOwner}
+                          >
+                            Assign Owner
                           </Button>
                         </Stack>
                       </Box>
@@ -1077,6 +1230,20 @@ export default function UnitDetailPage() {
               unitNumber={unit?.unitNumber}
             />
 
+            {/* Owner Assignment Dialog */}
+            <UnitOwnerAssignmentDialog
+              open={assignOwnerDialogOpen}
+              onClose={() => setAssignOwnerDialogOpen(false)}
+              unitId={id}
+            />
+
+            {/* Invite Owner Dialog */}
+            <InviteOwnerDialog
+              open={inviteOwnerDialogOpen}
+              onClose={() => setInviteOwnerDialogOpen(false)}
+              property={{ id: unit?.propertyId }}
+            />
+
             {/* Confirm Remove Dialog */}
             <Dialog
               open={confirmRemoveOpen}
@@ -1099,6 +1266,34 @@ export default function UnitDetailPage() {
                   color="error"
                   variant="contained"
                   disabled={removeTenantMutation.isLoading}
+                >
+                  Remove
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Confirm Remove Owner Dialog */}
+            <Dialog
+              open={confirmRemoveOwnerOpen}
+              onClose={() => setConfirmRemoveOwnerOpen(false)}
+            >
+              <DialogTitle>Remove Owner</DialogTitle>
+              <DialogContent>
+                <Typography>
+                  Are you sure you want to remove{' '}
+                  <strong>
+                    {selectedOwner?.owner?.firstName} {selectedOwner?.owner?.lastName}
+                  </strong>{' '}
+                  from this unit?
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setConfirmRemoveOwnerOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={confirmRemoveOwner}
+                  color="error"
+                  variant="contained"
+                  disabled={removeOwnerMutation.isLoading}
                 >
                   Remove
                 </Button>
