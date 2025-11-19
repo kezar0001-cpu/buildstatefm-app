@@ -45,7 +45,7 @@ const InspectionAttachmentManager = ({ inspectionId, attachments = [], canEdit =
     mutationFn: async (files) => {
       const formData = new FormData();
       files.forEach((file) => formData.append('files', file));
-      const uploadResponse = await apiClient.post('/uploads/multiple', formData, {
+      const uploadResponse = await apiClient.post('/upload/multiple', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

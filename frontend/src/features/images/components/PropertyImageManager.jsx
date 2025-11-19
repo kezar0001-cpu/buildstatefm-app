@@ -54,7 +54,7 @@ export function PropertyImageManager({
     errorCount,
     pendingCount,
   } = useImageUpload({
-    endpoint: '/uploads/multiple',
+    endpoint: '/upload/multiple',
     compressImages: true,
     maxConcurrent: 3,
     initialImages: preparedInitialImages,
