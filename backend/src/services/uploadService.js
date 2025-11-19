@@ -135,16 +135,18 @@ const cloudinaryDocumentStorage = new CloudinaryStorage({
     folder: 'agentfm/documents',
     allowed_formats: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'],
     resource_type: 'raw', // Store as raw files (PDFs, DOCX, etc.) - CRITICAL for correct URL format
-    // Use original filename with UUID for uniqueness
+    // Use original filename with UUID for uniqueness - MUST include extension for raw files
     public_id: (_req, file) => {
-      const base = path
-        .basename(file.originalname || 'document', path.extname(file.originalname || ''))
+      const ext = path.extname(file.originalname || '');
+      const nameWithoutExt = path.basename(file.originalname || 'document', ext);
+      const sanitizedName = nameWithoutExt
         .replace(/[\/\\.\x00]/g, '')
         .toLowerCase()
         .replace(/[^a-z0-9-_]+/g, '-')
         .slice(0, 40) || 'document';
       const unique = randomUUID();
-      return `${base}-${unique}`;
+      // For raw files, include the extension in the public_id
+      return `${sanitizedName}-${unique}${ext}`;
     },
   },
 });
@@ -322,8 +324,10 @@ export const deleteImage = async (imageUrl) => {
     // Cloudinary URL
     if (imageUrl.startsWith('http') && imageUrl.includes('cloudinary.com')) {
       // Extract public_id from Cloudinary URL - handle both properties and documents folders
+      // For images: capture without extension (agentfm/properties/filename-uuid)
       const propertiesMatch = imageUrl.match(/\/agentfm\/properties\/([^/.]+)/);
-      const documentsMatch = imageUrl.match(/\/agentfm\/documents\/([^/.]+)/);
+      // For documents (raw files): capture WITH extension (agentfm/documents/filename-uuid.pdf)
+      const documentsMatch = imageUrl.match(/\/agentfm\/documents\/([^/]+?)(?:\?|$)/);
 
       if (propertiesMatch && propertiesMatch[1]) {
         const publicId = `agentfm/properties/${propertiesMatch[1]}`;
