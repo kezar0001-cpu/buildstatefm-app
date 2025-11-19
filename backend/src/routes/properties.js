@@ -13,11 +13,13 @@ import { cacheMiddleware, invalidate, invalidatePattern } from '../utils/cache.j
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import {
   createUploadMiddleware,
+  createDocumentUploadMiddleware,
   getUploadedFileUrl,
   isLocalUploadUrl,
   extractLocalUploadFilename,
   LOCAL_UPLOADS_PUBLIC_PATH,
   isUsingCloudStorage,
+  deleteImage,
 } from '../services/uploadService.js';
 
 const router = Router();
@@ -2497,47 +2499,8 @@ const propertyDocumentCreateSchema = z.object({
   accessLevel: z.enum(['PUBLIC', 'TENANT', 'OWNER', 'PROPERTY_MANAGER']),
 });
 
-// Multer middleware for document uploads - accepts various document types
-const documentUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || '');
-      const sanitizedName = path.basename(file.originalname || 'document', ext)
-        .replace(/[\/\\.\x00]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9-_]+/g, '-')
-        .slice(0, 40) || 'document';
-      const unique = randomUUID();
-      cb(null, `${sanitizedName}-${unique}${ext}`);
-    },
-  }),
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit for documents
-  },
-  fileFilter: (_req, file, cb) => {
-    // Accept common document types
-    const allowedMimeTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain',
-      'text/csv',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-    ];
-
-    if (!file.mimetype || !allowedMimeTypes.includes(file.mimetype)) {
-      return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'file'));
-    }
-
-    cb(null, true);
-  },
-});
+// Multer middleware for document uploads - uses Cloudinary when configured
+const documentUpload = createDocumentUploadMiddleware();
 
 // GET /properties/:id/documents - List all documents for a property
 propertyDocumentsRouter.get('/', async (req, res) => {
@@ -2767,18 +2730,9 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
       where: { id: documentId },
     });
 
-    // Clean up physical file from disk
-    if (document.fileUrl && isLocalUploadUrl(document.fileUrl)) {
-      const filename = extractLocalUploadFilename(document.fileUrl);
-      if (filename) {
-        const filePath = path.join(UPLOAD_DIR, filename);
-
-        fs.unlink(filePath, (err) => {
-          if (err && err.code !== 'ENOENT') {
-            console.error('Failed to delete document file:', filePath, err);
-          }
-        });
-      }
+    // Clean up physical file from disk or Cloudinary
+    if (document.fileUrl) {
+      await deleteImage(document.fileUrl);
     }
 
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
