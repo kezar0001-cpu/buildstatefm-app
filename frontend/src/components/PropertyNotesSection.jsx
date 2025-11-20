@@ -54,6 +54,9 @@ const PropertyNotesSection = ({ propertyId, canEdit = false }) => {
     data: notesData,
     isLoading,
     isError,
+    error,
+    refetch,
+    isFetching,
   } = usePropertyNotes(propertyId);
 
   // Bug Fix: Removed manual refetch() calls - mutations now auto-invalidate via invalidateKeys
@@ -82,7 +85,7 @@ const PropertyNotesSection = ({ propertyId, canEdit = false }) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState(null);
 
-  const notes = notesData?.notes || [];
+  const notes = notesData?.data || notesData?.notes || [];
 
   const handleAddNote = async () => {
     if (!newNoteContent.trim()) {
@@ -202,9 +205,23 @@ const PropertyNotesSection = ({ propertyId, canEdit = false }) => {
 
   if (isError) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        Failed to load property notes. Please try again later.
-      </Alert>
+      <Box p={3}>
+        <Alert
+          severity="error"
+          action={(
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => refetch()}
+              disabled={isLoading || isFetching}
+            >
+              Retry
+            </Button>
+          )}
+        >
+          {error?.response?.data?.message || 'Failed to load property notes'}
+        </Alert>
+      </Box>
     );
   }
 
