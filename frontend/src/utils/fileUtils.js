@@ -106,16 +106,19 @@ export function normalizeDocumentUrl(fileUrl) {
 export function buildDocumentPreviewUrl(document) {
   if (!document) return '';
 
-  const previewPath = document.previewUrl
-    || (document.propertyId && document.id
-      ? `/properties/${document.propertyId}/documents/${document.id}/preview`
-      : null);
+  const previewCandidates = [
+    document.cloudinarySecureUrl,
+    document.rawPreviewUrl,
+    document.previewUrl,
+    document.fileUrl,
+  ].filter(Boolean);
 
-  if (previewPath) {
-    return resolveApiPath(previewPath);
+  for (const candidate of previewCandidates) {
+    const resolved = resolveFileUrl(candidate);
+    if (resolved) return resolved;
   }
 
-  return resolveFileUrl(document.fileUrl);
+  return '';
 }
 
 export function buildDocumentDownloadUrl(document) {

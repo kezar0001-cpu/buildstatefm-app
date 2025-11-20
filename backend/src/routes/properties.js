@@ -2502,6 +2502,22 @@ const propertyDocumentCreateSchema = z.object({
 // Multer middleware for document uploads - uses Cloudinary when configured
 const documentUpload = createDocumentUploadMiddleware();
 
+const extractCloudinaryFields = (file) => {
+  if (!file) return {};
+
+  const secureUrl = file.secure_url || file.path || file.url;
+  const isCloudinary = typeof secureUrl === 'string' && secureUrl.includes('cloudinary.com');
+
+  if (!isCloudinary) return {};
+
+  return {
+    cloudinarySecureUrl: secureUrl,
+    cloudinaryPublicId: file.public_id || file.filename || null,
+    cloudinaryResourceType: file.resource_type || null,
+    cloudinaryFormat: file.format || null,
+  };
+};
+
 const getAllowedDocumentLevels = (role) => {
   switch (role) {
     case 'PROPERTY_MANAGER':
@@ -2545,6 +2561,57 @@ const buildCloudinaryDownloadUrl = (cloudUrl, fileName) => {
   return cloudUrl.replace(/\/upload\//, `/upload/fl_attachment:${encodeURIComponent(sanitisedName)}/`);
 };
 
+const extractCloudinaryPublicIdFromUrl = (url) => {
+  if (typeof url !== 'string' || !url.includes('cloudinary.com')) return null;
+
+  const match = url.match(/\/upload\/(?:v\d+\/)?([^?#]+)/);
+  if (!match?.[1]) return null;
+
+  return match[1];
+};
+
+const buildCloudinaryPreviewUrl = (document, secureUrl) => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const hasCloudinary = (secureUrl && secureUrl.includes('cloudinary.com')) || document.cloudinaryPublicId;
+  if (!cloudName || !hasCloudinary) return null;
+
+  const isRawResource = document.cloudinaryResourceType === 'raw' || document.mimeType?.includes('pdf');
+  if (!isRawResource) return null;
+
+  const candidatePublicId = document.cloudinaryPublicId || extractCloudinaryPublicIdFromUrl(secureUrl);
+  if (!candidatePublicId) return null;
+
+  const publicId = candidatePublicId.replace(/^\/+/, '');
+  const hasExtension = /\.[^/.]+$/.test(publicId);
+  const inferredFormat = document.cloudinaryFormat || document.mimeType?.split('/')?.[1] || null;
+  const publicIdWithExtension = hasExtension
+    ? publicId
+    : inferredFormat
+      ? `${publicId}.${inferredFormat}`
+      : publicId;
+
+  return `https://res.cloudinary.com/${cloudName}/raw/upload/${publicIdWithExtension}`;
+};
+
+const buildDocumentPreviewData = (document, req) => {
+  if (!document) return { previewUrl: null, rawPreviewUrl: null, cloudinarySecureUrl: null };
+
+  const resolvedFileUrl = resolveDocumentUrl(document.fileUrl, req);
+  const secureUrl = document.cloudinarySecureUrl
+    || (resolvedFileUrl && resolvedFileUrl.includes('cloudinary.com') ? resolvedFileUrl : null);
+  const derivedPublicId = document.cloudinaryPublicId || extractCloudinaryPublicIdFromUrl(secureUrl);
+  const rawPreviewUrl = buildCloudinaryPreviewUrl({ ...document, cloudinaryPublicId: derivedPublicId }, secureUrl);
+
+  return {
+    previewUrl: rawPreviewUrl || secureUrl || resolvedFileUrl,
+    rawPreviewUrl: rawPreviewUrl || null,
+    cloudinarySecureUrl: secureUrl || null,
+    cloudinaryPublicId: derivedPublicId || null,
+    cloudinaryResourceType: document.cloudinaryResourceType || null,
+    cloudinaryFormat: document.cloudinaryFormat || null,
+  };
+};
+
 const sanitiseLocalDocumentPath = (value) => {
   if (!value) return null;
   const normalised = path.normalize(value).replace(/^\.+/, '').replace(/^\/+/, '');
@@ -2555,10 +2622,11 @@ const sanitiseLocalDocumentPath = (value) => {
 const withDocumentActionUrls = (document, req) => {
   if (!document) return document;
   const baseDocumentPath = `${req.baseUrl}/${document.id}`.replace(/\/+$/, '');
+  const previewData = buildDocumentPreviewData(document, req);
 
   return {
     ...document,
-    previewUrl: `${baseDocumentPath}/preview`,
+    ...previewData,
     downloadUrl: `${baseDocumentPath}/download`,
   };
 };
@@ -2702,13 +2770,13 @@ propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
       return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
-    const resolvedUrl = resolveDocumentUrl(document.fileUrl, req);
-    if (!resolvedUrl) {
+    const previewData = buildDocumentPreviewData(document, req);
+    if (!previewData.previewUrl) {
       return sendError(res, 500, 'Document URL unavailable', ErrorCodes.FILE_UPLOAD_FAILED);
     }
 
-    res.setHeader('Cache-Control', 'private, max-age=300');
-    return res.redirect(resolvedUrl);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.redirect(previewData.previewUrl);
   } catch (error) {
     console.error('Preview property document error:', error);
     return sendError(res, 500, 'Failed to preview document', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -2830,11 +2898,14 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUplo
       );
     }
 
+    const cloudinaryFields = extractCloudinaryFields(req.file);
+
     const document = await prisma.propertyDocument.create({
       data: {
         propertyId,
         fileName: req.file.originalname,
         fileUrl: uploadedFileUrl,
+        ...cloudinaryFields,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
         category: parsed.category,

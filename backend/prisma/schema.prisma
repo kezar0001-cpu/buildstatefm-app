@@ -192,18 +192,22 @@ model PropertyImage {
 }
 
 model PropertyDocument {
-  id          String                 @id @default(cuid())
-  propertyId  String
-  fileName    String
-  fileUrl     String
-  fileSize    Int
-  mimeType    String
-  category    PropertyDocumentCategory
-  description String?
-  accessLevel PropertyDocumentAccessLevel
-  uploaderId  String
-  uploadedAt  DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id                    String                 @id @default(cuid())
+  propertyId            String
+  fileName              String
+  fileUrl               String
+  cloudinarySecureUrl   String?
+  cloudinaryPublicId    String?
+  cloudinaryResourceType String?
+  cloudinaryFormat      String?
+  fileSize              Int
+  mimeType              String
+  category              PropertyDocumentCategory
+  description           String?
+  accessLevel           PropertyDocumentAccessLevel
+  uploaderId            String
+  uploadedAt            DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   uploader User     @relation("PropertyDocumentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)

@@ -91,6 +91,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [previewError, setPreviewError] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [formData, setFormData] = useState({
     category: 'OTHER',
@@ -222,6 +223,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       return;
     }
 
+    setPreviewError('');
     setPreviewDocument({ ...document, resolvedPreviewUrl: previewUrl });
     setPreviewDialogOpen(true);
 
@@ -232,6 +234,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   const handleClosePreview = () => {
     setPreviewDialogOpen(false);
     setPreviewDocument(null);
+    setPreviewError('');
   };
 
   const openDeleteDialog = (document) => {
@@ -252,8 +255,9 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
 
     const { mimeType, fileName, resolvedPreviewUrl } = document;
     const resolvedUrl = resolvedPreviewUrl || buildDocumentPreviewUrl(document);
+    const previewSrc = document.cloudinarySecureUrl || document.rawPreviewUrl || resolvedUrl;
 
-    if (!resolvedUrl) {
+    if (!previewSrc) {
       return (
         <Alert severity="warning">
           Preview is not available for this document type.
@@ -261,19 +265,32 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       );
     }
 
+    const handlePreviewError = () => {
+      setPreviewError('Failed to load the Cloudinary preview. Try opening in a new tab or downloading the file.');
+    };
+
+    const renderPreviewError = previewError ? (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {previewError}
+      </Alert>
+    ) : null;
+
     // PDF preview
     if (mimeType?.includes('pdf')) {
       return (
         <Box sx={{ width: '100%', height: '70vh' }}>
           <iframe
-            src={resolvedUrl}
+            src={previewSrc}
             title={fileName}
             style={{
               width: '100%',
               height: '100%',
               border: 'none',
             }}
+            onLoad={() => setPreviewError('')}
+            onError={handlePreviewError}
           />
+          {renderPreviewError}
         </Box>
       );
     }
@@ -283,14 +300,17 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
           <img
-            src={resolvedUrl}
+            src={previewSrc}
             alt={fileName}
             style={{
               maxWidth: '100%',
               maxHeight: '70vh',
               objectFit: 'contain',
             }}
+            onLoad={() => setPreviewError('')}
+            onError={handlePreviewError}
           />
+          {renderPreviewError}
         </Box>
       );
     }
@@ -300,7 +320,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       return (
         <Box sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
           <iframe
-            src={resolvedUrl}
+            src={previewSrc}
             title={fileName}
             style={{
               width: '100%',
@@ -308,7 +328,10 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
               border: '1px solid #ddd',
               borderRadius: '4px',
             }}
+            onLoad={() => setPreviewError('')}
+            onError={handlePreviewError}
           />
+          {renderPreviewError}
         </Box>
       );
     }
@@ -660,7 +683,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
             </Box>
           )}
         </DialogContent>
-      <DialogActions>
+        <DialogActions>
           <Button
             onClick={() => {
               const newTabUrl = previewDocument ? buildDocumentPreviewUrl(previewDocument) : '';
@@ -672,11 +695,11 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
           >
             Open in New Tab
           </Button>
-        <Button
-          startIcon={<DownloadIcon />}
-          onClick={() => previewDocument && handleDownload(previewDocument)}
-        >
-          Download
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={() => previewDocument && handleDownload(previewDocument)}
+          >
+            Download
           </Button>
           <Button onClick={handleClosePreview}>Close</Button>
         </DialogActions>
