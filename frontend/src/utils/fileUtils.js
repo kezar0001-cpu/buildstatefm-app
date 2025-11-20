@@ -64,6 +64,23 @@ export function resolveFileUrl(fileUrl) {
   return trimmedUrl;
 }
 
+export function resolveApiPath(pathValue) {
+  if (!pathValue || typeof pathValue !== 'string') {
+    return '';
+  }
+
+  const trimmed = pathValue.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const normalisedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const baseUrl = getApiBaseUrl();
+  if (!baseUrl) return normalisedPath;
+
+  return `${baseUrl.replace(/\/$/, '')}${normalisedPath}`;
+}
+
 /**
  * Normalize a document URL to use the preferred /api/uploads path
  * This helps with consistency across old and new documents
@@ -86,6 +103,43 @@ export function normalizeDocumentUrl(fileUrl) {
   return resolved;
 }
 
+export function buildDocumentPreviewUrl(document) {
+  if (!document) return '';
+
+  const previewPath = document.previewUrl
+    || (document.propertyId && document.id
+      ? `/properties/${document.propertyId}/documents/${document.id}/preview`
+      : null);
+
+  if (previewPath) {
+    return resolveApiPath(previewPath);
+  }
+
+  return resolveFileUrl(document.fileUrl);
+}
+
+export function buildDocumentDownloadUrl(document) {
+  if (!document) return '';
+
+  const downloadPath = document.downloadUrl
+    || (document.propertyId && document.id
+      ? `/properties/${document.propertyId}/documents/${document.id}/download`
+      : null);
+
+  if (downloadPath) {
+    return resolveApiPath(downloadPath);
+  }
+
+  if (document.fileUrl) {
+    const resolved = resolveFileUrl(document.fileUrl);
+    return resolved.includes('cloudinary.com')
+      ? addCloudinaryDownloadFlags(resolved, document.fileName)
+      : resolved;
+  }
+
+  return '';
+}
+
 /**
  * Transform a Cloudinary document URL to add download flags
  * This ensures proper Content-Disposition headers for downloads
@@ -95,7 +149,7 @@ export function normalizeDocumentUrl(fileUrl) {
  * @returns {string} The transformed URL with download flags
  */
 export function addCloudinaryDownloadFlags(cloudinaryUrl, fileName) {
-  if (!cloudinaryUrl ||!cloudinaryUrl.includes('cloudinary.com')) {
+  if (!cloudinaryUrl || !cloudinaryUrl.includes('cloudinary.com')) {
     return cloudinaryUrl;
   }
 
@@ -138,11 +192,13 @@ export function addCloudinaryDownloadFlags(cloudinaryUrl, fileName) {
  * @param {string} fileUrl - The URL of the file to download
  * @param {string} fileName - The suggested filename for the download
  */
-export function downloadFile(fileUrl, fileName) {
-  const resolvedUrl = resolveFileUrl(fileUrl);
+export function downloadFile(fileUrl, fileName, options = {}) {
+  const { skipResolution = false, skipDownloadTransform = false } = options;
 
-  // For Cloudinary URLs, add download flags to ensure proper filename
-  const downloadUrl = resolvedUrl.includes('cloudinary.com')
+  const resolvedUrl = skipResolution ? fileUrl : resolveFileUrl(fileUrl);
+
+  // For Cloudinary URLs, add download flags to ensure proper filename unless caller opts out
+  const downloadUrl = !skipDownloadTransform && resolvedUrl.includes('cloudinary.com')
     ? addCloudinaryDownloadFlags(resolvedUrl, fileName)
     : resolvedUrl;
 
