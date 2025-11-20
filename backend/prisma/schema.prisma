@@ -58,6 +58,7 @@ model User {
   Org                     Org?                    @relation(fields: [orgId], references: [id])
   blogPosts               BlogPost[]
   uploadedPropertyDocuments PropertyDocument[]  @relation("PropertyDocumentUploader")
+  propertyNotes           PropertyNote[]         @relation("PropertyNoteAuthor")
 
   @@index([email])
   @@index([role])
@@ -168,6 +169,7 @@ model Property {
   reportRequests  ReportRequest[]
   serviceRequests ServiceRequest[]
   units           Unit[]
+  propertyNotes   PropertyNote[]
 
   @@index([managerId])
   @@index([status])
@@ -216,6 +218,21 @@ model PropertyDocument {
   @@index([uploaderId])
   @@index([category])
   @@index([accessLevel])
+}
+
+model PropertyNote {
+  id          String   @id @default(cuid())
+  propertyId  String
+  authorId    String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  author   User     @relation("PropertyNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([authorId])
 }
 
 model UnitImage {

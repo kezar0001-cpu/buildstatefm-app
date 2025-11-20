@@ -212,6 +212,10 @@ router.use('/:id/images', propertyImagesRouter);
 const propertyDocumentsRouter = Router({ mergeParams: true });
 router.use('/:id/documents', propertyDocumentsRouter);
 
+// Nested property note routes (defined later)
+const propertyNotesRouter = Router({ mergeParams: true });
+router.use('/:id/notes', propertyNotesRouter);
+
 // ---------------------------------------------------------------------------
 // Zod helpers
 // ---------------------------------------------------------------------------
@@ -805,6 +809,22 @@ const propertyImageUpdateSchema = z
 
 const propertyImageReorderSchema = z.object({
   orderedImageIds: z.array(z.string().min(1)).min(1, 'At least one image id is required'),
+});
+
+const propertyNoteCreateSchema = z.object({
+  content: z
+    .string({ required_error: 'Note content is required' })
+    .trim()
+    .min(1, 'Note content is required')
+    .max(2000, 'Note content is too long'),
+});
+
+const propertyNoteUpdateSchema = z.object({
+  content: z
+    .string({ required_error: 'Note content is required' })
+    .trim()
+    .min(1, 'Note content is required')
+    .max(2000, 'Note content is too long'),
 });
 
 // ---------------------------------------------------------------------------
@@ -3010,6 +3030,236 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
   }
 });
 
+// Property Notes helpers
+const propertyNoteInclude = {
+  author: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      role: true,
+    },
+  },
+};
+
+const buildPropertyNoteResponse = (note) => {
+  if (!note) return note;
+
+  const authorName = [note.author?.firstName, note.author?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  return {
+    id: note.id,
+    propertyId: note.propertyId,
+    authorId: note.authorId,
+    content: note.content,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    author: note.author
+      ? {
+          id: note.author.id,
+          name: authorName || note.author.email || 'Unknown User',
+          role: note.author.role || 'UNKNOWN',
+        }
+      : null,
+  };
+};
+
+// GET /properties/:id/notes - List all notes for a property
+propertyNotesRouter.get('/', async (req, res) => {
+  const propertyId = req.params.id;
+
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user);
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const notes = await prisma.propertyNote.findMany({
+      where: { propertyId },
+      include: propertyNoteInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formattedNotes = notes.map(buildPropertyNoteResponse);
+
+    res.json({
+      success: true,
+      data: formattedNotes,
+      notes: formattedNotes,
+    });
+  } catch (error) {
+    console.error('Get property notes error:', error);
+    return sendError(res, 500, 'Failed to fetch property notes', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// POST /properties/:id/notes - Create a new note
+propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const propertyId = req.params.id;
+
+  try {
+    const { content } = propertyNoteCreateSchema.parse(req.body);
+
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const note = await prisma.propertyNote.create({
+      data: {
+        propertyId,
+        authorId: req.user.id,
+        content,
+      },
+      include: propertyNoteInclude,
+    });
+
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches(cacheUserIds);
+
+    const formattedNote = buildPropertyNoteResponse(note);
+
+    res.status(201).json({
+      success: true,
+      data: formattedNote,
+      note: formattedNote,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
+    }
+
+    console.error('Create property note error:', error);
+    return sendError(res, 500, 'Failed to create property note', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /properties/:id/notes/:noteId - Update an existing note
+propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const { id: propertyId, noteId } = req.params;
+
+  try {
+    const { content } = propertyNoteUpdateSchema.parse(req.body);
+
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const existingNote = await prisma.propertyNote.findUnique({
+      where: { id: noteId },
+      include: propertyNoteInclude,
+    });
+
+    if (!existingNote || existingNote.propertyId !== propertyId) {
+      return sendError(res, 404, 'Note not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (existingNote.authorId !== req.user.id) {
+      return sendError(res, 403, 'You can only edit your own notes', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const updatedNote = await prisma.propertyNote.update({
+      where: { id: noteId },
+      data: { content },
+      include: propertyNoteInclude,
+    });
+
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches(cacheUserIds);
+
+    const formattedNote = buildPropertyNoteResponse(updatedNote);
+
+    res.json({
+      success: true,
+      data: formattedNote,
+      note: formattedNote,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
+    }
+
+    console.error('Update property note error:', error);
+    return sendError(res, 500, 'Failed to update property note', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /properties/:id/notes/:noteId - Remove a note
+propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  const { id: propertyId, noteId } = req.params;
+
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const existingNote = await prisma.propertyNote.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!existingNote || existingNote.propertyId !== propertyId) {
+      return sendError(res, 404, 'Note not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (existingNote.authorId !== req.user.id) {
+      return sendError(res, 403, 'You can only delete your own notes', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    await prisma.propertyNote.delete({
+      where: { id: noteId },
+    });
+
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches(cacheUserIds);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete property note error:', error);
+    const userMessage = process.env.NODE_ENV === 'production'
+      ? 'Failed to delete note. Please try again.'
+      : `Failed to delete note: ${error.message}`;
+    return sendError(res, 500, userMessage, ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 // POST /properties/:id/owners - Assign existing owner to property
 router.post('/:id/owners', requireRole('PROPERTY_MANAGER'), async (req, res) => {
   const propertyId = req.params.id;
@@ -3178,8 +3428,11 @@ router._test = {
   collectPropertyCacheUserIds,
   propertyImagesRouter,
   propertyDocumentsRouter,
+  propertyNotesRouter,
   maybeHandleImageUpload,
   isMultipartRequest,
+  propertyNoteCreateSchema,
+  propertyNoteUpdateSchema,
 };
 
 export default router;
