@@ -2502,6 +2502,67 @@ const propertyDocumentCreateSchema = z.object({
 // Multer middleware for document uploads - uses Cloudinary when configured
 const documentUpload = createDocumentUploadMiddleware();
 
+const getAllowedDocumentLevels = (role) => {
+  switch (role) {
+    case 'PROPERTY_MANAGER':
+      return null; // Full access
+    case 'OWNER':
+      return ['PUBLIC', 'OWNER'];
+    case 'TENANT':
+      return ['PUBLIC', 'TENANT'];
+    default:
+      return ['PUBLIC'];
+  }
+};
+
+const filterDocumentsForUser = (documents, user) => {
+  const allowedLevels = getAllowedDocumentLevels(user.role);
+  if (!allowedLevels) return documents;
+
+  return documents.filter((doc) => allowedLevels.includes(doc.accessLevel));
+};
+
+const resolveDocumentUrl = (fileUrl, req) => {
+  if (!fileUrl) return null;
+  const trimmed = fileUrl.trim();
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const normalised = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const host = `${req.protocol}://${req.get('host')}`;
+  return `${host}${normalised}`;
+};
+
+const buildCloudinaryDownloadUrl = (cloudUrl, fileName) => {
+  if (!cloudUrl || !cloudUrl.includes('cloudinary.com')) return cloudUrl;
+
+  const sanitisedName = (fileName || 'document').replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  if (cloudUrl.includes('/upload/fl_attachment')) return cloudUrl;
+
+  return cloudUrl.replace(/\/upload\//, `/upload/fl_attachment:${encodeURIComponent(sanitisedName)}/`);
+};
+
+const sanitiseLocalDocumentPath = (value) => {
+  if (!value) return null;
+  const normalised = path.normalize(value).replace(/^\.+/, '').replace(/^\/+/, '');
+  if (normalised.includes('..')) return null;
+  return normalised;
+};
+
+const withDocumentActionUrls = (document, req) => {
+  if (!document) return document;
+  const baseDocumentPath = `${req.baseUrl}/${document.id}`.replace(/\/+$/, '');
+
+  return {
+    ...document,
+    previewUrl: `${baseDocumentPath}/preview`,
+    downloadUrl: `${baseDocumentPath}/download`,
+  };
+};
+
 // GET /properties/:id/documents - List all documents for a property
 propertyDocumentsRouter.get('/', async (req, res) => {
   const propertyId = req.params.id;
@@ -2535,9 +2596,13 @@ propertyDocumentsRouter.get('/', async (req, res) => {
       orderBy: { uploadedAt: 'desc' },
     });
 
+    const filteredDocuments = filterDocumentsForUser(documents, req.user).map((doc) =>
+      withDocumentActionUrls(doc, req)
+    );
+
     res.json({
       success: true,
-      documents,
+      documents: filteredDocuments,
     });
   } catch (error) {
     console.error('Get property documents error:', error);
@@ -2585,13 +2650,137 @@ propertyDocumentsRouter.get('/:documentId', async (req, res) => {
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
+    const allowedLevels = getAllowedDocumentLevels(req.user.role);
+    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+      return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const documentWithActions = withDocumentActionUrls(document, req);
+
     res.json({
       success: true,
-      document,
+      document: documentWithActions,
     });
   } catch (error) {
     console.error('Get property document error:', error);
     return sendError(res, 500, 'Failed to fetch property document', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// GET /properties/:id/documents/:documentId/preview - Redirect to preview URL
+propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
+  const propertyId = req.params.id;
+  const documentId = req.params.documentId;
+
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user);
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const document = await prisma.propertyDocument.findFirst({
+      where: {
+        id: documentId,
+        propertyId,
+      },
+    });
+
+    if (!document) {
+      return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    const allowedLevels = getAllowedDocumentLevels(req.user.role);
+    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+      return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const resolvedUrl = resolveDocumentUrl(document.fileUrl, req);
+    if (!resolvedUrl) {
+      return sendError(res, 500, 'Document URL unavailable', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.redirect(resolvedUrl);
+  } catch (error) {
+    console.error('Preview property document error:', error);
+    return sendError(res, 500, 'Failed to preview document', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// GET /properties/:id/documents/:documentId/download - Force download
+propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
+  const propertyId = req.params.id;
+  const documentId = req.params.documentId;
+
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user);
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const document = await prisma.propertyDocument.findFirst({
+      where: {
+        id: documentId,
+        propertyId,
+      },
+    });
+
+    if (!document) {
+      return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    const allowedLevels = getAllowedDocumentLevels(req.user.role);
+    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+      return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const resolvedUrl = resolveDocumentUrl(document.fileUrl, req);
+    if (!resolvedUrl) {
+      return sendError(res, 500, 'Document URL unavailable', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
+    // Local uploads - stream the file with proper headers
+    if (isLocalUploadUrl(document.fileUrl)) {
+      const extractedFilename = extractLocalUploadFilename(document.fileUrl);
+      const safeRelativePath = sanitiseLocalDocumentPath(extractedFilename);
+      if (!safeRelativePath) {
+        return sendError(res, 400, 'Invalid document path', ErrorCodes.FILE_INVALID_TYPE);
+      }
+
+      const filePath = path.join(UPLOAD_DIR, safeRelativePath);
+      if (!fs.existsSync(filePath)) {
+        return sendError(res, 404, 'Document not found on server', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+      }
+
+      const downloadName = document.fileName || path.basename(filePath);
+      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`);
+      return res.download(filePath, downloadName);
+    }
+
+    // Cloudinary or external URLs - redirect with download flag
+    const downloadUrl = buildCloudinaryDownloadUrl(resolvedUrl, document.fileName);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.redirect(downloadUrl);
+  } catch (error) {
+    console.error('Download property document error:', error);
+    return sendError(res, 500, 'Failed to download document', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
@@ -2665,12 +2854,14 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUplo
       },
     });
 
+    const documentWithActions = withDocumentActionUrls(document, req);
+
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
     await invalidatePropertyCaches(cacheUserIds);
 
     res.status(201).json({
       success: true,
-      document,
+      document: documentWithActions,
     });
   } catch (error) {
     cleanupUploadedFile();

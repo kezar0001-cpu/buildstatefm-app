@@ -43,7 +43,11 @@ import {
 } from '../hooks/usePropertyDocuments.js';
 import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
-import { resolveFileUrl, downloadFile } from '../utils/fileUtils.js';
+import {
+  downloadFile,
+  buildDocumentPreviewUrl,
+  buildDocumentDownloadUrl,
+} from '../utils/fileUtils.js';
 
 const getDocumentIcon = (mimeType) => {
   const type = mimeType || '';
@@ -70,7 +74,7 @@ const getAccessLevelColor = (level) => {
 
 const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   const { showSuccess, showError } = useNotification();
-  const { data: documentsData, isLoading, refetch } = usePropertyDocuments(propertyId);
+  const { data: documentsData, isLoading, isError, error, refetch } = usePropertyDocuments(propertyId);
 
   // Add success callbacks that refetch the document list
   const addDocumentMutation = useAddPropertyDocument(propertyId, () => {
@@ -200,13 +204,29 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   };
 
   const handleDownload = (document) => {
-    // Use the downloadFile utility to ensure proper URL resolution
-    downloadFile(document.fileUrl, document.fileName);
+    const downloadUrl = buildDocumentDownloadUrl(document);
+    if (!downloadUrl) {
+      showError('Download link is unavailable for this document');
+      return;
+    }
+
+    // Use the dedicated download endpoint (or Cloudinary flag) without mutating the URL again
+    downloadFile(downloadUrl, document.fileName, { skipDownloadTransform: true });
   };
 
   const handlePreview = (document) => {
-    setPreviewDocument(document);
+    const previewUrl = buildDocumentPreviewUrl(document);
+
+    if (!previewUrl) {
+      showError('Preview is unavailable for this document');
+      return;
+    }
+
+    setPreviewDocument({ ...document, resolvedPreviewUrl: previewUrl });
     setPreviewDialogOpen(true);
+
+    // Always open in a new tab/window for consistent preview behaviour
+    window.open(previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleClosePreview = () => {
@@ -230,9 +250,16 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   const getPreviewContent = (document) => {
     if (!document) return null;
 
-    const { fileUrl, mimeType, fileName } = document;
-    // Resolve the file URL to ensure it works in all environments
-    const resolvedUrl = resolveFileUrl(fileUrl);
+    const { mimeType, fileName, resolvedPreviewUrl } = document;
+    const resolvedUrl = resolvedPreviewUrl || buildDocumentPreviewUrl(document);
+
+    if (!resolvedUrl) {
+      return (
+        <Alert severity="warning">
+          Preview is not available for this document type.
+        </Alert>
+      );
+    }
 
     // PDF preview
     if (mimeType?.includes('pdf')) {
@@ -324,6 +351,23 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     return level ? level.label : value;
   };
 
+  if (isError) {
+    return (
+      <Box p={3}>
+        <Alert
+          severity="error"
+          action={(
+            <Button color="inherit" size="small" onClick={() => refetch()}>
+              Retry
+            </Button>
+          )}
+        >
+          {error?.response?.data?.message || 'Failed to load property documents'}
+        </Alert>
+      </Box>
+    );
+  }
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
@@ -398,6 +442,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
                   onClick={() => handlePreview(document)}
                   title="View/Preview"
                   color="primary"
+                  disabled={!buildDocumentPreviewUrl(document)}
                 >
                   <VisibilityIcon />
                 </IconButton>
@@ -405,6 +450,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
                   edge="end"
                   onClick={() => handleDownload(document)}
                   title="Download"
+                  disabled={!buildDocumentDownloadUrl(document)}
                 >
                   <DownloadIcon />
                 </IconButton>
@@ -614,12 +660,23 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+      <DialogActions>
           <Button
-            startIcon={<DownloadIcon />}
-            onClick={() => previewDocument && handleDownload(previewDocument)}
+            onClick={() => {
+              const newTabUrl = previewDocument ? buildDocumentPreviewUrl(previewDocument) : '';
+              if (newTabUrl) {
+                window.open(newTabUrl, '_blank', 'noopener,noreferrer');
+              }
+            }}
+            disabled={!previewDocument || !buildDocumentPreviewUrl(previewDocument)}
           >
-            Download
+            Open in New Tab
+          </Button>
+        <Button
+          startIcon={<DownloadIcon />}
+          onClick={() => previewDocument && handleDownload(previewDocument)}
+        >
+          Download
           </Button>
           <Button onClick={handleClosePreview}>Close</Button>
         </DialogActions>
