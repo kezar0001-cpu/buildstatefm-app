@@ -3074,7 +3074,8 @@ const buildPropertyNoteResponse = (note) => {
 };
 
 // GET /properties/:id/notes - List all notes for a property
-propertyNotesRouter.get('/', async (req, res) => {
+// Only property managers and owners can view notes (not tenants)
+propertyNotesRouter.get('/', requireRole('PROPERTY_MANAGER', 'OWNER'), async (req, res) => {
   const propertyId = req.params.id;
 
   try {
@@ -3089,6 +3090,12 @@ propertyNotesRouter.get('/', async (req, res) => {
     if (!access.allowed) {
       const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
       return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    // Check if PropertyNote model exists (migration might not have run)
+    if (!prisma.propertyNote) {
+      console.error('PropertyNote model not found - database migration may not have been run');
+      return sendError(res, 503, 'Notes feature is temporarily unavailable', ErrorCodes.ERR_INTERNAL_SERVER);
     }
 
     const notes = await prisma.propertyNote.findMany({
@@ -3106,17 +3113,31 @@ propertyNotesRouter.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Get property notes error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+
+    // Provide more helpful error message if it's a Prisma error
+    if (error.code === 'P2021') {
+      return sendError(res, 503, 'Notes feature is not yet available. Please contact support.', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+
     return sendError(res, 500, 'Failed to fetch property notes', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // POST /properties/:id/notes - Create a new note
+// Any property manager can add notes (doesn't have to be the assigned manager)
 propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) => {
   const propertyId = req.params.id;
 
   try {
     const { content } = propertyNoteCreateSchema.parse(req.body);
 
+    // Verify the property exists (but don't require write access for notes)
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
@@ -3124,10 +3145,14 @@ propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) 
       },
     });
 
-    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
-    if (!access.allowed) {
-      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
-      return sendError(res, access.status, access.reason, errorCode);
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    // Check if PropertyNote model exists (migration might not have run)
+    if (!prisma.propertyNote) {
+      console.error('PropertyNote model not found - database migration may not have been run');
+      return sendError(res, 503, 'Notes feature is temporarily unavailable', ErrorCodes.ERR_INTERNAL_SERVER);
     }
 
     const note = await prisma.propertyNote.create({
@@ -3155,6 +3180,17 @@ propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) 
     }
 
     console.error('Create property note error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+    });
+
+    // Provide more helpful error message if it's a Prisma error
+    if (error.code === 'P2021') {
+      return sendError(res, 503, 'Notes feature is not yet available. Please contact support.', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+
     return sendError(res, 500, 'Failed to create property note', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
@@ -3166,6 +3202,7 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (re
   try {
     const { content } = propertyNoteUpdateSchema.parse(req.body);
 
+    // Verify property exists
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
@@ -3173,10 +3210,8 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (re
       },
     });
 
-    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
-    if (!access.allowed) {
-      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
-      return sendError(res, access.status, access.reason, errorCode);
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
     const existingNote = await prisma.propertyNote.findUnique({
@@ -3188,6 +3223,7 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (re
       return sendError(res, 404, 'Note not found', ErrorCodes.RES_NOT_FOUND);
     }
 
+    // Only the note author can edit it
     if (existingNote.authorId !== req.user.id) {
       return sendError(res, 403, 'You can only edit your own notes', ErrorCodes.ACC_ACCESS_DENIED);
     }
@@ -3214,6 +3250,17 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (re
     }
 
     console.error('Update property note error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+    });
+
+    // Provide more helpful error message if it's a Prisma error
+    if (error.code === 'P2021') {
+      return sendError(res, 503, 'Notes feature is not yet available. Please contact support.', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+
     return sendError(res, 500, 'Failed to update property note', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
@@ -3223,6 +3270,7 @@ propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (r
   const { id: propertyId, noteId } = req.params;
 
   try {
+    // Verify property exists
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
@@ -3230,10 +3278,8 @@ propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (r
       },
     });
 
-    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
-    if (!access.allowed) {
-      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
-      return sendError(res, access.status, access.reason, errorCode);
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
     const existingNote = await prisma.propertyNote.findUnique({
@@ -3244,6 +3290,7 @@ propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (r
       return sendError(res, 404, 'Note not found', ErrorCodes.RES_NOT_FOUND);
     }
 
+    // Only the note author can delete it
     if (existingNote.authorId !== req.user.id) {
       return sendError(res, 403, 'You can only delete your own notes', ErrorCodes.ACC_ACCESS_DENIED);
     }
@@ -3258,6 +3305,17 @@ propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (r
     res.json({ success: true });
   } catch (error) {
     console.error('Delete property note error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+    });
+
+    // Provide more helpful error message if it's a Prisma error
+    if (error.code === 'P2021') {
+      return sendError(res, 503, 'Notes feature is not yet available. Please contact support.', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+
     const userMessage = process.env.NODE_ENV === 'production'
       ? 'Failed to delete note. Please try again.'
       : `Failed to delete note: ${error.message}`;

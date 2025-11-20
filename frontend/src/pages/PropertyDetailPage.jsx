@@ -506,7 +506,10 @@ export default function PropertyDetailPage() {
       : 'text.primary';
 
   // Check if current user can edit this property
+  // Property managers can edit properties and add notes
+  // Note: For notes specifically, any property manager can add notes (not just the assigned manager)
   const canEdit = user?.role === 'PROPERTY_MANAGER' && property?.managerId === user?.id;
+  const canAddNotes = user?.role === 'PROPERTY_MANAGER'; // Any property manager can add notes
 
   const activities = ensureArray(activityQuery.data, ['activities', 'data.activities', 'items']);
 
@@ -1758,7 +1761,7 @@ export default function PropertyDetailPage() {
                   Property Notes
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
-                <PropertyNotesSection propertyId={id} canEdit={canEdit} />
+                <PropertyNotesSection propertyId={id} canEdit={canAddNotes} />
               </Paper>
             )}
 
