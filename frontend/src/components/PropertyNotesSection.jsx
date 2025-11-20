@@ -59,23 +59,25 @@ const PropertyNotesSection = ({ propertyId, canEdit = false }) => {
     isFetching,
   } = usePropertyNotes(propertyId);
 
-  // Bug Fix: Removed manual refetch() calls - mutations now auto-invalidate via invalidateKeys
-  // Mutations
+  // Mutations - with manual refetch to sync UI since useApiQuery doesn't use React Query
   const { mutateAsync: addNote, isPending: isAdding } = useAddPropertyNote(
     propertyId,
     () => {
       showNotification('Note added successfully', 'success');
+      refetch(); // Manual refetch needed because useApiQuery is not React Query-based
     }
   );
 
   const { mutateAsync: updateNote, isPending: isUpdating } =
     useUpdatePropertyNote(propertyId, () => {
       showNotification('Note updated successfully', 'success');
+      refetch(); // Manual refetch needed because useApiQuery is not React Query-based
     });
 
   const { mutateAsync: deleteNote, isPending: isDeleting } =
     useDeletePropertyNote(propertyId, () => {
       showNotification('Note deleted successfully', 'success');
+      refetch(); // Manual refetch needed because useApiQuery is not React Query-based
     });
 
   // Local state
