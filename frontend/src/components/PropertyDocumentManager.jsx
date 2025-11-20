@@ -453,7 +453,9 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
                     )}
                     <Typography variant="caption" color="text.secondary">
                       {formatFileSize(document.fileSize)} • Uploaded by{' '}
-                      {document.uploader?.firstName} {document.uploader?.lastName} •{' '}
+                      {document.uploader?.firstName && document.uploader?.lastName
+                        ? `${document.uploader.firstName} ${document.uploader.lastName}`
+                        : 'Unknown User'} •{' '}
                       {new Date(document.uploadedAt).toLocaleDateString()}
                     </Typography>
                   </Box>

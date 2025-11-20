@@ -34,6 +34,8 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 const uploadRateLimits = new Map();
 const UPLOAD_RATE_LIMIT = 20; // Max 20 uploads per window
 const UPLOAD_RATE_WINDOW = 60 * 1000; // 1 minute window
+let lastCleanupTime = Date.now();
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // Clean up every 5 minutes
 
 const checkUploadRateLimit = (userId) => {
   const now = Date.now();
@@ -48,14 +50,17 @@ const checkUploadRateLimit = (userId) => {
   userLimits.count++;
   uploadRateLimits.set(userId, userLimits);
 
-  // Clean up old entries periodically to prevent memory leak
-  if (uploadRateLimits.size > 10000) {
+  // Clean up expired entries periodically to prevent memory leak
+  // This runs every 5 minutes OR when map exceeds 1000 entries (much lower threshold)
+  const shouldCleanup = (now - lastCleanupTime > CLEANUP_INTERVAL) || (uploadRateLimits.size > 1000);
+  if (shouldCleanup) {
     const threshold = now - UPLOAD_RATE_WINDOW;
     for (const [key, value] of uploadRateLimits.entries()) {
       if (value.windowStart < threshold) {
         uploadRateLimits.delete(key);
       }
     }
+    lastCleanupTime = now;
   }
 
   return userLimits.count <= UPLOAD_RATE_LIMIT;
@@ -2046,7 +2051,7 @@ propertyImagesRouter.get('/', async (req, res) => {
 propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload, maybeHandleImageUpload, async (req, res) => {
   const propertyId = req.params.id;
 
-  const cleanupUploadedFile = () => {
+  const cleanupUploadedFile = async () => {
     if (!req.file || isUsingCloudStorage()) {
       return;
     }
@@ -2058,7 +2063,7 @@ propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload,
 
     try {
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+        await fs.promises.unlink(filePath);
       }
     } catch (cleanupError) {
       console.error('Failed to remove uploaded file after error:', cleanupError);
@@ -2075,7 +2080,7 @@ propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload,
 
     const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
     if (!access.allowed) {
-      cleanupUploadedFile();
+      await cleanupUploadedFile();
       const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
       return sendError(res, access.status, access.reason, errorCode);
     }
@@ -2148,7 +2153,7 @@ propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload,
 
     res.status(201).json({ success: true, image: normalizePropertyImages({ ...property, propertyImages: [createdImage] })[0] });
   } catch (error) {
-    cleanupUploadedFile();
+    await cleanupUploadedFile();
 
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
@@ -2876,10 +2881,10 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
 propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload, documentUpload.single('file'), async (req, res) => {
   const propertyId = req.params.id;
 
-  const cleanupUploadedFile = () => {
+  const cleanupUploadedFile = async () => {
     if (req.file?.path) {
       try {
-        fs.unlinkSync(req.file.path);
+        await fs.promises.unlink(req.file.path);
       } catch (cleanupError) {
         console.error('Failed to remove uploaded file after error:', cleanupError);
       }
@@ -2900,7 +2905,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUplo
 
     const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
     if (!access.allowed) {
-      cleanupUploadedFile();
+      await cleanupUploadedFile();
       const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
       return sendError(res, access.status, access.reason, errorCode);
     }
@@ -2909,7 +2914,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUplo
 
     const uploadedFileUrl = getUploadedFileUrl(req.file);
     if (!uploadedFileUrl) {
-      cleanupUploadedFile();
+      await cleanupUploadedFile();
       return sendError(
         res,
         500,
@@ -2955,7 +2960,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUplo
       document: documentWithActions,
     });
   } catch (error) {
-    cleanupUploadedFile();
+    await cleanupUploadedFile();
 
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
