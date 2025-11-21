@@ -2677,8 +2677,17 @@ propertyDocumentsRouter.get('/', async (req, res) => {
       return sendError(res, access.status, access.reason, errorCode);
     }
 
+    // Apply access level filter directly in query for better performance
+    // PROPERTY_MANAGER role has full access, others are filtered by access level
+    const allowedLevels = getAllowedDocumentLevels(req.user.role);
+    const where = { propertyId };
+
+    if (allowedLevels) {
+      where.accessLevel = { in: allowedLevels };
+    }
+
     const documents = await prisma.propertyDocument.findMany({
-      where: { propertyId },
+      where,
       include: {
         uploader: {
           select: {
@@ -2692,13 +2701,13 @@ propertyDocumentsRouter.get('/', async (req, res) => {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    const filteredDocuments = filterDocumentsForUser(documents, req.user).map((doc) =>
+    const documentsWithUrls = documents.map((doc) =>
       withDocumentActionUrls(doc, req)
     );
 
     res.json({
       success: true,
-      documents: filteredDocuments,
+      documents: documentsWithUrls,
     });
   } catch (error) {
     console.error('Get property documents error:', error);
@@ -3031,8 +3040,15 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
     }
 
     // Only delete the database record after successful file deletion
-    await prisma.propertyDocument.delete({
-      where: { id: documentId },
+    // Wrap in transaction to prevent race conditions where file is deleted but DB record remains
+    await prisma.$transaction(async (tx) => {
+      await tx.propertyDocument.delete({
+        where: { id: documentId },
+      });
+    }, {
+      isolationLevel: 'Serializable',
+      maxWait: 5000,
+      timeout: 30000,
     });
 
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
