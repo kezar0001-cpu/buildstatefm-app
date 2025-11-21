@@ -52,12 +52,13 @@ export function useAddPropertyDocument(propertyId, onSuccess) {
 /**
  * Hook to delete a property document
  * Bug Fix: Added invalidateKeys to automatically refresh data after mutation
+ * Note: The url parameter in mutateAsync should include the full path with documentId
  * @param {string} propertyId - Property ID
  * @param {function} onSuccess - Success callback
  */
 export function useDeletePropertyDocument(propertyId, onSuccess) {
   return useApiMutation({
-    url: `/properties/${propertyId}/documents`,
+    url: `/properties/${propertyId}/documents`, // Base URL, documentId appended in mutateAsync call
     method: 'delete',
     invalidateKeys: [
       ['propertyDocuments', propertyId],
