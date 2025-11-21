@@ -362,7 +362,8 @@ export const deleteImage = async (imageUrl) => {
     }
   } catch (error) {
     console.error('Error deleting image/document:', error);
-    // Don't throw - deletion failure shouldn't break the application
+    // Throw the error so caller can handle it appropriately
+    throw error;
   }
 };
 
