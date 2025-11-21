@@ -106,10 +106,12 @@ export function normalizeDocumentUrl(fileUrl) {
 export function buildDocumentPreviewUrl(document) {
   if (!document) return '';
 
+  // Prioritize backend API endpoint (previewUrl) to maintain authentication
+  // Direct Cloudinary URLs (cloudinarySecureUrl) bypass auth and cause 401 errors
   const previewCandidates = [
-    document.cloudinarySecureUrl,
-    document.rawPreviewUrl,
     document.previewUrl,
+    document.rawPreviewUrl,
+    document.cloudinarySecureUrl,
     document.fileUrl,
   ].filter(Boolean);
 
