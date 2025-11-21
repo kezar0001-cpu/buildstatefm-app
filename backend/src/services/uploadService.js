@@ -355,7 +355,7 @@ export const deleteImage = async (imageUrl) => {
       if (filename) {
         const filePath = path.join(UPLOAD_DIR, filename);
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+          await fs.promises.unlink(filePath);
           console.log(`Deleted local file: ${filename}`);
         }
       }
