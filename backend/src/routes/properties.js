@@ -2656,6 +2656,9 @@ const withDocumentActionUrls = (document, req) => {
   return {
     ...document,
     ...previewData,
+    // Override previewUrl to use backend API endpoint instead of direct Cloudinary URL
+    // This ensures authentication is maintained throughout the request chain
+    previewUrl: `${baseDocumentPath}/preview`,
     downloadUrl: `${baseDocumentPath}/download`,
   };
 };
