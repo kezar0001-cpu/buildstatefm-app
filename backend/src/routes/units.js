@@ -1103,10 +1103,10 @@ unitImagesRouter.get('/', async (req, res) => {
 unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUpload, async (req, res) => {
   const unitId = req.params.id;
 
-  const cleanupUploadedFile = () => {
+  const cleanupUploadedFile = async () => {
     if (req.file?.path) {
       try {
-        fs.unlinkSync(req.file.path);
+        await fs.promises.unlink(req.file.path);
       } catch (cleanupError) {
         console.error('Failed to remove uploaded file after error:', cleanupError);
       }
@@ -1120,7 +1120,7 @@ unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUplo
     });
 
     if (!unit) {
-      cleanupUploadedFile();
+      await cleanupUploadedFile();
       return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
     }
 
@@ -1179,7 +1179,7 @@ unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUplo
 
     res.status(201).json({ success: true, image: normalizeUnitImages({ ...unit, unitImages: [createdImage] })[0] });
   } catch (error) {
-    cleanupUploadedFile();
+    await cleanupUploadedFile();
 
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());

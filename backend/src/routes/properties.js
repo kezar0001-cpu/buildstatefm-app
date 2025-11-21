@@ -2263,12 +2263,40 @@ propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), async 
       return sendError(res, access.status, access.reason, errorCode);
     }
 
-    const deleted = await prisma.$transaction(async (tx) => {
-      const existing = await tx.propertyImage.findUnique({ where: { id: imageId } });
-      if (!existing || existing.propertyId !== propertyId) {
-        return null;
-      }
+    // Fetch the image first to check if it exists and get the imageUrl
+    const existing = await prisma.propertyImage.findUnique({ where: { id: imageId } });
+    if (!existing || existing.propertyId !== propertyId) {
+      return sendError(res, 404, 'Property image not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
 
+    // Clean up physical file from disk or Cloudinary BEFORE deleting DB record
+    // This prevents orphaned files if the file deletion fails
+    if (existing.imageUrl) {
+      try {
+        // Use deleteImage for both Cloudinary and local files
+        if (existing.imageUrl.startsWith('http') && existing.imageUrl.includes('cloudinary.com')) {
+          await deleteImage(existing.imageUrl);
+        } else if (isLocalUploadUrl(existing.imageUrl)) {
+          const filename = extractLocalUploadFilename(existing.imageUrl);
+          if (filename) {
+            const filePath = path.join(UPLOAD_DIR, filename);
+            if (fs.existsSync(filePath)) {
+              await fs.promises.unlink(filePath);
+              console.log('✅ Deleted image file:', filePath);
+            }
+          }
+        }
+      } catch (fileDeleteError) {
+        console.error('Failed to delete image file, keeping database record:', fileDeleteError);
+        const userMessage = process.env.NODE_ENV === 'production'
+          ? 'Failed to delete image file. Please try again later.'
+          : `Failed to delete image file: ${fileDeleteError.message}`;
+        return sendError(res, 500, userMessage, ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+    }
+
+    // Only delete the database record after successful file deletion
+    await prisma.$transaction(async (tx) => {
       await tx.propertyImage.delete({ where: { id: imageId } });
 
       if (existing.isPrimary) {
@@ -2289,36 +2317,11 @@ propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), async 
       }
 
       await syncPropertyCoverImage(tx, propertyId);
-
-      return existing;
     }, {
       isolationLevel: 'Serializable',
       maxWait: 5000,
       timeout: 30000, // Bug Fix: Increase timeout for image operations
     });
-
-    if (!deleted) {
-      return sendError(res, 404, 'Property image not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
-    }
-
-    // Bug Fix #2: Clean up physical file from disk when deleting image from database
-    // This prevents orphaned files from accumulating and wasting disk space
-    if (deleted.imageUrl && isLocalUploadUrl(deleted.imageUrl)) {
-      const filename = extractLocalUploadFilename(deleted.imageUrl);
-      if (filename) {
-        const filePath = path.join(UPLOAD_DIR, filename);
-
-        // Asynchronously delete file without blocking response
-        // Errors are logged but don't fail the response since DB delete succeeded
-        fs.unlink(filePath, (err) => {
-          if (err && err.code !== 'ENOENT') {
-            console.error('Failed to delete image file:', filePath, err);
-          } else if (!err) {
-            console.log('✅ Deleted image file:', filePath);
-          }
-        });
-      }
-    }
 
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
     await invalidatePropertyCaches(cacheUserIds);
