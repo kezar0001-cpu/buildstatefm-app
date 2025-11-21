@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import {
   createUploadMiddleware,
+  createDocumentUploadMiddleware,
   getUploadedFileUrl,
   getUploadedFileUrls,
   isUsingCloudStorage,
@@ -59,6 +60,7 @@ const rateLimitUpload = (req, res, next) => {
 
 // Create upload middleware (uses Cloudinary if configured, local storage otherwise)
 const upload = createUploadMiddleware();
+const documentUpload = createDocumentUploadMiddleware();
 
 /**
  * POST /uploads/single
@@ -101,6 +103,29 @@ router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50)
   } catch (error) {
     console.error('Multiple upload error:', error);
     return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
+  }
+});
+
+/**
+ * POST /uploads/documents
+ * FormData field name must be: "files"
+ * Returns: { urls: ["/uploads/<filename1>", "/uploads/<filename2>"] }
+ * Supports: PDF, Word, Excel, Text, Images (up to 50MB each)
+ * Requires authentication
+ */
+router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('files', 20), (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    const urls = getUploadedFileUrls(req.files);
+    const storageType = isUsingCloudStorage() ? 'Cloudinary' : 'local';
+    console.log(`✅ Uploaded ${req.files.length} document(s) to ${storageType} by user ${req.user.id}`);
+    res.status(201).json({ success: true, urls });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    return sendError(res, 500, 'Document upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
   }
 });
 

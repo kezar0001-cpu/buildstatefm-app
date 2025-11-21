@@ -2523,9 +2523,14 @@ router.get('/:id/activity', async (req, res) => {
 
 // Zod schemas for property documents
 const propertyDocumentCreateSchema = z.object({
+  fileName: z.string().min(1, 'File name is required'),
+  fileUrl: z.string().url('Invalid file URL'),
+  fileSize: z.number().int().positive('File size must be positive'),
+  mimeType: z.string().min(1, 'MIME type is required'),
   category: z.enum(['LEASE_AGREEMENT', 'INSURANCE', 'PERMIT', 'INSPECTION_REPORT', 'MAINTENANCE_RECORD', 'FINANCIAL', 'LEGAL', 'PHOTOS', 'OTHER']),
   description: optionalString(),
   accessLevel: z.enum(['PUBLIC', 'TENANT', 'OWNER', 'PROPERTY_MANAGER']),
+  unitId: z.string().optional().nullable(), // Optional unit assignment
 });
 
 // Multer middleware for document uploads - uses Cloudinary when configured
@@ -2623,21 +2628,12 @@ const buildCloudinaryPreviewUrl = (document, secureUrl) => {
 };
 
 const buildDocumentPreviewData = (document, req) => {
-  if (!document) return { previewUrl: null, rawPreviewUrl: null, cloudinarySecureUrl: null };
+  if (!document) return { previewUrl: null };
 
   const resolvedFileUrl = resolveDocumentUrl(document.fileUrl, req);
-  const secureUrl = document.cloudinarySecureUrl
-    || (resolvedFileUrl && resolvedFileUrl.includes('cloudinary.com') ? resolvedFileUrl : null);
-  const derivedPublicId = document.cloudinaryPublicId || extractCloudinaryPublicIdFromUrl(secureUrl);
-  const rawPreviewUrl = buildCloudinaryPreviewUrl({ ...document, cloudinaryPublicId: derivedPublicId }, secureUrl);
 
   return {
-    previewUrl: rawPreviewUrl || secureUrl || resolvedFileUrl,
-    rawPreviewUrl: rawPreviewUrl || null,
-    cloudinarySecureUrl: secureUrl || null,
-    cloudinaryPublicId: derivedPublicId || null,
-    cloudinaryResourceType: document.cloudinaryResourceType || null,
-    cloudinaryFormat: document.cloudinaryFormat || null,
+    previewUrl: resolvedFileUrl,
   };
 };
 
@@ -2666,6 +2662,7 @@ const withDocumentActionUrls = (document, req) => {
 // GET /properties/:id/documents - List all documents for a property
 propertyDocumentsRouter.get('/', async (req, res) => {
   const propertyId = req.params.id;
+  const { unitId } = req.query; // Optional query parameter for filtering by unit
 
   try {
     const property = await prisma.property.findUnique({
@@ -2690,6 +2687,12 @@ propertyDocumentsRouter.get('/', async (req, res) => {
       where.accessLevel = { in: allowedLevels };
     }
 
+    // Filter by unit if specified
+    if (unitId !== undefined) {
+      // null or specific unitId
+      where.unitId = unitId === 'null' || unitId === '' ? null : unitId;
+    }
+
     const documents = await prisma.propertyDocument.findMany({
       where,
       include: {
@@ -2699,6 +2702,12 @@ propertyDocumentsRouter.get('/', async (req, res) => {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        unit: {
+          select: {
+            id: true,
+            unitNumber: true,
           },
         },
       },
@@ -2931,108 +2940,94 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
   }
 });
 
-// POST /properties/:id/documents - Upload and create a new document
-propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload, documentUpload.single('file'), async (req, res) => {
+// POST /properties/:id/documents - Create document record(s) from already-uploaded file(s)
+// New pattern: Files are uploaded separately via /upload/documents, then metadata is saved here
+propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) => {
   const propertyId = req.params.id;
 
-  const cleanupUploadedFile = async () => {
-    if (req.file?.path) {
-      try {
-        await fs.promises.unlink(req.file.path);
-      } catch (cleanupError) {
-        console.error('Failed to remove uploaded file after error:', cleanupError);
-      }
-    }
-  };
-
   try {
-    if (!req.file) {
-      return sendError(res, 400, 'No file uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
-    }
+    // Support both single document and array of documents
+    const documents = Array.isArray(req.body) ? req.body : [req.body];
 
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
         owners: { select: { ownerId: true } },
+        units: { select: { id: true, unitNumber: true } }, // Include units for validation
       },
     });
 
     const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
     if (!access.allowed) {
-      await cleanupUploadedFile();
       const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
       return sendError(res, access.status, access.reason, errorCode);
     }
 
-    const parsed = propertyDocumentCreateSchema.parse(req.body);
+    // Validate all documents
+    const parsedDocuments = documents.map(doc => propertyDocumentCreateSchema.parse(doc));
 
-    const uploadedFileUrl = getUploadedFileUrl(req.file);
-    if (!uploadedFileUrl) {
-      await cleanupUploadedFile();
-      return sendError(
-        res,
-        500,
-        'Failed to determine uploaded file location',
-        ErrorCodes.FILE_UPLOAD_FAILED,
-      );
+    // Validate unit IDs if provided
+    const unitIds = property.units.map(u => u.id);
+    for (const doc of parsedDocuments) {
+      if (doc.unitId && !unitIds.includes(doc.unitId)) {
+        return sendError(res, 400, `Invalid unitId: ${doc.unitId}. Unit does not belong to this property.`, ErrorCodes.VAL_VALIDATION_ERROR);
+      }
     }
 
-    const cloudinaryFields = extractCloudinaryFields(req.file);
-
-    const document = await prisma.propertyDocument.create({
-      data: {
-        propertyId,
-        fileName: req.file.originalname,
-        fileUrl: uploadedFileUrl,
-        ...cloudinaryFields,
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
-        category: parsed.category,
-        description: parsed.description || null,
-        accessLevel: parsed.accessLevel,
-        uploaderId: req.user.id,
-      },
-      include: {
-        uploader: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    // Create all documents in a transaction
+    const createdDocuments = await prisma.$transaction(
+      parsedDocuments.map(parsed =>
+        prisma.propertyDocument.create({
+          data: {
+            propertyId,
+            unitId: parsed.unitId || null,
+            fileName: parsed.fileName,
+            fileUrl: parsed.fileUrl,
+            fileSize: parsed.fileSize,
+            mimeType: parsed.mimeType,
+            category: parsed.category,
+            description: parsed.description || null,
+            accessLevel: parsed.accessLevel,
+            uploaderId: req.user.id,
           },
-        },
-      },
-    });
+          include: {
+            uploader: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            unit: {
+              select: {
+                id: true,
+                unitNumber: true,
+              },
+            },
+          },
+        })
+      )
+    );
 
-    const documentWithActions = withDocumentActionUrls(document, req);
+    const documentsWithActions = createdDocuments.map(doc => withDocumentActionUrls(doc, req));
 
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
     await invalidatePropertyCaches(cacheUserIds);
 
     res.status(201).json({
       success: true,
-      document: documentWithActions,
+      documents: documentsWithActions,
     });
   } catch (error) {
-    await cleanupUploadedFile();
-
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
     }
 
-    if (error instanceof multer.MulterError) {
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        return sendError(res, 400, 'File too large. Maximum size is 50MB.', ErrorCodes.FILE_TOO_LARGE);
-      }
-      if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-        return sendError(res, 400, 'Invalid file type. Allowed types: PDF, Word, Excel, images, text files.', ErrorCodes.FILE_INVALID_TYPE);
-      }
-    }
-
-    console.error('Upload property document error:', error);
+    console.error('Create property document error:', error);
     const userMessage = process.env.NODE_ENV === 'production'
-      ? 'Failed to upload document. Please try again.'
-      : `Failed to upload document: ${error.message}`;
+      ? 'Failed to create document records. Please try again.'
+      : `Failed to create document records: ${error.message}`;
     return sendError(res, 500, userMessage, ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });

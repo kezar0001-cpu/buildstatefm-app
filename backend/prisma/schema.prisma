@@ -194,27 +194,26 @@ model PropertyImage {
 }
 
 model PropertyDocument {
-  id                    String                 @id @default(cuid())
-  propertyId            String
-  fileName              String
-  fileUrl               String
-  cloudinarySecureUrl   String?
-  cloudinaryPublicId    String?
-  cloudinaryResourceType String?
-  cloudinaryFormat      String?
-  fileSize              Int
-  mimeType              String
-  category              PropertyDocumentCategory
-  description           String?
-  accessLevel           PropertyDocumentAccessLevel
-  uploaderId            String
-  uploadedAt            DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  id          String                      @id @default(cuid())
+  propertyId  String
+  unitId      String?                     // Optional: if null, belongs to property
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  category    PropertyDocumentCategory
+  description String?
+  accessLevel PropertyDocumentAccessLevel
+  uploaderId  String
+  uploadedAt  DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit     Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
   uploader User     @relation("PropertyDocumentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+  @@index([unitId])
   @@index([uploaderId])
   @@index([category])
   @@index([accessLevel])
@@ -270,7 +269,7 @@ model PropertyOwner {
 }
 
 model Unit {
-  id              String           @id @default(cuid())
+  id              String             @id @default(cuid())
   unitNumber      String
   propertyId      String
   floor           Int?
@@ -278,20 +277,21 @@ model Unit {
   bathrooms       Float?
   area            Float?
   rentAmount      Float?
-  status          UnitStatus       @default(AVAILABLE)
+  status          UnitStatus         @default(AVAILABLE)
   description     String?
   imageUrl        String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   inspections     Inspection[]
   invites         Invite[]
   jobs            Job[]
   reportRequests  ReportRequest[]
   serviceRequests ServiceRequest[]
-  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property        Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   tenants         UnitTenant[]
   owners          UnitOwner[]
   unitImages      UnitImage[]
+  documents       PropertyDocument[]
 
   @@unique([propertyId, unitNumber])
   @@index([propertyId])
