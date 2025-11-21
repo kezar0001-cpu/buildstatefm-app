@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
+import axios from 'axios';
 import prisma from '../config/prismaClient.js';
 import { redisGet, redisSet } from '../config/redisClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
@@ -2812,8 +2813,27 @@ propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
       return sendError(res, 500, 'Document URL unavailable', ErrorCodes.FILE_UPLOAD_FAILED);
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    return res.redirect(previewData.previewUrl);
+    // Stream content from Cloudinary instead of redirecting to avoid token loss
+    try {
+      const response = await axios.get(previewData.previewUrl, {
+        responseType: 'stream',
+        timeout: 30000, // 30 second timeout
+      });
+
+      // Set appropriate headers
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.setHeader('Content-Type', document.mimeType || response.headers['content-type'] || 'application/pdf');
+
+      // Set Content-Disposition for inline viewing
+      const fileName = document.fileName || 'document';
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+
+      // Stream the response
+      response.data.pipe(res);
+    } catch (streamError) {
+      console.error('Failed to stream document from Cloudinary:', streamError);
+      return sendError(res, 500, 'Failed to fetch document', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
   } catch (error) {
     console.error('Preview property document error:', error);
     return sendError(res, 500, 'Failed to preview document', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -2879,10 +2899,29 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
       return res.download(filePath, downloadName);
     }
 
-    // Cloudinary or external URLs - redirect with download flag
+    // Cloudinary or external URLs - stream content instead of redirecting to avoid token loss
     const downloadUrl = buildCloudinaryDownloadUrl(resolvedUrl, document.fileName);
-    res.setHeader('Cache-Control', 'private, max-age=300');
-    return res.redirect(downloadUrl);
+
+    try {
+      const response = await axios.get(downloadUrl, {
+        responseType: 'stream',
+        timeout: 30000, // 30 second timeout
+      });
+
+      // Set appropriate headers
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.setHeader('Content-Type', document.mimeType || response.headers['content-type'] || 'application/octet-stream');
+
+      // Set Content-Disposition for download
+      const downloadName = document.fileName || 'document';
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`);
+
+      // Stream the response
+      response.data.pipe(res);
+    } catch (streamError) {
+      console.error('Failed to stream document from Cloudinary:', streamError);
+      return sendError(res, 500, 'Failed to fetch document', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
   } catch (error) {
     console.error('Download property document error:', error);
     return sendError(res, 500, 'Failed to download document', ErrorCodes.ERR_INTERNAL_SERVER);
