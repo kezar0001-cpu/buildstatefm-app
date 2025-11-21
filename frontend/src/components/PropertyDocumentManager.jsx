@@ -42,17 +42,20 @@ import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
 import { downloadFile, buildDocumentDownloadUrl } from '../utils/fileUtils.js';
 
-// ===== FIXED: Token retrieval (works with Zustand OR localStorage) =====
-const useAuthToken = () => {
-  try {
-    const store = require('@/stores/authStore');
-    return store.useAuthStore.getState().token || localStorage.getItem('token') || '';
-  } catch {
-    return localStorage.getItem('token') || '';
-  }
+// ===== Helpers =====
+const buildDirectPreviewUrl = (document) => {
+  if (!document) return null;
+
+  // Prefer cloudinarySecureUrl for Cloudinary-hosted files
+  const url = document.cloudinarySecureUrl || document.fileUrl;
+  if (!url) return null;
+
+  // For Cloudinary URLs, use them directly
+  // Cloudinary automatically provides viewers for PDFs and images
+  return url;
 };
 
-// ===== Helpers (these were missing in my last version) =====
+// ===== Other Helpers =====
 const getDocumentIcon = (mimeType) => {
   const type = mimeType || '';
   if (type.includes('pdf')) return <PdfIcon />;
@@ -92,14 +95,6 @@ const getAccessLevelLabel = (value) => {
 const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   const { showSuccess, showError } = useNotification();
   const { data: documentsData, isLoading, isError, error, refetch } = usePropertyDocuments(propertyId);
-
-  const token = useAuthToken();
-
-  // Build preview URL with token for new tabs
-  const buildPreviewUrlWithToken = (docId) => {
-    const base = `/api/documents/${docId}/preview`;
-    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
-  };
 
   const addDocumentMutation = useAddPropertyDocument(propertyId, () => {
     showSuccess('Document added successfully');
@@ -224,7 +219,12 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   };
 
   const handlePreview = (document) => {
-    const previewUrl = buildPreviewUrlWithToken(document.id);
+    const previewUrl = buildDirectPreviewUrl(document);
+
+    if (!previewUrl) {
+      showError('Preview URL not available for this document');
+      return;
+    }
 
     setPreviewError('');
     setPreviewDocument({ ...document, resolvedPreviewUrl: previewUrl });
@@ -304,16 +304,25 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
           </Box>
         </DialogTitle>
         <DialogContent dividers>
+          {previewError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {previewError}
+            </Alert>
+          )}
           {previewDocument && (
             <iframe
-              src={buildPreviewUrlWithToken(previewDocument.id)}
+              src={previewDocument.resolvedPreviewUrl || previewDocument.cloudinarySecureUrl || previewDocument.fileUrl}
               title={previewDocument.fileName}
               style={{ width: '100%', height: '80vh', border: 'none' }}
+              onError={() => setPreviewError('Preview not available in modal. Opened in new tab instead.')}
             />
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => window.open(buildPreviewUrlWithToken(previewDocument?.id), '_blank')}>
+          <Button onClick={() => {
+            const url = buildDirectPreviewUrl(previewDocument);
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          }}>
             Open in New Tab
           </Button>
           <Button startIcon={<DownloadIcon />} onClick={() => handleDownload(previewDocument)}>
