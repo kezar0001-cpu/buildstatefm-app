@@ -41,6 +41,7 @@ import {
 import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
 import { downloadFile, buildDocumentDownloadUrl } from '../utils/fileUtils.js';
+import { uploadPropertyDocument } from '../utils/uploadPropertyDocuments.js';
 
 // ===== Helpers =====
 const buildDirectPreviewUrl = (document) => {
@@ -172,17 +173,21 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     try {
       setUploadError('');
 
-      // Build FormData
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', selectedFile);
-      uploadFormData.append('category', formData.category);
-      uploadFormData.append('accessLevel', formData.accessLevel);
-      if (formData.description?.trim()) {
-        uploadFormData.append('description', formData.description.trim());
+      const uploaded = await uploadPropertyDocument(selectedFile);
+      if (!uploaded?.url) {
+        throw new Error('Document upload failed. Please try again.');
       }
 
       await addDocumentMutation.mutateAsync({
-        data: uploadFormData,
+        data: {
+          fileName: uploaded.name || selectedFile.name,
+          fileUrl: uploaded.url,
+          fileSize: uploaded.size ?? selectedFile.size,
+          mimeType: uploaded.mimeType || selectedFile.type || 'application/octet-stream',
+          category: formData.category,
+          description: formData.description?.trim() || null,
+          accessLevel: formData.accessLevel,
+        },
       });
 
       // Reset form and clear file input
@@ -200,7 +205,8 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         fileInput.value = '';
       }
     } catch (error) {
-      setUploadError(error.response?.data?.message || 'Failed to upload document');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to upload document';
+      setUploadError(errorMessage);
     }
   };
 
