@@ -126,8 +126,102 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
 
   const documents = documentsData?.documents || [];
 
-  // ... all your existing handlers (upload, delete, etc.) remain unchanged ...
-  // I'm keeping them short here for brevity – they are exactly as you had them
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Client-side validation before upload
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'text/plain',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ];
+
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError('File too large. Maximum size is 50MB.');
+      event.target.value = '';
+      return;
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type.toLowerCase())) {
+      setUploadError('Invalid file type. Allowed: PDF, Word, Excel, CSV, TXT, images.');
+      event.target.value = '';
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadError('');
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setUploadError('Please select a file');
+      return;
+    }
+
+    if (!formData.category) {
+      setUploadError('Please select a category');
+      return;
+    }
+
+    try {
+      setUploadError('');
+
+      // Build FormData
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', selectedFile);
+      uploadFormData.append('category', formData.category);
+      uploadFormData.append('accessLevel', formData.accessLevel);
+      if (formData.description?.trim()) {
+        uploadFormData.append('description', formData.description.trim());
+      }
+
+      await addDocumentMutation.mutateAsync({
+        data: uploadFormData,
+      });
+
+      // Reset form and clear file input
+      setUploadDialogOpen(false);
+      setSelectedFile(null);
+      setFormData({
+        category: 'OTHER',
+        description: '',
+        accessLevel: 'PROPERTY_MANAGER',
+      });
+
+      // Clear file input to allow re-uploading the same file
+      const fileInput = document.querySelector('input[type="file"][accept*=".pdf"]');
+      if (fileInput) {
+        fileInput.value = '';
+      }
+    } catch (error) {
+      setUploadError(error.response?.data?.message || 'Failed to upload document');
+    }
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!selectedDocument) return;
+
+    try {
+      await deleteDocumentMutation.mutateAsync({
+        url: `/properties/${propertyId}/documents/${selectedDocument.id}`,
+      });
+      setDeleteDialogOpen(false);
+      setSelectedDocument(null);
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to delete document');
+    }
+  };
 
   const handlePreview = (document) => {
     const previewUrl = buildPreviewUrlWithToken(document.id);
@@ -229,7 +323,120 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Your upload & delete dialogs stay exactly the same – omitted here for brevity */}
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Upload Document</Typography>
+            <IconButton onClick={() => setUploadDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {uploadError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {uploadError}
+            </Alert>
+          )}
+
+          <Box sx={{ mt: 2 }}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<CloudUploadIcon />}
+              fullWidth
+              sx={{ mb: 2, py: 1.5 }}
+            >
+              {selectedFile ? selectedFile.name : 'Choose File'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"
+                onChange={handleFileChange}
+              />
+            </Button>
+
+            {selectedFile && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+              </Alert>
+            )}
+
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Category *</InputLabel>
+              <Select
+                value={formData.category}
+                label="Category *"
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                {DOCUMENT_CATEGORIES.map((cat) => (
+                  <MenuItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Access Level *</InputLabel>
+              <Select
+                value={formData.accessLevel}
+                label="Access Level *"
+                onChange={(e) => setFormData({ ...formData, accessLevel: e.target.value })}
+              >
+                {DOCUMENT_ACCESS_LEVELS.map((level) => (
+                  <MenuItem key={level.value} value={level.value}>
+                    {level.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="Description (optional)"
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              helperText="Add a description to help identify this document"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={!selectedFile || addDocumentMutation.isPending}
+            startIcon={addDocumentMutation.isPending ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+          >
+            {addDocumentMutation.isPending ? 'Uploading...' : 'Upload'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Document</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete "{selectedDocument?.fileName}"? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleDeleteDocument}
+            color="error"
+            variant="contained"
+            disabled={deleteDocumentMutation.isPending}
+          >
+            {deleteDocumentMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
