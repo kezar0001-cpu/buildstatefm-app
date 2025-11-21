@@ -3013,14 +3013,24 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
+    // Clean up physical file from disk or Cloudinary BEFORE deleting DB record
+    // This prevents orphaned files if the file deletion fails
+    if (document.fileUrl) {
+      try {
+        await deleteImage(document.fileUrl);
+      } catch (fileDeleteError) {
+        console.error('Failed to delete file, keeping database record:', fileDeleteError);
+        const userMessage = process.env.NODE_ENV === 'production'
+          ? 'Failed to delete document file. Please try again later.'
+          : `Failed to delete document file: ${fileDeleteError.message}`;
+        return sendError(res, 500, userMessage, ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+    }
+
+    // Only delete the database record after successful file deletion
     await prisma.propertyDocument.delete({
       where: { id: documentId },
     });
-
-    // Clean up physical file from disk or Cloudinary
-    if (document.fileUrl) {
-      await deleteImage(document.fileUrl);
-    }
 
     const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
     await invalidatePropertyCaches(cacheUserIds);
