@@ -193,6 +193,7 @@ export function ImageUploadZone({
         multiple={multiple}
         onChange={handleInputChange}
         disabled={disabled}
+        capture="environment"
         style={{ display: 'none' }}
         aria-hidden="true"
       />
@@ -239,7 +240,10 @@ export function ImageUploadZone({
             <Button
               variant="contained"
               disabled={disabled}
-              onClick={handleClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick();
+              }}
               startIcon={<CloudUploadIcon />}
             >
               Browse Files
