@@ -64,6 +64,13 @@ export function useImageUpload(options = {}) {
       return;
     }
 
+    // If we already have active uploads, don't overwrite local state with incoming props
+    // This prevents losing pending uploads when parents update the images prop mid-upload
+    const hasActiveLocalUploads = images.some((img) => img.status === 'pending' || img.status === 'uploading');
+    if (hasActiveLocalUploads) {
+      return;
+    }
+
     // Create a unique signature for the current initialImages
     const signature = initialImages.map(img => img.id || img.url || img.imageUrl).join(',');
 
@@ -91,7 +98,7 @@ export function useImageUpload(options = {}) {
     }));
 
     setImages(formattedImages);
-  }, [initialImages]);
+  }, [initialImages, images]);
 
   /**
    * Generate unique ID for image
