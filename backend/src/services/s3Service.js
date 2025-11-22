@@ -82,6 +82,18 @@ export function getContentType(filename, mimetype) {
 }
 
 /**
+ * Get S3 URL for a key
+ * @param {string} key - S3 key
+ * @returns {string} Public URL
+ */
+function getS3Url(key) {
+  if (cloudFrontDomain) {
+    return `https://${cloudFrontDomain}/${key}`;
+  }
+  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+}
+
+/**
  * Upload a file to S3
  * @param {string} folder - S3 folder/prefix (e.g., 'properties', 'documents', 'blog')
  * @param {Buffer|Stream} fileContent - File content
@@ -91,39 +103,25 @@ export function getContentType(filename, mimetype) {
  * @returns {Promise<{url: string, key: string}>}
  */
 export async function uploadToS3(folder, fileContent, originalFilename, mimetype, options = {}) {
-  if (!isS3Configured) {
-    throw new Error('S3 not configured');
-  }
-
-  const key = generateS3Key(folder, originalFilename, true);
-  const contentType = getContentType(originalFilename, mimetype);
-
-  const uploadParams = {
-    Bucket: bucketName,
-    Key: key,
-    Body: fileContent,
-    ContentType: contentType,
-    ...(options.contentDisposition && { ContentDisposition: options.contentDisposition }),
-    ...(options.metadata && { Metadata: options.metadata }),
-    // Make files publicly accessible by default
-    ACL: 'public-read',
-  };
-
   try {
-    const command = new PutObjectCommand(uploadParams);
+    const fileExtension = path.extname(originalFilename);
+    const baseName = path.basename(originalFilename, fileExtension).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const uniqueId = randomUUID().slice(0, 8);
+    const key = `${folder}/${baseName}-${uniqueId}${fileExtension}`;
+
+    const params = {
+      Bucket: bucketName,
+      Key: key,
+      Body: fileContent,
+      ContentType: mimetype || 'application/octet-stream',
+      ...(options.contentDisposition && { ContentDisposition: options.contentDisposition }),
+      ...(options.metadata && { Metadata: options.metadata })
+    };
+
+    const command = new PutObjectCommand(params);
     await s3Client.send(command);
 
-    // Generate the public URL
-    let url;
-    if (cloudFrontDomain) {
-      // Use CloudFront if configured
-      url = `https://${cloudFrontDomain}/${key}`;
-    } else {
-      // Use direct S3 URL
-      url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    }
-
-    console.log(`✅ Uploaded to S3: ${key} -> ${url}`);
+    const url = getS3Url(key);
     return { url, key };
   } catch (error) {
     console.error('Error uploading to S3:', error);
