@@ -1,6 +1,7 @@
 import axios from 'axios';
 import logger from '../utils/logger.js';
-import { cloudinary, isUsingCloudStorage } from './uploadService.js';
+import { isUsingCloudStorage } from './uploadService.js';
+import { uploadFileToS3, isUsingS3 } from './s3Service.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -150,19 +151,12 @@ class BlogImageService {
       // Upload using existing upload service
       let uploadedUrl;
       if (isUsingCloudStorage()) {
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(tempFilePath, {
-          folder: 'agentfm/blog',
-          public_id: `blog-${imageId}-${uuidv4()}`,
-          overwrite: true,
-          transformation: [
-            { width: 1200, height: 630, crop: 'fill', quality: 'auto', fetch_format: 'auto' }
-          ]
-        });
-        uploadedUrl = result.secure_url;
+        // Upload to S3
+        const result = await uploadFileToS3('blog', tempFilePath, tempFileName, 'image/jpeg');
+        uploadedUrl = result.url;
       } else {
         // Use local storage fallback
-        const uploadsDir = path.join(__dirname, '../../uploads/blog');
+        const uploadsDir = path.join(process.cwd(), 'uploads/blog');
         await fs.mkdir(uploadsDir, { recursive: true });
         const localPath = path.join(uploadsDir, tempFileName);
         await fs.copyFile(tempFilePath, localPath);

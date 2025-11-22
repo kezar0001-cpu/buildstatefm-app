@@ -146,48 +146,56 @@ export function buildDocumentDownloadUrl(document) {
 }
 
 /**
- * Transform a Cloudinary document URL to add download flags
- * This ensures proper Content-Disposition headers for downloads
+ * Transform a cloud storage URL to add download flags if needed
+ * For S3: Uses Content-Disposition via query params or relies on backend
+ * For legacy Cloudinary: Adds fl_attachment flag (backwards compatibility)
  *
- * @param {string} cloudinaryUrl - The Cloudinary URL
+ * @param {string} fileUrl - The cloud storage URL
  * @param {string} fileName - The filename to use for download
  * @returns {string} The transformed URL with download flags
  */
-export function addCloudinaryDownloadFlags(cloudinaryUrl, fileName) {
-  if (!cloudinaryUrl || !cloudinaryUrl.includes('cloudinary.com')) {
-    return cloudinaryUrl;
+export function addCloudinaryDownloadFlags(fileUrl, fileName) {
+  if (!fileUrl) {
+    return fileUrl;
   }
 
-  try {
-    // For Cloudinary raw files, add fl_attachment flag to force download with correct filename
-    // URL format: https://res.cloudinary.com/{cloud}/raw/upload/v{version}/{path}
-    // Transform to: https://res.cloudinary.com/{cloud}/raw/upload/fl_attachment:{filename}/v{version}/{path}
+  // S3 URLs - rely on backend to set Content-Disposition headers
+  // We don't need to transform S3 URLs as the backend handles this
+  if (fileUrl.includes('.amazonaws.com') || fileUrl.includes('cloudfront.net')) {
+    return fileUrl;
+  }
 
-    // Sanitize filename for URL (remove special characters)
-    const sanitizedFileName = fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
+  // Legacy Cloudinary support (for backwards compatibility)
+  if (fileUrl.includes('cloudinary.com')) {
+    try {
+      // Sanitize filename for URL (remove special characters)
+      const sanitizedFileName = fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
 
-    // Check if URL already has flags
-    if (cloudinaryUrl.includes('/upload/fl_')) {
-      return cloudinaryUrl;
+      // Check if URL already has flags
+      if (fileUrl.includes('/upload/fl_')) {
+        return fileUrl;
+      }
+
+      // Insert fl_attachment flag after /upload/
+      const transformedUrl = fileUrl.replace(
+        /\/upload\//,
+        `/upload/fl_attachment:${encodeURIComponent(sanitizedFileName)}/`
+      );
+
+      console.log('[FileUtils] Transformed Cloudinary URL for download:', {
+        original: fileUrl,
+        transformed: transformedUrl,
+        fileName: sanitizedFileName,
+      });
+
+      return transformedUrl;
+    } catch (error) {
+      console.error('[FileUtils] Error transforming Cloudinary URL:', error);
+      return fileUrl;
     }
-
-    // Insert fl_attachment flag after /upload/
-    const transformedUrl = cloudinaryUrl.replace(
-      /\/upload\//,
-      `/upload/fl_attachment:${encodeURIComponent(sanitizedFileName)}/`
-    );
-
-    console.log('[FileUtils] Transformed Cloudinary URL for download:', {
-      original: cloudinaryUrl,
-      transformed: transformedUrl,
-      fileName: sanitizedFileName,
-    });
-
-    return transformedUrl;
-  } catch (error) {
-    console.error('[FileUtils] Error transforming Cloudinary URL:', error);
-    return cloudinaryUrl;
   }
+
+  return fileUrl;
 }
 
 /**
