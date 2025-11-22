@@ -82,6 +82,18 @@ export function getContentType(filename, mimetype) {
 }
 
 /**
+ * Get S3 URL for a key
+ * @param {string} key - S3 key
+ * @returns {string} Public URL
+ */
+function getS3Url(key) {
+  if (cloudFrontDomain) {
+    return `https://${cloudFrontDomain}/${key}`;
+  }
+  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+}
+
+/**
  * Upload a file to S3
  * @param {string} folder - S3 folder/prefix (e.g., 'properties', 'documents', 'blog')
  * @param {Buffer|Stream} fileContent - File content
@@ -92,16 +104,14 @@ export function getContentType(filename, mimetype) {
  */
 export async function uploadToS3(folder, fileContent, originalFilename, mimetype, options = {}) {
   try {
-    const fileExtension = path.extname(originalFilename);
-    const baseName = path.basename(originalFilename, fileExtension).toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    const uniqueId = randomUUID().slice(0, 8);
-    const key = `${folder}/${baseName}-${uniqueId}${fileExtension}`;
+    const key = generateS3Key(folder, originalFilename, true);
+    const contentType = getContentType(originalFilename, mimetype);
 
     const params = {
       Bucket: bucketName,
       Key: key,
       Body: fileContent,
-      ContentType: mimetype || 'application/octet-stream',
+      ContentType: contentType,
       ...(options.contentDisposition && { ContentDisposition: options.contentDisposition }),
       ...(options.metadata && { Metadata: options.metadata })
     };
