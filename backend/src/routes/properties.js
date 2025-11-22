@@ -2270,11 +2270,11 @@ propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), async 
       return sendError(res, 404, 'Property image not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    // Clean up physical file from disk or Cloudinary BEFORE deleting DB record
+    // Clean up physical file from disk or cloud storage BEFORE deleting DB record
     // This prevents orphaned files if the file deletion fails
     if (existing.imageUrl) {
       try {
-        // Use deleteImage for both Cloudinary and local files
+        // Use deleteImage for S3, Cloudinary (legacy), and local files
         if (existing.imageUrl.startsWith('http') && existing.imageUrl.includes('cloudinary.com')) {
           await deleteImage(existing.imageUrl);
         } else if (isLocalUploadUrl(existing.imageUrl)) {
@@ -2533,7 +2533,7 @@ const propertyDocumentCreateSchema = z.object({
   unitId: z.string().optional().nullable(), // Optional unit assignment
 });
 
-// Multer middleware for document uploads - uses Cloudinary when configured
+// Multer middleware for document uploads - uses S3 when configured
 const documentUpload = createDocumentUploadMiddleware();
 
 const extractCloudinaryFields = (file) => {
