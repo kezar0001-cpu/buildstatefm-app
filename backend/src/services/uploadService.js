@@ -99,35 +99,41 @@ const localDiskStorage = multer.diskStorage({
   },
 });
 
-// S3 storage configuration for images
-const s3ImageStorage = multerS3({
-  s3: s3Client,
-  bucket: bucketName,
-  acl: 'public-read',
-  contentType: multerS3.AUTO_CONTENT_TYPE,
-  metadata: (_req, file, cb) => {
-    cb(null, { originalName: file.originalname });
-  },
-  key: (_req, file, cb) => {
-    const key = generateS3Key('properties', file.originalname, true);
-    cb(null, key);
-  },
-});
+// S3 storage configuration for images (only create if S3 is configured)
+let s3ImageStorage = null;
+if (isCloudStorageConfigured) {
+  s3ImageStorage = multerS3({
+    s3: s3Client,
+    bucket: bucketName,
+    acl: 'public-read',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (_req, file, cb) => {
+      cb(null, { originalName: file.originalname });
+    },
+    key: (_req, file, cb) => {
+      const key = generateS3Key('properties', file.originalname, true);
+      cb(null, key);
+    },
+  });
+}
 
-// S3 storage configuration for documents
-const s3DocumentStorage = multerS3({
-  s3: s3Client,
-  bucket: bucketName,
-  acl: 'public-read',
-  contentType: multerS3.AUTO_CONTENT_TYPE,
-  metadata: (_req, file, cb) => {
-    cb(null, { originalName: file.originalname });
-  },
-  key: (_req, file, cb) => {
-    const key = generateS3Key('documents', file.originalname, true);
-    cb(null, key);
-  },
-});
+// S3 storage configuration for documents (only create if S3 is configured)
+let s3DocumentStorage = null;
+if (isCloudStorageConfigured) {
+  s3DocumentStorage = multerS3({
+    s3: s3Client,
+    bucket: bucketName,
+    acl: 'public-read',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (_req, file, cb) => {
+      cb(null, { originalName: file.originalname });
+    },
+    key: (_req, file, cb) => {
+      const key = generateS3Key('documents', file.originalname, true);
+      cb(null, key);
+    },
+  });
+}
 
 // Create multer upload instance based on configuration
 export const createUploadMiddleware = (options = {}) => {

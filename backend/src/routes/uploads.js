@@ -58,7 +58,7 @@ const rateLimitUpload = (req, res, next) => {
   next();
 };
 
-// Create upload middleware (uses Cloudinary if configured, local storage otherwise)
+// Create upload middleware (uses S3 if configured, local storage otherwise)
 const upload = createUploadMiddleware();
 const documentUpload = createDocumentUploadMiddleware();
 
@@ -75,7 +75,7 @@ router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), (req
     }
 
     const url = getUploadedFileUrl(req.file);
-    const storageType = isUsingCloudStorage() ? 'Cloudinary' : 'local';
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded to ${storageType} by user ${req.user.id}: ${req.file.originalname} -> ${url}`);
     res.status(201).json({ success: true, url });
   } catch (error) {
@@ -97,7 +97,7 @@ router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50)
     }
 
     const urls = getUploadedFileUrls(req.files);
-    const storageType = isUsingCloudStorage() ? 'Cloudinary' : 'local';
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} files to ${storageType} by user ${req.user.id}`);
     res.status(201).json({ success: true, urls });
   } catch (error) {
@@ -120,7 +120,7 @@ router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('fi
     }
 
     const urls = getUploadedFileUrls(req.files);
-    const storageType = isUsingCloudStorage() ? 'Cloudinary' : 'local';
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} document(s) to ${storageType} by user ${req.user.id}`);
     res.status(201).json({ success: true, urls });
   } catch (error) {
