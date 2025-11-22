@@ -40,21 +40,12 @@ import {
 } from '../hooks/usePropertyDocuments.js';
 import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
-import { downloadFile, buildDocumentDownloadUrl } from '../utils/fileUtils.js';
+import {
+  downloadFile,
+  buildDocumentDownloadUrl,
+  buildDocumentPreviewUrl,
+} from '../utils/fileUtils.js';
 import { uploadPropertyDocument } from '../utils/uploadPropertyDocuments.js';
-
-// ===== Helpers =====
-const buildDirectPreviewUrl = (document) => {
-  if (!document) return null;
-
-  // Prefer cloudinarySecureUrl for Cloudinary-hosted files
-  const url = document.cloudinarySecureUrl || document.fileUrl;
-  if (!url) return null;
-
-  // For Cloudinary URLs, use them directly
-  // Cloudinary automatically provides viewers for PDFs and images
-  return url;
-};
 
 // ===== Other Helpers =====
 const getDocumentIcon = (mimeType) => {
@@ -225,7 +216,10 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
   };
 
   const handlePreview = (document) => {
-    const previewUrl = buildDirectPreviewUrl(document);
+    const previewUrl = buildDocumentPreviewUrl({
+      ...document,
+      propertyId: document.propertyId || propertyId,
+    });
 
     if (!previewUrl) {
       showError('Preview URL not available for this document');
@@ -235,13 +229,19 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     setPreviewError('');
     setPreviewDocument({ ...document, resolvedPreviewUrl: previewUrl });
     setPreviewDialogOpen(true);
-    window.open(previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = (document) => {
-    const url = buildDocumentDownloadUrl(document);
-    if (url) downloadFile(url, document.fileName, { skipDownloadTransform: true });
-    else showError('Download unavailable');
+    const url = buildDocumentDownloadUrl({
+      ...document,
+      propertyId: document.propertyId || propertyId,
+    });
+
+    if (url) {
+      downloadFile(url, document.fileName);
+    } else {
+      showError('Download unavailable');
+    }
   };
 
   if (isError) return <Alert severity="error">Failed to load documents</Alert>;
@@ -326,8 +326,12 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => {
-            const url = buildDirectPreviewUrl(previewDocument);
+            const url = buildDocumentPreviewUrl({
+              ...previewDocument,
+              propertyId: previewDocument?.propertyId || propertyId,
+            });
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            else setPreviewError('Preview URL not available for this document');
           }}>
             Open in New Tab
           </Button>
