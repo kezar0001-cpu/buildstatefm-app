@@ -82,18 +82,6 @@ export function getContentType(filename, mimetype) {
 }
 
 /**
- * Get S3 URL for a key
- * @param {string} key - S3 key
- * @returns {string} Public URL
- */
-function getS3Url(key) {
-  if (cloudFrontDomain) {
-    return `https://${cloudFrontDomain}/${key}`;
-  }
-  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-}
-
-/**
  * Upload a file to S3
  * @param {string} folder - S3 folder/prefix (e.g., 'properties', 'documents', 'blog')
  * @param {Buffer|Stream} fileContent - File content
