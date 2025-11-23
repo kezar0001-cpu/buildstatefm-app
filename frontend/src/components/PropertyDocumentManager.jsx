@@ -235,12 +235,11 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     setPreviewError('');
     setPreviewDocument({ ...document, resolvedPreviewUrl: previewUrl });
     setPreviewDialogOpen(true);
-    window.open(previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = (document) => {
     const url = buildDocumentDownloadUrl(document);
-    if (url) downloadFile(url, document.fileName, { skipDownloadTransform: true });
+    if (url) downloadFile(url, document.fileName);
     else showError('Download unavailable');
   };
 
