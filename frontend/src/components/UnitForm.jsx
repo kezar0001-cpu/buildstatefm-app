@@ -151,7 +151,8 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
     // Keep all properties from the image manager, ensuring consistent format
     // Bug Fix: Remove fallback ID generation to preserve stable IDs
     const transformedImages = nextImages.map((img, index) => ({
-      id: img.id || img.imageId, // Preserve ID without fallback to prevent re-mounts
+      // Preserve stable IDs from the uploader; fall back to deterministic keys when missing
+      id: img.id || img.imageId || img.remoteUrl || img.imageUrl || img.url || `existing-${index}`,
       url: img.imageUrl || img.url || img.remoteUrl,
       imageUrl: img.imageUrl || img.url || img.remoteUrl,
       altText: img.caption || img.altText || '',
