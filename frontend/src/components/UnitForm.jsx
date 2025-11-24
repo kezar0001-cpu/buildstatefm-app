@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys.js';
 import { unitSchema, unitDefaultValues } from '../schemas/unitSchema';
-import { FormTextField, FormSelect } from './form';
+import { FormTextField, FormSelect, FormAreaField } from './form';
 import { UnitImageManager } from '../features/images';
 
 const UNIT_STATUSES = [
@@ -287,11 +287,10 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
               xs={12}
               sm={6}
             >
-              <FormTextField
+              <FormAreaField
                 name="area"
                 control={control}
-                label="Area (sq ft)"
-                type="number"
+                label="Area"
               />
             </Grid>
 

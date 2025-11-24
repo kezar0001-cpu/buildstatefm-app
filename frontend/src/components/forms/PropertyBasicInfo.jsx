@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Grid, Typography, Divider, Box } from '@mui/material';
-import { FormTextField, FormSelect } from '../form';
+import { FormTextField, FormSelect, FormAreaField } from '../form';
 import { PROPERTY_STATUS_OPTIONS } from '../../constants/propertyStatus';
 
 const PROPERTY_TYPES = [
@@ -102,30 +102,27 @@ const PropertyBasicInfo = ({ control }) => (
     </Grid>
 
     <Grid item xs={12} sm={4}>
-      <FormTextField
+      <FormAreaField
         name="totalArea"
         control={control}
-        label="Total Area (sq ft)"
-        type="number"
-        helperText="Total square footage"
+        label="Total Area"
+        helperText="Total property area"
       />
     </Grid>
     <Grid item xs={12} sm={4}>
-      <FormTextField
+      <FormAreaField
         name="lotSize"
         control={control}
-        label="Lot Size (sq ft)"
-        type="number"
-        helperText="Land area in square feet"
+        label="Lot Size"
+        helperText="Land area"
       />
     </Grid>
     <Grid item xs={12} sm={4}>
-      <FormTextField
+      <FormAreaField
         name="buildingSize"
         control={control}
-        label="Building Size (sq ft)"
-        type="number"
-        helperText="Building square footage"
+        label="Building Size"
+        helperText="Building footprint area"
       />
     </Grid>
 
@@ -139,7 +136,7 @@ const PropertyBasicInfo = ({ control }) => (
       </Typography>
     </Grid>
 
-    <Grid item xs={12} sm={4}>
+    <Grid item xs={12} sm={6}>
       <FormTextField
         name="yearBuilt"
         control={control}
@@ -148,16 +145,7 @@ const PropertyBasicInfo = ({ control }) => (
         helperText="Construction year"
       />
     </Grid>
-    <Grid item xs={12} sm={4}>
-      <FormTextField
-        name="totalUnits"
-        control={control}
-        label="Total Units"
-        type="number"
-        helperText="Number of rentable units"
-      />
-    </Grid>
-    <Grid item xs={12} sm={4}>
+    <Grid item xs={12} sm={6}>
       <FormTextField
         name="numberOfFloors"
         control={control}

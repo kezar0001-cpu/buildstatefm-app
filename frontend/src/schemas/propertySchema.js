@@ -23,16 +23,6 @@ export const propertySchema = z.object({
     .refine((val) => val === null || (val >= 1800 && val <= currentYear), {
       message: `Year must be between 1800 and ${currentYear}`,
     }),
-  totalUnits: z
-    .union([z.string(), z.number()])
-    .transform((val) => {
-      if (!val || val === '') return 0;
-      const num = typeof val === 'string' ? parseInt(val, 10) : val;
-      return isNaN(num) ? 0 : num;
-    })
-    .refine((val) => !isNaN(val), {
-      message: 'Must be a valid number',
-    }),
   totalArea: z
     .union([z.string(), z.number()])
     .optional()
@@ -170,7 +160,6 @@ export const propertyDefaultValues = {
   country: '',
   propertyType: '',
   yearBuilt: '',
-  totalUnits: '0',
   totalArea: '',
   status: 'ACTIVE',
   description: '',
