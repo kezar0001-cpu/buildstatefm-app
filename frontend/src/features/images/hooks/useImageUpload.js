@@ -518,6 +518,10 @@ export function useImageUpload(options = {}) {
     return images
       .filter(img => img.status === 'complete' && img.remoteUrl)
       .map(img => ({
+        // Preserve stable identifiers so parent components can avoid re-mounts
+        id: img.id,
+        imageId: img.id,
+        remoteUrl: img.remoteUrl,
         imageUrl: img.remoteUrl,
         caption: img.caption || null,
         isPrimary: img.isPrimary,
