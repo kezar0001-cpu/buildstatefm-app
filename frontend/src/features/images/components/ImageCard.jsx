@@ -87,9 +87,16 @@ export function ImageCard({
   };
 
   /**
-   * Get status indicator
+   * Get status indicator with smooth transitions
    */
   const renderStatusIndicator = () => {
+    const chipStyles = {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      transition: 'all 0.3s ease-in-out',
+    };
+
     if (isUploading) {
       return (
         <Chip
@@ -97,7 +104,7 @@ export function ImageCard({
           icon={<CircularProgress size={14} sx={{ color: 'white' }} />}
           label={`${progress}%`}
           color="primary"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={chipStyles}
         />
       );
     }
@@ -109,7 +116,7 @@ export function ImageCard({
           icon={<CheckCircleIcon />}
           label="Uploaded"
           color="success"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={chipStyles}
         />
       );
     }
@@ -121,7 +128,7 @@ export function ImageCard({
           icon={<ErrorOutlineIcon />}
           label="Failed"
           color="error"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={chipStyles}
         />
       );
     }
@@ -131,7 +138,7 @@ export function ImageCard({
         <Chip
           size="small"
           label="Pending"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={chipStyles}
         />
       );
     }
@@ -183,6 +190,8 @@ export function ImageCard({
               height: '100%',
               objectFit: 'cover',
               opacity: isUploading ? 0.6 : 1,
+              transition: 'opacity 0.3s ease-in-out',
+              willChange: isUploading ? 'opacity' : 'auto',
             }}
           />
         ) : (
@@ -212,6 +221,10 @@ export function ImageCard({
               bottom: 0,
               left: 0,
               right: 0,
+              transition: 'opacity 0.3s ease-in-out',
+              '& .MuiLinearProgress-bar': {
+                transition: 'transform 0.3s ease-in-out',
+              },
             }}
           />
         )}
