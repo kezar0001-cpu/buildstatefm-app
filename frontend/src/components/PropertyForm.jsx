@@ -220,9 +220,13 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
     // Transform PropertyImageManager format to internal format
     // PropertyImageManager returns: {imageUrl, caption, isPrimary, order}
     // We need: {url, altText}
+    // Bug Fix: Preserve id, isPrimary, order to prevent re-mounts and flickering
     const transformedImages = nextImages.map(img => ({
+      id: img.id || img.imageId, // Preserve ID to prevent re-mounts
       url: img.imageUrl || img.url, // Support both formats for backward compatibility
       altText: img.caption || img.altText || '',
+      isPrimary: img.isPrimary || false,
+      order: img.order !== undefined ? img.order : 0,
     }));
 
     // Bug Fix #9: Remove duplicate images by URL to prevent database bloat

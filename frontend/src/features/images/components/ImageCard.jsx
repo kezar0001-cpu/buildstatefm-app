@@ -61,8 +61,11 @@ const ImageCard = memo(function ImageCard({
     file,
   } = image;
 
-  // Use remote URL if available, otherwise use local preview
-  const imageUrl = remoteUrl || localPreview;
+  // Bug Fix: Always prefer localPreview to prevent flicker when switching to remoteUrl
+  // The localPreview is a blob URL that's already loaded, so using it prevents
+  // the browser from having to load a new image when upload completes
+  // remoteUrl is still stored and used for form submission, just not displayed
+  const imageUrl = localPreview || remoteUrl;
 
   const isUploading = status === 'uploading';
   const isComplete = status === 'complete';

@@ -149,13 +149,15 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
   // Handle image upload changes
   const handleUploadedImagesChange = (nextImages = [], nextCover = '') => {
     // Keep all properties from the image manager, ensuring consistent format
+    // Bug Fix: Remove fallback ID generation to preserve stable IDs
     const transformedImages = nextImages.map((img, index) => ({
-      id: img.id || img.imageId || `img-${index}`,
+      id: img.id || img.imageId, // Preserve ID without fallback to prevent re-mounts
       url: img.imageUrl || img.url || img.remoteUrl,
       imageUrl: img.imageUrl || img.url || img.remoteUrl,
       altText: img.caption || img.altText || '',
       caption: img.caption || img.altText || '',
       isPrimary: img.isPrimary || false,
+      order: img.order !== undefined ? img.order : index,
       displayOrder: img.displayOrder ?? img.order ?? index,
     }));
 
