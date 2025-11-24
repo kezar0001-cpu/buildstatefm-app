@@ -7,7 +7,8 @@
     "dev": "nodemon server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "migrate:property-documents": "node scripts/apply-property-documents-migration.js"
+    "migrate:property-documents": "node scripts/apply-property-documents-migration.js",
+    "fix:property-activity-view": "node scripts/fix-property-activity-view.js"
   },
   "engines": {
     "node": "25.x"

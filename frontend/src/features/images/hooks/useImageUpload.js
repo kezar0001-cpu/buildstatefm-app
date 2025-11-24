@@ -215,6 +215,9 @@ export function useImageUpload(options = {}) {
         const abortController = new AbortController();
         abortControllersRef.current.set(image.id, abortController);
 
+        // Track last progress update to throttle state changes
+        let lastProgressUpdate = 0;
+
         const response = await apiClient.post(endpoint, formData, {
           signal: abortController.signal,
           headers: {
@@ -224,9 +227,15 @@ export function useImageUpload(options = {}) {
             const progress = Math.round(
               (progressEvent.loaded * 100) / progressEvent.total
             );
-            setImages(prev => prev.map(img =>
-              img.id === image.id ? { ...img, progress } : img
-            ));
+
+            // Throttle progress updates to every 5% to reduce re-renders
+            // Always update at 0% and 100%
+            if (progress === 0 || progress === 100 || progress - lastProgressUpdate >= 5) {
+              lastProgressUpdate = progress;
+              setImages(prev => prev.map(img =>
+                img.id === image.id ? { ...img, progress } : img
+              ));
+            }
           },
         });
 
