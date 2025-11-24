@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@welldone-software/why-did-you-render": "^10.0.1",
     "dotenv": "^17.2.3",
     "express-mongo-sanitize": "^2.2.0"
   }
