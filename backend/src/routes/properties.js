@@ -2552,6 +2552,197 @@ const extractCloudinaryFields = (file) => {
   };
 };
 
+/**
+ * Get unit IDs where the user is an active tenant within a property
+ * @param {string} userId - User ID
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<string[]>} Array of unit IDs
+ */
+const getUserTenantUnitIds = async (userId, propertyId) => {
+  const tenantUnits = await prisma.unitTenant.findMany({
+    where: {
+      tenantId: userId,
+      isActive: true,
+      unit: {
+        propertyId,
+      },
+    },
+    select: {
+      unitId: true,
+    },
+  });
+  return tenantUnits.map((ut) => ut.unitId);
+};
+
+/**
+ * Get unit IDs where the user is an owner within a property
+ * @param {string} userId - User ID
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<string[]>} Array of unit IDs
+ */
+const getUserOwnedUnitIds = async (userId, propertyId) => {
+  const ownedUnits = await prisma.unitOwner.findMany({
+    where: {
+      ownerId: userId,
+      unit: {
+        propertyId,
+      },
+      // Only include current ownerships (endDate is null or in the future)
+      OR: [
+        { endDate: null },
+        { endDate: { gte: new Date() } },
+      ],
+    },
+    select: {
+      unitId: true,
+    },
+  });
+  return ownedUnits.map((uo) => uo.unitId);
+};
+
+/**
+ * Check if user owns the entire property (not just specific units)
+ * @param {string} userId - User ID
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<boolean>}
+ */
+const checkUserOwnsProperty = async (userId, propertyId) => {
+  const propertyOwnership = await prisma.propertyOwner.findFirst({
+    where: {
+      ownerId: userId,
+      propertyId,
+      OR: [
+        { endDate: null },
+        { endDate: { gte: new Date() } },
+      ],
+    },
+  });
+  return !!propertyOwnership;
+};
+
+/**
+ * Check if a user has access to a specific document based on their role and relationship to the property/unit
+ * @param {Object} document - Document object with unitId, accessLevel, propertyId
+ * @param {Object} user - User object with id and role
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<boolean>}
+ */
+const checkDocumentAccess = async (document, user, propertyId) => {
+  // Property managers who manage this property have full access
+  if (user.role === 'PROPERTY_MANAGER') {
+    // Verify they actually manage this property (already checked by ensurePropertyAccess)
+    return true;
+  }
+
+  const { unitId, accessLevel } = document;
+
+  // Check access based on role and document access level
+  if (user.role === 'TENANT') {
+    // Tenants can only access PUBLIC or TENANT level documents
+    if (!['PUBLIC', 'TENANT'].includes(accessLevel)) {
+      return false;
+    }
+
+    // If document is property-level (no unitId), tenant can access it
+    if (!unitId) {
+      return true;
+    }
+
+    // If document is unit-specific, check if tenant leases that unit
+    const tenantUnitIds = await getUserTenantUnitIds(user.id, propertyId);
+    return tenantUnitIds.includes(unitId);
+  }
+
+  if (user.role === 'OWNER') {
+    // Owners can only access PUBLIC or OWNER level documents
+    if (!['PUBLIC', 'OWNER'].includes(accessLevel)) {
+      return false;
+    }
+
+    // If document is property-level (no unitId), check if they own the property
+    if (!unitId) {
+      const ownsProperty = await checkUserOwnsProperty(user.id, propertyId);
+      return ownsProperty;
+    }
+
+    // If document is unit-specific, check if they own that specific unit
+    const ownedUnitIds = await getUserOwnedUnitIds(user.id, propertyId);
+    return ownedUnitIds.includes(unitId);
+  }
+
+  // For other roles, only allow PUBLIC documents
+  return accessLevel === 'PUBLIC';
+};
+
+/**
+ * Build query filters for documents based on user's role and relationships
+ * This is used for efficient database-level filtering in list queries
+ * @param {Object} user - User object with id and role
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<Object>} Prisma where clause filters
+ */
+const buildDocumentAccessFilters = async (user, propertyId) => {
+  // Property managers get full access
+  if (user.role === 'PROPERTY_MANAGER') {
+    return {}; // No additional filters
+  }
+
+  if (user.role === 'TENANT') {
+    // Get units where this user is an active tenant
+    const tenantUnitIds = await getUserTenantUnitIds(user.id, propertyId);
+
+    return {
+      AND: [
+        // Only PUBLIC or TENANT access level
+        { accessLevel: { in: ['PUBLIC', 'TENANT'] } },
+        // Either property-level (unitId null) or assigned to user's units
+        {
+          OR: [
+            { unitId: null },
+            { unitId: { in: tenantUnitIds } },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (user.role === 'OWNER') {
+    // Get units owned by this user
+    const ownedUnitIds = await getUserOwnedUnitIds(user.id, propertyId);
+    const ownsProperty = await checkUserOwnsProperty(user.id, propertyId);
+
+    // Build OR conditions based on ownership
+    const orConditions = [];
+
+    // If they own the property, they can see property-level documents
+    if (ownsProperty) {
+      orConditions.push({ unitId: null });
+    }
+
+    // They can see documents for units they own
+    if (ownedUnitIds.length > 0) {
+      orConditions.push({ unitId: { in: ownedUnitIds } });
+    }
+
+    // If no ownership found, return impossible condition
+    if (orConditions.length === 0) {
+      return { id: 'impossible-match' }; // No documents will match
+    }
+
+    return {
+      AND: [
+        // Only PUBLIC or OWNER access level
+        { accessLevel: { in: ['PUBLIC', 'OWNER'] } },
+        // Match their ownership
+        { OR: orConditions },
+      ],
+    };
+  }
+
+  // For other roles, only PUBLIC documents
+  return { accessLevel: 'PUBLIC' };
+};
+
 const getAllowedDocumentLevels = (role) => {
   switch (role) {
     case 'PROPERTY_MANAGER':
@@ -2678,16 +2869,15 @@ propertyDocumentsRouter.get('/', async (req, res) => {
       return sendError(res, access.status, access.reason, errorCode);
     }
 
-    // Apply access level filter directly in query for better performance
-    // PROPERTY_MANAGER role has full access, others are filtered by access level
-    const allowedLevels = getAllowedDocumentLevels(req.user.role);
-    const where = { propertyId };
+    // Build relationship-based access filters
+    // This checks user's actual relationships with properties/units, not just their role
+    const accessFilters = await buildDocumentAccessFilters(req.user, propertyId);
+    const where = {
+      propertyId,
+      ...accessFilters,
+    };
 
-    if (allowedLevels) {
-      where.accessLevel = { in: allowedLevels };
-    }
-
-    // Filter by unit if specified
+    // Filter by unit if specified (this is an explicit user filter, separate from access control)
     if (unitId !== undefined) {
       // null or specific unitId
       where.unitId = unitId === 'null' || unitId === '' ? null : unitId;
@@ -2768,8 +2958,9 @@ propertyDocumentsRouter.get('/:documentId', async (req, res) => {
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    const allowedLevels = getAllowedDocumentLevels(req.user.role);
-    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+    // Check relationship-based access control
+    const hasAccess = await checkDocumentAccess(document, req.user, propertyId);
+    if (!hasAccess) {
       return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
@@ -2815,8 +3006,9 @@ propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    const allowedLevels = getAllowedDocumentLevels(req.user.role);
-    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+    // Check relationship-based access control
+    const hasAccess = await checkDocumentAccess(document, req.user, propertyId);
+    if (!hasAccess) {
       return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
@@ -2882,8 +3074,9 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    const allowedLevels = getAllowedDocumentLevels(req.user.role);
-    if (allowedLevels && !allowedLevels.includes(document.accessLevel)) {
+    // Check relationship-based access control
+    const hasAccess = await checkDocumentAccess(document, req.user, propertyId);
+    if (!hasAccess) {
       return sendError(res, 403, 'Access denied for this document', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
