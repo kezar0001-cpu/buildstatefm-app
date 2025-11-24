@@ -47,8 +47,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   GridView as GridViewIcon,
-  ViewList as ViewListIcon,
-  CalendarMonth as CalendarMonthIcon,
   Schedule as ScheduleIcon,
   PlayArrow as PlayArrowIcon,
   CheckCircle as CheckCircleIcon,
@@ -57,7 +55,6 @@ import {
   Search as SearchIcon,
   Close as CloseIcon,
   Warning as WarningIcon,
-  AccessTime as AccessTimeIcon,
   FilterList as FilterListIcon,
   FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
@@ -100,13 +97,13 @@ const InspectionsPage = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
-  // View mode: grid, list, table, calendar - persisted in localStorage
+  // View mode: grid (kanban), table - persisted in localStorage
   const [viewMode, setViewMode] = useState(() => {
     try {
       const stored = localStorage.getItem('inspections-view-mode');
-      return stored && ['grid', 'list', 'table', 'calendar'].includes(stored) ? stored : 'list';
+      return stored && ['grid', 'table'].includes(stored) ? stored : 'grid';
     } catch {
-      return 'list';
+      return 'grid';
     }
   });
 
@@ -120,13 +117,8 @@ const InspectionsPage = () => {
   const [statusMenuInspection, setStatusMenuInspection] = useState(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // Bulk selection state (for table/list views)
+  // Bulk selection state (for table views)
   const [selectedIds, setSelectedIds] = useState([]);
-
-  // Calculate trial information
-  const trialEndDate = currentUser?.trialEndDate;
-  const trialDaysRemaining = calculateDaysRemaining(trialEndDate);
-  const isTrialActive = currentUser?.subscriptionStatus === 'TRIAL' && trialDaysRemaining > 0;
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -437,7 +429,7 @@ const InspectionsPage = () => {
   const hasFilters = debouncedSearch || statusFilter || propertyFilter || dateFrom || dateTo;
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, position: 'relative', pb: isTrialActive ? 12 : 4 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, position: 'relative' }}>
       {/* Header */}
       <Stack
         direction={{ xs: 'column', md: 'row' }}
@@ -469,9 +461,7 @@ const InspectionsPage = () => {
           startIcon={<AddIcon />}
           onClick={handleCreate}
           size="large"
-          fullWidth
           sx={{
-            maxWidth: { xs: '100%', md: 'auto' },
             background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
             boxShadow: '0 4px 14px 0 rgb(185 28 28 / 0.3)',
             '&:hover': {
@@ -548,30 +538,8 @@ const InspectionsPage = () => {
             </FormControl>
           </Grid>
 
-          {/* Property Filter */}
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Property</InputLabel>
-              <Select
-                value={propertyFilter}
-                label="Property"
-                onChange={(e) => {
-                  setPropertyFilter(e.target.value);
-                  updateSearchParam('property', e.target.value);
-                }}
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {properties.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
           {/* Date From */}
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               label="From Date"
@@ -590,7 +558,7 @@ const InspectionsPage = () => {
           </Grid>
 
           {/* Date To */}
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               label="To Date"
@@ -638,14 +606,9 @@ const InspectionsPage = () => {
               },
             }}
           >
-            <ToggleButton value="grid" aria-label="grid view">
-              <Tooltip title="Grid View">
+            <ToggleButton value="grid" aria-label="kanban view">
+              <Tooltip title="Kanban View">
                 <GridViewIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="list" aria-label="list view">
-              <Tooltip title="List View">
-                <ViewListIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
             <ToggleButton value="table" aria-label="table view">
@@ -653,17 +616,12 @@ const InspectionsPage = () => {
                 <FilterListIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
-            <ToggleButton value="calendar" aria-label="calendar view">
-              <Tooltip title="Calendar View">
-                <CalendarMonthIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
           </ToggleButtonGroup>
         </Box>
       </Paper>
 
-      {/* Bulk Actions Toolbar (for table/list views with selections) */}
-      {selectedIds.length > 0 && (viewMode === 'list' || viewMode === 'table') && (
+      {/* Bulk Actions Toolbar (for table view with selections) */}
+      {selectedIds.length > 0 && viewMode === 'table' && (
         <Paper
           sx={{
             mb: 2,
@@ -725,44 +683,18 @@ const InspectionsPage = () => {
         />
       ) : (
         <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
-          {/* Grid View */}
+          {/* Kanban View */}
           {viewMode === 'grid' && (
-            <Grid container spacing={{ xs: 2, md: 3 }}>
-              {inspectionsWithOverdue.map((inspection) => (
-                <InspectionCard
-                  key={inspection.id}
-                  inspection={inspection}
-                  onView={handleView}
-                  onEdit={handleEdit}
-                  onDelete={handleDeleteClick}
-                  onStatusMenuOpen={handleStatusMenuOpen}
-                  getStatusColor={getStatusColor}
-                  getStatusIcon={getStatusIcon}
-                  formatStatusText={formatStatusText}
-                />
-              ))}
-            </Grid>
-          )}
-
-          {/* List View */}
-          {viewMode === 'list' && (
-            <Stack spacing={2}>
-              {inspectionsWithOverdue.map((inspection) => (
-                <InspectionListItem
-                  key={inspection.id}
-                  inspection={inspection}
-                  selected={selectedIds.includes(inspection.id)}
-                  onSelect={handleSelectOne}
-                  onView={handleView}
-                  onEdit={handleEdit}
-                  onDelete={handleDeleteClick}
-                  onStatusMenuOpen={handleStatusMenuOpen}
-                  getStatusColor={getStatusColor}
-                  getStatusIcon={getStatusIcon}
-                  formatStatusText={formatStatusText}
-                />
-              ))}
-            </Stack>
+            <InspectionKanban
+              inspections={inspectionsWithOverdue}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              onStatusMenuOpen={handleStatusMenuOpen}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              formatStatusText={formatStatusText}
+            />
           )}
 
           {/* Table View */}
@@ -778,15 +710,6 @@ const InspectionsPage = () => {
               onStatusMenuOpen={handleStatusMenuOpen}
               getStatusColor={getStatusColor}
               formatStatusText={formatStatusText}
-            />
-          )}
-
-          {/* Calendar View (Placeholder) */}
-          {viewMode === 'calendar' && (
-            <InspectionCalendar
-              inspections={inspectionsWithOverdue}
-              onView={handleView}
-              getStatusColor={getStatusColor}
             />
           )}
 
@@ -904,41 +827,16 @@ const InspectionsPage = () => {
       >
         <CircularProgress color="inherit" />
       </Backdrop>
-
-      {/* Trial Banner */}
-      {isTrialActive && (
-        <Alert
-          severity="warning"
-          icon={<AccessTimeIcon />}
-          sx={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1200,
-            borderRadius: 0,
-            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-            color: 'white',
-            '& .MuiAlert-icon': {
-              color: 'white',
-            },
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} left in your trial
-          </Typography>
-        </Alert>
-      )}
     </Container>
   );
 };
 
 // ============================================================================
-// Inspection Card Component (Grid View)
+// Inspection Kanban Board Component
 // ============================================================================
 
-const InspectionCard = ({
-  inspection,
+const InspectionKanban = ({
+  inspections,
   onView,
   onEdit,
   onDelete,
@@ -949,430 +847,248 @@ const InspectionCard = ({
 }) => {
   const navigate = useNavigate();
 
+  // Group inspections by status
+  const columns = useMemo(() => {
+    const grouped = {
+      SCHEDULED: [],
+      IN_PROGRESS: [],
+      COMPLETED: [],
+      CANCELLED: [],
+    };
+
+    inspections.forEach(inspection => {
+      const status = inspection.status || 'SCHEDULED';
+      if (grouped[status]) {
+        grouped[status].push(inspection);
+      }
+    });
+
+    return [
+      { id: 'SCHEDULED', title: 'Scheduled', inspections: grouped.SCHEDULED, color: 'success' },
+      { id: 'IN_PROGRESS', title: 'In Progress', inspections: grouped.IN_PROGRESS, color: 'warning' },
+      { id: 'COMPLETED', title: 'Completed', inspections: grouped.COMPLETED, color: 'success' },
+      { id: 'CANCELLED', title: 'Cancelled', inspections: grouped.CANCELLED, color: 'error' },
+    ];
+  }, [inspections]);
+
   return (
-    <Grid item xs={12} md={6} lg={4}>
-      <Card
-        sx={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: 4,
-          },
-          borderRadius: 3,
-          cursor: 'pointer',
-        }}
-        onClick={() => onView(inspection.id)}
-      >
-        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {/* Header */}
-          <Box
+    <Grid container spacing={2}>
+      {columns.map(column => (
+        <Grid item xs={12} md={6} lg={3} key={column.id}>
+          <Paper
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: 1,
+              p: 2,
+              height: '100%',
+              minHeight: 400,
+              bgcolor: 'background.default',
+              borderRadius: 2,
             }}
           >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="h6" gutterBottom noWrap>
-                {inspection.title}
+            {/* Column Header */}
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                {column.title}
               </Typography>
               <Chip
-                icon={getStatusIcon(inspection.displayStatus)}
-                label={formatStatusText(inspection.displayStatus)}
-                color={getStatusColor(inspection.displayStatus)}
+                label={column.inspections.length}
                 size="small"
-                sx={{ mb: 1 }}
+                color={column.color}
               />
             </Box>
-            <Chip
-              label={inspection.type?.replace(/_/g, ' ')}
-              size="small"
-              variant="outlined"
-            />
-          </Box>
 
-          {/* Details */}
-          <Stack spacing={1}>
-            {/* Property */}
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Property
-              </Typography>
-              <Typography
-                variant="body2"
-                component={MuiLink}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (inspection.property?.id) {
-                    navigate(`/properties/${inspection.property.id}`);
-                  }
-                }}
-                sx={{
-                  cursor: 'pointer',
-                  color: 'primary.main',
-                  textDecoration: 'none',
-                  '&:hover': { textDecoration: 'underline' },
-                }}
-              >
-                {inspection.property?.name || 'N/A'}
-              </Typography>
-            </Box>
-
-            {/* Unit */}
-            {inspection.unit && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Unit
-                </Typography>
-                <Typography
-                  variant="body2"
-                  component={MuiLink}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (inspection.unit?.id) {
-                      navigate(`/units/${inspection.unit.id}`);
-                    }
-                  }}
+            {/* Column Cards */}
+            <Stack spacing={2}>
+              {column.inspections.map(inspection => (
+                <Card
+                  key={inspection.id}
                   sx={{
                     cursor: 'pointer',
-                    color: 'primary.main',
-                    textDecoration: 'none',
-                    '&:hover': { textDecoration: 'underline' },
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: 3,
+                    },
+                  }}
+                  onClick={() => onView(inspection.id)}
+                >
+                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    {/* Header */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                        {inspection.title}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => onStatusMenuOpen(e, inspection)}
+                        aria-label={`Change status for ${inspection.title}`}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+
+                    {/* Type Chip */}
+                    {inspection.type && (
+                      <Chip
+                        label={inspection.type.replace(/_/g, ' ')}
+                        size="small"
+                        variant="outlined"
+                        sx={{ mb: 1.5 }}
+                      />
+                    )}
+
+                    {/* Overdue Warning */}
+                    {inspection.isOverdue && (
+                      <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
+                        <Typography variant="caption">Overdue</Typography>
+                      </Alert>
+                    )}
+
+                    {/* Details */}
+                    <Stack spacing={1}>
+                      {/* Property */}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Property
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          component={MuiLink}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (inspection.property?.id) {
+                              navigate(`/properties/${inspection.property.id}`);
+                            }
+                          }}
+                          sx={{
+                            color: 'primary.main',
+                            textDecoration: 'none',
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                        >
+                          {inspection.property?.name || 'N/A'}
+                        </Typography>
+                      </Box>
+
+                      {/* Unit */}
+                      {inspection.unit && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Unit
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            component={MuiLink}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (inspection.unit?.id) {
+                                navigate(`/units/${inspection.unit.id}`);
+                              }
+                            }}
+                            sx={{
+                              color: 'primary.main',
+                              textDecoration: 'none',
+                              '&:hover': { textDecoration: 'underline' },
+                            }}
+                          >
+                            Unit {inspection.unit.unitNumber}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Scheduled Date */}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Scheduled
+                        </Typography>
+                        <Typography variant="body2">
+                          {formatDateTime(inspection.scheduledDate)}
+                        </Typography>
+                      </Box>
+
+                      {/* Assigned To */}
+                      {inspection.assignedTo && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Assigned To
+                          </Typography>
+                          <Typography variant="body2">
+                            {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+
+                    {/* Actions */}
+                    <Box
+                      sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView(inspection.id);
+                          }}
+                          aria-label={`View details for ${inspection.title}`}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {inspection.status !== 'COMPLETED' && (
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(inspection);
+                            }}
+                            aria-label={`Edit ${inspection.title}`}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(inspection);
+                          }}
+                          aria-label={`Delete ${inspection.title}`}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {column.inspections.length === 0 && (
+                <Box
+                  sx={{
+                    p: 3,
+                    textAlign: 'center',
+                    color: 'text.secondary',
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    border: '1px dashed',
+                    borderColor: 'divider',
                   }}
                 >
-                  Unit {inspection.unit.unitNumber}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Scheduled Date */}
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Scheduled Date
-              </Typography>
-              <Typography variant="body2">
-                {formatDateTime(inspection.scheduledDate)}
-              </Typography>
-            </Box>
-
-            {/* Assigned To */}
-            {inspection.assignedTo && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Assigned To
-                </Typography>
-                <Typography variant="body2">
-                  {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </CardContent>
-
-        {/* Actions */}
-        <Box
-          sx={{
-            p: 2,
-            pt: 0,
-            display: 'flex',
-            gap: 1,
-            justifyContent: 'flex-end',
-            flexWrap: 'wrap',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Tooltip title="View Details">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onView(inspection.id);
-              }}
-              aria-label={`View details for ${inspection.title}`}
-            >
-              <VisibilityIcon />
-            </IconButton>
-          </Tooltip>
-          {inspection.status !== 'COMPLETED' && (
-            <Tooltip title="Edit">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(inspection);
-                }}
-                aria-label={`Edit ${inspection.title}`}
-              >
-                <EditIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title="Change Status">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => onStatusMenuOpen(e, inspection)}
-              aria-label={`Change status for ${inspection.title}`}
-            >
-              <MoreVertIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(inspection);
-              }}
-              aria-label={`Delete ${inspection.title}`}
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Card>
-    </Grid>
-  );
-};
-
-// ============================================================================
-// Inspection List Item Component (List View)
-// ============================================================================
-
-const InspectionListItem = ({
-  inspection,
-  selected,
-  onSelect,
-  onView,
-  onEdit,
-  onDelete,
-  onStatusMenuOpen,
-  getStatusColor,
-  getStatusIcon,
-  formatStatusText,
-}) => {
-  const navigate = useNavigate();
-
-  return (
-    <Card
-      sx={{
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        cursor: 'pointer',
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
-        bgcolor: selected ? 'action.selected' : 'background.paper',
-        '&:hover': {
-          boxShadow: 3,
-        },
-      }}
-      onClick={() => onView(inspection.id)}
-    >
-      {/* Checkbox */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          p: 2,
-          pr: 0,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Checkbox
-          checked={selected}
-          onChange={() => onSelect(inspection.id)}
-          aria-label={`Select ${inspection.title}`}
-        />
-      </Box>
-
-      {/* Content */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flexGrow: 1,
-          p: 2,
-        }}
-      >
-        {/* Header */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            mb: 1.5,
-          }}
-        >
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {inspection.title}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-              <Chip
-                icon={getStatusIcon(inspection.displayStatus)}
-                label={formatStatusText(inspection.displayStatus)}
-                color={getStatusColor(inspection.displayStatus)}
-                size="small"
-              />
-              <Chip
-                label={inspection.type?.replace(/_/g, ' ')}
-                size="small"
-                variant="outlined"
-              />
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Details Grid */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="caption" color="text.secondary">
-              Property
-            </Typography>
-            <Typography
-              variant="body2"
-              component={MuiLink}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (inspection.property?.id) {
-                  navigate(`/properties/${inspection.property.id}`);
-                }
-              }}
-              sx={{
-                cursor: 'pointer',
-                color: 'primary.main',
-                textDecoration: 'none',
-                '&:hover': { textDecoration: 'underline' },
-              }}
-            >
-              {inspection.property?.name || 'N/A'}
-            </Typography>
-          </Grid>
-
-          {inspection.unit && (
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Unit
-              </Typography>
-              <Typography
-                variant="body2"
-                component={MuiLink}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (inspection.unit?.id) {
-                    navigate(`/units/${inspection.unit.id}`);
-                  }
-                }}
-                sx={{
-                  cursor: 'pointer',
-                  color: 'primary.main',
-                  textDecoration: 'none',
-                  '&:hover': { textDecoration: 'underline' },
-                }}
-              >
-                Unit {inspection.unit.unitNumber}
-              </Typography>
-            </Grid>
-          )}
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="caption" color="text.secondary">
-              Scheduled Date
-            </Typography>
-            <Typography variant="body2">
-              {formatDateTime(inspection.scheduledDate)}
-            </Typography>
-          </Grid>
-
-          {inspection.assignedTo && (
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Assigned To
-              </Typography>
-              <Typography variant="body2">
-                {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
-              </Typography>
-            </Grid>
-          )}
+                  <Typography variant="body2">
+                    No inspections
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Paper>
         </Grid>
-      </Box>
-
-      {/* Actions */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'row', md: 'column' },
-          gap: 1,
-          p: 2,
-          justifyContent: { xs: 'flex-end', md: 'center' },
-          alignItems: 'center',
-          borderLeft: { md: '1px solid' },
-          borderTop: { xs: '1px solid', md: 'none' },
-          borderColor: 'divider',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Tooltip title="View Details">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onView(inspection.id);
-            }}
-            aria-label={`View details for ${inspection.title}`}
-          >
-            <VisibilityIcon />
-          </IconButton>
-        </Tooltip>
-        {inspection.status !== 'COMPLETED' && (
-          <Tooltip title="Edit">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(inspection);
-              }}
-              aria-label={`Edit ${inspection.title}`}
-            >
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-        <Tooltip title="Change Status">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => onStatusMenuOpen(e, inspection)}
-            aria-label={`Change status for ${inspection.title}`}
-          >
-            <MoreVertIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(inspection);
-            }}
-            aria-label={`Delete ${inspection.title}`}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </Card>
+      ))}
+    </Grid>
   );
 };
 
@@ -1561,132 +1277,6 @@ const InspectionTable = ({
         </TableBody>
       </Table>
     </TableContainer>
-  );
-};
-
-// ============================================================================
-// Inspection Calendar Component (Calendar View - Placeholder)
-// ============================================================================
-
-const InspectionCalendar = ({ inspections, onView, getStatusColor }) => {
-  // Group inspections by date
-  const groupedByDate = useMemo(() => {
-    const groups = {};
-    inspections.forEach(inspection => {
-      const dateKey = formatDate(inspection.scheduledDate);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(inspection);
-    });
-    return groups;
-  }, [inspections]);
-
-  // Get current month's dates
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const daysInMonth = lastDay.getDate();
-
-  const dates = [];
-  for (let i = 1; i <= daysInMonth; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth(), i);
-    dates.push(date);
-  }
-
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-        {now.toLocaleString('default', { month: 'long', year: 'numeric' })}
-      </Typography>
-
-      <Grid container spacing={1}>
-        {/* Day Headers */}
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <Grid item xs={12/7} key={day}>
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'block',
-                textAlign: 'center',
-                fontWeight: 700,
-                color: 'text.secondary',
-              }}
-            >
-              {day}
-            </Typography>
-          </Grid>
-        ))}
-
-        {/* Calendar Days */}
-        {dates.map(date => {
-          const dateKey = formatDate(date);
-          const dayInspections = groupedByDate[dateKey] || [];
-          const isToday = date.toDateString() === now.toDateString();
-
-          return (
-            <Grid item xs={12/7} key={dateKey}>
-              <Paper
-                sx={{
-                  p: 1,
-                  minHeight: 80,
-                  bgcolor: isToday ? 'action.selected' : 'background.paper',
-                  border: '1px solid',
-                  borderColor: isToday ? 'primary.main' : 'divider',
-                  cursor: dayInspections.length > 0 ? 'pointer' : 'default',
-                }}
-                onClick={() => {
-                  if (dayInspections.length === 1) {
-                    onView(dayInspections[0].id);
-                  }
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    textAlign: 'right',
-                    fontWeight: isToday ? 700 : 400,
-                    color: isToday ? 'primary.main' : 'text.primary',
-                  }}
-                >
-                  {date.getDate()}
-                </Typography>
-
-                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                  {dayInspections.slice(0, 3).map(inspection => (
-                    <Chip
-                      key={inspection.id}
-                      label={inspection.title}
-                      size="small"
-                      color={getStatusColor(inspection.displayStatus)}
-                      sx={{
-                        height: 20,
-                        fontSize: '0.65rem',
-                        '& .MuiChip-label': {
-                          px: 0.5,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        },
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onView(inspection.id);
-                      }}
-                    />
-                  ))}
-                  {dayInspections.length > 3 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                      +{dayInspections.length - 3} more
-                    </Typography>
-                  )}
-                </Stack>
-              </Paper>
-            </Grid>
-          );
-        })}
-      </Grid>
-    </Box>
   );
 };
 
