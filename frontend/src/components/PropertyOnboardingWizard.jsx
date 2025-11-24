@@ -37,6 +37,7 @@ import { COUNTRIES } from '../lib/countries.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import { PropertyImageManager } from '../features/images';
 import { inviteOwnersToProperty } from '../utils/inviteOwners.js';
+import AreaField from './AreaField';
 
 const PROPERTY_TYPES = [
   'Residential',
@@ -65,7 +66,6 @@ const initialState = {
     country: '',
     propertyType: '',
     yearBuilt: '',
-    totalUnits: '0',
     totalArea: '',
     status: 'ACTIVE',
     description: '',
@@ -304,15 +304,6 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
       }
     }
 
-    if (basicInfo.totalUnits) {
-      const totalUnitsNum = parseInt(basicInfo.totalUnits, 10);
-      if (Number.isNaN(totalUnitsNum)) {
-        errors.totalUnits = 'Must be a valid number';
-      } else if (totalUnitsNum < 0) {
-        errors.totalUnits = 'Total units cannot be negative';
-      }
-    }
-
     if (basicInfo.totalArea && Number.isNaN(parseFloat(basicInfo.totalArea))) {
       errors.totalArea = 'Must be a valid number';
     }
@@ -378,7 +369,6 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         country: basicInfo.country,
         propertyType: basicInfo.propertyType,
         yearBuilt: basicInfo.yearBuilt ? parseInt(basicInfo.yearBuilt, 10) : null,
-        totalUnits: parseInt(basicInfo.totalUnits, 10) || 0,
         totalArea: basicInfo.totalArea ? parseFloat(basicInfo.totalArea) : null,
         status: basicInfo.status,
         description: basicInfo.description.trim() || null,
@@ -612,21 +602,9 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
           error={Boolean(basicInfoErrors.yearBuilt)}
           helperText={basicInfoErrors.yearBuilt}
         />
-        <TextField
-          fullWidth
-          id="onboarding-property-total-units"
-          label="Total Units"
-          type="number"
-          value={basicInfo.totalUnits}
-          onChange={handleBasicInfoChange('totalUnits')}
-          error={Boolean(basicInfoErrors.totalUnits)}
-          helperText={basicInfoErrors.totalUnits}
-        />
-        <TextField
-          fullWidth
+        <AreaField
           id="onboarding-property-total-area"
-          label="Total Area (sq ft)"
-          type="number"
+          label="Total Area"
           value={basicInfo.totalArea}
           onChange={handleBasicInfoChange('totalArea')}
           error={Boolean(basicInfoErrors.totalArea)}
@@ -703,10 +681,9 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
             </Stack>
 
             <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }}>
-              <TextField
-                fullWidth
-                label="Area (sq ft)"
-                type="number"
+              <AreaField
+                id={`unit-${index}-area`}
+                label="Area"
                 value={unit.area}
                 onChange={handleUnitChange(index, 'area')}
               />
