@@ -100,6 +100,14 @@ const ServiceRequestsPage = () => {
   const requestList = Array.isArray(requests) ? requests : [];
   const propertyOptions = Array.isArray(properties) ? properties : [];
 
+  const handleClearFilters = () => {
+    setFilters({
+      status: '',
+      category: '',
+      propertyId: '',
+    });
+  };
+
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -222,74 +230,111 @@ const ServiceRequestsPage = () => {
       </Stack>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
+      <Card
+        sx={{
+          mb: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0px 10px 30px rgba(15, 23, 42, 0.06)',
+        }}
+      >
         <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                id="service-requests-filter-status"
-                name="status"
-                select
-                fullWidth
-                label="Status"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                <MenuItem value="APPROVED">Approved</MenuItem>
-                <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
-                <MenuItem value="REJECTED">Rejected</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                id="service-requests-filter-category"
-                name="category"
-                select
-                fullWidth
-                label="Category"
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="PLUMBING">Plumbing</MenuItem>
-                <MenuItem value="ELECTRICAL">Electrical</MenuItem>
-                <MenuItem value="HVAC">HVAC</MenuItem>
-                <MenuItem value="APPLIANCE">Appliance</MenuItem>
-                <MenuItem value="STRUCTURAL">Structural</MenuItem>
-                <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
-                <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
-                <MenuItem value="GENERAL">General</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
-              </TextField>
-            </Grid>
-            {userRole !== 'TENANT' && (
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={1.5}
+              alignItems={{ xs: 'flex-start', md: 'center' }}
+              justifyContent="space-between"
+            >
+              <Box>
+                <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5 }}>
+                  Filters
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Find the right service requests
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="text"
+                  color="inherit"
+                  size="small"
+                  onClick={handleClearFilters}
+                  disabled={!filters.status && !filters.category && !filters.propertyId}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Clear filters
+                </Button>
+              </Stack>
+            </Stack>
+
+            <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6} md={4}>
                 <TextField
-                  id="service-requests-filter-property"
-                  name="propertyId"
+                  id="service-requests-filter-status"
+                  name="status"
                   select
                   fullWidth
-                  label="Property"
-                  value={filters.propertyId}
-                  onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                  label="Status"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
                   size="small"
                 >
-                  <MenuItem value="">All Properties</MenuItem>
-                  {propertyOptions.map((property) => (
-                    <MenuItem key={property.id} value={property.id}>
-                      {property.name}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="SUBMITTED">Submitted</MenuItem>
+                  <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
+                  <MenuItem value="APPROVED">Approved</MenuItem>
+                  <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
+                  <MenuItem value="REJECTED">Rejected</MenuItem>
+                  <MenuItem value="COMPLETED">Completed</MenuItem>
                 </TextField>
               </Grid>
-            )}
-          </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <TextField
+                  id="service-requests-filter-category"
+                  name="category"
+                  select
+                  fullWidth
+                  label="Category"
+                  value={filters.category}
+                  onChange={(e) => handleFilterChange('category', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="PLUMBING">Plumbing</MenuItem>
+                  <MenuItem value="ELECTRICAL">Electrical</MenuItem>
+                  <MenuItem value="HVAC">HVAC</MenuItem>
+                  <MenuItem value="APPLIANCE">Appliance</MenuItem>
+                  <MenuItem value="STRUCTURAL">Structural</MenuItem>
+                  <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
+                  <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
+                  <MenuItem value="GENERAL">General</MenuItem>
+                  <MenuItem value="OTHER">Other</MenuItem>
+                </TextField>
+              </Grid>
+              {userRole !== 'TENANT' && (
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    id="service-requests-filter-property"
+                    name="propertyId"
+                    select
+                    fullWidth
+                    label="Property"
+                    value={filters.propertyId}
+                    onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                    size="small"
+                  >
+                    <MenuItem value="">All Properties</MenuItem>
+                    {propertyOptions.map((property) => (
+                      <MenuItem key={property.id} value={property.id}>
+                        {property.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              )}
+            </Grid>
+          </Stack>
         </CardContent>
       </Card>
 
