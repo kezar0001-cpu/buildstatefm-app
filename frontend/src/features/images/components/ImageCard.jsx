@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import {
   Card,
   CardMedia,
@@ -32,8 +32,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
  * - Caption editing
  * - Delete action
  * - Drag handle for reordering
+ *
+ * Memoized to prevent unnecessary re-renders
  */
-export function ImageCard({
+const ImageCard = memo(function ImageCard({
   image,
   onDelete,
   onSetCover,
@@ -355,4 +357,6 @@ export function ImageCard({
       )}
     </Card>
   );
-}
+});
+
+export { ImageCard };

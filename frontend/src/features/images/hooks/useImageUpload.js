@@ -53,6 +53,7 @@ export function useImageUpload(options = {}) {
   const uploadCounterRef = useRef(0);
   const abortControllersRef = useRef(new Map());
   const initialImagesProcessedRef = useRef(false);
+  const lastProgressRefs = useRef({}); // Track last progress update per image
 
   /**
    * Sync initialImages to state when they change (for edit mode)
@@ -242,8 +243,10 @@ export function useImageUpload(options = {}) {
         const abortController = new AbortController();
         abortControllersRef.current.set(image.id, abortController);
 
-        // Track last progress update to throttle state changes
-        let lastProgressUpdate = 0;
+        // Initialize per-image progress tracking
+        if (!lastProgressRefs.current[image.id]) {
+          lastProgressRefs.current[image.id] = 0;
+        }
 
         const response = await apiClient.post(endpoint, formData, {
           signal: abortController.signal,
@@ -255,10 +258,18 @@ export function useImageUpload(options = {}) {
               (progressEvent.loaded * 100) / progressEvent.total
             );
 
+            // Get last progress for this specific image
+            const lastProgressUpdate = lastProgressRefs.current[image.id] || 0;
+
+            // Guard: Skip if already complete (prevents post-100% updates)
+            if (lastProgressUpdate >= 100) {
+              return;
+            }
+
             // Throttle progress updates to every 5% to reduce re-renders
             // Always update at 0% and 100%
             if (progress === 0 || progress === 100 || progress - lastProgressUpdate >= 5) {
-              lastProgressUpdate = progress;
+              lastProgressRefs.current[image.id] = progress;
               setImages(prev => prev.map(img =>
                 img.id === image.id ? { ...img, progress } : img
               ));
@@ -290,6 +301,9 @@ export function useImageUpload(options = {}) {
             : img
         ));
 
+        // Clean up progress tracking for completed upload
+        delete lastProgressRefs.current[image.id];
+
         // Remove from queue
         setQueue(prev => prev.filter(id => id !== image.id));
 
@@ -297,6 +311,7 @@ export function useImageUpload(options = {}) {
         console.error(`[useImageUpload] Upload failed for ${image.file.name}:`, err);
 
         abortControllersRef.current.delete(image.id);
+        delete lastProgressRefs.current[image.id];
 
         // Check if cancelled
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
@@ -359,6 +374,24 @@ export function useImageUpload(options = {}) {
   }, [queue, isUploading, images, processQueue]);
 
   /**
+   * Cleanup on unmount
+   */
+  useEffect(() => {
+    return () => {
+      // Cancel all active uploads
+      abortControllersRef.current.forEach((controller) => {
+        controller.abort();
+      });
+      abortControllersRef.current.clear();
+
+      // Clear progress tracking
+      lastProgressRefs.current = {};
+
+      console.log('[useImageUpload] Cleanup complete');
+    };
+  }, []);
+
+  /**
    * Upload files immediately (adds to queue, then auto-processes via useEffect)
    */
   const uploadFiles = useCallback(async (files) => {
@@ -377,6 +410,9 @@ export function useImageUpload(options = {}) {
       controller.abort();
     }
 
+    // Clean up progress tracking
+    delete lastProgressRefs.current[imageId];
+
     setImages(prev => prev.filter(img => img.id !== imageId));
     setQueue(prev => prev.filter(id => id !== imageId));
   }, []);
@@ -386,6 +422,9 @@ export function useImageUpload(options = {}) {
    */
   const retryUpload = useCallback((imageId) => {
     console.log(`[useImageUpload] Retrying upload: ${imageId}`);
+
+    // Reset progress tracking for retry
+    lastProgressRefs.current[imageId] = 0;
 
     setImages(prev => prev.map(img =>
       img.id === imageId
