@@ -47,6 +47,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   GridView as GridViewIcon,
+  ViewList as ViewListIcon,
+  CalendarMonth as CalendarMonthIcon,
   Schedule as ScheduleIcon,
   PlayArrow as PlayArrowIcon,
   CheckCircle as CheckCircleIcon,
@@ -63,10 +65,10 @@ import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import InspectionForm from '../components/InspectionForm';
+import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
-import { calculateDaysRemaining } from '../utils/date.js';
 
 /**
  * Enhanced Inspections Page Component
@@ -97,14 +99,21 @@ const InspectionsPage = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
-  // View mode: grid (kanban), table - persisted in localStorage
+  // View mode: grid (kanban), list, calendar - persisted in localStorage
   const [viewMode, setViewMode] = useState(() => {
     try {
       const stored = localStorage.getItem('inspections-view-mode');
-      return stored && ['grid', 'table'].includes(stored) ? stored : 'grid';
+      return stored && ['grid', 'list', 'calendar'].includes(stored) ? stored : 'grid';
     } catch {
       return 'grid';
     }
+  });
+
+  // Calendar navigation state
+  const [calendarStartDate, setCalendarStartDate] = useState(() => {
+    const today = new Date();
+    today.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    return today;
   });
 
   // Dialog states
@@ -230,12 +239,12 @@ const InspectionsPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
-      setStatusMenuAnchor(null);
-      setStatusMenuInspection(null);
+      handleStatusMenuClose();
       setIsUpdatingStatus(false);
     },
     onError: (error) => {
       console.error('Failed to update status:', error);
+      handleStatusMenuClose();
       setIsUpdatingStatus(false);
     },
   });
@@ -486,99 +495,89 @@ const InspectionsPage = () => {
           animation: 'fade-in-up 0.6s ease-out',
         }}
       >
-        <Grid container spacing={2} alignItems="center">
+        <Stack direction="row" spacing={2} alignItems="center">
           {/* Search */}
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              placeholder="Search inspections by unit, property, type, or notes..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchInput && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={() => setSearchInput('')}
-                      edge="end"
-                      size="small"
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </Grid>
+          <TextField
+            placeholder="Search inspections by unit, property, type, or notes..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: searchInput && (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="clear search"
+                    onClick={() => setSearchInput('')}
+                    edge="end"
+                    size="small"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            size="small"
+            sx={{ flexGrow: 1, minWidth: 250 }}
+          />
 
           {/* Status Filter */}
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  updateSearchParam('status', e.target.value);
-                }}
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="CANCELLED">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                updateSearchParam('status', e.target.value);
+              }}
+            >
+              <MenuItem value="">All Statuses</MenuItem>
+              <MenuItem value="SCHEDULED">Scheduled</MenuItem>
+              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
 
           {/* Date From */}
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              label="From Date"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                updateSearchParam('dateFrom', e.target.value);
-              }}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              inputProps={{
-                placeholder: 'mm/dd/yyyy',
-              }}
-            />
-          </Grid>
+          <TextField
+            label="From Date"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              updateSearchParam('dateFrom', e.target.value);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            inputProps={{
+              placeholder: 'dd/mm/yyyy',
+            }}
+            sx={{ minWidth: 150 }}
+          />
 
           {/* Date To */}
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              label="To Date"
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                updateSearchParam('dateTo', e.target.value);
-              }}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              inputProps={{
-                placeholder: 'mm/dd/yyyy',
-              }}
-            />
-          </Grid>
-        </Grid>
+          <TextField
+            label="To Date"
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              updateSearchParam('dateTo', e.target.value);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            inputProps={{
+              placeholder: 'dd/mm/yyyy',
+            }}
+            sx={{ minWidth: 150 }}
+          />
 
-        {/* View Toggle */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          {/* View Toggle */}
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -587,22 +586,31 @@ const InspectionsPage = () => {
             size="small"
             sx={{
               backgroundColor: 'background.paper',
-              borderRadius: 999,
+              borderRadius: 2,
               border: '1px solid',
               borderColor: 'divider',
               '& .MuiToggleButtonGroup-grouped': {
-                minWidth: 0,
-                px: 1.5,
-                py: 0.5,
+                minWidth: 40,
                 border: 'none',
+                '&:not(:first-of-type)': {
+                  borderRadius: 2,
+                },
+                '&:first-of-type': {
+                  borderRadius: 2,
+                },
               },
               '& .MuiToggleButton-root': {
-                borderRadius: '8px !important',
                 color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
               },
               '& .Mui-selected': {
-                color: 'primary.main',
-                backgroundColor: 'action.selected',
+                color: 'error.main',
+                backgroundColor: 'transparent !important',
+                '&:hover': {
+                  backgroundColor: 'action.hover !important',
+                },
               },
             }}
           >
@@ -611,17 +619,22 @@ const InspectionsPage = () => {
                 <GridViewIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
-            <ToggleButton value="table" aria-label="table view">
-              <Tooltip title="Table View">
-                <FilterListIcon fontSize="small" />
+            <ToggleButton value="list" aria-label="list view">
+              <Tooltip title="List View">
+                <ViewListIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="calendar" aria-label="calendar view">
+              <Tooltip title="Calendar View">
+                <CalendarMonthIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
           </ToggleButtonGroup>
-        </Box>
+        </Stack>
       </Paper>
 
-      {/* Bulk Actions Toolbar (for table view with selections) */}
-      {selectedIds.length > 0 && viewMode === 'table' && (
+      {/* Bulk Actions Toolbar (for list/table views with selections) */}
+      {selectedIds.length > 0 && (viewMode === 'list' || viewMode === 'table') && (
         <Paper
           sx={{
             mb: 2,
@@ -694,6 +707,57 @@ const InspectionsPage = () => {
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               formatStatusText={formatStatusText}
+            />
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <Stack spacing={2}>
+              {inspectionsWithOverdue.map((inspection) => (
+                <InspectionListItem
+                  key={inspection.id}
+                  inspection={inspection}
+                  selected={selectedIds.includes(inspection.id)}
+                  onSelect={handleSelectOne}
+                  onView={handleView}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  onStatusMenuOpen={handleStatusMenuOpen}
+                  getStatusColor={getStatusColor}
+                  getStatusIcon={getStatusIcon}
+                  formatStatusText={formatStatusText}
+                />
+              ))}
+            </Stack>
+          )}
+
+          {/* Calendar View */}
+          {viewMode === 'calendar' && (
+            <InspectionCalendarBoard
+              startDate={calendarStartDate}
+              events={inspectionsWithOverdue.map(inspection => ({
+                id: inspection.id,
+                title: inspection.title,
+                start: inspection.scheduledDate,
+                status: inspection.status,
+                inspection,
+              }))}
+              onChangeRange={(days) => {
+                const newStart = new Date(calendarStartDate);
+                newStart.setDate(newStart.getDate() + days);
+                setCalendarStartDate(newStart);
+              }}
+              onMove={async (inspectionId, newDate) => {
+                try {
+                  await apiClient.patch(`/inspections/${inspectionId}`, {
+                    scheduledDate: newDate.toISOString(),
+                  });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
+                } catch (error) {
+                  console.error('Failed to reschedule inspection:', error);
+                }
+              }}
+              canDrag={true}
             />
           )}
 
@@ -1089,6 +1153,240 @@ const InspectionKanban = ({
         </Grid>
       ))}
     </Grid>
+  );
+};
+
+// ============================================================================
+// Inspection List Item Component (List View)
+// ============================================================================
+
+const InspectionListItem = ({
+  inspection,
+  selected,
+  onSelect,
+  onView,
+  onEdit,
+  onDelete,
+  onStatusMenuOpen,
+  getStatusColor,
+  getStatusIcon,
+  formatStatusText,
+}) => {
+  const navigate = useNavigate();
+
+  return (
+    <Card
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        cursor: 'pointer',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: selected ? 'primary.main' : 'divider',
+        bgcolor: selected ? 'action.selected' : 'background.paper',
+        '&:hover': {
+          boxShadow: 3,
+        },
+      }}
+      onClick={() => onView(inspection.id)}
+    >
+      {/* Checkbox */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          p: 2,
+          pr: 0,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={selected}
+          onChange={() => onSelect(inspection.id)}
+          aria-label={`Select ${inspection.title}`}
+        />
+      </Box>
+
+      {/* Content */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          flexGrow: 1,
+          p: 2,
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {inspection.title}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+              <Chip
+                icon={getStatusIcon(inspection.displayStatus)}
+                label={formatStatusText(inspection.displayStatus)}
+                color={getStatusColor(inspection.displayStatus)}
+                size="small"
+              />
+              <Chip
+                label={inspection.type?.replace(/_/g, ' ')}
+                size="small"
+                variant="outlined"
+              />
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Details Grid */}
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="caption" color="text.secondary">
+              Property
+            </Typography>
+            <Typography
+              variant="body2"
+              component={MuiLink}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (inspection.property?.id) {
+                  navigate(`/properties/${inspection.property.id}`);
+                }
+              }}
+              sx={{
+                cursor: 'pointer',
+                color: 'primary.main',
+                textDecoration: 'none',
+                '&:hover': { textDecoration: 'underline' },
+              }}
+            >
+              {inspection.property?.name || 'N/A'}
+            </Typography>
+          </Grid>
+
+          {inspection.unit && (
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="caption" color="text.secondary">
+                Unit
+              </Typography>
+              <Typography
+                variant="body2"
+                component={MuiLink}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (inspection.unit?.id) {
+                    navigate(`/units/${inspection.unit.id}`);
+                  }
+                }}
+                sx={{
+                  cursor: 'pointer',
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                Unit {inspection.unit.unitNumber}
+              </Typography>
+            </Grid>
+          )}
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="caption" color="text.secondary">
+              Scheduled Date
+            </Typography>
+            <Typography variant="body2">
+              {formatDateTime(inspection.scheduledDate)}
+            </Typography>
+          </Grid>
+
+          {inspection.assignedTo && (
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="caption" color="text.secondary">
+                Assigned To
+              </Typography>
+              <Typography variant="body2">
+                {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+              </Typography>
+            </Grid>
+          )}
+        </Grid>
+      </Box>
+
+      {/* Actions */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'row', md: 'column' },
+          gap: 1,
+          p: 2,
+          justifyContent: { xs: 'flex-end', md: 'center' },
+          alignItems: 'center',
+          borderLeft: { md: '1px solid' },
+          borderTop: { xs: '1px solid', md: 'none' },
+          borderColor: 'divider',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Tooltip title="View Details">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(inspection.id);
+            }}
+            aria-label={`View details for ${inspection.title}`}
+          >
+            <VisibilityIcon />
+          </IconButton>
+        </Tooltip>
+        {inspection.status !== 'COMPLETED' && (
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(inspection);
+              }}
+              aria-label={`Edit ${inspection.title}`}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title="Change Status">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={(e) => onStatusMenuOpen(e, inspection)}
+            aria-label={`Change status for ${inspection.title}`}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(inspection);
+            }}
+            aria-label={`Delete ${inspection.title}`}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    </Card>
   );
 };
 
