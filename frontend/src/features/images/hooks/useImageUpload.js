@@ -266,9 +266,16 @@ export function useImageUpload(options = {}) {
               return;
             }
 
+            // Bug Fix: Don't update to 100% here - let the completion handler do it
+            // This prevents race condition where progress=100 but status='uploading'
+            // which causes flickering when transitioning to status='complete'
+            if (progress >= 100) {
+              return;
+            }
+
             // Throttle progress updates to every 5% to reduce re-renders
-            // Always update at 0% and 100%
-            if (progress === 0 || progress === 100 || progress - lastProgressUpdate >= 5) {
+            // Always update at 0%
+            if (progress === 0 || progress - lastProgressUpdate >= 5) {
               lastProgressRefs.current[image.id] = progress;
               setImages(prev => prev.map(img =>
                 img.id === image.id ? { ...img, progress } : img

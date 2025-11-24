@@ -193,7 +193,8 @@ const ImageCard = memo(function ImageCard({
               objectFit: 'cover',
               opacity: isUploading ? 0.6 : 1,
               transition: 'opacity 0.3s ease-in-out',
-              willChange: isUploading ? 'opacity' : 'auto',
+              // Bug Fix: Remove dynamic willChange to prevent layer switching during transition
+              // The browser will optimize opacity transitions automatically
             }}
           />
         ) : (
