@@ -866,6 +866,18 @@ const InspectionsPage = () => {
         anchorEl={statusMenuAnchor}
         open={Boolean(statusMenuAnchor)}
         onClose={handleStatusMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        MenuListProps={{
+          'aria-labelledby': 'status-menu-button',
+          dense: true,
+        }}
       >
         <MenuItem
           onClick={() => handleStatusChange(statusMenuInspection, 'SCHEDULED')}
