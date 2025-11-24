@@ -237,10 +237,19 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     setPreviewDialogOpen(true);
   };
 
-  const handleDownload = (document) => {
+  const handleDownload = async (document) => {
     const url = buildDocumentDownloadUrl(document);
-    if (url) downloadFile(url, document.fileName);
-    else showError('Download unavailable');
+    if (!url) {
+      showError('Download unavailable');
+      return;
+    }
+
+    try {
+      await downloadFile(url, document.fileName);
+    } catch (error) {
+      console.error('Download failed:', error);
+      showError(error.response?.data?.message || 'Failed to download document');
+    }
   };
 
   if (isError) return <Alert severity="error">Failed to load documents</Alert>;
