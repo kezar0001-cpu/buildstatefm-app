@@ -534,120 +534,135 @@ const InspectionsPage = () => {
       </Stack>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)' }}>
         <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Search"
-                placeholder="Search inspections or properties..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+          <Grid container spacing={2} alignItems="stretch">
+            <Grid item xs={12} lg={8}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ height: '100%' }}>
+                <TextField
+                  fullWidth
+                  label="Search"
+                  placeholder="Search inspections or properties..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  size="small"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <TextField
+                  select
+                  fullWidth
+                  label="Status"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="SCHEDULED">Scheduled</MenuItem>
+                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                  <MenuItem value="COMPLETED">Completed</MenuItem>
+                  <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  fullWidth
+                  label="Property"
+                  value={filters.propertyId}
+                  onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">All Properties</MenuItem>
+                  {Array.isArray(properties) && properties.map((property) => (
+                    <MenuItem key={property.id} value={property.id}>
+                      {property.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <TextField
-                select
-                fullWidth
-                label="Status"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                size="small"
+            <Grid item xs={12} lg={4}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row', lg: 'row' }}
+                spacing={2}
+                justifyContent="flex-end"
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                sx={{ height: '100%' }}
               >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="CANCELLED">Cancelled</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <TextField
-                select
-                fullWidth
-                label="Property"
-                value={filters.propertyId}
-                onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {Array.isArray(properties) && properties.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <TextField
-                fullWidth
-                label="From Date"
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <TextField
-                fullWidth
-                label="To Date"
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={1} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                aria-label="View mode toggle"
-                size="small"
-                sx={{
-                  display: 'inline-flex',
-                  backgroundColor: 'background.paper',
-                  borderRadius: 999,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 0,
-                    px: 1,
-                    py: 0.5,
-                    border: 'none',
-                  },
-                  '& .MuiToggleButton-root': {
-                    borderRadius: '8px !important',
-                    color: 'text.secondary',
-                  },
-                  '& .Mui-selected': {
-                    color: 'primary.main',
-                    backgroundColor: 'action.selected',
-                  },
-                }}
-              >
-                <ToggleButton value="grid" aria-label="grid view">
-                  <ViewModuleIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
-                  <ViewListIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="kanban" aria-label="kanban view">
-                  <ViewKanbanIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flex={1}>
+                  <TextField
+                    fullWidth
+                    label="From Date"
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="To Date"
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Stack>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    minWidth: { xs: '100%', sm: 140 },
+                  }}
+                >
+                  <ToggleButtonGroup
+                    value={viewMode}
+                    exclusive
+                    onChange={handleViewModeChange}
+                    aria-label="View mode toggle"
+                    size="small"
+                    sx={{
+                      display: 'inline-flex',
+                      backgroundColor: 'background.paper',
+                      borderRadius: 999,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
+                      '& .MuiToggleButtonGroup-grouped': {
+                        minWidth: 0,
+                        px: 1.5,
+                        py: 0.75,
+                        border: 'none',
+                      },
+                      '& .MuiToggleButton-root': {
+                        borderRadius: '10px !important',
+                        color: 'text.secondary',
+                      },
+                      '& .Mui-selected': {
+                        color: 'primary.main',
+                        backgroundColor: 'action.selected',
+                        boxShadow: '0 6px 16px rgba(15, 23, 42, 0.12)',
+                      },
+                    }}
+                  >
+                    <ToggleButton value="grid" aria-label="grid view">
+                      <ViewModuleIcon fontSize="small" />
+                    </ToggleButton>
+                    <ToggleButton value="list" aria-label="list view">
+                      <ViewListIcon fontSize="small" />
+                    </ToggleButton>
+                    <ToggleButton value="kanban" aria-label="kanban view">
+                      <ViewKanbanIcon fontSize="small" />
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+              </Stack>
             </Grid>
           </Grid>
         </CardContent>
