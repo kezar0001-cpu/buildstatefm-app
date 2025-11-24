@@ -231,20 +231,30 @@ const InspectionsPage = () => {
     });
   }, [inspections]);
 
+  // State for status update error
+  const [statusUpdateError, setStatusUpdateError] = useState(null);
+
   // Mutation for updating inspection status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }) => {
+      console.log('Updating inspection status:', { id, status });
       const response = await apiClient.patch(`/inspections/${id}`, { status });
+      console.log('Status update response:', response.data);
       return response.data;
     },
     onSuccess: () => {
+      console.log('Status update successful');
+      setStatusUpdateError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
-      handleStatusMenuClose();
+      setStatusMenuAnchor(null);
+      setStatusMenuInspection(null);
       setIsUpdatingStatus(false);
     },
     onError: (error) => {
       console.error('Failed to update status:', error);
-      handleStatusMenuClose();
+      setStatusUpdateError(error?.response?.data?.message || error?.message || 'Failed to update status');
+      setStatusMenuAnchor(null);
+      setStatusMenuInspection(null);
       setIsUpdatingStatus(false);
     },
   });
@@ -667,7 +677,16 @@ const InspectionsPage = () => {
         </Paper>
       )}
 
-      {/* Error Alert */}
+      {/* Error Alerts */}
+      {statusUpdateError && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setStatusUpdateError(null)}
+        >
+          {statusUpdateError}
+        </Alert>
+      )}
       {(deleteMutation.isError || updateStatusMutation.isError) && (
         <Alert
           severity="error"

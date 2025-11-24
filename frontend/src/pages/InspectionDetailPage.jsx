@@ -49,6 +49,13 @@ import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
 import { useCurrentUser } from '../context/UserContext';
 import { queryKeys } from '../utils/queryKeys.js';
 
+const PRIORITY_OPTIONS = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+];
+
 export default function InspectionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
