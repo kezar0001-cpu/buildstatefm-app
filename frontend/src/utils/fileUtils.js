@@ -202,10 +202,14 @@ export function addCloudinaryDownloadFlags(fileUrl, fileName) {
  * Download a file by creating a temporary anchor element and clicking it
  * This works better than window.open() for actual downloads
  *
+ * For API endpoints requiring authentication, fetches the file with credentials
+ * and creates a blob URL to download. For public URLs (Cloudinary, etc.),
+ * uses direct anchor element download.
+ *
  * @param {string} fileUrl - The URL of the file to download
  * @param {string} fileName - The suggested filename for the download
  */
-export function downloadFile(fileUrl, fileName, options = {}) {
+export async function downloadFile(fileUrl, fileName, options = {}) {
   const { skipResolution = false, skipDownloadTransform = false } = options;
 
   const resolvedUrl = skipResolution ? fileUrl : resolveFileUrl(fileUrl);
@@ -215,15 +219,51 @@ export function downloadFile(fileUrl, fileName, options = {}) {
     ? addCloudinaryDownloadFlags(resolvedUrl, fileName)
     : resolvedUrl;
 
-  // Create a temporary anchor element
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = fileName || 'download';
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
+  // Check if this is an API endpoint that requires authentication
+  const isApiEndpoint = downloadUrl.includes('/api/') ||
+                       (downloadUrl.startsWith('/') && !downloadUrl.startsWith('http'));
 
-  // Append to body, click, and remove
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  if (isApiEndpoint) {
+    // For authenticated API endpoints, fetch with credentials and create blob URL
+    try {
+      // Import apiClient dynamically to avoid circular dependencies
+      const { apiClient } = await import('../api/client.js');
+
+      const response = await apiClient.get(downloadUrl, {
+        responseType: 'blob',
+      });
+
+      // Create a blob URL from the response
+      const blob = response.data;
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Create a temporary anchor element with the blob URL
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || 'download';
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up the blob URL after a short delay
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+    } catch (error) {
+      console.error('[FileUtils] Error downloading file:', error);
+      throw error;
+    }
+  } else {
+    // For public URLs (Cloudinary, etc.), use direct download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName || 'download';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    // Append to body, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
