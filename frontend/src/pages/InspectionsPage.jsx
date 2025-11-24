@@ -245,7 +245,7 @@ const InspectionsPage = () => {
       </Stack>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)' }}>
         <CardContent sx={{ p: { xs: 2, md: 3 } }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={3}>
