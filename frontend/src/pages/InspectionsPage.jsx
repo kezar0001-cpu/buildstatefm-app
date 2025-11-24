@@ -335,6 +335,8 @@ const InspectionsPage = () => {
 
   const handleStatusChange = (newStatus) => {
     if (statusMenuInspection) {
+      // Close menu immediately for better UX
+      setStatusMenuAnchor(null);
       setIsUpdatingStatus(true);
       updateStatusMutation.mutate({
         id: statusMenuInspection.id,
@@ -864,9 +866,24 @@ const InspectionsPage = () => {
         anchorEl={statusMenuAnchor}
         open={Boolean(statusMenuAnchor)}
         onClose={handleStatusMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        MenuListProps={{
+          'aria-labelledby': 'status-menu-button',
+          dense: true,
+        }}
       >
         <MenuItem
-          onClick={() => handleStatusChange('SCHEDULED')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStatusChange('SCHEDULED');
+          }}
           disabled={statusMenuInspection?.status === 'SCHEDULED' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -875,7 +892,10 @@ const InspectionsPage = () => {
           <ListItemText>Scheduled</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('IN_PROGRESS')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStatusChange('IN_PROGRESS');
+          }}
           disabled={statusMenuInspection?.status === 'IN_PROGRESS' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -884,7 +904,10 @@ const InspectionsPage = () => {
           <ListItemText>In Progress</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('COMPLETED')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStatusChange('COMPLETED');
+          }}
           disabled={statusMenuInspection?.status === 'COMPLETED' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -893,7 +916,10 @@ const InspectionsPage = () => {
           <ListItemText>Completed</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('CANCELLED')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStatusChange('CANCELLED');
+          }}
           disabled={statusMenuInspection?.status === 'CANCELLED' || isUpdatingStatus}
         >
           <ListItemIcon>
