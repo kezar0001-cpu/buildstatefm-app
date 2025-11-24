@@ -57,10 +57,17 @@ export function useImageUpload(options = {}) {
   /**
    * Sync initialImages to state when they change (for edit mode)
    * This handles the case where initialImages prop updates after initial mount
+   * Bug Fix: Prevent infinite loops by comparing content, not just signature
    */
   useEffect(() => {
     // Skip if no initial images or if we've already processed them
     if (!initialImages || initialImages.length === 0) {
+      // If we have images and initialImages becomes empty, clear them
+      if (images.length > 0 && !images.some(img => img.status === 'pending' || img.status === 'uploading')) {
+        console.log('[useImageUpload] InitialImages is now empty, clearing state');
+        setImages([]);
+        initialImagesProcessedRef.current = '';
+      }
       return;
     }
 
@@ -68,6 +75,7 @@ export function useImageUpload(options = {}) {
     // This prevents losing pending uploads when parents update the images prop mid-upload
     const hasActiveLocalUploads = images.some((img) => img.status === 'pending' || img.status === 'uploading');
     if (hasActiveLocalUploads) {
+      console.log('[useImageUpload] Skipping sync - active uploads in progress');
       return;
     }
 
@@ -76,6 +84,25 @@ export function useImageUpload(options = {}) {
 
     // Only update if the signature has changed
     if (initialImagesProcessedRef.current === signature) {
+      return;
+    }
+
+    // Additional check: Compare current completed images with initialImages
+    // to prevent syncing if they're essentially the same
+    const currentCompletedUrls = images
+      .filter(img => img.status === 'complete')
+      .map(img => img.remoteUrl)
+      .sort()
+      .join(',');
+
+    const incomingUrls = initialImages
+      .map(img => img.url || img.imageUrl || img.remoteUrl)
+      .sort()
+      .join(',');
+
+    if (currentCompletedUrls === incomingUrls && images.length === initialImages.length) {
+      console.log('[useImageUpload] Skipping sync - images are already in sync');
+      initialImagesProcessedRef.current = signature;
       return;
     }
 
