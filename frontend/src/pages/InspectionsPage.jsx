@@ -333,11 +333,13 @@ const InspectionsPage = () => {
     setStatusMenuInspection(null);
   };
 
-  const handleStatusChange = (newStatus) => {
-    if (statusMenuInspection) {
+  const handleStatusChange = (inspection, newStatus) => {
+    if (inspection) {
       setIsUpdatingStatus(true);
+      setStatusMenuAnchor(null); // Close menu immediately
+      setStatusMenuInspection(null);
       updateStatusMutation.mutate({
-        id: statusMenuInspection.id,
+        id: inspection.id,
         status: newStatus,
       });
     }
@@ -866,7 +868,7 @@ const InspectionsPage = () => {
         onClose={handleStatusMenuClose}
       >
         <MenuItem
-          onClick={() => handleStatusChange('SCHEDULED')}
+          onClick={() => handleStatusChange(statusMenuInspection, 'SCHEDULED')}
           disabled={statusMenuInspection?.status === 'SCHEDULED' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -875,7 +877,7 @@ const InspectionsPage = () => {
           <ListItemText>Scheduled</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('IN_PROGRESS')}
+          onClick={() => handleStatusChange(statusMenuInspection, 'IN_PROGRESS')}
           disabled={statusMenuInspection?.status === 'IN_PROGRESS' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -884,7 +886,7 @@ const InspectionsPage = () => {
           <ListItemText>In Progress</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('COMPLETED')}
+          onClick={() => handleStatusChange(statusMenuInspection, 'COMPLETED')}
           disabled={statusMenuInspection?.status === 'COMPLETED' || isUpdatingStatus}
         >
           <ListItemIcon>
@@ -893,7 +895,7 @@ const InspectionsPage = () => {
           <ListItemText>Completed</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange('CANCELLED')}
+          onClick={() => handleStatusChange(statusMenuInspection, 'CANCELLED')}
           disabled={statusMenuInspection?.status === 'CANCELLED' || isUpdatingStatus}
         >
           <ListItemIcon>
