@@ -1,3 +1,8 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Typography } from '@mui/material';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import AttachmentUploader from './AttachmentUploader';
 import AttachmentList from './AttachmentList';
 
