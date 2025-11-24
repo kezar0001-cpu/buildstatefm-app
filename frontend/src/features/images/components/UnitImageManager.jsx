@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Divider, Alert } from '@mui/material';
 import { useImageUpload } from '../hooks';
 import { ImageUploadZone } from './ImageUploadZone';
@@ -71,6 +71,31 @@ export function UnitImageManager({
   const previousCompletedSnapshotRef = useRef('');
 
   /**
+   * Memoize completed images to prevent unnecessary re-renders
+   * Only changes when the actual completed images change, not on progress updates
+   */
+  const completedImages = useMemo(() => {
+    return getCompletedImages();
+  }, [getCompletedImages]);
+
+  /**
+   * Serialize completed images for comparison
+   * Memoized to avoid recreating on every render
+   */
+  const serializedCompleted = useMemo(() => {
+    return JSON.stringify(
+      completedImages.map((img) => ({
+        id: img.id ?? img.imageId ?? null,
+        imageId: img.imageId ?? null,
+        imageUrl: img.imageUrl ?? '',
+        caption: img.caption ?? '',
+        isPrimary: Boolean(img.isPrimary),
+        position: img.position ?? null,
+      }))
+    );
+  }, [completedImages]);
+
+  /**
    * Notify parent of upload state changes
    * Bug Fix: Track uploading and pending state to prevent navigation during uploads
    */
@@ -83,29 +108,13 @@ export function UnitImageManager({
 
   /**
    * Notify parent of changes
-   * Bug Fix: Only notify when images actually complete, not on every state change
-   * This prevents file dialog interruption and preserves pending uploads
+   * Bug Fix: Only notify when completed images actually change, not on every state change
+   * This prevents file dialog interruption and infinite loops
    */
   useEffect(() => {
     if (!onChange) return;
 
     // Bug Fix: Always skip the very first render to avoid interrupting file selection
-    const completedImages = getCompletedImages();
-
-    const serializeCompletedImages = (list) =>
-      JSON.stringify(
-        list.map((img) => ({
-          id: img.id ?? img.imageId ?? null,
-          imageId: img.imageId ?? null,
-          imageUrl: img.imageUrl ?? '',
-          caption: img.caption ?? '',
-          isPrimary: Boolean(img.isPrimary),
-          position: img.position ?? null,
-        }))
-      );
-
-    const serializedCompleted = serializeCompletedImages(completedImages);
-
     if (isInitialMount.current) {
       isInitialMount.current = false;
       previousCompletedSnapshotRef.current = serializedCompleted;
@@ -113,6 +122,7 @@ export function UnitImageManager({
       return;
     }
 
+    // Only notify if the serialized completed images have actually changed
     if (serializedCompleted === previousCompletedSnapshotRef.current) {
       return;
     }
@@ -130,7 +140,7 @@ export function UnitImageManager({
 
     // Call onChange with completed images and cover URL
     onChange(completedImages, coverUrl);
-  }, [images, onChange, getCompletedImages]);
+  }, [serializedCompleted, onChange, completedImages]);
 
   /**
    * Handle file selection
