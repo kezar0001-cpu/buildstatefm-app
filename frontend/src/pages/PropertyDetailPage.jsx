@@ -959,7 +959,7 @@ export default function PropertyDetailPage() {
 
             {/* Quick Stats */}
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -973,19 +973,7 @@ export default function PropertyDetailPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Total Units
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                      {property.totalUnits || 0}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -997,7 +985,7 @@ export default function PropertyDetailPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -1082,12 +1070,6 @@ export default function PropertyDetailPage() {
                           Year Built
                         </Typography>
                         <Typography variant="body1">{formatNumberValue(property.yearBuilt)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6} lg={4}>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Units
-                        </Typography>
-                        <Typography variant="body1">{formatNumberValue(property.totalUnits)}</Typography>
                       </Grid>
                       <Grid item xs={12} md={6} lg={4}>
                         <Typography variant="body2" color="text.secondary">
