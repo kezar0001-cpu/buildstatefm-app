@@ -153,7 +153,7 @@ export default function TechnicianDashboard() {
   };
 
   const handleStatusUpdate = (job, nextStatus) => {
-    if (!job || !canTransition(job, nextStatus)) return;
+    if (!job || !canTransition(job.status, nextStatus)) return;
     statusMutation.mutate({ jobId: job.id, status: nextStatus });
   };
 
@@ -306,7 +306,7 @@ export default function TechnicianDashboard() {
                       <Button
                         size="small"
                         variant="contained"
-                        disabled={!canTransition(job, 'IN_PROGRESS') || statusMutation.isPending}
+                        disabled={!canTransition(job.status, 'IN_PROGRESS') || statusMutation.isPending}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStatusUpdate(job, 'IN_PROGRESS');
@@ -320,7 +320,7 @@ export default function TechnicianDashboard() {
                         size="small"
                         variant="contained"
                         color="success"
-                        disabled={!canTransition(job, 'COMPLETED') || statusMutation.isPending}
+                        disabled={!canTransition(job.status, 'COMPLETED') || statusMutation.isPending}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStatusUpdate(job, 'COMPLETED');
@@ -367,12 +367,12 @@ export default function TechnicianDashboard() {
         onClose={handleMenuClose}
       >
         <MenuItem onClick={handleViewDetails}>View Details</MenuItem>
-        {selectedJob && canTransition(selectedJob, 'IN_PROGRESS') && (
+        {selectedJob && canTransition(selectedJob.status, 'IN_PROGRESS') && (
           <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'IN_PROGRESS')}>
             Start Job
           </MenuItem>
         )}
-        {selectedJob && canTransition(selectedJob, 'COMPLETED') && (
+        {selectedJob && canTransition(selectedJob.status, 'COMPLETED') && (
           <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'COMPLETED')}>
             Mark Complete
           </MenuItem>
