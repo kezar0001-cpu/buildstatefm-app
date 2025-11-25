@@ -51,10 +51,9 @@ import EmptyState from '../components/EmptyState';
 import JobForm from '../components/JobForm';
 import ensureArray from '../utils/ensureArray';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
 import JobDetailModal from '../components/JobDetailModal';
+import JobCalendarBoard from '../components/JobCalendarBoard';
 import JobStatusConfirmDialog from '../components/JobStatusConfirmDialog';
 import { CircularProgress } from '@mui/material';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -68,8 +67,6 @@ import {
   getStatusHelperText,
 } from '../constants/jobStatuses.js';
 import { useCurrentUser } from '../context/UserContext';
-
-const localizer = momentLocalizer(moment);
 
 const KANBAN_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
@@ -98,6 +95,13 @@ const JobsPage = () => {
   const [bulkTechnicianId, setBulkTechnicianId] = useState('');
   const [isConfirmBulkAssignOpen, setIsConfirmBulkAssignOpen] = useState(false);
   const [detailReturnPath, setDetailReturnPath] = useState(location.pathname + location.search);
+
+  // Calendar navigation state
+  const [calendarStartDate, setCalendarStartDate] = useState(() => {
+    const today = new Date();
+    today.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    return today;
+  });
 
   // Job status update hook
   const {
@@ -597,8 +601,8 @@ const JobsPage = () => {
               },
             }}
           >
-            <ToggleButton value="card" aria-label="card view">
-              <Tooltip title="Card View">
+            <ToggleButton value="card" aria-label="grid view">
+              <Tooltip title="Grid View">
                 <ViewModuleIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
@@ -1011,30 +1015,39 @@ const JobsPage = () => {
           )}
 
           {view === 'calendar' && (
-            <Paper sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Calendar
-                  localizer={localizer}
-                  events={filteredJobs
-                    .filter((job) => job.scheduledDate)
-                    .map((job) => ({
-                      id: job.id,
-                      title: job.title,
-                      start: new Date(job.scheduledDate),
-                      end: new Date(job.scheduledDate),
-                      allDay: true,
-                      resource: job,
-                    }))}
-                  startAccessor="start"
-                  endAccessor="end"
-                  style={{
-                    height: 600,
-                    minWidth: 600
-                  }}
-                  onSelectEvent={(event) => handleOpenDetailModal(event.resource)}
-                />
-              </Box>
-            </Paper>
+            <JobCalendarBoard
+              startDate={calendarStartDate}
+              events={filteredJobs
+                .filter((job) => job.scheduledDate)
+                .map((job) => ({
+                  id: job.id,
+                  title: job.title,
+                  start: job.scheduledDate,
+                  status: job.status,
+                  priority: job.priority,
+                  property: job.property?.name || null,
+                  assignedTo: job.assignedTo
+                    ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                    : null,
+                }))}
+              onChangeRange={(days) => {
+                const newStart = new Date(calendarStartDate);
+                newStart.setDate(newStart.getDate() + days);
+                setCalendarStartDate(newStart);
+              }}
+              onMove={async (jobId, newDate) => {
+                try {
+                  await apiClient.patch(`/jobs/${jobId}`, {
+                    scheduledDate: newDate.toISOString(),
+                  });
+                  refetch();
+                } catch (error) {
+                  console.error('Failed to reschedule job:', error);
+                  toast.error('Failed to reschedule job');
+                }
+              }}
+              canDrag={true}
+            />
           )}
         </>
       )}
