@@ -84,7 +84,6 @@ const JobsPage = () => {
     status: '',
     priority: '',
     filter: '',
-    propertyId: '',
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -109,7 +108,6 @@ const JobsPage = () => {
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.priority) queryParams.append('priority', filters.priority);
   if (filters.filter) queryParams.append('filter', filters.filter);
-  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
 
   // Fetch jobs with infinite query
   const {
@@ -137,16 +135,6 @@ const JobsPage = () => {
 
   // Flatten all pages into a single array
   const jobs = data?.pages?.flatMap(page => page.items) || [];
-
-  const { data: propertiesData } = useQuery({
-    queryKey: queryKeys.properties.selectOptions(),
-    queryFn: async () => {
-      const response = await apiClient.get('/properties?limit=100&offset=0');
-      return response.data;
-    },
-  });
-
-  const propertyOptions = ensureArray(propertiesData?.items || propertiesData);
 
   const { data: technicians = [] } = useQuery({
     queryKey: queryKeys.users.list({ role: 'TECHNICIAN' }),
@@ -252,7 +240,7 @@ const JobsPage = () => {
   });
 
   const hasActiveFilters = Boolean(
-    filters.status || filters.priority || filters.filter || filters.propertyId || searchTerm
+    filters.status || filters.priority || filters.filter || searchTerm
   );
 
   const selectedCount = selectedJobIds.length;
@@ -427,10 +415,9 @@ const JobsPage = () => {
         <GradientButton
           startIcon={<AddIcon />}
           onClick={handleCreate}
-          size="medium"
+          size="large"
           sx={{
             maxWidth: { xs: '100%', md: 'auto' },
-            minHeight: { xs: 48, md: 36 },
           }}
         >
           Create Job
@@ -511,25 +498,6 @@ const JobsPage = () => {
               <MenuItem value="MEDIUM">Medium</MenuItem>
               <MenuItem value="HIGH">High</MenuItem>
               <MenuItem value="URGENT">Urgent</MenuItem>
-            </TextField>
-
-            <TextField
-              select
-              fullWidth
-              id="jobs-filter-property"
-              name="propertyId"
-              label="Property"
-              value={filters.propertyId}
-              onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-              size="small"
-              sx={{ minWidth: 180 }}
-            >
-              <MenuItem value="">All Properties</MenuItem>
-              {propertyOptions.map((property) => (
-                <MenuItem key={property.id} value={property.id}>
-                  {property.name}
-                </MenuItem>
-              ))}
             </TextField>
 
             <TextField
