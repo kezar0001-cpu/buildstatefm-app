@@ -184,7 +184,7 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
       unitId: data.unitId || undefined,
       assignedToId: data.assignedToId || undefined,
       scheduledDate: data.scheduledDate ? new Date(data.scheduledDate).toISOString() : undefined,
-      estimatedCost: data.estimatedCost,
+      estimatedCost: data.estimatedCost ?? undefined,
       notes: data.notes || undefined,
     };
 
