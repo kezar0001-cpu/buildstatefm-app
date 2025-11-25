@@ -90,7 +90,33 @@ const jobUpdateSchema = z.object({
     }),
   assignedToId: z.string().optional().nullable(),
   estimatedCost: z.number().optional().nullable(),
+  actualCost: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
+  evidence: z
+    .object({
+      subtasks: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            text: z.string().min(1),
+            completed: z.boolean(),
+          })
+        )
+        .optional(),
+      attachments: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            name: z.string().min(1),
+            url: z.string().url(),
+            mimeType: z.string().optional(),
+            uploadedAt: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .passthrough()
+    .optional(),
 });
 
 const bulkAssignSchema = z.object({
