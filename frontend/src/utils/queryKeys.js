@@ -11,6 +11,7 @@ export const queryKeys = {
   jobs: {
     all: () => ['jobs'],
     detail: (id) => ['jobs', id],
+    comments: (id) => ['jobs', id, 'comments'],
     list: (filters) => ['jobs', 'list', filters],
     filtered: (filters) => ['jobs', 'filtered', filters],
     technician: () => ['jobs', 'technician'],

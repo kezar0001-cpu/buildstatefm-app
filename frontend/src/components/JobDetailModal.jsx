@@ -51,7 +51,7 @@ const JobDetailModal = ({ job, open, onClose }) => {
   const [attachmentError, setAttachmentError] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const commentsQueryKey = ['jobs', job?.id, 'comments'];
+  const commentsQueryKey = queryKeys.jobs.comments(job?.id);
 
   const { data: jobData, isLoading: jobLoading, error: jobError } = useQuery({
     queryKey: queryKeys.jobs.detail(job?.id),
