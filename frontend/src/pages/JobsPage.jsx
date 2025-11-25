@@ -69,6 +69,7 @@ import {
   getAllowedStatuses,
   getStatusHelperText,
 } from '../constants/jobStatuses.js';
+import { useCurrentUser } from '../context/UserContext';
 
 const localizer = momentLocalizer(moment);
 
@@ -80,6 +81,7 @@ const JobsPage = () => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { user } = useCurrentUser();
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
@@ -87,7 +89,10 @@ const JobsPage = () => {
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [view, setView] = useState('card'); // 'card', 'kanban', 'calendar'
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'card';
+    return localStorage.getItem('jobsViewPreference') || 'card';
+  }); // 'card', 'kanban', 'calendar'
   const [searchTerm, setSearchTerm] = useState('');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState([]);
@@ -103,11 +108,31 @@ const JobsPage = () => {
     isUpdating: isStatusUpdating,
   } = useJobStatusUpdate();
 
+  useEffect(() => {
+    if (user?.role === 'TECHNICIAN') {
+      navigate('/technician/dashboard', { replace: true });
+    }
+  }, [navigate, user?.role]);
+
+  const searchQuery = useMemo(() => searchTerm.trim(), [searchTerm]);
+
+  const queryFilters = useMemo(
+    () => ({
+      ...filters,
+      search: searchQuery || undefined,
+    }),
+    [filters, searchQuery],
+  );
+
   // Build query params
-  const queryParams = new URLSearchParams();
-  if (filters.status) queryParams.append('status', filters.status);
-  if (filters.priority) queryParams.append('priority', filters.priority);
-  if (filters.filter) queryParams.append('filter', filters.filter);
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
+    if (filters.filter) params.append('filter', filters.filter);
+    if (searchQuery) params.append('search', searchQuery);
+    return params;
+  }, [filters.filter, filters.priority, filters.status, searchQuery]);
 
   // Fetch jobs with infinite query
   const {
@@ -119,7 +144,7 @@ const JobsPage = () => {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: queryKeys.jobs.list(filters),
+    queryKey: queryKeys.jobs.list(queryFilters),
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams(queryParams);
       params.append('limit', '50');
@@ -131,6 +156,7 @@ const JobsPage = () => {
       return lastPage.hasMore ? lastPage.page * 50 : undefined;
     },
     initialPageParam: 0,
+    enabled: user?.role !== 'TECHNICIAN',
   });
 
   // Flatten all pages into a single array
@@ -151,6 +177,9 @@ const JobsPage = () => {
   const handleViewChange = (event, nextView) => {
     if (nextView !== null) {
       setView(nextView);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jobsViewPreference', nextView);
+      }
     }
   };
 
@@ -221,31 +250,19 @@ const JobsPage = () => {
     bulkAssignMutation.mutate({ jobIds: selectedJobIds, technicianId: bulkTechnicianId });
   };
 
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-
-  const filteredJobs = jobs.filter((job) => {
-    const searchableFields = [
-      job.title,
-      job.description,
-      job.property?.name,
-      job.unit?.unitNumber ? `unit ${job.unit.unitNumber}` : '',
-      job.assignedTo ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}` : '',
-    ];
-
-    const matchesSearch = searchableFields.some((field) =>
-      (field || '').toString().toLowerCase().includes(normalizedSearch)
-    );
-
-    return matchesSearch;
-  });
+  const filteredJobs = jobs;
 
   const hasActiveFilters = Boolean(
-    filters.status || filters.priority || filters.filter || searchTerm
+    filters.status || filters.priority || filters.filter || searchQuery
   );
 
   const selectedCount = selectedJobIds.length;
   const allVisibleSelected = filteredJobs.length > 0 && selectedCount === filteredJobs.length;
   const isSelectionIndeterminate = selectedCount > 0 && !allVisibleSelected;
+
+  if (user?.role === 'TECHNICIAN') {
+    return null;
+  }
 
   const handleCreate = () => {
     setSelectedJob(null);
@@ -516,53 +533,58 @@ const JobsPage = () => {
               <MenuItem value="unassigned">Unassigned</MenuItem>
             </TextField>
 
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={handleViewChange}
-              aria-label="view toggle"
-              size="small"
-              sx={{
-                backgroundColor: 'background.paper',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider',
-                '& .MuiToggleButtonGroup-grouped': {
-                  minWidth: 40,
-                  border: 'none',
-                  '&:not(:first-of-type)': {
-                    borderRadius: 2,
+            <Stack spacing={0.5} alignItems={{ xs: 'flex-start', lg: 'flex-start' }}>
+              <ToggleButtonGroup
+                value={view}
+                exclusive
+                onChange={handleViewChange}
+                aria-label="view toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
                   },
-                  '&:first-of-type': {
-                    borderRadius: 2,
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    px: 1,
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
                   },
-                },
-                '& .MuiToggleButton-root': {
-                  color: 'text.secondary',
-                  px: 1,
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
+                  '& .Mui-selected': {
+                    color: 'primary.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
                   },
-                },
-                '& .Mui-selected': {
-                  color: 'primary.main',
-                  backgroundColor: 'transparent !important',
-                  '&:hover': {
-                    backgroundColor: 'action.hover !important',
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="card" aria-label="card view">
-                <ViewModuleIcon fontSize="small" />
-              </ToggleButton>
-              <ToggleButton value="kanban" aria-label="kanban view">
-                <ViewKanbanIcon fontSize="small" />
-              </ToggleButton>
-              <ToggleButton value="calendar" aria-label="calendar view">
-                <CalendarTodayIcon fontSize="small" />
-              </ToggleButton>
-            </ToggleButtonGroup>
+                }}
+              >
+                <ToggleButton value="card" aria-label="card view">
+                  <ViewModuleIcon fontSize="small" />
+                </ToggleButton>
+                <ToggleButton value="kanban" aria-label="kanban view">
+                  <ViewKanbanIcon fontSize="small" />
+                </ToggleButton>
+                <ToggleButton value="calendar" aria-label="calendar view">
+                  <CalendarTodayIcon fontSize="small" />
+                </ToggleButton>
+              </ToggleButtonGroup>
+              <Typography variant="caption" color="text.secondary">
+                Switch between card, board, and calendar views. We&apos;ll remember your preference.
+              </Typography>
+            </Stack>
           </Stack>
         </Stack>
       </Paper>
