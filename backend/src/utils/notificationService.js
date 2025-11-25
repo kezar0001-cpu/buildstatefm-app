@@ -457,6 +457,53 @@ export async function notifyOwnerJobCreated(serviceRequest, job, owner, property
 }
 
 /**
+ * Notify technician that their inspection was approved
+ */
+export async function notifyInspectionApproved(userId, inspection) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  return sendNotification(
+    userId,
+    'INSPECTION_APPROVED',
+    'Inspection Approved',
+    `Your inspection "${inspection.title}" has been approved by the property manager`,
+    {
+      entityType: 'inspection',
+      entityId: inspection.id,
+      emailData: {
+        inspectionTitle: inspection.title,
+        propertyName: inspection.property?.name || 'Unknown Property',
+        inspectionUrl: `${frontendUrl}/inspections/${inspection.id}`,
+      },
+    }
+  );
+}
+
+/**
+ * Notify technician that their inspection was rejected
+ */
+export async function notifyInspectionRejected(userId, inspection, rejectionReason) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  return sendNotification(
+    userId,
+    'INSPECTION_REJECTED',
+    'Inspection Rejected',
+    `Your inspection "${inspection.title}" has been rejected. Reason: ${rejectionReason}`,
+    {
+      entityType: 'inspection',
+      entityId: inspection.id,
+      emailData: {
+        inspectionTitle: inspection.title,
+        propertyName: inspection.property?.name || 'Unknown Property',
+        rejectionReason,
+        inspectionUrl: `${frontendUrl}/inspections/${inspection.id}`,
+      },
+    }
+  );
+}
+
+/**
  * Map notification type to email template key
  */
 function getTemplateKeyFromType(type) {
@@ -465,6 +512,8 @@ function getTemplateKeyFromType(type) {
     JOB_COMPLETED: 'jobCompleted',
     INSPECTION_REMINDER: 'inspectionReminder',
     INSPECTION_COMPLETED: 'inspectionCompleted',
+    INSPECTION_APPROVED: 'inspectionApproved',
+    INSPECTION_REJECTED: 'inspectionRejected',
     SERVICE_REQUEST_UPDATE: 'serviceRequestUpdate',
     SUBSCRIPTION_EXPIRING: 'trialExpiring',
   };
@@ -479,6 +528,8 @@ export default {
   notifyJobReassigned,
   notifyInspectionReminder,
   notifyInspectionCompleted,
+  notifyInspectionApproved,
+  notifyInspectionRejected,
   notifyServiceRequestUpdate,
   notifyTrialExpiring,
   sendWelcomeEmail,
