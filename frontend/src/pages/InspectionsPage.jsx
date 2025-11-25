@@ -40,6 +40,9 @@ import {
   Toolbar,
   InputAdornment,
   Link as MuiLink,
+  LinearProgress,
+  List,
+  ListItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -59,6 +62,7 @@ import {
   Warning as WarningIcon,
   FilterList as FilterListIcon,
   FileDownload as FileDownloadIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -128,6 +132,12 @@ const InspectionsPage = () => {
 
   // Bulk selection state (for table views)
   const [selectedIds, setSelectedIds] = useState([]);
+
+  // Bulk delete state
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0 });
+  const [bulkDeleteResults, setBulkDeleteResults] = useState({ succeeded: [], failed: [] });
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -389,13 +399,57 @@ const InspectionsPage = () => {
 
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
-    // For simplicity, delete the first selected for demonstration
-    // In production, you'd implement a bulk delete API endpoint
-    const firstId = selectedIds[0];
-    const inspection = inspectionsWithOverdue.find(i => i.id === firstId);
-    if (inspection) {
-      handleDeleteClick(inspection);
+    setBulkDeleteOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    setBulkDeleteProgress({ current: 0, total: selectedIds.length });
+    setBulkDeleteResults({ succeeded: [], failed: [] });
+
+    const results = { succeeded: [], failed: [] };
+
+    for (let i = 0; i < selectedIds.length; i++) {
+      const inspectionId = selectedIds[i];
+      const inspection = inspectionsWithOverdue.find(item => item.id === inspectionId);
+
+      try {
+        setBulkDeleteProgress({ current: i + 1, total: selectedIds.length });
+        await apiClient.delete(`/inspections/${inspectionId}`);
+
+        results.succeeded.push({
+          id: inspectionId,
+          title: inspection?.title || `Inspection ${inspectionId}`,
+        });
+      } catch (error) {
+        results.failed.push({
+          id: inspectionId,
+          title: inspection?.title || `Inspection ${inspectionId}`,
+          error: error.response?.data?.message || error.message || 'Unknown error',
+        });
+      }
     }
+
+    setBulkDeleteResults(results);
+    setIsBulkDeleting(false);
+
+    // Invalidate queries to refresh the list
+    queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
+
+    // Clear selection if all succeeded
+    if (results.failed.length === 0) {
+      setSelectedIds([]);
+    } else {
+      // Keep only failed items selected
+      setSelectedIds(results.failed.map(item => item.id));
+    }
+  };
+
+  const closeBulkDeleteDialog = () => {
+    setBulkDeleteOpen(false);
+    setBulkDeleteProgress({ current: 0, total: 0 });
+    setBulkDeleteResults({ succeeded: [], failed: [] });
+    setIsBulkDeleting(false);
   };
 
   // Helper functions for status styling
@@ -858,6 +912,118 @@ const InspectionsPage = () => {
           >
             {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Dialog with Progress */}
+      <Dialog
+        open={bulkDeleteOpen}
+        onClose={isBulkDeleting ? undefined : closeBulkDeleteDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {isBulkDeleting
+            ? `Deleting Inspections (${bulkDeleteProgress.current}/${bulkDeleteProgress.total})`
+            : bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0
+            ? 'Bulk Delete Results'
+            : 'Confirm Bulk Delete'
+          }
+        </DialogTitle>
+        <DialogContent>
+          {/* Initial confirmation */}
+          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
+            <>
+              <Typography>
+                Are you sure you want to delete <strong>{selectedIds.length}</strong> inspection{selectedIds.length !== 1 ? 's' : ''}?
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                This action cannot be undone.
+              </Typography>
+            </>
+          )}
+
+          {/* Progress indicator */}
+          {isBulkDeleting && (
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Deleting inspection {bulkDeleteProgress.current} of {bulkDeleteProgress.total}...
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={(bulkDeleteProgress.current / bulkDeleteProgress.total) * 100}
+              />
+            </Box>
+          )}
+
+          {/* Results summary */}
+          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
+            <Box sx={{ mt: 2 }}>
+              {bulkDeleteResults.succeeded.length > 0 && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Successfully deleted {bulkDeleteResults.succeeded.length} inspection{bulkDeleteResults.succeeded.length !== 1 ? 's' : ''}
+                </Alert>
+              )}
+
+              {bulkDeleteResults.failed.length > 0 && (
+                <>
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Failed to delete {bulkDeleteResults.failed.length} inspection{bulkDeleteResults.failed.length !== 1 ? 's' : ''}
+                  </Alert>
+
+                  <Typography variant="subtitle2" gutterBottom>
+                    Failed items:
+                  </Typography>
+                  <List dense>
+                    {bulkDeleteResults.failed.map((item) => (
+                      <ListItem key={item.id}>
+                        <ErrorIcon color="error" sx={{ mr: 1, fontSize: 20 }} />
+                        <Typography variant="body2">
+                          <strong>{item.title}</strong>: {item.error}
+                        </Typography>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+
+              {bulkDeleteResults.succeeded.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Successfully deleted:
+                  </Typography>
+                  <List dense>
+                    {bulkDeleteResults.succeeded.map((item) => (
+                      <ListItem key={item.id}>
+                        <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                        <Typography variant="body2">{item.title}</Typography>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
+            <>
+              <Button onClick={closeBulkDeleteDialog}>Cancel</Button>
+              <Button
+                onClick={confirmBulkDelete}
+                color="error"
+                variant="contained"
+              >
+                Delete {selectedIds.length} Item{selectedIds.length !== 1 ? 's' : ''}
+              </Button>
+            </>
+          )}
+
+          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
+            <Button onClick={closeBulkDeleteDialog} variant="contained">
+              Close
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

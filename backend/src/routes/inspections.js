@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
-import { notifyInspectionCompleted } from '../utils/notificationService.js';
+import { notifyInspectionCompleted, notifyInspectionReminder } from '../utils/notificationService.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = Router();
@@ -421,12 +421,22 @@ async function sendReminderNotifications({ inspection, reminder, recipients, not
   });
 
   if (reminder.channel === 'EMAIL') {
-    // Placeholder for email integration
-    console.info('Email reminder queued', {
-      inspectionId: inspection.id,
-      recipients,
-      remindAt: reminder.remindAt,
-    });
+    // Send email reminders to all recipients
+    for (const recipientId of recipients) {
+      try {
+        const recipient = await prisma.user.findUnique({
+          where: { id: recipientId },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        });
+
+        if (recipient && inspection.property) {
+          await notifyInspectionReminder(inspection, recipient, inspection.property);
+        }
+      } catch (emailError) {
+        console.error(`Failed to send email reminder to user ${recipientId}:`, emailError);
+        // Continue sending to other recipients even if one fails
+      }
+    }
   }
 }
 
