@@ -1,5 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { jobListQuerySchema } from '../src/routes/jobs.js';
+
+test('job list query schema validates priority and filter', () => {
+  const parsed = jobListQuerySchema.parse({ priority: 'HIGH', filter: 'overdue', limit: '10', offset: '5' });
+
+  assert.equal(parsed.priority, 'HIGH');
+  assert.equal(parsed.filter, 'overdue');
+  assert.equal(parsed.limit, 10);
+  assert.equal(parsed.offset, 5);
+});
+
+test('job list query schema rejects invalid filter', () => {
+  assert.throws(() => jobListQuerySchema.parse({ filter: 'invalid' }));
+});
 
 test('createJob accepts new schema with all fields', () => {
   const orgId = 'test-org-' + Date.now();
