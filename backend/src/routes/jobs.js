@@ -858,7 +858,13 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'),
     }
     if (updates.assignedToId !== undefined) updateData.assignedToId = updates.assignedToId;
     if (updates.estimatedCost !== undefined) updateData.estimatedCost = updates.estimatedCost;
+    if (updates.actualCost !== undefined) updateData.actualCost = updates.actualCost;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.evidence !== undefined) updateData.evidence = updates.evidence;
+
+    if (Object.keys(updateData).length === 0) {
+      return sendError(res, 400, 'No valid fields provided for update', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
     
     // If status is being set to COMPLETED, set completedDate
     if (updates.status === 'COMPLETED' && !existingJob.completedDate) {
