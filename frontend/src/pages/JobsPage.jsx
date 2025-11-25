@@ -26,7 +26,6 @@ import {
   useMediaQuery,
   useTheme,
   InputAdornment,
-  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -46,10 +45,8 @@ import {
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
-  FilterList as FilterListIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
+import { Tooltip } from '@mui/material';
 import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
@@ -103,7 +100,6 @@ const JobsPage = () => {
   const [selectedJobIds, setSelectedJobIds] = useState([]);
   const [bulkTechnicianId, setBulkTechnicianId] = useState('');
   const [isConfirmBulkAssignOpen, setIsConfirmBulkAssignOpen] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(isMdUp);
   const [detailReturnPath, setDetailReturnPath] = useState(location.pathname + location.search);
 
   // Job status update hook
@@ -120,10 +116,6 @@ const JobsPage = () => {
       navigate('/technician/dashboard', { replace: true });
     }
   }, [navigate, user?.role]);
-
-  useEffect(() => {
-    setFiltersExpanded(isMdUp);
-  }, [isMdUp]);
 
   const searchQuery = useMemo(() => searchTerm.trim(), [searchTerm]);
 
@@ -483,177 +475,147 @@ const JobsPage = () => {
         </GradientButton>
       </Stack>
 
+      {/* Filters */}
       <Paper
         sx={{
-          p: { xs: 2.5, md: 3 },
+          p: { xs: 2.5, md: 3.5 },
           mb: 3,
           borderRadius: 3,
           border: '1px solid',
           borderColor: 'divider',
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+          animation: 'fade-in-up 0.6s ease-out',
         }}
       >
-        <Stack spacing={2.5}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
+        <Stack direction="row" spacing={2} alignItems="center">
+          {/* Search */}
+          <TextField
+            placeholder="Search jobs by title, property, assignee, unit, or notes..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="clear search"
+                    onClick={() => setSearchTerm('')}
+                    edge="end"
+                    size="small"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            size="small"
+            sx={{ flexGrow: 1, minWidth: 250 }}
+          />
+
+          {/* Status Filter */}
+          <TextField
+            select
+            label="Status"
+            value={filters.status}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            size="small"
+            sx={{ minWidth: 150 }}
           >
-            <TextField
-              variant="outlined"
-              placeholder="Search jobs by title, property, assignee, unit, or notes..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton aria-label="clear search" onClick={() => setSearchTerm('')} edge="end" size="small">
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flexGrow: 1, minWidth: 240 }}
-            />
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="OPEN">Open</MenuItem>
+            <MenuItem value="ASSIGNED">Assigned</MenuItem>
+            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+            <MenuItem value="COMPLETED">Completed</MenuItem>
+            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          </TextField>
 
-            <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="flex-end">
-              <Button
-                variant="outlined"
-                color={hasActiveFilters ? 'primary' : 'inherit'}
-                size="small"
-                startIcon={<FilterListIcon />}
-                endIcon={filtersExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                onClick={() => setFiltersExpanded((prev) => !prev)}
-              >
-                {filtersExpanded ? 'Hide Filters' : 'Show Filters'}
-              </Button>
-              <Stack spacing={0.5} alignItems="flex-end">
-                <ToggleButtonGroup
-                  value={view}
-                  exclusive
-                  onChange={handleViewChange}
-                  aria-label="view toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
-                      },
-                      '&:first-of-type': {
-                        borderRadius: 2,
-                      },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      px: 1,
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    },
-                    '& .Mui-selected': {
-                      color: 'primary.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="card" aria-label="card view">
-                    <ViewModuleIcon fontSize="small" />
-                  </ToggleButton>
-                  <ToggleButton value="kanban" aria-label="kanban view">
-                    <ViewKanbanIcon fontSize="small" />
-                  </ToggleButton>
-                  <ToggleButton value="calendar" aria-label="calendar view">
-                    <CalendarTodayIcon fontSize="small" />
-                  </ToggleButton>
-                </ToggleButtonGroup>
-                <Typography variant="caption" color="text.secondary" textAlign="right">
-                  Switch between card, board, and calendar views. We&apos;ll remember your preference.
-                </Typography>
-              </Stack>
-            </Stack>
-          </Stack>
+          {/* Priority Filter */}
+          <TextField
+            select
+            label="Priority"
+            value={filters.priority}
+            onChange={(e) => handleFilterChange('priority', e.target.value)}
+            size="small"
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="LOW">Low</MenuItem>
+            <MenuItem value="MEDIUM">Medium</MenuItem>
+            <MenuItem value="HIGH">High</MenuItem>
+            <MenuItem value="URGENT">Urgent</MenuItem>
+          </TextField>
 
-          {!filtersExpanded && hasActiveFilters && (
-            <Typography variant="body2" color="text.secondary">
-              Filters active: {filterSummary}
-            </Typography>
-          )}
+          {/* Quick Filter */}
+          <TextField
+            select
+            label="Quick Filter"
+            value={filters.filter}
+            onChange={(e) => handleFilterChange('filter', e.target.value)}
+            size="small"
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">None</MenuItem>
+            <MenuItem value="overdue">Overdue</MenuItem>
+            <MenuItem value="unassigned">Unassigned</MenuItem>
+          </TextField>
 
-          <Collapse in={filtersExpanded} timeout="auto">
-            <Stack
-              direction={{ xs: 'column', lg: 'row' }}
-              spacing={2}
-              alignItems={{ xs: 'stretch', lg: 'center' }}
-            >
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-status"
-                name="status"
-                label="Status"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                size="small"
-                sx={{ minWidth: 160 }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="OPEN">Open</MenuItem>
-                <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="CANCELLED">Cancelled</MenuItem>
-              </TextField>
-
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-priority"
-                name="priority"
-                label="Priority"
-                value={filters.priority}
-                onChange={(e) => handleFilterChange('priority', e.target.value)}
-                size="small"
-                sx={{ minWidth: 140 }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="URGENT">Urgent</MenuItem>
-              </TextField>
-
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-quick"
-                name="filter"
-                label="Quick Filter"
-                value={filters.filter}
-                onChange={(e) => handleFilterChange('filter', e.target.value)}
-                size="small"
-                sx={{ minWidth: 160 }}
-              >
-                <MenuItem value="">None</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
-                <MenuItem value="unassigned">Unassigned</MenuItem>
-              </TextField>
-            </Stack>
-          </Collapse>
+          {/* View Toggle */}
+          <ToggleButtonGroup
+            value={view}
+            exclusive
+            onChange={handleViewChange}
+            aria-label="View mode toggle"
+            size="small"
+            sx={{
+              backgroundColor: 'background.paper',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              '& .MuiToggleButtonGroup-grouped': {
+                minWidth: 40,
+                border: 'none',
+                '&:not(:first-of-type)': {
+                  borderRadius: 2,
+                },
+                '&:first-of-type': {
+                  borderRadius: 2,
+                },
+              },
+              '& .MuiToggleButton-root': {
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              },
+              '& .Mui-selected': {
+                color: 'error.main',
+                backgroundColor: 'transparent !important',
+                '&:hover': {
+                  backgroundColor: 'action.hover !important',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="card" aria-label="card view">
+              <Tooltip title="Card View">
+                <ViewModuleIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="kanban" aria-label="kanban view">
+              <Tooltip title="Kanban View">
+                <ViewKanbanIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="calendar" aria-label="calendar view">
+              <Tooltip title="Calendar View">
+                <CalendarTodayIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
       </Paper>
 
