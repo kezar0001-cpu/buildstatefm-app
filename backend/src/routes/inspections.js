@@ -346,6 +346,14 @@ async function logAudit(inspectionId, userId, action, changes = null) {
   }
 }
 
+/**
+ * Log inspection action to audit trail
+ * This is an alias for logAudit to support room-based inspection actions
+ */
+async function logInspectionAction(inspectionId, userId, action, changes = null) {
+  return logAudit(inspectionId, userId, action, changes);
+}
+
 function canAccessInspection(user, inspection) {
   if (!user || !inspection) return false;
   if (isAdmin(user)) return true;
