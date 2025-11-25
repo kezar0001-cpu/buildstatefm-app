@@ -26,6 +26,14 @@ import {
   useMediaQuery,
   useTheme,
   InputAdornment,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Alert,
+  Backdrop,
+  LinearProgress,
+  List,
+  ListItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,9 +50,11 @@ import {
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { Tooltip } from '@mui/material';
-import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
@@ -78,6 +88,7 @@ const JobsPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
@@ -95,6 +106,20 @@ const JobsPage = () => {
   const [bulkTechnicianId, setBulkTechnicianId] = useState('');
   const [isConfirmBulkAssignOpen, setIsConfirmBulkAssignOpen] = useState(false);
   const [detailReturnPath, setDetailReturnPath] = useState(location.pathname + location.search);
+
+  // Delete dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState(null);
+
+  // Bulk delete states
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0 });
+  const [bulkDeleteResults, setBulkDeleteResults] = useState({ succeeded: [], failed: [] });
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Status menu states
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
+  const [statusMenuJob, setStatusMenuJob] = useState(null);
 
   // Calendar navigation state
   const [calendarStartDate, setCalendarStartDate] = useState(() => {
@@ -260,12 +285,145 @@ const JobsPage = () => {
     },
   });
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (jobId) => {
+      const response = await apiClient.delete(`/jobs/${jobId}`);
+      return response.data;
+    },
+    onMutate: async (jobId) => {
+      // Optimistic update: Remove from UI immediately
+      await queryClient.cancelQueries({ queryKey: queryKeys.jobs.all() });
+      const previousData = queryClient.getQueriesData({ queryKey: queryKeys.jobs.all() });
+
+      queryClient.setQueriesData({ queryKey: queryKeys.jobs.all() }, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items?.filter(job => job.id !== jobId) || [],
+            total: Math.max(0, (page.total || 0) - 1),
+          })),
+        };
+      });
+
+      return { previousData };
+    },
+    onError: (_err, _jobId, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      toast.error('Failed to delete job');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+      toast.success('Job deleted successfully');
+    },
+  });
+
   const handleConfirmBulkAssign = () => {
     if (selectedJobIds.length === 0 || !bulkTechnicianId) {
       return;
     }
 
     bulkAssignMutation.mutate({ jobIds: selectedJobIds, technicianId: bulkTechnicianId });
+  };
+
+  // Delete handlers
+  const handleDeleteClick = (job) => {
+    setJobToDelete(job);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!jobToDelete) return;
+    try {
+      await deleteMutation.mutateAsync(jobToDelete.id);
+      setDeleteDialogOpen(false);
+      setJobToDelete(null);
+      setSelectedJobIds(prev => prev.filter(id => id !== jobToDelete.id));
+    } catch (error) {
+      console.error('Delete failed:', error);
+    }
+  };
+
+  // Bulk delete handlers
+  const handleBulkDelete = () => {
+    if (selectedJobIds.length === 0) return;
+    setBulkDeleteOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    setBulkDeleteProgress({ current: 0, total: selectedJobIds.length });
+    setBulkDeleteResults({ succeeded: [], failed: [] });
+
+    const results = { succeeded: [], failed: [] };
+
+    for (let i = 0; i < selectedJobIds.length; i++) {
+      const jobId = selectedJobIds[i];
+      const job = jobs.find(item => item.id === jobId);
+
+      try {
+        setBulkDeleteProgress({ current: i + 1, total: selectedJobIds.length });
+        await apiClient.delete(`/jobs/${jobId}`);
+
+        results.succeeded.push({
+          id: jobId,
+          title: job?.title || `Job ${jobId}`,
+        });
+      } catch (error) {
+        results.failed.push({
+          id: jobId,
+          title: job?.title || `Job ${jobId}`,
+          error: error.response?.data?.message || error.message || 'Unknown error',
+        });
+      }
+    }
+
+    setBulkDeleteResults(results);
+    setIsBulkDeleting(false);
+
+    // Invalidate queries to refresh the list
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+
+    // Clear selection if all succeeded
+    if (results.failed.length === 0) {
+      setSelectedJobIds([]);
+    } else {
+      // Keep only failed items selected
+      setSelectedJobIds(results.failed.map(item => item.id));
+    }
+  };
+
+  const closeBulkDeleteDialog = () => {
+    setBulkDeleteOpen(false);
+    setBulkDeleteProgress({ current: 0, total: 0 });
+    setBulkDeleteResults({ succeeded: [], failed: [] });
+    setIsBulkDeleting(false);
+  };
+
+  // Status menu handlers
+  const handleStatusMenuOpen = (event, job) => {
+    event.stopPropagation();
+    setStatusMenuAnchor(event.currentTarget);
+    setStatusMenuJob(job);
+  };
+
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchor(null);
+    setStatusMenuJob(null);
+  };
+
+  const handleStatusChange = (job, newStatus) => {
+    if (job) {
+      handleStatusMenuClose();
+      updateStatus(job.id, job.status, newStatus, job.title);
+    }
   };
 
   const filteredJobs = jobs;
@@ -647,7 +805,7 @@ const JobsPage = () => {
               <Box>
                 <Typography variant="subtitle1">{selectedCount} selected</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Choose a technician to assign all selected jobs
+                  Assign to technician or delete selected jobs
                 </Typography>
               </Box>
             </Stack>
@@ -685,6 +843,14 @@ const JobsPage = () => {
                 }
               >
                 {bulkAssignMutation.isPending ? 'Assigning...' : 'Assign Jobs'}
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleBulkDelete}
+                startIcon={<DeleteIcon />}
+              >
+                Delete
               </Button>
             </Stack>
           </Stack>
@@ -745,97 +911,64 @@ const JobsPage = () => {
                           sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}
                           inputProps={{ 'aria-label': `Select job ${job.title}` }}
                         />
-                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5, pt: 5, pb: 2 }}>
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5, pt: 5, pb: 2, '&:last-child': { pb: 2 } }}>
                       <Box
                         sx={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'flex-start',
-                          gap: 2,
+                          mb: 1.5,
                         }}
                       >
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography
-                            variant="h6"
-                            gutterBottom
-                            sx={{
-                              fontSize: '1.125rem',
-                              fontWeight: 700,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              lineHeight: 1.3,
-                              mb: 1.5,
-                            }}
-                          >
-                            {job.title}
-                          </Typography>
-                          <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-                            <Chip
-                              label={job.status.replace('_', ' ')}
-                              color={getStatusColor(job.status)}
-                              size="small"
-                              sx={{ fontWeight: 500 }}
-                            />
-                            <Chip
-                              icon={getPriorityIcon(job.priority)}
-                              label={job.priority}
-                              color={getPriorityColor(job.priority)}
-                              size="small"
-                              sx={{ fontWeight: 500 }}
-                            />
-                          </Stack>
-                          <TextField
-                            select
-                            size="small"
-                            value={job.status}
-                            onChange={(e) => updateStatus(job.id, job.status, e.target.value, job.title)}
-                            label="Update Status"
-                            sx={{
-                              minWidth: 160,
-                              mb: 1.5,
-                              '& .MuiOutlinedInput-root': {
-                                fontSize: '0.875rem',
-                              }
-                            }}
-                            disabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
-                            helperText={getStatusHelperText(job.status)}
-                          >
-                            {getAllowedStatuses(job.status).map((statusOption) => (
-                              <MenuItem key={statusOption} value={statusOption}>
-                                {statusOption.replace('_', ' ')}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                          {isOverdue(job) && (
-                            <Chip
-                              icon={<ErrorIcon fontSize="small" />}
-                              label="OVERDUE"
-                              color="error"
-                              size="small"
-                              sx={{ mb: 1 }}
-                            />
-                          )}
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                          <IconButton
-                            size="small"
-                            color="default"
-                            onClick={() => handleOpenDetailModal(job)}
-                          >
-                            <VisibilityIcon />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleEdit(job)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Stack>
+                        <Typography
+                          variant="h6"
+                          gutterBottom
+                          sx={{
+                            fontSize: '1.125rem',
+                            fontWeight: 700,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: 1.3,
+                            mb: 0,
+                            flex: 1,
+                            pr: 1,
+                          }}
+                        >
+                          {job.title}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleStatusMenuOpen(e, job)}
+                          aria-label={`Change status for ${job.title}`}
+                        >
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
                       </Box>
+
+                      <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                        <Chip
+                          label={job.status.replace('_', ' ')}
+                          color={getStatusColor(job.status)}
+                          size="small"
+                          sx={{ fontWeight: 500 }}
+                        />
+                        <Chip
+                          icon={getPriorityIcon(job.priority)}
+                          label={job.priority}
+                          color={getPriorityColor(job.priority)}
+                          size="small"
+                          sx={{ fontWeight: 500 }}
+                        />
+                      </Stack>
+
+                      {isOverdue(job) && (
+                        <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
+                          <Typography variant="caption">Overdue</Typography>
+                        </Alert>
+                      )}
 
                       <Typography
                         variant="body2"
@@ -869,7 +1002,75 @@ const JobsPage = () => {
                             {job.property?.name || 'N/A'}
                           </Typography>
                         </Box>
+
+                        {job.scheduledDate && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Scheduled
+                            </Typography>
+                            <Typography variant="body2">
+                              {moment(job.scheduledDate).format('MMM D, YYYY')}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {job.assignedTo && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Assigned To
+                            </Typography>
+                            <Typography variant="body2">
+                              {job.assignedTo.firstName} {job.assignedTo.lastName}
+                            </Typography>
+                          </Box>
+                        )}
                       </Stack>
+
+                      {/* Actions */}
+                      <Box
+                        sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Tooltip title="View Details">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDetailModal(job);
+                            }}
+                            aria-label={`View details for ${job.title}`}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {job.status !== 'COMPLETED' && (
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(job);
+                              }}
+                              aria-label={`Edit ${job.title}`}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(job);
+                            }}
+                            aria-label={`Delete ${job.title}`}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </CardContent>
                     </Card>
                   </Grid>
@@ -896,13 +1097,29 @@ const JobsPage = () => {
 
           {view === 'kanban' && (
             <DragDropContext onDragEnd={onDragEnd}>
-              <Grid container spacing={{ xs: 2, md: 3 }}>
+              <Grid container spacing={2}>
                 {KANBAN_STATUSES.map((status) => (
-                  <Grid item xs={12} md={4} key={status}>
-                    <Paper sx={{ p: { xs: 2, md: 3 }, backgroundColor: '#f5f5f5' }}>
-                      <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
-                        {JOB_STATUS_LABELS[status] || status.replace('_', ' ')}
-                      </Typography>
+                  <Grid item xs={12} md={6} lg={3} key={status}>
+                    <Paper
+                      sx={{
+                        p: 2,
+                        height: '100%',
+                        minHeight: 400,
+                        bgcolor: 'background.default',
+                        borderRadius: 2,
+                      }}
+                    >
+                      {/* Column Header */}
+                      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                          {JOB_STATUS_LABELS[status] || status.replace('_', ' ')}
+                        </Typography>
+                        <Chip
+                          label={filteredJobs.filter((job) => job.status === status).length}
+                          size="small"
+                          color={getStatusColor(status)}
+                        />
+                      </Box>
                       <Droppable droppableId={status}>
                         {(provided) => (
                           <Box
@@ -928,75 +1145,128 @@ const JobsPage = () => {
                                         {...provided.dragHandleProps}
                                         sx={{
                                           mb: 2,
-                                          border: '1px solid',
-                                          borderColor: isSelected ? 'primary.main' : 'divider',
-                                          outline: isSelected ? '2px solid' : 'none',
-                                          outlineColor: isSelected ? 'primary.main' : 'transparent',
+                                          cursor: 'pointer',
+                                          transition: 'transform 0.2s, box-shadow 0.2s',
+                                          '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: 3,
+                                          },
                                         }}
+                                        onClick={() => handleOpenDetailModal(job)}
                                       >
-                                        <CardContent>
-                                          <Stack spacing={1.25}>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                                              <Stack spacing={0.5}>
-                                                <Typography variant="subtitle1" fontWeight={700}>
-                                                  {job.title}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                  {[job.property?.name, job.unit?.unitNumber ? `Unit ${job.unit.unitNumber}` : null]
-                                                    .filter(Boolean)
-                                                    .join(' • ')}
-                                                </Typography>
-                                              </Stack>
-                                              <Checkbox
-                                                color="primary"
-                                                checked={isSelected}
-                                                onChange={() => handleToggleJobSelection(job.id)}
-                                                onClick={(event) => event.stopPropagation()}
-                                                onMouseDown={(event) => event.stopPropagation()}
-                                                inputProps={{ 'aria-label': `Select job ${job.title}` }}
-                                              />
-                                            </Stack>
-                                            <Typography variant="body2" color="text.secondary">
-                                              {job.description || 'No description provided'}
+                                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                          {/* Header */}
+                                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                                              {job.title}
                                             </Typography>
-                                            <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                                              <Chip
-                                                label={job.priority}
-                                                color={getPriorityColor(job.priority)}
-                                                size="small"
-                                              />
-                                              <Chip
-                                                label={JOB_STATUS_LABELS[job.status] || job.status}
-                                                color={getStatusColor(job.status)}
-                                                size="small"
-                                                variant="outlined"
-                                              />
-                                            </Stack>
-                                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                                              <Chip
-                                                icon={<PersonIcon fontSize="small" />}
-                                                label={
-                                                  job.assignedTo
-                                                    ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                                                    : 'Unassigned'
-                                                }
-                                                size="small"
-                                                color={job.assignedTo ? 'default' : 'warning'}
-                                                variant={job.assignedTo ? 'outlined' : 'filled'}
-                                              />
-                                              <Chip
-                                                icon={<AccessTimeIcon fontSize="small" />}
-                                                label={
-                                                  job.scheduledDate
-                                                    ? `Due ${moment(job.scheduledDate).format('MMM D, YYYY')}`
-                                                    : 'No due date'
-                                                }
-                                                size="small"
-                                                color={isOverdue(job) ? 'error' : 'default'}
-                                                variant={isOverdue(job) ? 'filled' : 'outlined'}
-                                              />
-                                            </Stack>
+                                            <IconButton
+                                              size="small"
+                                              onClick={(e) => handleStatusMenuOpen(e, job)}
+                                              aria-label={`Change status for ${job.title}`}
+                                            >
+                                              <MoreVertIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
+
+                                          {/* Priority Chip */}
+                                          <Chip
+                                            icon={getPriorityIcon(job.priority)}
+                                            label={job.priority}
+                                            size="small"
+                                            color={getPriorityColor(job.priority)}
+                                            sx={{ mb: 1.5 }}
+                                          />
+
+                                          {/* Overdue Warning */}
+                                          {isOverdue(job) && (
+                                            <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
+                                              <Typography variant="caption">Overdue</Typography>
+                                            </Alert>
+                                          )}
+
+                                          {/* Details */}
+                                          <Stack spacing={1}>
+                                            {/* Property */}
+                                            <Box>
+                                              <Typography variant="caption" color="text.secondary" display="block">
+                                                Property
+                                              </Typography>
+                                              <Typography variant="body2">
+                                                {job.property?.name || 'N/A'}
+                                              </Typography>
+                                            </Box>
+
+                                            {/* Scheduled Date */}
+                                            {job.scheduledDate && (
+                                              <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                  Scheduled
+                                                </Typography>
+                                                <Typography variant="body2">
+                                                  {moment(job.scheduledDate).format('MMM D, YYYY')}
+                                                </Typography>
+                                              </Box>
+                                            )}
+
+                                            {/* Assigned To */}
+                                            {job.assignedTo && (
+                                              <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                  Assigned To
+                                                </Typography>
+                                                <Typography variant="body2">
+                                                  {job.assignedTo.firstName} {job.assignedTo.lastName}
+                                                </Typography>
+                                              </Box>
+                                            )}
                                           </Stack>
+
+                                          {/* Actions */}
+                                          <Box
+                                            sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <Tooltip title="View Details">
+                                              <IconButton
+                                                size="small"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenDetailModal(job);
+                                                }}
+                                                aria-label={`View details for ${job.title}`}
+                                              >
+                                                <VisibilityIcon fontSize="small" />
+                                              </IconButton>
+                                            </Tooltip>
+                                            {job.status !== 'COMPLETED' && (
+                                              <Tooltip title="Edit">
+                                                <IconButton
+                                                  size="small"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(job);
+                                                  }}
+                                                  aria-label={`Edit ${job.title}`}
+                                                >
+                                                  <EditIcon fontSize="small" />
+                                                </IconButton>
+                                              </Tooltip>
+                                            )}
+                                            <Tooltip title="Delete">
+                                              <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteClick(job);
+                                                }}
+                                                aria-label={`Delete ${job.title}`}
+                                              >
+                                                <DeleteIcon fontSize="small" />
+                                              </IconButton>
+                                            </Tooltip>
+                                          </Box>
                                         </CardContent>
                                       </Card>
                                     )}
@@ -1004,6 +1274,23 @@ const JobsPage = () => {
                                 );
                               })}
                             {provided.placeholder}
+                            {filteredJobs.filter((job) => job.status === status).length === 0 && (
+                              <Box
+                                sx={{
+                                  p: 3,
+                                  textAlign: 'center',
+                                  color: 'text.secondary',
+                                  bgcolor: 'background.paper',
+                                  borderRadius: 1,
+                                  border: '1px dashed',
+                                  borderColor: 'divider',
+                                }}
+                              >
+                                <Typography variant="body2">
+                                  No jobs
+                                </Typography>
+                              </Box>
+                            )}
                           </Box>
                         )}
                       </Droppable>
@@ -1129,6 +1416,179 @@ const JobsPage = () => {
         jobTitle={confirmDialogState.jobTitle}
         isLoading={isStatusUpdating}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Job</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the job{' '}
+            <strong>{jobToDelete?.title}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            This action cannot be undone.
+          </Typography>
+          {deleteMutation.isError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteMutation.error?.response?.data?.message ||
+               deleteMutation.error?.message ||
+               'Failed to delete job. Please try again.'}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={confirmDelete}
+            color="error"
+            variant="contained"
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Dialog with Progress */}
+      <Dialog
+        open={bulkDeleteOpen}
+        onClose={isBulkDeleting ? undefined : closeBulkDeleteDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {isBulkDeleting
+            ? `Deleting Jobs (${bulkDeleteProgress.current}/${bulkDeleteProgress.total})`
+            : bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0
+            ? 'Bulk Delete Results'
+            : 'Confirm Bulk Delete'
+          }
+        </DialogTitle>
+        <DialogContent>
+          {/* Initial confirmation */}
+          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
+            <>
+              <Typography>
+                Are you sure you want to delete <strong>{selectedJobIds.length}</strong> job{selectedJobIds.length !== 1 ? 's' : ''}?
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                This action cannot be undone.
+              </Typography>
+            </>
+          )}
+
+          {/* Progress indicator */}
+          {isBulkDeleting && (
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Deleting job {bulkDeleteProgress.current} of {bulkDeleteProgress.total}...
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={(bulkDeleteProgress.current / bulkDeleteProgress.total) * 100}
+              />
+            </Box>
+          )}
+
+          {/* Results summary */}
+          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
+            <Box sx={{ mt: 2 }}>
+              {bulkDeleteResults.succeeded.length > 0 && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Successfully deleted {bulkDeleteResults.succeeded.length} job{bulkDeleteResults.succeeded.length !== 1 ? 's' : ''}
+                </Alert>
+              )}
+
+              {bulkDeleteResults.failed.length > 0 && (
+                <>
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Failed to delete {bulkDeleteResults.failed.length} job{bulkDeleteResults.failed.length !== 1 ? 's' : ''}
+                  </Alert>
+
+                  <Typography variant="subtitle2" gutterBottom>
+                    Failed items:
+                  </Typography>
+                  <List dense>
+                    {bulkDeleteResults.failed.map((item) => (
+                      <ListItem key={item.id}>
+                        <ErrorIcon color="error" sx={{ mr: 1, fontSize: 20 }} />
+                        <Typography variant="body2">
+                          <strong>{item.title}</strong>: {item.error}
+                        </Typography>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+
+              {bulkDeleteResults.succeeded.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Successfully deleted:
+                  </Typography>
+                  <List dense>
+                    {bulkDeleteResults.succeeded.map((item) => (
+                      <ListItem key={item.id}>
+                        <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                        <Typography variant="body2">{item.title}</Typography>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
+            <>
+              <Button onClick={closeBulkDeleteDialog}>Cancel</Button>
+              <Button
+                onClick={confirmBulkDelete}
+                color="error"
+                variant="contained"
+              >
+                Delete {selectedJobIds.length} Item{selectedJobIds.length !== 1 ? 's' : ''}
+              </Button>
+            </>
+          )}
+
+          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
+            <Button onClick={closeBulkDeleteDialog} variant="contained">
+              Close
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Status Change Menu */}
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={Boolean(statusMenuAnchor)}
+        onClose={handleStatusMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        MenuListProps={{
+          'aria-labelledby': 'status-menu-button',
+          dense: true,
+        }}
+      >
+        {statusMenuJob && getAllowedStatuses(statusMenuJob.status).map((statusOption) => (
+          <MenuItem
+            key={statusOption}
+            onClick={() => handleStatusChange(statusMenuJob, statusOption)}
+            disabled={statusMenuJob.status === statusOption}
+          >
+            <ListItemText>{statusOption.replace('_', ' ')}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
     </Container>
   );
 };
