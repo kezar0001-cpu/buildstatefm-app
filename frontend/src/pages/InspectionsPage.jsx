@@ -49,7 +49,7 @@ import {
   Visibility as VisibilityIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  GridView as GridViewIcon,
+  ViewKanban as ViewKanbanIcon,
   ViewList as ViewListIcon,
   CalendarMonth as CalendarMonthIcon,
   Schedule as ScheduleIcon,
@@ -682,7 +682,7 @@ const InspectionsPage = () => {
           >
             <ToggleButton value="grid" aria-label="kanban view">
               <Tooltip title="Kanban View">
-                <GridViewIcon fontSize="small" />
+                <ViewKanbanIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
             <ToggleButton value="list" aria-label="list view">

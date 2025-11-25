@@ -38,9 +38,6 @@ import {
   Person as PersonIcon,
   ViewModule as ViewModuleIcon,
   ViewKanban as ViewKanbanIcon,
-  CalendarToday as CalendarTodayIcon,
-  GridView as GridViewIcon,
-  ViewList as ViewListIcon,
   CalendarMonth as CalendarMonthIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
@@ -612,7 +609,7 @@ const JobsPage = () => {
             </ToggleButton>
             <ToggleButton value="calendar" aria-label="calendar view">
               <Tooltip title="Calendar View">
-                <CalendarTodayIcon fontSize="small" />
+                <CalendarMonthIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
           </ToggleButtonGroup>

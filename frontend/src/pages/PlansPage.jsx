@@ -28,7 +28,7 @@ import {
 import {
   Add as AddIcon,
   ViewModule as ViewModuleIcon,
-  ViewList as ViewListIcon,
+  TableChart as TableChartIcon,
   CalendarMonth as CalendarMonthIcon,
   Search as SearchIcon,
   FilterList as FilterListIcon,
@@ -404,7 +404,7 @@ export default function PlansPage() {
                 </Typography>
               </ToggleButton>
               <ToggleButton value="table">
-                <ViewListIcon fontSize="small" />
+                <TableChartIcon fontSize="small" />
                 <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
                   Table
                 </Typography>
