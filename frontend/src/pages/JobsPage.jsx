@@ -34,6 +34,7 @@ import {
   Error as ErrorIcon,
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
+  Person as PersonIcon,
   ViewModule as ViewModuleIcon,
   ViewKanban as ViewKanbanIcon,
   CalendarToday as CalendarTodayIcon,
@@ -57,33 +58,16 @@ import { queryKeys } from '../utils/queryKeys.js';
 import toast from 'react-hot-toast';
 import { useJobStatusUpdate } from '../hooks/useJobStatusUpdate';
 import GradientButton from '../components/GradientButton';
+import {
+  JOB_STATUS_LABELS,
+  VALID_STATUS_TRANSITIONS,
+  getAllowedStatuses,
+  getStatusHelperText,
+} from '../constants/jobStatuses.js';
 
 const localizer = momentLocalizer(moment);
 
-const VALID_TRANSITIONS = {
-  OPEN: ['ASSIGNED', 'CANCELLED'],
-  ASSIGNED: ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED', 'ASSIGNED', 'CANCELLED'],
-  COMPLETED: [],
-  CANCELLED: [],
-};
-
-const getAllowedStatuses = (currentStatus) => {
-  const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
-  const uniqueStatuses = new Set([currentStatus, ...allowedTransitions]);
-  return Array.from(uniqueStatuses);
-};
-
-const getStatusHelperText = (currentStatus) => {
-  const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
-
-  if (allowedTransitions.length === 0) {
-    return 'This status is terminal. No further transitions are available.';
-  }
-
-  const formattedTransitions = allowedTransitions.map((status) => status.replace('_', ' ')).join(', ');
-  return `Allowed transitions: ${formattedTransitions}`;
-};
+const KANBAN_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
 
 const JobsPage = () => {
@@ -170,6 +154,13 @@ const JobsPage = () => {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleQuickFilterToggle = (value) => {
+    setFilters((prev) => ({
+      ...prev,
+      filter: prev.filter === value ? '' : value,
+    }));
   };
 
   const handleViewChange = (event, nextView) => {
@@ -356,7 +347,7 @@ const JobsPage = () => {
     const newStatus = destination.droppableId;
     const currentStatus = job.status;
 
-    const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
+    const allowedTransitions = VALID_STATUS_TRANSITIONS[currentStatus] || [];
     if (!allowedTransitions.includes(newStatus)) {
       const transitionList = allowedTransitions.map((status) => status.replace('_', ' ')).join(', ');
       toast.error(
@@ -518,6 +509,17 @@ const JobsPage = () => {
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+            {[{ value: 'overdue', label: 'Overdue' }, { value: 'unassigned', label: 'Unassigned' }].map((quickFilter) => (
+              <Chip
+                key={quickFilter.value}
+                label={quickFilter.label}
+                color={filters.filter === quickFilter.value ? 'primary' : 'default'}
+                variant={filters.filter === quickFilter.value ? 'filled' : 'outlined'}
+                onClick={() => handleQuickFilterToggle(quickFilter.value)}
+              />
+            ))}
+          </Stack>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={3}>
               <TextField
@@ -770,7 +772,7 @@ const JobsPage = () => {
                                 fontSize: '0.875rem',
                               }
                             }}
-                            disabled={(VALID_TRANSITIONS[job.status] || []).length === 0}
+                            disabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
                             helperText={getStatusHelperText(job.status)}
                           >
                             {getAllowedStatuses(job.status).map((statusOption) => (
@@ -867,11 +869,11 @@ const JobsPage = () => {
           {view === 'kanban' && (
             <DragDropContext onDragEnd={onDragEnd}>
               <Grid container spacing={{ xs: 2, md: 3 }}>
-                {['OPEN', 'IN_PROGRESS', 'COMPLETED'].map((status) => (
+                {KANBAN_STATUSES.map((status) => (
                   <Grid item xs={12} md={4} key={status}>
                     <Paper sx={{ p: { xs: 2, md: 3 }, backgroundColor: '#f5f5f5' }}>
                       <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
-                        {status.replace('_', ' ')}
+                        {JOB_STATUS_LABELS[status] || status.replace('_', ' ')}
                       </Typography>
                       <Droppable droppableId={status}>
                         {(provided) => (
@@ -887,6 +889,7 @@ const JobsPage = () => {
                                   key={job.id}
                                   draggableId={job.id.toString()}
                                   index={index}
+                                  isDragDisabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
                                 >
                                   {(provided) => (
                                     <Card
@@ -896,16 +899,53 @@ const JobsPage = () => {
                                       sx={{ mb: 2 }}
                                     >
                                       <CardContent>
-                                        <Typography variant="h6">{job.title}</Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                          {job.property?.name}
-                                        </Typography>
-                                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                          <Chip
-                                            label={job.priority}
-                                            color={getPriorityColor(job.priority)}
-                                            size="small"
-                                          />
+                                        <Stack spacing={1.25}>
+                                          <Typography variant="subtitle1" fontWeight={700}>
+                                            {job.title}
+                                          </Typography>
+                                          <Typography variant="body2" color="text.secondary">
+                                            {[job.property?.name, job.unit?.unitNumber ? `Unit ${job.unit.unitNumber}` : null]
+                                              .filter(Boolean)
+                                              .join(' • ')}
+                                          </Typography>
+                                          <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                                            <Chip
+                                              label={job.priority}
+                                              color={getPriorityColor(job.priority)}
+                                              size="small"
+                                            />
+                                            <Chip
+                                              label={JOB_STATUS_LABELS[job.status] || job.status}
+                                              color={getStatusColor(job.status)}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          </Stack>
+                                          <Stack direction="row" spacing={1} alignItems="center">
+                                            <PersonIcon fontSize="small" color="action" />
+                                            <Typography variant="body2" color="text.primary">
+                                              {job.assignedTo
+                                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                                : 'Unassigned'}
+                                            </Typography>
+                                          </Stack>
+                                          <Stack direction="row" spacing={1} alignItems="center">
+                                            <AccessTimeIcon
+                                              fontSize="small"
+                                              color={isOverdue(job) ? 'error' : 'action'}
+                                            />
+                                            <Typography
+                                              variant="body2"
+                                              color={isOverdue(job) ? 'error.main' : 'text.secondary'}
+                                            >
+                                              {job.scheduledDate
+                                                ? moment(job.scheduledDate).format('MMM D, YYYY')
+                                                : 'No schedule'}
+                                            </Typography>
+                                            {isOverdue(job) && (
+                                              <Chip label="Overdue" size="small" color="error" variant="outlined" />
+                                            )}
+                                          </Stack>
                                         </Stack>
                                       </CardContent>
                                     </Card>
