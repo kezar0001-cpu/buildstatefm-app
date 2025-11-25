@@ -36,9 +36,9 @@ import {
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
   Person as PersonIcon,
-  ViewModule as ViewModuleIcon,
-  ViewKanban as ViewKanbanIcon,
-  CalendarToday as CalendarTodayIcon,
+  GridView as GridViewIcon,
+  ViewList as ViewListIcon,
+  CalendarMonth as CalendarMonthIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
@@ -80,7 +80,6 @@ const JobsPage = () => {
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
-    propertyId: '',
     filter: '',
   });
   const [openDialog, setOpenDialog] = useState(false);
@@ -105,7 +104,6 @@ const JobsPage = () => {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.priority) queryParams.append('priority', filters.priority);
-  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
   if (filters.filter) queryParams.append('filter', filters.filter);
 
   // Fetch jobs with infinite query
@@ -135,17 +133,6 @@ const JobsPage = () => {
   // Flatten all pages into a single array
   const jobs = data?.pages?.flatMap(page => page.items) || [];
 
-  // Fetch properties for filter
-  const { data: propertiesData } = useQuery({
-    queryKey: queryKeys.properties.all(),
-    queryFn: async () => {
-      const response = await apiClient.get('/properties?limit=100&offset=0');
-      return response.data;
-    },
-  });
-
-  const properties = propertiesData?.items || [];
-
   const { data: technicians = [] } = useQuery({
     queryKey: queryKeys.users.list({ role: 'TECHNICIAN' }),
     queryFn: async () => {
@@ -156,13 +143,6 @@ const JobsPage = () => {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleQuickFilterToggle = (value) => {
-    setFilters((prev) => ({
-      ...prev,
-      filter: prev.filter === value ? '' : value,
-    }));
   };
 
   const handleViewChange = (event, nextView) => {
@@ -681,14 +661,14 @@ const JobsPage = () => {
       {!filteredJobs || filteredJobs.length === 0 ? (
         <EmptyState
           icon={BuildIcon}
-          title={filters.status || filters.priority || filters.propertyId || filters.filter || searchTerm ? 'No jobs match your filters' : 'No jobs yet'}
+          title={filters.status || filters.priority || filters.filter || searchTerm ? 'No jobs match your filters' : 'No jobs yet'}
           description={
-            filters.status || filters.priority || filters.propertyId || filters.filter || searchTerm
+            filters.status || filters.priority || filters.filter || searchTerm
               ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
               : 'Get started by creating your first maintenance job. Track work orders, assign technicians, and monitor progress all in one place.'
           }
-          actionLabel={filters.status || filters.priority || filters.propertyId || filters.filter || searchTerm ? undefined : 'Create First Job'}
-          onAction={filters.status || filters.priority || filters.propertyId || filters.filter || searchTerm ? undefined : handleCreate}
+          actionLabel={filters.status || filters.priority || filters.filter || searchTerm ? undefined : 'Create First Job'}
+          onAction={filters.status || filters.priority || filters.filter || searchTerm ? undefined : handleCreate}
         />
       ) : (
         <>
