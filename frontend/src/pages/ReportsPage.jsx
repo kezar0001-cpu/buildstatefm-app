@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Stack,
   TextField,
   Button,
@@ -28,6 +27,8 @@ import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
+import PageShell from '../components/PageShell.jsx';
+import SectionCard from '../components/SectionCard.jsx';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -144,30 +145,12 @@ export default function ReportsPage() {
   };
 
   return (
-    <Stack spacing={4} sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
-      <Box sx={{ animation: 'fade-in-down 0.5s ease-out' }}>
-        <Typography
-          variant="h4"
-          sx={{
-            fontSize: { xs: '1.75rem', md: '2.125rem' },
-            fontWeight: 800,
-            background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          {t('reports.title')}
-        </Typography>
-        <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
-          {t('reports.description')}
-        </Typography>
-      </Box>
+    <PageShell title={t('reports.title')} subtitle={t('reports.description')}>
 
-      <Paper sx={{ p: { xs: 2, md: 3 }, maxWidth: { xs: '100%', md: 700 } }}>
-        <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1.125rem', md: '1.25rem' } }}>
-          Generate New Report
-        </Typography>
+      <SectionCard
+        title="Generate New Report"
+        subtitle="Create owner-ready outputs with consistent formatting"
+      >
         <form onSubmit={onSubmit} noValidate>
           <Stack spacing={2}>
             <Controller
@@ -277,12 +260,12 @@ export default function ReportsPage() {
             </Stack>
           </Stack>
         </form>
-      </Paper>
+      </SectionCard>
 
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1.125rem', md: '1.25rem' } }}>
-          Generated Reports
-        </Typography>
+      <SectionCard
+        title="Generated Reports"
+        subtitle="Keep track of processing and completed exports"
+      >
         {isLoadingReports ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -362,7 +345,7 @@ export default function ReportsPage() {
             </Table>
           </Box>
         )}
-      </Paper>
-    </Stack>
+      </SectionCard>
+    </PageShell>
   );
 }

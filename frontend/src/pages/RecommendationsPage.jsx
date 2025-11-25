@@ -1,8 +1,5 @@
 import {
   Alert,
-  Box,
-  Typography,
-  Paper,
   Table,
   TableHead,
   TableRow,
@@ -10,13 +7,14 @@ import {
   TableBody,
   TableContainer,
   Button,
-  Stack,
   Chip,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import useApiQuery from '../hooks/useApiQuery.js';
 import useApiMutation from '../hooks/useApiMutation.js';
 import DataState from '../components/DataState.jsx';
+import PageShell from '../components/PageShell.jsx';
+import SectionCard from '../components/SectionCard.jsx';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
 
@@ -40,14 +38,14 @@ export default function RecommendationsPage() {
   };
 
   return (
-    <Stack spacing={4}>
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          {t('recommendations.title')}
-        </Typography>
-      </Box>
-
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+    <PageShell
+      title={t('recommendations.title')}
+      subtitle="Review inspection follow-ups and convert them into jobs without leaving the workspace."
+    >
+      <SectionCard
+        title="Recommendations"
+        subtitle="Prioritise and promote important follow-up items"
+      >
         {mutation.isError && (
           <Alert severity="error" sx={{ mx: 2, mt: 2 }}>
             {mutation.error.message}
@@ -102,7 +100,7 @@ export default function RecommendationsPage() {
             </Table>
           </TableContainer>
         </DataState>
-      </Paper>
-    </Stack>
+      </SectionCard>
+    </PageShell>
   );
 }
