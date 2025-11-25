@@ -50,7 +50,7 @@ const JobDetailModal = ({ job, open, onClose }) => {
     isLoading: commentsLoading,
     error: commentsError,
   } = useQuery({
-    queryKey: queryKeys.jobs.detail(job?.id),
+    queryKey: queryKeys.jobs.comments(job?.id),
     queryFn: async () => {
       const response = await apiClient.get(`/jobs/${job.id}/comments`);
       return response.data;
@@ -67,7 +67,7 @@ const JobDetailModal = ({ job, open, onClose }) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.comments(job.id) });
       setCommentText('');
     },
   });
