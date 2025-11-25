@@ -130,6 +130,7 @@ const jobListQuerySchema = z.object({
   propertyId: z.string().optional(),
   assignedToId: z.string().optional(),
   filter: z.enum(['overdue', 'unassigned']).optional(),
+  search: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -143,6 +144,7 @@ router.get('/', requireAuth, async (req, res) => {
       propertyId,
       assignedToId,
       filter,
+      search,
       limit: parsedLimit,
       offset: parsedOffset,
     } = jobListQuerySchema.parse(req.query);
@@ -186,6 +188,24 @@ router.get('/', requireAuth, async (req, res) => {
     if (assignedToId && (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'OWNER')) {
       // Only managers and owners can filter by assignedToId
       where.assignedToId = assignedToId;
+    }
+
+    // Apply search across relevant fields
+    const normalizedSearch = search?.trim();
+    if (normalizedSearch) {
+      const searchFilter = { contains: normalizedSearch, mode: 'insensitive' };
+      where.OR = [
+        { title: searchFilter },
+        { description: searchFilter },
+        { notes: searchFilter },
+        { property: { name: searchFilter } },
+        { property: { address: searchFilter } },
+        { property: { city: searchFilter } },
+        { property: { state: searchFilter } },
+        { unit: { unitNumber: searchFilter } },
+        { assignedTo: { firstName: searchFilter } },
+        { assignedTo: { lastName: searchFilter } },
+      ];
     }
 
     // Apply special filters

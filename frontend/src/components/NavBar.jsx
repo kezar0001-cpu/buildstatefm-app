@@ -44,11 +44,15 @@ function NavBar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const jobsNavigation = user?.role === 'TECHNICIAN'
+    ? { name: 'My Jobs', href: '/technician/dashboard' }
+    : { name: 'Jobs', href: '/jobs' };
+
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Properties', href: '/properties' },
     { name: 'Inspections', href: '/inspections' },
-    { name: 'Jobs', href: '/jobs' },
+    jobsNavigation,
     { name: 'Reports', href: '/reports' },
     { name: 'Plans', href: '/plans' },
     { name: 'Service Requests', href: '/service-requests' },
