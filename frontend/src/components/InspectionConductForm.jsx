@@ -27,6 +27,8 @@ import {
   Stack,
   Divider,
   Alert,
+  LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +40,7 @@ import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -130,6 +133,9 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   });
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoCaption, setPhotoCaption] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const steps = ['Start Inspection', 'Add Rooms', 'Conduct Inspection', 'Review & Complete'];
 
@@ -287,20 +293,72 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
 
   const handlePhotoUpload = async (event, roomId = null, issueId = null) => {
     const file = event.target.files[0];
-    if (file) {
-      // In a real app, you'd upload to a file storage service (S3, Cloudinary, etc.)
-      // For now, we'll use a data URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const url = reader.result;
-        addPhotoMutation.mutate({
+    if (!file) return;
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Only JPEG, PNG, and WebP images are allowed');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append('photos', file);
+
+      const response = await apiClient.post('/uploads/inspection-photos', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
+      });
+
+      if (response.data.success && response.data.urls && response.data.urls.length > 0) {
+        const url = response.data.urls[0];
+
+        // Add photo to inspection
+        await addPhotoMutation.mutateAsync({
           roomId,
           issueId,
           url,
           caption: photoCaption,
         });
-      };
-      reader.readAsDataURL(file);
+
+        // Reset state
+        setPhotoPreview(null);
+        setPhotoCaption('');
+      } else {
+        throw new Error('Upload failed: No URL returned');
+      }
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      alert(error.response?.data?.message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      // Reset file input
+      event.target.value = '';
     }
   };
 
@@ -546,34 +604,65 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
 
                   <Divider sx={{ my: 2 }} />
 
-                  <Stack direction="row" spacing={1}>
-                    <input
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      id={`photo-upload-${room.id}`}
-                      type="file"
-                      onChange={(e) => handlePhotoUpload(e, room.id, null)}
-                    />
-                    <label htmlFor={`photo-upload-${room.id}`}>
-                      <Button component="span" startIcon={<PhotoIcon />} size="small">
-                        Add Photo ({room.photos?.length || 0})
-                      </Button>
-                    </label>
-                  </Stack>
+                  <Stack spacing={2}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <input
+                        accept="image/jpeg,image/png,image/webp"
+                        style={{ display: 'none' }}
+                        id={`photo-upload-${room.id}`}
+                        type="file"
+                        onChange={(e) => handlePhotoUpload(e, room.id, null)}
+                        disabled={isUploading}
+                      />
+                      <label htmlFor={`photo-upload-${room.id}`}>
+                        <Button
+                          component="span"
+                          startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+                          size="small"
+                          disabled={isUploading}
+                        >
+                          {isUploading ? 'Uploading...' : `Add Photo (${room.photos?.length || 0})`}
+                        </Button>
+                      </label>
+                      {isUploading && (
+                        <Typography variant="caption" color="text.secondary">
+                          {uploadProgress}%
+                        </Typography>
+                      )}
+                    </Stack>
 
-                  {room.photos?.length > 0 && (
-                    <Grid container spacing={1} sx={{ mt: 1 }}>
-                      {room.photos.map((photo) => (
-                        <Grid item xs={4} key={photo.id}>
-                          <img
-                            src={photo.url}
-                            alt={photo.caption || 'Room photo'}
-                            style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 4 }}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  )}
+                    {isUploading && (
+                      <Box>
+                        <LinearProgress variant="determinate" value={uploadProgress} sx={{ mb: 1 }} />
+                        {photoPreview && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <img
+                              src={photoPreview}
+                              alt="Upload preview"
+                              style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              Uploading to cloud storage...
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+
+                    {room.photos?.length > 0 && (
+                      <Grid container spacing={1}>
+                        {room.photos.map((photo) => (
+                          <Grid item xs={4} key={photo.id}>
+                            <img
+                              src={photo.url}
+                              alt={photo.caption || 'Room photo'}
+                              style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 4 }}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    )}
+                  </Stack>
                 </CardContent>
               </Card>
             ))}

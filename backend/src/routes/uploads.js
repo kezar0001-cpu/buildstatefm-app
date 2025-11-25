@@ -62,6 +62,14 @@ const rateLimitUpload = (req, res, next) => {
 const upload = createUploadMiddleware();
 const documentUpload = createDocumentUploadMiddleware();
 
+// Create specific upload middleware for inspection photos
+// Restricted to: image/jpeg, image/png, image/webp; max 10MB
+const inspectionPhotoUpload = createUploadMiddleware({
+  allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  maxFiles: 20,
+});
+
 /**
  * POST /uploads/single
  * FormData field name must be: "file"
@@ -126,6 +134,29 @@ router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('fi
   } catch (error) {
     console.error('Document upload error:', error);
     return sendError(res, 500, 'Document upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
+  }
+});
+
+/**
+ * POST /uploads/inspection-photos
+ * FormData field name must be: "photos"
+ * Returns: { urls: ["/uploads/<filename1>", "/uploads/<filename2>"] }
+ * Supports: JPEG, PNG, WebP (up to 10MB each, max 20 files)
+ * Requires authentication
+ */
+router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoUpload.array('photos', 20), (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return sendError(res, 400, 'No photos uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    const urls = getUploadedFileUrls(req.files);
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
+    console.log(`✅ Uploaded ${req.files.length} inspection photo(s) to ${storageType} by user ${req.user.id}`);
+    res.status(201).json({ success: true, urls });
+  } catch (error) {
+    console.error('Inspection photo upload error:', error);
+    return sendError(res, 500, 'Inspection photo upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
   }
 });
 
