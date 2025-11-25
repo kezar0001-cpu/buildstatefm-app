@@ -26,6 +26,7 @@ import {
   useMediaQuery,
   useTheme,
   InputAdornment,
+  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,6 +46,9 @@ import {
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  FilterList as FilterListIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -81,6 +85,7 @@ const JobsPage = () => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
   const { user } = useCurrentUser();
   const [filters, setFilters] = useState({
     status: '',
@@ -98,6 +103,8 @@ const JobsPage = () => {
   const [selectedJobIds, setSelectedJobIds] = useState([]);
   const [bulkTechnicianId, setBulkTechnicianId] = useState('');
   const [isConfirmBulkAssignOpen, setIsConfirmBulkAssignOpen] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(isMdUp);
+  const [detailReturnPath, setDetailReturnPath] = useState(location.pathname + location.search);
 
   // Job status update hook
   const {
@@ -113,6 +120,10 @@ const JobsPage = () => {
       navigate('/technician/dashboard', { replace: true });
     }
   }, [navigate, user?.role]);
+
+  useEffect(() => {
+    setFiltersExpanded(isMdUp);
+  }, [isMdUp]);
 
   const searchQuery = useMemo(() => searchTerm.trim(), [searchTerm]);
 
@@ -190,6 +201,20 @@ const JobsPage = () => {
   const handleOpenDetailModal = (job) => {
     setSelectedJob(job);
     setDetailModalOpen(true);
+    setDetailReturnPath(location.pathname + location.search);
+  };
+
+  const handleCloseDetailModal = () => {
+    setDetailModalOpen(false);
+    setSelectedJob(null);
+  };
+
+  const handleOpenFullDetailPage = (jobId) => {
+    if (!jobId) return;
+
+    navigate(`/jobs/${jobId}`, {
+      state: { from: detailReturnPath },
+    });
   };
 
   const handleToggleJobSelection = (jobId) => {
@@ -255,6 +280,23 @@ const JobsPage = () => {
   const hasActiveFilters = Boolean(
     filters.status || filters.priority || filters.filter || searchQuery
   );
+
+  const filterSummary = useMemo(() => {
+    const parts = [];
+
+    if (filters.status) parts.push(`Status: ${filters.status.replace('_', ' ')}`);
+    if (filters.priority) parts.push(`Priority: ${filters.priority}`);
+    if (filters.filter) {
+      const quickFilters = {
+        overdue: 'Overdue jobs',
+        unassigned: 'Unassigned jobs',
+      };
+      parts.push(quickFilters[filters.filter] || filters.filter);
+    }
+    if (searchQuery) parts.push(`Search: "${searchQuery}"`);
+
+    return parts.join(' • ') || 'No filters applied';
+  }, [filters.filter, filters.priority, filters.status, searchQuery]);
 
   const selectedCount = selectedJobIds.length;
   const allVisibleSelected = filteredJobs.length > 0 && selectedCount === filteredJobs.length;
@@ -351,7 +393,7 @@ const JobsPage = () => {
     }
 
     // Find the job being dragged
-    const job = jobs.find(j => j.id === draggableId);
+    const job = jobs.find((j) => j.id?.toString() === draggableId);
     if (!job) {
       return;
     }
@@ -451,11 +493,11 @@ const JobsPage = () => {
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
         }}
       >
-        <Stack spacing={2}>
+        <Stack spacing={2.5}>
           <Stack
-            direction={{ xs: 'column', lg: 'row' }}
+            direction={{ xs: 'column', md: 'row' }}
             spacing={2}
-            alignItems={{ xs: 'stretch', lg: 'center' }}
+            alignItems={{ xs: 'stretch', md: 'center' }}
           >
             <TextField
               variant="outlined"
@@ -480,112 +522,138 @@ const JobsPage = () => {
               sx={{ flexGrow: 1, minWidth: 240 }}
             />
 
-            <TextField
-              select
-              fullWidth
-              id="jobs-filter-status"
-              name="status"
-              label="Status"
-              value={filters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-              size="small"
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="OPEN">Open</MenuItem>
-              <MenuItem value="ASSIGNED">Assigned</MenuItem>
-              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-              <MenuItem value="COMPLETED">Completed</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
-            </TextField>
-
-            <TextField
-              select
-              fullWidth
-              id="jobs-filter-priority"
-              name="priority"
-              label="Priority"
-              value={filters.priority}
-              onChange={(e) => handleFilterChange('priority', e.target.value)}
-              size="small"
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="LOW">Low</MenuItem>
-              <MenuItem value="MEDIUM">Medium</MenuItem>
-              <MenuItem value="HIGH">High</MenuItem>
-              <MenuItem value="URGENT">Urgent</MenuItem>
-            </TextField>
-
-            <TextField
-              select
-              fullWidth
-              id="jobs-filter-quick"
-              name="filter"
-              label="Quick Filter"
-              value={filters.filter}
-              onChange={(e) => handleFilterChange('filter', e.target.value)}
-              size="small"
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="overdue">Overdue</MenuItem>
-              <MenuItem value="unassigned">Unassigned</MenuItem>
-            </TextField>
-
-            <Stack spacing={0.5} alignItems={{ xs: 'flex-start', lg: 'flex-start' }}>
-              <ToggleButtonGroup
-                value={view}
-                exclusive
-                onChange={handleViewChange}
-                aria-label="view toggle"
+            <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                color={hasActiveFilters ? 'primary' : 'inherit'}
                 size="small"
-                sx={{
-                  backgroundColor: 'background.paper',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 40,
-                    border: 'none',
-                    '&:not(:first-of-type)': {
-                      borderRadius: 2,
-                    },
-                    '&:first-of-type': {
-                      borderRadius: 2,
-                    },
-                  },
-                  '& .MuiToggleButton-root': {
-                    color: 'text.secondary',
-                    px: 1,
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                  },
-                  '& .Mui-selected': {
-                    color: 'primary.main',
-                    backgroundColor: 'transparent !important',
-                    '&:hover': {
-                      backgroundColor: 'action.hover !important',
-                    },
-                  },
-                }}
+                startIcon={<FilterListIcon />}
+                endIcon={filtersExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                onClick={() => setFiltersExpanded((prev) => !prev)}
               >
-                <ToggleButton value="card" aria-label="card view">
-                  <ViewModuleIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="kanban" aria-label="kanban view">
-                  <ViewKanbanIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="calendar" aria-label="calendar view">
-                  <CalendarTodayIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
-              <Typography variant="caption" color="text.secondary">
-                Switch between card, board, and calendar views. We&apos;ll remember your preference.
-              </Typography>
+                {filtersExpanded ? 'Hide Filters' : 'Show Filters'}
+              </Button>
+              <Stack spacing={0.5} alignItems="flex-end">
+                <ToggleButtonGroup
+                  value={view}
+                  exclusive
+                  onChange={handleViewChange}
+                  aria-label="view toggle"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '& .MuiToggleButtonGroup-grouped': {
+                      minWidth: 40,
+                      border: 'none',
+                      '&:not(:first-of-type)': {
+                        borderRadius: 2,
+                      },
+                      '&:first-of-type': {
+                        borderRadius: 2,
+                      },
+                    },
+                    '& .MuiToggleButton-root': {
+                      color: 'text.secondary',
+                      px: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    },
+                    '& .Mui-selected': {
+                      color: 'primary.main',
+                      backgroundColor: 'transparent !important',
+                      '&:hover': {
+                        backgroundColor: 'action.hover !important',
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="card" aria-label="card view">
+                    <ViewModuleIcon fontSize="small" />
+                  </ToggleButton>
+                  <ToggleButton value="kanban" aria-label="kanban view">
+                    <ViewKanbanIcon fontSize="small" />
+                  </ToggleButton>
+                  <ToggleButton value="calendar" aria-label="calendar view">
+                    <CalendarTodayIcon fontSize="small" />
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="caption" color="text.secondary" textAlign="right">
+                  Switch between card, board, and calendar views. We&apos;ll remember your preference.
+                </Typography>
+              </Stack>
             </Stack>
           </Stack>
+
+          {!filtersExpanded && hasActiveFilters && (
+            <Typography variant="body2" color="text.secondary">
+              Filters active: {filterSummary}
+            </Typography>
+          )}
+
+          <Collapse in={filtersExpanded} timeout="auto">
+            <Stack
+              direction={{ xs: 'column', lg: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', lg: 'center' }}
+            >
+              <TextField
+                select
+                fullWidth
+                id="jobs-filter-status"
+                name="status"
+                label="Status"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                size="small"
+                sx={{ minWidth: 160 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="OPEN">Open</MenuItem>
+                <MenuItem value="ASSIGNED">Assigned</MenuItem>
+                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                <MenuItem value="COMPLETED">Completed</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
+              </TextField>
+
+              <TextField
+                select
+                fullWidth
+                id="jobs-filter-priority"
+                name="priority"
+                label="Priority"
+                value={filters.priority}
+                onChange={(e) => handleFilterChange('priority', e.target.value)}
+                size="small"
+                sx={{ minWidth: 140 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="LOW">Low</MenuItem>
+                <MenuItem value="MEDIUM">Medium</MenuItem>
+                <MenuItem value="HIGH">High</MenuItem>
+                <MenuItem value="URGENT">Urgent</MenuItem>
+              </TextField>
+
+              <TextField
+                select
+                fullWidth
+                id="jobs-filter-quick"
+                name="filter"
+                label="Quick Filter"
+                value={filters.filter}
+                onChange={(e) => handleFilterChange('filter', e.target.value)}
+                size="small"
+                sx={{ minWidth: 160 }}
+              >
+                <MenuItem value="">None</MenuItem>
+                <MenuItem value="overdue">Overdue</MenuItem>
+                <MenuItem value="unassigned">Unassigned</MenuItem>
+              </TextField>
+            </Stack>
+          </Collapse>
         </Stack>
       </Paper>
 
@@ -1071,7 +1139,12 @@ const JobsPage = () => {
       <JobDetailModal
         job={selectedJob}
         open={detailModalOpen}
-        onClose={() => setDetailModalOpen(false)}
+        onClose={handleCloseDetailModal}
+        returnPath={detailReturnPath}
+        onViewFullPage={() => {
+          handleCloseDetailModal();
+          handleOpenFullDetailPage(selectedJob?.id);
+        }}
       />
 
       {/* Job Status Confirmation Dialog */}
