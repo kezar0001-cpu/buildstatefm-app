@@ -1,35 +1,72 @@
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import GlobalGuard from './components/GlobalGuard.jsx';
 import AuthGate from './authGate';
 import Layout from './components/Layout';
+import SectionCard from './components/SectionCard.jsx';
 
 // Simple fallback
 function RouteFallback() {
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Loading…</div>
-    </div>
+    <Box sx={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <SectionCard title="Loading" subtitle="Fetching the latest data for you">
+        <Typography variant="body2" color="text.secondary">
+          This won&apos;t take long. We&apos;re preparing the next view.
+        </Typography>
+      </SectionCard>
+    </Box>
   );
 }
 
 function NotFound() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff5f5' }}>
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2.25rem', fontWeight: 'bold', color: '#1f2937' }}>404</h1>
-        <p style={{ marginTop: '0.5rem', color: '#6b7280' }}>The page you are looking for could not be found.</p>
-        <button
-          onClick={() => (window.location.href = '/signin')}
-          style={{ marginTop: '1rem', color: '#b91c1c', textDecoration: 'underline', border: 'none', background: 'none', cursor: 'pointer' }}
-        >
-          Go to Sign In
-        </button>
-      </div>
-    </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(180deg, #fff7f7 0%, #ffffff 60%)',
+        px: 2,
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 3, md: 4 },
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          textAlign: 'center',
+          maxWidth: 420,
+        }}
+      >
+        <Stack spacing={1.5} alignItems="center">
+          <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.08em' }}>
+            Page Not Found
+          </Typography>
+          <Typography variant="h3" fontWeight={800} sx={{ color: 'text.primary' }}>
+            404
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            The page you&apos;re looking for doesn&apos;t exist or has moved.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            onClick={() => (window.location.href = '/signin')}
+            sx={{ textTransform: 'none', px: 3 }}
+          >
+            Go to Sign In
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }
 
@@ -40,10 +77,18 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px' }}>
-          <h1>Something went wrong.</h1>
-          <button onClick={() => window.location.reload()}>Reload Page</button>
-        </div>
+        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+          <SectionCard title="Something went wrong" subtitle="We ran into an unexpected issue">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Please reload the page to continue. If the issue persists, contact support.
+              </Typography>
+              <Button variant="contained" color="primary" onClick={() => window.location.reload()} sx={{ textTransform: 'none' }}>
+                Reload Page
+              </Button>
+            </Stack>
+          </SectionCard>
+        </Box>
       );
     }
     return this.props.children;
