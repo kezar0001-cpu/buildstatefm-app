@@ -5,6 +5,11 @@ import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { notifyInspectionCompleted, notifyInspectionReminder } from '../utils/notificationService.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { uploadToS3, getS3Url, isUsingS3 } from '../services/s3Service.js';
+import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
 
 const router = Router();
 
@@ -1602,6 +1607,175 @@ router.delete(
     } catch (error) {
       console.error('Failed to delete photo', error);
       sendError(res, 500, 'Failed to delete photo', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  },
+);
+
+// Upload tenant signature
+const signatureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PNG and JPEG images are allowed for signatures'));
+    }
+  },
+});
+
+router.post(
+  '/:id/signature',
+  requireAuth,
+  ensureInspectionAccess,
+  signatureUpload.single('signature'),
+  async (req, res) => {
+    try {
+      const inspectionId = req.params.id;
+
+      // Verify inspection exists and is MOVE_IN or MOVE_OUT
+      const inspection = await prisma.inspection.findUnique({
+        where: { id: inspectionId },
+      });
+
+      if (!inspection) {
+        return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+      }
+
+      if (inspection.type !== 'MOVE_IN' && inspection.type !== 'MOVE_OUT') {
+        return sendError(
+          res,
+          400,
+          'Signatures are only allowed for move-in and move-out inspections',
+          ErrorCodes.VAL_INVALID_INPUT,
+        );
+      }
+
+      if (!req.file) {
+        return sendError(res, 400, 'Signature image is required', ErrorCodes.VAL_MISSING_FIELD);
+      }
+
+      // Upload signature to S3 or save locally
+      let signatureUrl;
+
+      if (isUsingS3()) {
+        const filename = `signature-${inspectionId}-${Date.now()}.png`;
+        const s3Key = await uploadToS3(
+          'inspections/signatures',
+          req.file.buffer,
+          filename,
+          req.file.mimetype,
+        );
+        signatureUrl = getS3Url(s3Key);
+      } else {
+        // Save locally
+        const uploadsDir = path.join(process.cwd(), 'uploads', 'inspections', 'signatures');
+        await fs.mkdir(uploadsDir, { recursive: true });
+        const filename = `signature-${inspectionId}-${Date.now()}.png`;
+        const filePath = path.join(uploadsDir, filename);
+        await fs.writeFile(filePath, req.file.buffer);
+        signatureUrl = `/uploads/inspections/signatures/${filename}`;
+      }
+
+      // Update inspection with signature
+      const updatedInspection = await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { tenantSignature: signatureUrl },
+        include: baseInspectionInclude,
+      });
+
+      await logInspectionAction(
+        inspectionId,
+        req.user.id,
+        'SIGNATURE_ADDED',
+        { signatureUrl },
+      );
+
+      res.json({ inspection: updatedInspection });
+    } catch (error) {
+      console.error('Failed to upload signature:', error);
+      sendError(res, 500, 'Failed to upload signature', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  },
+);
+
+// Generate and download PDF report
+router.get(
+  '/:id/report/pdf',
+  requireAuth,
+  ensureInspectionAccess,
+  async (req, res) => {
+    try {
+      const inspectionId = req.params.id;
+
+      // Fetch complete inspection data with all relations
+      const inspection = await prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        include: {
+          property: true,
+          unit: true,
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          completedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          rooms: {
+            orderBy: { order: 'asc' },
+            include: {
+              checklistItems: {
+                orderBy: { order: 'asc' },
+              },
+            },
+          },
+          inspectionIssues: {
+            orderBy: { createdAt: 'asc' },
+          },
+          inspectionPhotos: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      if (!inspection) {
+        return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+      }
+
+      // Generate and upload PDF
+      const { url, key, path: localPath } = await generateAndUploadInspectionPDF({
+        inspection,
+        property: inspection.property,
+        unit: inspection.unit,
+        assignedTo: inspection.assignedTo,
+        completedBy: inspection.completedBy,
+      });
+
+      await logInspectionAction(
+        inspectionId,
+        req.user.id,
+        'PDF_GENERATED',
+        { pdfUrl: url },
+      );
+
+      // Return download link
+      res.json({
+        message: 'PDF generated successfully',
+        downloadUrl: url,
+        pdfKey: key || localPath,
+      });
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      sendError(res, 500, 'Failed to generate PDF report: ' + error.message, ErrorCodes.ERR_INTERNAL_SERVER);
     }
   },
 );
