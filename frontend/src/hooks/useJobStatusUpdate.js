@@ -61,6 +61,7 @@ export const useJobStatusUpdate = () => {
         applyJobUpdateToQueries(queryClient, normalizedJob);
       }
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(variables.jobId) });
     },
   });
