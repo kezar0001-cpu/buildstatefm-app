@@ -71,6 +71,7 @@ export default function JobDetailPage() {
             job={job}
             open={dialogOpen}
             onClose={handleClose}
+            returnPath={fallbackPath}
           />
         )}
       </DataState>

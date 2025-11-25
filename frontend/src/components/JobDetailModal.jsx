@@ -38,6 +38,9 @@ import {
   AddCircleOutline as AddCircleOutlineIcon,
   DeleteOutline as DeleteOutlineIcon,
   UploadFile as UploadFileIcon,
+  ArrowBack as ArrowBackIcon,
+  OpenInNew as OpenInNewIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -60,7 +63,7 @@ import {
 } from '../utils/jobCache.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 
-const JobDetailModal = ({ job, open, onClose }) => {
+const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
@@ -488,19 +491,51 @@ const JobDetailModal = ({ job, open, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    onClose?.(returnPath);
+  };
+
   return (
     <>
-      <Dialog open={open && !!job} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h5" component="span">
-            {modalJob?.title}
-          </Typography>
-          <Chip
-            label={formatStatusLabel(modalJob?.status)}
-            color="primary"
-            size="small"
-            sx={{ ml: 2 }}
-          />
+      <Dialog open={open && !!job} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              {returnPath && (
+                <Button
+                  onClick={handleClose}
+                  startIcon={<ArrowBackIcon />}
+                  size="small"
+                  color="inherit"
+                >
+                  Back
+                </Button>
+              )}
+              <Typography variant="h5" component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                {modalJob?.title}
+              </Typography>
+              <Chip
+                label={formatStatusLabel(modalJob?.status)}
+                color="primary"
+                size="small"
+              />
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {onViewFullPage && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  endIcon={<OpenInNewIcon />}
+                  onClick={() => onViewFullPage(modalJob?.id)}
+                >
+                  Open Full Page
+                </Button>
+              )}
+              <IconButton aria-label="Close job details" onClick={handleClose} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Stack>
+          </Stack>
         </DialogTitle>
         <DialogContent dividers>
         {jobError && (
