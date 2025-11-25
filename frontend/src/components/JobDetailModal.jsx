@@ -52,6 +52,7 @@ import {
   restoreJobQueries,
   snapshotJobQueries,
 } from '../utils/jobCache.js';
+import { useCurrentUser } from '../context/UserContext.jsx';
 
 const JobDetailModal = ({ job, open, onClose }) => {
   const queryClient = useQueryClient();
@@ -67,6 +68,8 @@ const JobDetailModal = ({ job, open, onClose }) => {
     job?.assignedToId || job?.assignedTo?.id || '',
   );
   const [assignmentConfirmOpen, setAssignmentConfirmOpen] = useState(false);
+  const { user } = useCurrentUser();
+  const isTechnician = user?.role === 'TECHNICIAN';
 
   const commentsQueryKey = queryKeys.jobs.comments(job?.id);
 
@@ -204,9 +207,11 @@ const JobDetailModal = ({ job, open, onClose }) => {
       setAssignmentConfirmOpen(false);
     },
     onError: (errorResponse, _variables, context) => {
-      setActionError(
-        errorResponse?.response?.data?.message || 'Failed to update assignment',
-      );
+      const errorMessage =
+        errorResponse?.response?.status === 403
+          ? 'You do not have permission to update job assignments.'
+          : errorResponse?.response?.data?.message || 'Failed to update assignment';
+      setActionError(errorMessage);
       restoreJobQueries(queryClient, context?.previousJobs);
       setAssignmentConfirmOpen(false);
     },
@@ -225,9 +230,15 @@ const JobDetailModal = ({ job, open, onClose }) => {
     !canTransition(modalJob.status, selectedStatus) ||
     statusMutation.isPending;
   const isAssignmentDisabled =
+    isTechnician ||
     assigneeId === currentAssigneeId ||
     assignmentMutation.isPending ||
     techniciansLoading;
+  const assignmentDisabledReason = isTechnician
+    ? 'Technicians cannot change job assignments.'
+    : techniciansLoading
+      ? 'Loading technicians...'
+      : '';
   const selectedTechnician = technicianOptions.find((tech) => tech.id === assigneeId);
 
   const handleRequestStatusChange = () => {
@@ -250,6 +261,10 @@ const JobDetailModal = ({ job, open, onClose }) => {
   };
 
   const handleRequestAssignmentChange = () => {
+    if (isTechnician) {
+      setActionError('You do not have permission to update job assignments.');
+      return;
+    }
     if (assigneeId === currentAssigneeId) return;
     setAssignmentConfirmOpen(true);
   };
@@ -423,6 +438,11 @@ const JobDetailModal = ({ job, open, onClose }) => {
               <Typography variant="h6" gutterBottom>
                 Job Controls
               </Typography>
+              {isTechnician && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Assignment changes are disabled for technician accounts.
+                </Alert>
+              )}
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -470,8 +490,8 @@ const JobDetailModal = ({ job, open, onClose }) => {
                     size="small"
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
-                    disabled={assignmentMutation.isPending || techniciansLoading}
-                    helperText={techniciansLoading ? 'Loading technicians...' : 'Select a technician or leave unassigned'}
+                    disabled={assignmentMutation.isPending || techniciansLoading || isTechnician}
+                    helperText={assignmentDisabledReason || 'Select a technician or leave unassigned'}
                   >
                     <MenuItem value="">Unassigned</MenuItem>
                     {technicianOptions.map((tech) => (

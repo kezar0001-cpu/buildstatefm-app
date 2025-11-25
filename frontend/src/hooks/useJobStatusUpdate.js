@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import toast from 'react-hot-toast';
+import { canTransition } from '../constants/jobStatuses.js';
 
 /**
  * Custom hook for updating job status
@@ -22,15 +23,19 @@ export const useJobStatusUpdate = () => {
   const requiresConfirmation = (fromStatus, toStatus) => {
     // Status transitions that send notifications
     const notifyingTransitions = [
+      { from: 'OPEN', to: 'ASSIGNED' },
       { from: 'ASSIGNED', to: 'IN_PROGRESS' },
       { from: 'IN_PROGRESS', to: 'COMPLETED' },
-      { from: 'OPEN', to: 'IN_PROGRESS' },
-      { from: 'OPEN', to: 'ASSIGNED' },
-      { from: 'ASSIGNED', to: 'COMPLETED' },
-      { from: 'OPEN', to: 'COMPLETED' },
+      { from: 'OPEN', to: 'CANCELLED' },
+      { from: 'ASSIGNED', to: 'CANCELLED' },
+      { from: 'IN_PROGRESS', to: 'CANCELLED' },
+      { from: 'ASSIGNED', to: 'OPEN' },
+      { from: 'IN_PROGRESS', to: 'ASSIGNED' },
     ];
 
-    return notifyingTransitions.some(t => t.from === fromStatus && t.to === toStatus);
+    return notifyingTransitions.some((transition) =>
+      transition.from === fromStatus && transition.to === toStatus && canTransition(fromStatus, toStatus)
+    );
   };
 
   // Mutation for updating job status
@@ -106,6 +111,11 @@ export const useJobStatusUpdate = () => {
    * @param {string} jobTitle - Job title (for confirmation dialog)
    */
   const updateStatus = (jobId, currentStatus, newStatus, jobTitle = '') => {
+    if (!canTransition(currentStatus, newStatus)) {
+      toast.error('This status change is not allowed.');
+      return;
+    }
+
     // Check if confirmation is needed
     if (requiresConfirmation(currentStatus, newStatus)) {
       setConfirmDialogState({
