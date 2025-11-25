@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Stepper,
@@ -29,6 +29,8 @@ import {
   Alert,
   LinearProgress,
   CircularProgress,
+  Snackbar,
+  StepButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -125,6 +127,7 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
   const [newRoom, setNewRoom] = useState({ name: '', roomType: '', notes: '' });
+  const [editingRoom, setEditingRoom] = useState(null);
   const [newIssue, setNewIssue] = useState({
     roomId: '',
     checklistItemId: '',
@@ -142,6 +145,24 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   const [signatureRequired, setSignatureRequired] = useState(
     inspection.type === 'MOVE_IN' || inspection.type === 'MOVE_OUT'
   );
+
+  // Optimistic updates and debouncing state
+  const [localChecklistState, setLocalChecklistState] = useState({});
+  const [savingItems, setSavingItems] = useState({});
+  const debounceTimers = useRef({});
+  const pendingUpdates = useRef({});
+
+  // Room generation tracking
+  const [generatingChecklists, setGeneratingChecklists] = useState({});
+  const [generatedRooms, setGeneratedRooms] = useState(new Set());
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, room: null });
+
+  // Step validation errors
+  const [stepError, setStepError] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Completed steps tracking
+  const [completedSteps, setCompletedSteps] = useState(new Set());
 
   const steps = ['Start Inspection', 'Add Rooms', 'Conduct Inspection', 'Review & Complete'];
 
@@ -186,6 +207,21 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
       refetchRooms();
       setRoomDialogOpen(false);
       setNewRoom({ name: '', roomType: '', notes: '' });
+      setSnackbar({ open: true, message: 'Room added successfully', severity: 'success' });
+    },
+  });
+
+  const updateRoomMutation = useMutation({
+    mutationFn: async ({ roomId, roomData }) => {
+      const response = await apiClient.patch(`/rooms/${roomId}`, roomData);
+      return response.data;
+    },
+    onSuccess: () => {
+      refetchRooms();
+      setRoomDialogOpen(false);
+      setEditingRoom(null);
+      setNewRoom({ name: '', roomType: '', notes: '' });
+      setSnackbar({ open: true, message: 'Room updated successfully', severity: 'success' });
     },
   });
 
@@ -282,31 +318,213 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
     },
   });
 
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(timer => clearTimeout(timer));
+    };
+  }, []);
+
+  // Initialize local state from server data
+  useEffect(() => {
+    if (roomsData?.rooms) {
+      const newState = {};
+      roomsData.rooms.forEach(room => {
+        room.checklistItems?.forEach(item => {
+          newState[item.id] = { status: item.status, notes: item.notes };
+        });
+      });
+      setLocalChecklistState(newState);
+
+      // Track which rooms have checklist items
+      const generated = new Set();
+      roomsData.rooms.forEach(room => {
+        if (room.checklistItems && room.checklistItems.length > 0) {
+          generated.add(room.id);
+        }
+      });
+      setGeneratedRooms(generated);
+    }
+  }, [roomsData]);
+
   const handleStartInspection = () => {
     startInspectionMutation.mutate();
+    setCompletedSteps(new Set([0]));
+  };
+
+  const handleCancelInspection = async () => {
+    if (activeStep === 0) {
+      // Revert status if on step 0
+      if (inspection.status === 'IN_PROGRESS') {
+        try {
+          await apiClient.patch(`/inspections/${inspection.id}`, { status: 'SCHEDULED' });
+        } catch (error) {
+          console.error('Error reverting inspection status:', error);
+        }
+      }
+    }
+    onCancel();
   };
 
   const handleAddRoom = () => {
     if (newRoom.name) {
-      addRoomMutation.mutate(newRoom);
+      if (editingRoom) {
+        updateRoomMutation.mutate({ roomId: editingRoom.id, roomData: newRoom });
+      } else {
+        addRoomMutation.mutate(newRoom);
+      }
     }
+  };
+
+  const handleEditRoom = (room) => {
+    setEditingRoom(room);
+    setNewRoom({
+      name: room.name,
+      roomType: room.roomType || '',
+      notes: room.notes || '',
+    });
+    setRoomDialogOpen(true);
+  };
+
+  const handleCloseRoomDialog = () => {
+    setRoomDialogOpen(false);
+    setEditingRoom(null);
+    setNewRoom({ name: '', roomType: '', notes: '' });
+  };
+
+  const handleGenerateChecklistClick = (room) => {
+    // Check if room already has checklist items
+    if (room.checklistItems && room.checklistItems.length > 0) {
+      setConfirmDialog({ open: true, room });
+    } else {
+      handleGenerateChecklist(room);
+    }
+  };
+
+  const handleConfirmGenerate = () => {
+    if (confirmDialog.room) {
+      handleGenerateChecklist(confirmDialog.room);
+    }
+    setConfirmDialog({ open: false, room: null });
   };
 
   const handleGenerateChecklist = async (room) => {
-    const template = CHECKLIST_TEMPLATES[inspection.type] || CHECKLIST_TEMPLATES.ROUTINE;
-    const roomSpecific = ROOM_SPECIFIC_ITEMS[room.roomType] || [];
-    const allItems = [...template, ...roomSpecific];
+    setGeneratingChecklists(prev => ({ ...prev, [room.id]: true }));
 
-    for (const item of allItems) {
-      await addChecklistItemMutation.mutateAsync({
-        roomId: room.id,
-        description: item,
-      });
+    try {
+      const template = CHECKLIST_TEMPLATES[inspection.type] || CHECKLIST_TEMPLATES.ROUTINE;
+      const roomSpecific = ROOM_SPECIFIC_ITEMS[room.roomType] || [];
+      const allItems = [...template, ...roomSpecific];
+
+      for (const item of allItems) {
+        await addChecklistItemMutation.mutateAsync({
+          roomId: room.id,
+          description: item,
+        });
+      }
+
+      setGeneratedRooms(prev => new Set([...prev, room.id]));
+      setSnackbar({ open: true, message: 'Checklist generated successfully', severity: 'success' });
+    } catch (error) {
+      console.error('Error generating checklist:', error);
+      setSnackbar({ open: true, message: 'Failed to generate checklist', severity: 'error' });
+    } finally {
+      setGeneratingChecklists(prev => ({ ...prev, [room.id]: false }));
     }
   };
 
-  const handleChecklistItemChange = (roomId, itemId, status, notes) => {
-    updateChecklistItemMutation.mutate({ roomId, itemId, status, notes });
+  // Debounced checklist item update
+  const handleChecklistItemChange = useCallback((roomId, itemId, status, notes = '') => {
+    const itemKey = itemId;
+
+    // Optimistic update
+    setLocalChecklistState(prev => ({
+      ...prev,
+      [itemKey]: { status, notes }
+    }));
+
+    // Mark as saving
+    setSavingItems(prev => ({ ...prev, [itemKey]: true }));
+
+    // Clear existing timer for this item
+    if (debounceTimers.current[itemKey]) {
+      clearTimeout(debounceTimers.current[itemKey]);
+    }
+
+    // Store the pending update
+    pendingUpdates.current[itemKey] = { roomId, itemId, status, notes };
+
+    // Set new debounced timer (500ms)
+    debounceTimers.current[itemKey] = setTimeout(() => {
+      const update = pendingUpdates.current[itemKey];
+      if (update) {
+        updateChecklistItemMutation.mutate(update, {
+          onSuccess: () => {
+            setSavingItems(prev => {
+              const newState = { ...prev };
+              delete newState[itemKey];
+              return newState;
+            });
+            delete pendingUpdates.current[itemKey];
+          },
+          onError: (error) => {
+            console.error('Failed to update checklist item:', error);
+            setSavingItems(prev => {
+              const newState = { ...prev };
+              delete newState[itemKey];
+              return newState;
+            });
+            setSnackbar({ open: true, message: 'Failed to save item status', severity: 'error' });
+            // Revert optimistic update on error
+            refetchRooms();
+          }
+        });
+      }
+    }, 500);
+  }, [updateChecklistItemMutation, refetchRooms]);
+
+  const validateStep = (step) => {
+    switch (step) {
+      case 1:
+        // Must have at least 1 room before going to step 2
+        if (!roomsData?.rooms || roomsData.rooms.length === 0) {
+          setStepError('Please add at least one room before proceeding');
+          return false;
+        }
+        break;
+      case 2:
+        // Must have checklist items before going to step 3
+        const hasChecklistItems = roomsData?.rooms?.some(room =>
+          room.checklistItems && room.checklistItems.length > 0
+        );
+        if (!hasChecklistItems) {
+          setStepError('Please generate checklists for at least one room before proceeding');
+          return false;
+        }
+        break;
+    }
+    setStepError('');
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(activeStep + 1)) {
+      setCompletedSteps(prev => new Set([...prev, activeStep]));
+      setActiveStep(activeStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setStepError('');
+    setActiveStep(activeStep - 1);
+  };
+
+  const handleStepClick = (step) => {
+    // Allow clicking on completed steps or current step
+    if (completedSteps.has(step) || step === activeStep) {
+      setStepError('');
+      setActiveStep(step);
+    }
   };
 
   const handleAddIssue = () => {
@@ -470,9 +688,18 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
                   <Grid item xs={12} sm={6} md={4} key={room.id}>
                     <Card>
                       <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          {room.name}
-                        </Typography>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                          <Typography variant="h6" gutterBottom>
+                            {room.name}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditRoom(room)}
+                            sx={{ mt: -0.5 }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
                         <Chip
                           label={room.roomType || 'Not specified'}
                           size="small"
@@ -480,13 +707,27 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
                         />
                         <Typography variant="body2" color="text.secondary">
                           {room.checklistItems?.length || 0} checklist items
+                          {generatedRooms.has(room.id) && (
+                            <Chip
+                              label="Generated"
+                              size="small"
+                              color="success"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
                         </Typography>
                         <Button
                           size="small"
-                          onClick={() => handleGenerateChecklist(room)}
+                          onClick={() => handleGenerateChecklistClick(room)}
                           sx={{ mt: 1 }}
+                          disabled={generatingChecklists[room.id] || generatedRooms.has(room.id)}
+                          startIcon={generatingChecklists[room.id] ? <CircularProgress size={16} /> : null}
                         >
-                          Generate Checklist
+                          {generatingChecklists[room.id]
+                            ? 'Generating...'
+                            : generatedRooms.has(room.id)
+                            ? 'Checklist Generated'
+                            : 'Generate Checklist'}
                         </Button>
                       </CardContent>
                     </Card>
@@ -495,9 +736,9 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
               </Grid>
             )}
 
-            {/* Add Room Dialog */}
-            <Dialog open={roomDialogOpen} onClose={() => setRoomDialogOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle>Add Room</DialogTitle>
+            {/* Add/Edit Room Dialog */}
+            <Dialog open={roomDialogOpen} onClose={handleCloseRoomDialog} maxWidth="sm" fullWidth>
+              <DialogTitle>{editingRoom ? 'Edit Room' : 'Add Room'}</DialogTitle>
               <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                   <TextField
@@ -531,9 +772,30 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
                 </Stack>
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setRoomDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddRoom} variant="contained">
-                  Add Room
+                <Button onClick={handleCloseRoomDialog}>Cancel</Button>
+                <Button onClick={handleAddRoom} variant="contained" disabled={!newRoom.name}>
+                  {editingRoom ? 'Update Room' : 'Add Room'}
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Confirm Regenerate Checklist Dialog */}
+            <Dialog
+              open={confirmDialog.open}
+              onClose={() => setConfirmDialog({ open: false, room: null })}
+              maxWidth="sm"
+            >
+              <DialogTitle>Regenerate Checklist?</DialogTitle>
+              <DialogContent>
+                <Typography>
+                  This room already has {confirmDialog.room?.checklistItems?.length || 0} checklist items.
+                  Generating a new checklist will add more items. Do you want to continue?
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setConfirmDialog({ open: false, room: null })}>Cancel</Button>
+                <Button onClick={handleConfirmGenerate} variant="contained" color="primary">
+                  Continue
                 </Button>
               </DialogActions>
             </Dialog>
@@ -574,60 +836,76 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
                     </Alert>
                   ) : (
                     <List>
-                      {room.checklistItems?.map((item) => (
-                        <ListItem key={item.id}>
-                          <Box sx={{ width: '100%' }}>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <Typography variant="body2" sx={{ flex: 1 }}>
-                                {item.description}
-                              </Typography>
-                              <Button
-                                size="small"
-                                variant={item.status === 'PASSED' ? 'contained' : 'outlined'}
-                                color="success"
-                                onClick={() =>
-                                  handleChecklistItemChange(room.id, item.id, 'PASSED', item.notes)
-                                }
-                              >
-                                Pass
-                              </Button>
-                              <Button
-                                size="small"
-                                variant={item.status === 'FAILED' ? 'contained' : 'outlined'}
-                                color="error"
-                                onClick={() =>
-                                  handleChecklistItemChange(room.id, item.id, 'FAILED', item.notes)
-                                }
-                              >
-                                Fail
-                              </Button>
-                              <Button
-                                size="small"
-                                variant={item.status === 'NA' ? 'contained' : 'outlined'}
-                                onClick={() =>
-                                  handleChecklistItemChange(room.id, item.id, 'NA', item.notes)
-                                }
-                              >
-                                N/A
-                              </Button>
-                            </Stack>
-                            {item.status && (
-                              <Chip
-                                label={item.status}
-                                size="small"
-                                color={
-                                  item.status === 'PASSED'
-                                    ? 'success'
-                                    : item.status === 'FAILED'
-                                    ? 'error'
-                                    : 'default'
-                                }
-                                sx={{ mt: 1 }}
-                              />
-                            )}
-                          </Box>
-                        </ListItem>
-                      ))}
+                      {room.checklistItems?.map((item) => {
+                        const localState = localChecklistState[item.id] || { status: item.status, notes: item.notes };
+                        const isSaving = savingItems[item.id];
+                        return (
+                          <ListItem key={item.id}>
+                            <Box sx={{ width: '100%' }}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2" sx={{ flex: 1 }}>
+                                  {item.description}
+                                  {isSaving && (
+                                    <CircularProgress
+                                      size={12}
+                                      sx={{ ml: 1, verticalAlign: 'middle' }}
+                                    />
+                                  )}
+                                </Typography>
+                                <Button
+                                  size="small"
+                                  variant={localState.status === 'PASSED' ? 'contained' : 'outlined'}
+                                  color="success"
+                                  onClick={() =>
+                                    handleChecklistItemChange(room.id, item.id, 'PASSED', localState.notes || '')
+                                  }
+                                >
+                                  Pass
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant={localState.status === 'FAILED' ? 'contained' : 'outlined'}
+                                  color="error"
+                                  onClick={() =>
+                                    handleChecklistItemChange(room.id, item.id, 'FAILED', localState.notes || '')
+                                  }
+                                >
+                                  Fail
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant={localState.status === 'NA' ? 'contained' : 'outlined'}
+                                  onClick={() =>
+                                    handleChecklistItemChange(room.id, item.id, 'NA', localState.notes || '')
+                                  }
+                                >
+                                  N/A
+                                </Button>
+                              </Stack>
+                              {localState.status && (
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                  <Chip
+                                    label={localState.status}
+                                    size="small"
+                                    color={
+                                      localState.status === 'PASSED'
+                                        ? 'success'
+                                        : localState.status === 'FAILED'
+                                        ? 'error'
+                                        : 'default'
+                                    }
+                                  />
+                                  {isSaving && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      Saving...
+                                    </Typography>
+                                  )}
+                                </Stack>
+                              )}
+                            </Box>
+                          </ListItem>
+                        );
+                      })}
                     </List>
                   )}
 
@@ -910,23 +1188,31 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   return (
     <Box sx={{ p: 3 }}>
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
+        {steps.map((label, index) => (
+          <Step key={label} completed={completedSteps.has(index)}>
+            <StepButton onClick={() => handleStepClick(index)} disabled={!completedSteps.has(index) && index !== activeStep}>
+              {label}
+            </StepButton>
           </Step>
         ))}
       </Stepper>
 
+      {stepError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setStepError('')}>
+          {stepError}
+        </Alert>
+      )}
+
       <Paper sx={{ p: 3, minHeight: 400 }}>{renderStepContent(activeStep)}</Paper>
 
       <Stack direction="row" spacing={2} sx={{ mt: 3 }} justifyContent="space-between">
-        <Button onClick={onCancel} startIcon={<CancelIcon />}>
+        <Button onClick={handleCancelInspection} startIcon={<CancelIcon />}>
           Cancel
         </Button>
         <Stack direction="row" spacing={2}>
           {activeStep > 0 && activeStep < 3 && (
             <Button
-              onClick={() => setActiveStep(activeStep - 1)}
+              onClick={handleBack}
               startIcon={<ArrowBackIcon />}
             >
               Back
@@ -935,7 +1221,7 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
           {activeStep > 0 && activeStep < 3 && (
             <Button
               variant="contained"
-              onClick={() => setActiveStep(activeStep + 1)}
+              onClick={handleNext}
               endIcon={<ArrowForwardIcon />}
             >
               Next
@@ -943,6 +1229,22 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
           )}
         </Stack>
       </Stack>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
