@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
+  Container,
   Typography,
   Button,
   Paper,
@@ -26,6 +27,7 @@ import {
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Table,
   TableBody,
   TableCell,
@@ -437,7 +439,7 @@ export default function PropertiesPage() {
   };
 
   return (
-    <Box sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
       <Stack spacing={3}>
         {/* Header */}
         <Stack
@@ -497,101 +499,104 @@ export default function PropertiesPage() {
             animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                id="properties-search-term"
-                name="searchTerm"
-                placeholder="Search properties by name, address, or city..."
-                value={localSearchInput}
-                onChange={(e) => setLocalSearchInput(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  // Bug Fix: Add clear button for better UX
-                  endAdornment: localSearchInput && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="clear search"
-                        onClick={() => setLocalSearchInput('')}
-                        edge="end"
-                        size="small"
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel id="properties-filter-status-label">Status</InputLabel>
-                <Select
-                  labelId="properties-filter-status-label"
-                  id="properties-filter-status"
-                  name="filterStatus"
-                  value={filterStatus}
-                  label="Status"
-                  onChange={(e) => updateSearchParam('status', e.target.value)}
-                >
-                  <MenuItem value="all">All Statuses</MenuItem>
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                  <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid
-              item
-              xs={12}
-              md={2}
-              sx={{ display: 'flex', justifyContent: { xs: 'center', md: 'flex-end' } }}
-            >
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                aria-label="View mode toggle"
-                size="small"
-                sx={{
-                  display: 'inline-flex',
-                  backgroundColor: 'background.paper',
-                  borderRadius: 999,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 0,
-                    px: 1,
-                    py: 0.5,
-                    border: 'none',
-                  },
-                  '& .MuiToggleButton-root': {
-                    borderRadius: '8px !important',
-                    color: 'text.secondary',
-                  },
-                  '& .Mui-selected': {
-                    color: 'primary.main',
-                    backgroundColor: 'action.selected',
-                  },
-                }}
+          <Stack direction="row" spacing={2} alignItems="center">
+            {/* Search */}
+            <TextField
+              placeholder="Search properties by name, address, or city..."
+              value={localSearchInput}
+              onChange={(e) => setLocalSearchInput(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: localSearchInput && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="clear search"
+                      onClick={() => setLocalSearchInput('')}
+                      edge="end"
+                      size="small"
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+              sx={{ flexGrow: 1, minWidth: 250 }}
+            />
+
+            {/* Status Filter */}
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filterStatus}
+                label="Status"
+                onChange={(e) => updateSearchParam('status', e.target.value)}
               >
-                <ToggleButton value="grid" aria-label="grid view">
+                <MenuItem value="all">All Statuses</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">Inactive</MenuItem>
+                <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* View Toggle */}
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              aria-label="View mode toggle"
+              size="small"
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                '& .MuiToggleButtonGroup-grouped': {
+                  minWidth: 40,
+                  border: 'none',
+                  '&:not(:first-of-type)': {
+                    borderRadius: 2,
+                  },
+                  '&:first-of-type': {
+                    borderRadius: 2,
+                  },
+                },
+                '& .MuiToggleButton-root': {
+                  color: 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                },
+                '& .Mui-selected': {
+                  color: 'error.main',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': {
+                    backgroundColor: 'action.hover !important',
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="grid" aria-label="grid view">
+                <Tooltip title="Grid View">
                   <ViewModuleIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="list" aria-label="list view">
+                <Tooltip title="List View">
                   <ViewListIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="table" aria-label="table view">
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <Tooltip title="Table View">
                   <TableChartIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Grid>
-          </Grid>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
         </Paper>
 
         {/* Error Alerts */}
@@ -1089,6 +1094,6 @@ export default function PropertiesPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
 }

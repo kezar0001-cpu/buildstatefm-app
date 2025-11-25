@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
+  Container,
   Typography,
   Stack,
   TextField,
@@ -16,6 +17,7 @@ import {
   Chip,
   CircularProgress,
   Link,
+  Paper,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
@@ -27,8 +29,7 @@ import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
-import PageShell from '../components/PageShell.jsx';
-import SectionCard from '../components/SectionCard.jsx';
+import GradientButton from '../components/GradientButton';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -145,14 +146,46 @@ export default function ReportsPage() {
   };
 
   return (
-    <PageShell title={t('reports.title')} subtitle={t('reports.description')}>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
+      <Stack spacing={4}>
+        {/* Page Header */}
+        <Box>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              color: 'text.primary',
+              mb: 1,
+            }}
+          >
+            {t('reports.title')}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {t('reports.description')}
+          </Typography>
+        </Box>
 
-      <SectionCard
-        title="Generate New Report"
-        subtitle="Create owner-ready outputs with consistent formatting"
-      >
-        <form onSubmit={onSubmit} noValidate>
-          <Stack spacing={2}>
+        {/* Generate New Report Section */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 3 },
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Generate New Report
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Create owner-ready outputs with consistent formatting
+            </Typography>
+          </Box>
+          <form onSubmit={onSubmit} noValidate>
+            <Stack spacing={2}>
             <Controller
               name="reportType"
               control={control}
@@ -254,18 +287,36 @@ export default function ReportsPage() {
               <Alert severity="success">Report generation has been queued.</Alert>
             )}
             <Stack direction="row" justifyContent="flex-end">
-              <Button type="submit" variant="contained" disabled={isSubmitting || mutation.isPending}>
+              <GradientButton
+                type="submit"
+                size="large"
+                disabled={isSubmitting || mutation.isPending}
+              >
                 {t('reports.submit')}
-              </Button>
+              </GradientButton>
             </Stack>
           </Stack>
         </form>
-      </SectionCard>
+        </Paper>
 
-      <SectionCard
-        title="Generated Reports"
-        subtitle="Keep track of processing and completed exports"
-      >
+        {/* Generated Reports Section */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 3 },
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Generated Reports
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Keep track of processing and completed exports
+            </Typography>
+          </Box>
         {isLoadingReports ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -326,6 +377,11 @@ export default function ReportsPage() {
                           href={resolveFileUrl(report.fileUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                          }}
                         >
                           Download
                         </Button>
@@ -345,7 +401,8 @@ export default function ReportsPage() {
             </Table>
           </Box>
         )}
-      </SectionCard>
-    </PageShell>
+        </Paper>
+      </Stack>
+    </Container>
   );
 }
