@@ -8,6 +8,7 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
+import { formatStatusLabel, getStatusNotification } from '../constants/jobStatuses.js';
 
 /**
  * Confirmation dialog for job status transitions that send notifications
@@ -28,39 +29,7 @@ const JobStatusConfirmDialog = ({
   jobTitle,
   isLoading = false
 }) => {
-  // Determine if this status transition requires confirmation
-  const requiresConfirmation = (from, to) => {
-    // Status transitions that send notifications
-    const notifyingTransitions = [
-      { from: 'ASSIGNED', to: 'IN_PROGRESS' }, // Notifies property manager
-      { from: 'IN_PROGRESS', to: 'COMPLETED' }, // Notifies property manager
-      { from: 'OPEN', to: 'IN_PROGRESS' }, // Notifies property manager
-      { from: 'OPEN', to: 'ASSIGNED' }, // Notifies technician
-      { from: 'ASSIGNED', to: 'COMPLETED' }, // Notifies property manager
-    ];
-
-    return notifyingTransitions.some(t => t.from === from && t.to === to);
-  };
-
-  const getNotificationMessage = (status) => {
-    const messages = {
-      IN_PROGRESS: 'This will notify the property manager that work has started.',
-      COMPLETED: 'This will notify the property manager that the job is complete.',
-      ASSIGNED: 'This will notify the assigned technician.',
-    };
-    return messages[status] || '';
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      OPEN: 'Open',
-      ASSIGNED: 'Assigned',
-      IN_PROGRESS: 'In Progress',
-      COMPLETED: 'Completed',
-      CANCELLED: 'Cancelled',
-    };
-    return labels[status] || status;
-  };
+  const notificationMessage = getStatusNotification(newStatus);
 
   return (
     <Dialog
@@ -73,12 +42,12 @@ const JobStatusConfirmDialog = ({
       <DialogContent>
         <DialogContentText>
           Are you sure you want to change the status of <strong>"{jobTitle}"</strong> from{' '}
-          <strong>{getStatusLabel(currentStatus)}</strong> to{' '}
-          <strong>{getStatusLabel(newStatus)}</strong>?
+          <strong>{formatStatusLabel(currentStatus)}</strong> to{' '}
+          <strong>{formatStatusLabel(newStatus)}</strong>?
         </DialogContentText>
-        {getNotificationMessage(newStatus) && (
+        {notificationMessage && (
           <DialogContentText sx={{ mt: 2, fontWeight: 500, color: 'primary.main' }}>
-            {getNotificationMessage(newStatus)}
+            {notificationMessage}
           </DialogContentText>
         )}
       </DialogContent>

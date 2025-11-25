@@ -3,7 +3,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import toast from 'react-hot-toast';
-import { canTransition } from '../constants/jobStatuses.js';
+import {
+  canTransition,
+  requiresStatusConfirmation,
+} from '../constants/jobStatuses.js';
+import {
+  applyJobUpdateToQueries,
+  restoreJobQueries,
+  snapshotJobQueries,
+} from '../utils/jobCache.js';
 
 /**
  * Custom hook for updating job status
@@ -19,25 +27,6 @@ export const useJobStatusUpdate = () => {
     jobTitle: '',
   });
 
-  // Determine if a status transition requires confirmation
-  const requiresConfirmation = (fromStatus, toStatus) => {
-    // Status transitions that send notifications
-    const notifyingTransitions = [
-      { from: 'OPEN', to: 'ASSIGNED' },
-      { from: 'ASSIGNED', to: 'IN_PROGRESS' },
-      { from: 'IN_PROGRESS', to: 'COMPLETED' },
-      { from: 'OPEN', to: 'CANCELLED' },
-      { from: 'ASSIGNED', to: 'CANCELLED' },
-      { from: 'IN_PROGRESS', to: 'CANCELLED' },
-      { from: 'ASSIGNED', to: 'OPEN' },
-      { from: 'IN_PROGRESS', to: 'ASSIGNED' },
-    ];
-
-    return notifyingTransitions.some((transition) =>
-      transition.from === fromStatus && transition.to === toStatus && canTransition(fromStatus, toStatus)
-    );
-  };
-
   // Mutation for updating job status
   const mutation = useMutation({
     mutationFn: async ({ jobId, status }) => {
@@ -45,52 +34,21 @@ export const useJobStatusUpdate = () => {
       return response.data;
     },
     onMutate: async ({ jobId, status }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.jobs.all() });
 
-      // Snapshot previous value for rollback
-      const previousJobs = queryClient.getQueriesData({ queryKey: queryKeys.jobs.all() });
+      const previousJobs = snapshotJobQueries(queryClient);
 
-      // Optimistically update job status in all queries
-      queryClient.setQueriesData({ queryKey: queryKeys.jobs.all() }, (old) => {
-        if (!old) return old;
-
-        // Handle infinite query structure
-        if (old.pages) {
-          return {
-            ...old,
-            pages: old.pages.map(page => ({
-              ...page,
-              items: page.items.map(job =>
-                job.id === jobId
-                  ? { ...job, status, updatedAt: new Date().toISOString() }
-                  : job
-              )
-            }))
-          };
-        }
-
-        // Handle regular array
-        if (Array.isArray(old)) {
-          return old.map(job =>
-            job.id === jobId
-              ? { ...job, status, updatedAt: new Date().toISOString() }
-              : job
-          );
-        }
-
-        return old;
+      applyJobUpdateToQueries(queryClient, {
+        id: jobId,
+        status,
+        updatedAt: new Date().toISOString(),
       });
 
       return { previousJobs };
     },
     onError: (error, variables, context) => {
       // Rollback on error
-      if (context?.previousJobs) {
-        context.previousJobs.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
+      restoreJobQueries(queryClient, context?.previousJobs);
 
       const errorMessage = error.response?.data?.message || 'Failed to update job status';
       toast.error(errorMessage);
@@ -98,8 +56,12 @@ export const useJobStatusUpdate = () => {
     onSuccess: (data, variables) => {
       toast.success('Job status updated successfully');
 
-      // Invalidate and refetch job queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+      const normalizedJob = data?.job || data;
+      if (normalizedJob?.id) {
+        applyJobUpdateToQueries(queryClient, normalizedJob);
+      }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(variables.jobId) });
     },
   });
 
@@ -117,7 +79,7 @@ export const useJobStatusUpdate = () => {
     }
 
     // Check if confirmation is needed
-    if (requiresConfirmation(currentStatus, newStatus)) {
+    if (requiresStatusConfirmation(currentStatus, newStatus)) {
       setConfirmDialogState({
         open: true,
         jobId,
