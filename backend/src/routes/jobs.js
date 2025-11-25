@@ -90,7 +90,33 @@ const jobUpdateSchema = z.object({
     }),
   assignedToId: z.string().optional().nullable(),
   estimatedCost: z.number().optional().nullable(),
+  actualCost: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
+  evidence: z
+    .object({
+      subtasks: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            text: z.string().min(1),
+            completed: z.boolean(),
+          })
+        )
+        .optional(),
+      attachments: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            name: z.string().min(1),
+            url: z.string().url(),
+            mimeType: z.string().optional(),
+            uploadedAt: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .passthrough()
+    .optional(),
 });
 
 const bulkAssignSchema = z.object({
@@ -832,7 +858,13 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'),
     }
     if (updates.assignedToId !== undefined) updateData.assignedToId = updates.assignedToId;
     if (updates.estimatedCost !== undefined) updateData.estimatedCost = updates.estimatedCost;
+    if (updates.actualCost !== undefined) updateData.actualCost = updates.actualCost;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.evidence !== undefined) updateData.evidence = updates.evidence;
+
+    if (Object.keys(updateData).length === 0) {
+      return sendError(res, 400, 'No valid fields provided for update', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
     
     // If status is being set to COMPLETED, set completedDate
     if (updates.status === 'COMPLETED' && !existingJob.completedDate) {
