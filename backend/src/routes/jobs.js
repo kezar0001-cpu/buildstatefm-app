@@ -98,10 +98,28 @@ const bulkAssignSchema = z.object({
   technicianId: z.string().min(1, 'Technician is required'),
 });
 
+const jobListQuerySchema = z.object({
+  status: z.enum(STATUSES).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  propertyId: z.string().optional(),
+  assignedToId: z.string().optional(),
+  filter: z.enum(['overdue', 'unassigned']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
 // GET / - List jobs (role-based filtering)
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { status, propertyId, assignedToId } = req.query;
+    const {
+      status,
+      priority,
+      propertyId,
+      assignedToId,
+      filter,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    } = jobListQuerySchema.parse(req.query);
 
     // Build where clause based on filters and user role
     const where = {};
@@ -131,6 +149,10 @@ router.get('/', requireAuth, async (req, res) => {
       where.status = status;
     }
 
+    if (priority) {
+      where.priority = priority;
+    }
+
     if (propertyId) {
       where.propertyId = propertyId;
     }
@@ -140,9 +162,32 @@ router.get('/', requireAuth, async (req, res) => {
       where.assignedToId = assignedToId;
     }
 
+    // Apply special filters
+    if (filter === 'overdue') {
+      const overdueStatuses = ['OPEN', 'ASSIGNED', 'IN_PROGRESS'];
+
+      if (where.status) {
+        if (typeof where.status === 'string' && !overdueStatuses.includes(where.status)) {
+          where.status = { in: [] };
+        }
+      } else {
+        where.status = { in: overdueStatuses };
+      }
+
+      where.scheduledDate = { lt: new Date() };
+    } else if (filter === 'unassigned') {
+      if (where.assignedToId === undefined) {
+        where.assignedToId = null;
+      }
+
+      if (!where.status) {
+        where.status = 'OPEN';
+      }
+    }
+
     // Parse pagination parameters
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
-    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const limit = parsedLimit ?? 50;
+    const offset = parsedOffset ?? 0;
 
     // Fetch jobs and total count in parallel
     const [jobs, total] = await Promise.all([
@@ -194,6 +239,10 @@ router.get('/', requireAuth, async (req, res) => {
       hasMore,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.errors);
+    }
+
     console.error('Error fetching jobs:', error);
     return sendError(res, 500, 'Failed to fetch jobs', ErrorCodes.ERR_INTERNAL_SERVER);
   }
@@ -1060,3 +1109,4 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
 });
 
 export default router;
+export { jobListQuerySchema };
