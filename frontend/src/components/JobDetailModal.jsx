@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,8 @@ import {
   Alert,
   Stack,
   IconButton,
+  MenuItem,
+  DialogContentText,
 } from '@mui/material';
 import {
   CalendarToday as CalendarTodayIcon,
@@ -42,6 +44,14 @@ import { apiClient } from '../api/client';
 import { formatDistanceToNow } from 'date-fns';
 import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
+import ensureArray from '../utils/ensureArray';
+import { canTransition, formatStatusLabel, getAllowedStatuses, getStatusHelperText } from '../constants/jobStatuses.js';
+import JobStatusConfirmDialog from './JobStatusConfirmDialog.jsx';
+import {
+  applyJobUpdateToQueries,
+  restoreJobQueries,
+  snapshotJobQueries,
+} from '../utils/jobCache.js';
 
 const JobDetailModal = ({ job, open, onClose }) => {
   const queryClient = useQueryClient();
@@ -50,6 +60,13 @@ const JobDetailModal = ({ job, open, onClose }) => {
   const [actionError, setActionError] = useState('');
   const [attachmentError, setAttachmentError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState(job?.status || '');
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState('');
+  const [assigneeId, setAssigneeId] = useState(
+    job?.assignedToId || job?.assignedTo?.id || '',
+  );
+  const [assignmentConfirmOpen, setAssignmentConfirmOpen] = useState(false);
 
   const commentsQueryKey = queryKeys.jobs.comments(job?.id);
 
@@ -61,6 +78,20 @@ const JobDetailModal = ({ job, open, onClose }) => {
     },
     enabled: open && !!job?.id,
     initialData: job,
+  });
+
+  useEffect(() => {
+    setSelectedStatus(jobData?.status || job?.status || '');
+    setAssigneeId(jobData?.assignedToId || jobData?.assignedTo?.id || job?.assignedToId || job?.assignedTo?.id || '');
+  }, [jobData, job]);
+
+  const { data: technicians = [], isLoading: techniciansLoading } = useQuery({
+    queryKey: queryKeys.users.list({ role: 'TECHNICIAN' }),
+    queryFn: async () => {
+      const response = await apiClient.get('/users?role=TECHNICIAN');
+      return ensureArray(response.data, ['users', 'data', 'items', 'results']);
+    },
+    enabled: open,
   });
 
   // Fetch comments for this job
@@ -105,6 +136,131 @@ const JobDetailModal = ({ job, open, onClose }) => {
       setActionError(errorResponse?.response?.data?.message || 'Failed to save changes');
     },
   });
+
+  const statusMutation = useMutation({
+    mutationFn: async (status) => {
+      const response = await apiClient.patch(`/jobs/${job.id}/status`, { status });
+      return response.data;
+    },
+    onMutate: async (status) => {
+      setActionError('');
+      await queryClient.cancelQueries({ queryKey: ['jobs'] });
+
+      const previousJobs = snapshotJobQueries(queryClient);
+      const baseJob = jobData || job || {};
+      const jobId = baseJob.id || job?.id;
+
+      applyJobUpdateToQueries(queryClient, {
+        ...baseJob,
+        id: jobId,
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { previousJobs };
+    },
+    onSuccess: (updatedJob) => {
+      const normalizedJob = updatedJob?.job || updatedJob;
+      applyJobUpdateToQueries(queryClient, normalizedJob);
+      setStatusConfirmOpen(false);
+      setPendingStatus('');
+    },
+    onError: (errorResponse, _variables, context) => {
+      setActionError(errorResponse?.response?.data?.message || 'Failed to update status');
+      restoreJobQueries(queryClient, context?.previousJobs);
+      setStatusConfirmOpen(false);
+      setPendingStatus('');
+    },
+  });
+
+  const assignmentMutation = useMutation({
+    mutationFn: async (technicianId) => {
+      const payload = { assignedToId: technicianId || null };
+      const response = await apiClient.patch(`/jobs/${job.id}`, payload);
+      return response.data;
+    },
+    onMutate: async (technicianId) => {
+      setActionError('');
+      await queryClient.cancelQueries({ queryKey: ['jobs'] });
+
+      const previousJobs = snapshotJobQueries(queryClient);
+      const baseJob = jobData || job || {};
+      const jobId = baseJob.id || job?.id;
+      const technician = technicians.find((tech) => tech.id === technicianId);
+
+      applyJobUpdateToQueries(queryClient, {
+        ...baseJob,
+        id: jobId,
+        assignedToId: technicianId || null,
+        assignedTo: technicianId ? technician : null,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { previousJobs };
+    },
+    onSuccess: (updatedJob) => {
+      const normalizedJob = updatedJob?.job || updatedJob;
+      applyJobUpdateToQueries(queryClient, normalizedJob);
+      setAssignmentConfirmOpen(false);
+    },
+    onError: (errorResponse, _variables, context) => {
+      setActionError(
+        errorResponse?.response?.data?.message || 'Failed to update assignment',
+      );
+      restoreJobQueries(queryClient, context?.previousJobs);
+      setAssignmentConfirmOpen(false);
+    },
+  });
+
+  const modalJob = jobData || job;
+  const allowedStatuses = modalJob?.status ? getAllowedStatuses(modalJob.status) : [];
+  const statusHelperText = modalJob?.status
+    ? getStatusHelperText(modalJob.status)
+    : 'Status not available for this job.';
+  const currentAssigneeId = modalJob?.assignedToId || modalJob?.assignedTo?.id || '';
+  const technicianOptions = Array.isArray(technicians) ? technicians : [];
+  const isStatusChangeDisabled =
+    !modalJob?.status ||
+    selectedStatus === modalJob.status ||
+    !canTransition(modalJob.status, selectedStatus) ||
+    statusMutation.isPending;
+  const isAssignmentDisabled =
+    assigneeId === currentAssigneeId ||
+    assignmentMutation.isPending ||
+    techniciansLoading;
+  const selectedTechnician = technicianOptions.find((tech) => tech.id === assigneeId);
+
+  const handleRequestStatusChange = () => {
+    if (!modalJob?.status || selectedStatus === modalJob.status) return;
+    if (!canTransition(modalJob.status, selectedStatus)) return;
+
+    setPendingStatus(selectedStatus);
+    setStatusConfirmOpen(true);
+  };
+
+  const handleConfirmStatusChange = () => {
+    if (pendingStatus) {
+      statusMutation.mutate(pendingStatus);
+    }
+  };
+
+  const handleCloseStatusConfirm = () => {
+    setStatusConfirmOpen(false);
+    setPendingStatus('');
+  };
+
+  const handleRequestAssignmentChange = () => {
+    if (assigneeId === currentAssigneeId) return;
+    setAssignmentConfirmOpen(true);
+  };
+
+  const handleConfirmAssignment = () => {
+    assignmentMutation.mutate(assigneeId || null);
+  };
+
+  const handleCancelAssignment = () => {
+    setAssignmentConfirmOpen(false);
+  };
 
   const handlePostComment = () => {
     if (commentText.trim()) {
@@ -230,22 +386,21 @@ const JobDetailModal = ({ job, open, onClose }) => {
     }
   };
 
-  const modalJob = jobData || job;
-
   return (
-    <Dialog open={open && !!job} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Typography variant="h5" component="span">
-          {modalJob?.title}
-        </Typography>
-        <Chip
-          label={modalJob?.status.replace('_', ' ')}
-          color="primary"
-          size="small"
-          sx={{ ml: 2 }}
-        />
-      </DialogTitle>
-      <DialogContent dividers>
+    <>
+      <Dialog open={open && !!job} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Typography variant="h5" component="span">
+            {modalJob?.title}
+          </Typography>
+          <Chip
+            label={formatStatusLabel(modalJob?.status)}
+            color="primary"
+            size="small"
+            sx={{ ml: 2 }}
+          />
+        </DialogTitle>
+        <DialogContent dividers>
         {jobError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             Failed to load job details
@@ -264,6 +419,80 @@ const JobDetailModal = ({ job, open, onClose }) => {
         <Grid container spacing={3}>
           {/* Left Column: Core Details */}
           <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Job Controls
+              </Typography>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Status
+                  </Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    helperText={statusHelperText}
+                    disabled={statusMutation.isPending || !modalJob?.status}
+                  >
+                    {allowedStatuses.map((status) => (
+                      <MenuItem
+                        key={status}
+                        value={status}
+                        disabled={!canTransition(modalJob?.status, status)}
+                      >
+                        {formatStatusLabel(status)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    variant="contained"
+                    sx={{ mt: 1.5 }}
+                    onClick={handleRequestStatusChange}
+                    disabled={isStatusChangeDisabled}
+                    startIcon={statusMutation.isPending ? <CircularProgress size={20} /> : null}
+                  >
+                    {statusMutation.isPending ? 'Updating...' : 'Update Status'}
+                  </Button>
+                </Box>
+
+                <Divider />
+
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Assigned Technician
+                  </Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    value={assigneeId}
+                    onChange={(e) => setAssigneeId(e.target.value)}
+                    disabled={assignmentMutation.isPending || techniciansLoading}
+                    helperText={techniciansLoading ? 'Loading technicians...' : 'Select a technician or leave unassigned'}
+                  >
+                    <MenuItem value="">Unassigned</MenuItem>
+                    {technicianOptions.map((tech) => (
+                      <MenuItem key={tech.id} value={tech.id}>
+                        {tech.firstName} {tech.lastName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    variant="outlined"
+                    sx={{ mt: 1.5 }}
+                    onClick={handleRequestAssignmentChange}
+                    disabled={isAssignmentDisabled}
+                    startIcon={assignmentMutation.isPending ? <CircularProgress size={20} /> : null}
+                  >
+                    {assignmentMutation.isPending ? 'Saving...' : 'Save Assignment'}
+                  </Button>
+                </Box>
+              </Stack>
+            </Paper>
+
             <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Job Details
@@ -513,6 +742,48 @@ const JobDetailModal = ({ job, open, onClose }) => {
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
+
+      <JobStatusConfirmDialog
+        open={statusConfirmOpen}
+        onClose={handleCloseStatusConfirm}
+        onConfirm={handleConfirmStatusChange}
+        currentStatus={modalJob?.status}
+        newStatus={pendingStatus}
+        jobTitle={modalJob?.title || ''}
+        isLoading={statusMutation.isPending}
+      />
+
+      <Dialog
+        open={assignmentConfirmOpen}
+        onClose={assignmentMutation.isPending ? undefined : handleCancelAssignment}
+      >
+        <DialogTitle>Confirm Assignment</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {assigneeId
+              ? `Assign this job to ${
+                  selectedTechnician
+                    ? `${selectedTechnician.firstName} ${selectedTechnician.lastName}`
+                    : 'the selected technician'
+                }?`
+              : 'Remove the current technician assignment from this job?'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelAssignment} disabled={assignmentMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmAssignment}
+            variant="contained"
+            disabled={assignmentMutation.isPending}
+            startIcon={assignmentMutation.isPending ? <CircularProgress size={20} /> : null}
+          >
+            {assignmentMutation.isPending ? 'Saving...' : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 
