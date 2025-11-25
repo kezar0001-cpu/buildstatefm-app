@@ -26,7 +26,6 @@ import {
   useMediaQuery,
   useTheme,
   InputAdornment,
-  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -424,6 +423,18 @@ const JobsPage = () => {
         }}
       >
         <Stack spacing={2}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+            {[{ value: 'overdue', label: 'Overdue' }, { value: 'unassigned', label: 'Unassigned' }].map((quickFilter) => (
+              <Chip
+                key={quickFilter.value}
+                label={quickFilter.label}
+                color={filters.filter === quickFilter.value ? 'primary' : 'default'}
+                variant={filters.filter === quickFilter.value ? 'filled' : 'outlined'}
+                onClick={() => handleQuickFilterToggle(quickFilter.value)}
+              />
+            ))}
+          </Stack>
+
           <Stack
             direction={{ xs: 'column', lg: 'row' }}
             spacing={2}
@@ -492,6 +503,25 @@ const JobsPage = () => {
             <TextField
               select
               fullWidth
+              id="jobs-filter-property"
+              name="propertyId"
+              label="Property"
+              value={filters.propertyId}
+              onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+              size="small"
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All Properties</MenuItem>
+              {properties.map((property) => (
+                <MenuItem key={property.id} value={property.id}>
+                  {property.name}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
               id="jobs-filter-quick"
               name="filter"
               label="Quick Filter"
@@ -528,16 +558,13 @@ const JobsPage = () => {
                 },
                 '& .MuiToggleButton-root': {
                   color: 'text.secondary',
-                  '& .MuiSvgIcon-root': {
-                    fontSize: '1.2rem',
-                  },
                   px: 1,
                   '&:hover': {
                     backgroundColor: 'action.hover',
                   },
                 },
                 '& .Mui-selected': {
-                  color: 'error.main',
+                  color: 'primary.main',
                   backgroundColor: 'transparent !important',
                   '&:hover': {
                     backgroundColor: 'action.hover !important',
@@ -545,20 +572,14 @@ const JobsPage = () => {
                 },
               }}
             >
-              <ToggleButton value="kanban" aria-label="kanban view">
-                <Tooltip title="Kanban View">
-                  <GridViewIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
               <ToggleButton value="card" aria-label="card view">
-                <Tooltip title="Card View">
-                  <ViewListIcon fontSize="small" />
-                </Tooltip>
+                <ViewModuleIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="kanban" aria-label="kanban view">
+                <ViewKanbanIcon fontSize="small" />
               </ToggleButton>
               <ToggleButton value="calendar" aria-label="calendar view">
-                <Tooltip title="Calendar View">
-                  <CalendarMonthIcon fontSize="small" />
-                </Tooltip>
+                <CalendarTodayIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
           </Stack>
