@@ -34,6 +34,8 @@ import {
   History as HistoryIcon,
   NotificationsActive as NotificationsActiveIcon,
   Description as DescriptionIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -79,6 +81,7 @@ export default function InspectionDetailPage() {
     assignedToId: '',
     scheduledDate: '',
   });
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const canManage = useMemo(() => user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN', [user?.role]);
 
@@ -197,6 +200,23 @@ export default function InspectionDetailPage() {
     });
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      setPdfGenerating(true);
+      const response = await apiClient.get(`/inspections/${id}/report/pdf`);
+
+      // Open the PDF in a new tab
+      if (response.data?.downloadUrl) {
+        window.open(response.data.downloadUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -272,13 +292,23 @@ export default function InspectionDetailPage() {
         </Box>
         <Stack direction="row" spacing={1}>
           {inspection.status === 'COMPLETED' && (
-            <Button
-              variant="contained"
-              startIcon={<DescriptionIcon />}
-              onClick={() => navigate(`/inspections/${id}/report`)}
-            >
-              View Report
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                startIcon={<DescriptionIcon />}
+                onClick={() => navigate(`/inspections/${id}/report`)}
+              >
+                View Report
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfIcon />}
+                onClick={handleDownloadPDF}
+                disabled={pdfGenerating}
+              >
+                {pdfGenerating ? 'Generating PDF...' : 'Download PDF'}
+              </Button>
+            </>
           )}
           {canManage && (
             <>

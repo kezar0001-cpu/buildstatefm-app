@@ -347,6 +347,7 @@ model Inspection {
   status          InspectionStatus  @default(SCHEDULED)
   notes           String?
   findings        String?
+  tenantSignature String?
   tags            String[]          @default([])
   photos          String[]          @default([])
   createdAt       DateTime          @default(now())

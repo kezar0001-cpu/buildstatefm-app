@@ -45,6 +45,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
+import SignatureCapture from './SignatureCapture';
 
 const ROOM_TYPES = [
   'BEDROOM',
@@ -136,6 +137,11 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [signatureBlob, setSignatureBlob] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState(null);
+  const [signatureRequired, setSignatureRequired] = useState(
+    inspection.type === 'MOVE_IN' || inspection.type === 'MOVE_OUT'
+  );
 
   const steps = ['Start Inspection', 'Add Rooms', 'Conduct Inspection', 'Review & Complete'];
 
@@ -246,8 +252,26 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
     },
   });
 
+  const uploadSignatureMutation = useMutation({
+    mutationFn: async (signatureBlob) => {
+      const formData = new FormData();
+      formData.append('signature', signatureBlob, 'signature.png');
+      const response = await apiClient.post(`/inspections/${inspection.id}/signature`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    },
+  });
+
   const completeInspectionMutation = useMutation({
     mutationFn: async () => {
+      // Upload signature first if required and not yet uploaded
+      if (signatureRequired && signatureBlob && !inspection.tenantSignature) {
+        await uploadSignatureMutation.mutateAsync(signatureBlob);
+      }
+
       const response = await apiClient.post(`/inspections/${inspection.id}/complete`, {
         findings: generateFindings(),
       });
@@ -289,6 +313,11 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
     if (newIssue.title) {
       addIssueMutation.mutate(newIssue);
     }
+  };
+
+  const handleSignatureSave = (blob, dataURL) => {
+    setSignatureBlob(blob);
+    setSignaturePreview(dataURL);
   };
 
   const handlePhotoUpload = async (event, roomId = null, issueId = null) => {
@@ -802,15 +831,72 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
               </Box>
             )}
 
+            {/* Tenant Signature - Only for MOVE_IN and MOVE_OUT inspections */}
+            {signatureRequired && (
+              <Box sx={{ mt: 4 }}>
+                <Divider sx={{ mb: 3 }} />
+                {inspection.tenantSignature ? (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                      Tenant Signature
+                    </Typography>
+                    <Paper sx={{ p: 2, display: 'inline-block' }}>
+                      <img
+                        src={inspection.tenantSignature}
+                        alt="Tenant Signature"
+                        style={{ maxWidth: '300px', height: 'auto', border: '1px solid #ddd' }}
+                      />
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        Signature captured
+                      </Typography>
+                    </Paper>
+                  </Box>
+                ) : signaturePreview ? (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                      Tenant Signature
+                    </Typography>
+                    <Paper sx={{ p: 2, display: 'inline-block' }}>
+                      <img
+                        src={signaturePreview}
+                        alt="Tenant Signature Preview"
+                        style={{ maxWidth: '300px', height: 'auto', border: '1px solid #ddd' }}
+                      />
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        Signature ready to be saved
+                      </Typography>
+                    </Paper>
+                  </Box>
+                ) : (
+                  <SignatureCapture onSave={handleSignatureSave} />
+                )}
+              </Box>
+            )}
+
             <Box sx={{ mt: 4, textAlign: 'center' }}>
+              {signatureRequired && !signaturePreview && !inspection.tenantSignature && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Please capture the tenant signature before completing the inspection.
+                </Alert>
+              )}
               <Button
                 variant="contained"
                 size="large"
                 color="success"
                 onClick={() => completeInspectionMutation.mutate()}
-                disabled={completeInspectionMutation.isLoading}
+                disabled={
+                  completeInspectionMutation.isLoading ||
+                  (signatureRequired && !signaturePreview && !inspection.tenantSignature)
+                }
               >
-                Complete Inspection
+                {completeInspectionMutation.isLoading ? (
+                  <>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Completing...
+                  </>
+                ) : (
+                  'Complete Inspection'
+                )}
               </Button>
             </Box>
           </Box>
