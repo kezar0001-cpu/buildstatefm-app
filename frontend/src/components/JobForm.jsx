@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Box,
   Button,
-  TextField,
-  MenuItem,
   Grid,
   DialogTitle,
   DialogContent,
@@ -15,6 +14,11 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
+import { apiClient } from '../api/client';
+import ensureArray from '../utils/ensureArray';
+import { queryKeys } from '../utils/queryKeys.js';
+import { jobSchema, jobDefaultValues } from '../schemas/jobSchema';
+import { FormTextField, FormSelect } from './form';
 import JobSchedule from './forms/JobSchedule';
 import JobAssignment from './forms/JobAssignment';
 import JobCostEstimate from './forms/JobCostEstimate';
@@ -38,6 +42,7 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
   const isEditing = !!job;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const queryClient = useQueryClient();
 
   const {
     control,
@@ -54,6 +59,25 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
   });
 
   const propertyId = watch('propertyId');
+
+  const invalidateJobQueries = async ({ jobId, propertyId: property, unitId }) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+
+    if (jobId) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(jobId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.comments(jobId) });
+    }
+
+    if (property) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.properties.detail(property) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.properties.units(property) });
+    }
+
+    if (unitId) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.units.detail(unitId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.units.jobs(unitId) });
+    }
+  };
 
   // Fetch properties
   const { data: properties = [], isLoading: loadingProperties } = useQuery({
@@ -125,7 +149,12 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
       const response = await apiClient.post('/jobs', data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (createdJob, variables) => {
+      await invalidateJobQueries({
+        jobId: createdJob?.job?.id ?? createdJob?.id,
+        propertyId: variables.propertyId,
+        unitId: variables.unitId,
+      });
       onSuccess();
     },
   });
@@ -136,7 +165,12 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
       const response = await apiClient.patch(`/jobs/${job.id}`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (_data, variables) => {
+      await invalidateJobQueries({
+        jobId: job.id,
+        propertyId: variables.propertyId || job.propertyId,
+        unitId: variables.unitId || job.unitId,
+      });
       onSuccess();
     },
   });
