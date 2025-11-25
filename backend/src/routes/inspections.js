@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
-import { notifyInspectionCompleted, notifyInspectionReminder } from '../utils/notificationService.js';
+import { notifyInspectionCompleted, notifyInspectionReminder, notifyInspectionApproved, notifyInspectionRejected } from '../utils/notificationService.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { uploadToS3, getS3Url, isUsingS3 } from '../services/s3Service.js';
 import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
@@ -29,7 +29,7 @@ const SORTABLE_FIELDS = {
 
 const DEFAULT_SORT = { scheduledDate: 'asc' };
 
-const INSPECTION_STATUS = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+const INSPECTION_STATUS = ['SCHEDULED', 'IN_PROGRESS', 'PENDING_APPROVAL', 'COMPLETED', 'CANCELLED'];
 const INSPECTION_TYPES = ['ROUTINE', 'MOVE_IN', 'MOVE_OUT', 'EMERGENCY', 'COMPLIANCE'];
 
 const baseInspectionInclude = {
@@ -862,15 +862,22 @@ router.post(
     }
 
     // Complete the inspection
+    // Technicians mark as PENDING_APPROVAL, Property Managers can directly mark as COMPLETED
+    const newStatus = req.user.role === 'TECHNICIAN' ? 'PENDING_APPROVAL' : 'COMPLETED';
+
     const inspection = await prisma.inspection.update({
       where: { id: req.params.id },
       data: {
-        status: 'COMPLETED',
+        status: newStatus,
         completedDate: new Date(),
         completedById: req.user.id,
         findings: payload.findings ?? before.findings,
         notes: payload.notes ?? before.notes,
         tags: payload.tags ?? before.tags,
+        ...(newStatus === 'COMPLETED' && req.user.role !== 'TECHNICIAN' ? {
+          approvedById: req.user.id,
+          approvedAt: new Date()
+        } : {})
       },
       include: baseInspectionInclude,
     });
@@ -1778,6 +1785,342 @@ router.get(
       sendError(res, 500, 'Failed to generate PDF report: ' + error.message, ErrorCodes.ERR_INTERNAL_SERVER);
     }
   },
+);
+
+// Approve an inspection
+router.post(
+  '/:id/approve',
+  requireRole(ROLE_MANAGER),
+  ensureInspectionAccess,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const inspection = await prisma.inspection.findUnique({
+        where: { id },
+        include: baseInspectionInclude
+      });
+
+      if (!inspection) {
+        return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+      }
+
+      if (inspection.status !== 'PENDING_APPROVAL') {
+        return sendError(res, 400, 'Inspection is not pending approval', ErrorCodes.ERR_INVALID_STATE);
+      }
+
+      const updated = await prisma.inspection.update({
+        where: { id },
+        data: {
+          status: 'COMPLETED',
+          approvedById: req.user.id,
+          approvedAt: new Date(),
+          rejectionReason: null,
+          rejectedById: null,
+          rejectedAt: null
+        },
+        include: baseInspectionInclude
+      });
+
+      await logAudit(id, req.user.id, 'APPROVED', { before: inspection, after: updated });
+
+      // Send notification to technician
+      if (inspection.assignedToId) {
+        await notifyInspectionApproved(inspection.assignedToId, updated);
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to approve inspection:', error);
+      sendError(res, 500, 'Failed to approve inspection', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
+);
+
+// Reject an inspection
+router.post(
+  '/:id/reject',
+  requireRole(ROLE_MANAGER),
+  ensureInspectionAccess,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const payload = z.object({
+        rejectionReason: z.string().min(1, 'Rejection reason is required'),
+        reassignToId: z.string().optional()
+      }).parse(req.body);
+
+      const inspection = await prisma.inspection.findUnique({
+        where: { id },
+        include: baseInspectionInclude
+      });
+
+      if (!inspection) {
+        return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+      }
+
+      if (inspection.status !== 'PENDING_APPROVAL') {
+        return sendError(res, 400, 'Inspection is not pending approval', ErrorCodes.ERR_INVALID_STATE);
+      }
+
+      const updateData = {
+        status: 'IN_PROGRESS',
+        rejectionReason: payload.rejectionReason,
+        rejectedById: req.user.id,
+        rejectedAt: new Date(),
+        approvedById: null,
+        approvedAt: null
+      };
+
+      // If reassigning, update assignedToId
+      if (payload.reassignToId) {
+        updateData.assignedToId = payload.reassignToId;
+      }
+
+      const updated = await prisma.inspection.update({
+        where: { id },
+        data: updateData,
+        include: baseInspectionInclude
+      });
+
+      await logAudit(id, req.user.id, 'REJECTED', {
+        before: inspection,
+        after: updated,
+        reason: payload.rejectionReason,
+        reassignedTo: payload.reassignToId
+      });
+
+      // Send notification to technician
+      const notifyUserId = payload.reassignToId || inspection.assignedToId;
+      if (notifyUserId) {
+        await notifyInspectionRejected(notifyUserId, updated, payload.rejectionReason);
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to reject inspection:', error);
+      sendError(res, 500, 'Failed to reject inspection', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
+);
+
+// Get inspection history for a unit
+router.get(
+  '/history/unit/:unitId',
+  requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_TENANT),
+  async (req, res) => {
+    try {
+      const { unitId } = req.params;
+      const { limit = 10, offset = 0 } = req.query;
+
+      const inspections = await prisma.inspection.findMany({
+        where: {
+          unitId,
+          status: 'COMPLETED'
+        },
+        include: {
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          completedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          rooms: {
+            include: {
+              checklistItems: true,
+              issues: true
+            }
+          },
+          inspectionIssues: {
+            include: {
+              room: true
+            }
+          }
+        },
+        orderBy: { completedDate: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      });
+
+      const total = await prisma.inspection.count({
+        where: {
+          unitId,
+          status: 'COMPLETED'
+        }
+      });
+
+      res.json({
+        inspections,
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
+    } catch (error) {
+      console.error('Failed to fetch inspection history:', error);
+      sendError(res, 500, 'Failed to fetch inspection history', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
+);
+
+// Compare two inspections
+router.get(
+  '/compare/:id1/:id2',
+  requireRole(ROLE_MANAGER, ROLE_TECHNICIAN),
+  async (req, res) => {
+    try {
+      const { id1, id2 } = req.params;
+
+      const [inspection1, inspection2] = await Promise.all([
+        prisma.inspection.findUnique({
+          where: { id: id1 },
+          include: {
+            rooms: {
+              include: {
+                checklistItems: {
+                  orderBy: { order: 'asc' }
+                },
+                issues: {
+                  orderBy: { createdAt: 'asc' }
+                }
+              },
+              orderBy: { order: 'asc' }
+            },
+            inspectionIssues: {
+              include: {
+                room: true
+              }
+            },
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            },
+            completedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }),
+        prisma.inspection.findUnique({
+          where: { id: id2 },
+          include: {
+            rooms: {
+              include: {
+                checklistItems: {
+                  orderBy: { order: 'asc' }
+                },
+                issues: {
+                  orderBy: { createdAt: 'asc' }
+                }
+              },
+              orderBy: { order: 'asc' }
+            },
+            inspectionIssues: {
+              include: {
+                room: true
+              }
+            },
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            },
+            completedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        })
+      ]);
+
+      if (!inspection1 || !inspection2) {
+        return sendError(res, 404, 'One or both inspections not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+      }
+
+      // Ensure both inspections are for the same unit
+      if (inspection1.unitId !== inspection2.unitId) {
+        return sendError(res, 400, 'Inspections must be for the same unit to compare', ErrorCodes.ERR_INVALID_INPUT);
+      }
+
+      // Generate comparison data
+      const comparison = {
+        inspection1: {
+          id: inspection1.id,
+          title: inspection1.title,
+          date: inspection1.completedDate || inspection1.scheduledDate,
+          status: inspection1.status,
+          type: inspection1.type,
+          findings: inspection1.findings,
+          notes: inspection1.notes,
+          assignedTo: inspection1.assignedTo,
+          completedBy: inspection1.completedBy,
+          rooms: inspection1.rooms,
+          totalIssues: inspection1.inspectionIssues.length,
+          issuesBySeverity: {
+            LOW: inspection1.inspectionIssues.filter(i => i.severity === 'LOW').length,
+            MEDIUM: inspection1.inspectionIssues.filter(i => i.severity === 'MEDIUM').length,
+            HIGH: inspection1.inspectionIssues.filter(i => i.severity === 'HIGH').length,
+            CRITICAL: inspection1.inspectionIssues.filter(i => i.severity === 'CRITICAL').length
+          }
+        },
+        inspection2: {
+          id: inspection2.id,
+          title: inspection2.title,
+          date: inspection2.completedDate || inspection2.scheduledDate,
+          status: inspection2.status,
+          type: inspection2.type,
+          findings: inspection2.findings,
+          notes: inspection2.notes,
+          assignedTo: inspection2.assignedTo,
+          completedBy: inspection2.completedBy,
+          rooms: inspection2.rooms,
+          totalIssues: inspection2.inspectionIssues.length,
+          issuesBySeverity: {
+            LOW: inspection2.inspectionIssues.filter(i => i.severity === 'LOW').length,
+            MEDIUM: inspection2.inspectionIssues.filter(i => i.severity === 'MEDIUM').length,
+            HIGH: inspection2.inspectionIssues.filter(i => i.severity === 'HIGH').length,
+            CRITICAL: inspection2.inspectionIssues.filter(i => i.severity === 'CRITICAL').length
+          }
+        },
+        summary: {
+          issuesChange: inspection2.inspectionIssues.length - inspection1.inspectionIssues.length,
+          newIssues: inspection2.inspectionIssues.filter(i2 =>
+            !inspection1.inspectionIssues.some(i1 =>
+              i1.title === i2.title && i1.roomId === i2.roomId
+            )
+          ).length,
+          resolvedIssues: inspection1.inspectionIssues.filter(i1 =>
+            !inspection2.inspectionIssues.some(i2 =>
+              i2.title === i1.title && i2.roomId === i1.roomId
+            )
+          ).length
+        }
+      };
+
+      res.json(comparison);
+    } catch (error) {
+      console.error('Failed to compare inspections:', error);
+      sendError(res, 500, 'Failed to compare inspections', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
 );
 
 export default router;

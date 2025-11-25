@@ -13,6 +13,7 @@ import compression from 'compression';
 import prisma, { prisma as prismaInstance } from './src/config/prismaClient.js';
 import logger from './src/utils/logger.js';
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
+import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
 import { initializeWebSocket } from './src/websocket.js';
 
 // ---- Load env
@@ -29,6 +30,7 @@ const PORT = process.env.PORT || 3000;
 
 // ---- Cron Jobs
 const maintenancePlanCronTask = scheduleMaintenancePlanCron();
+startRecurringInspectionCron();
 
 // Trust proxy so secure cookies & redirects work behind Render/CF
 app.set('trust proxy', 1);
@@ -211,6 +213,8 @@ import tenantsRoutes from './src/routes/tenants.js';
 import unitsRoutes from './src/routes/units.js';
 import jobsRoutes from './src/routes/jobs.js';
 import inspectionsRoutes from './src/routes/inspections.js';
+import inspectionTemplatesRoutes from './src/routes/inspectionTemplates.js';
+import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
 import reportsRoutes from './src/routes/reports.js';
@@ -244,6 +248,8 @@ app.use('/api/tenants', tenantsRoutes);
 app.use('/api/units', unitsRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/inspections', inspectionsRoutes);
+app.use('/api/inspection-templates', inspectionTemplatesRoutes);
+app.use('/api/recurring-inspections', recurringInspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/reports', reportsRoutes);
