@@ -287,12 +287,6 @@ const JobsPage = () => {
   }, [filteredJobs]);
 
   useEffect(() => {
-    if (view !== 'card' && selectedJobIds.length > 0) {
-      setSelectedJobIds([]);
-    }
-  }, [view, selectedJobIds.length]);
-
-  useEffect(() => {
     if (selectedJobIds.length === 0) {
       setIsConfirmBulkAssignOpen(false);
     }
@@ -608,7 +602,7 @@ const JobsPage = () => {
         </Stack>
       </Paper>
 
-      {view === 'card' && selectedCount > 0 && (
+      {view !== 'calendar' && selectedCount > 0 && (
         <Paper
           elevation={2}
           sx={{
@@ -895,74 +889,98 @@ const JobsPage = () => {
                           >
                             {filteredJobs
                               .filter((job) => job.status === status)
-                              .map((job, index) => (
-                                <Draggable
-                                  key={job.id}
-                                  draggableId={job.id.toString()}
-                                  index={index}
-                                  isDragDisabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
-                                >
-                                  {(provided) => (
-                                    <Card
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      sx={{ mb: 2 }}
-                                    >
-                                      <CardContent>
-                                        <Stack spacing={1.25}>
-                                          <Typography variant="subtitle1" fontWeight={700}>
-                                            {job.title}
-                                          </Typography>
-                                          <Typography variant="body2" color="text.secondary">
-                                            {[job.property?.name, job.unit?.unitNumber ? `Unit ${job.unit.unitNumber}` : null]
-                                              .filter(Boolean)
-                                              .join(' • ')}
-                                          </Typography>
-                                          <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                                            <Chip
-                                              label={job.priority}
-                                              color={getPriorityColor(job.priority)}
-                                              size="small"
-                                            />
-                                            <Chip
-                                              label={JOB_STATUS_LABELS[job.status] || job.status}
-                                              color={getStatusColor(job.status)}
-                                              size="small"
-                                              variant="outlined"
-                                            />
-                                          </Stack>
-                                          <Stack direction="row" spacing={1} alignItems="center">
-                                            <PersonIcon fontSize="small" color="action" />
-                                            <Typography variant="body2" color="text.primary">
-                                              {job.assignedTo
-                                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                                                : 'Unassigned'}
+                              .map((job, index) => {
+                                const isSelected = selectedJobIds.includes(job.id);
+                                return (
+                                  <Draggable
+                                    key={job.id}
+                                    draggableId={job.id.toString()}
+                                    index={index}
+                                    isDragDisabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
+                                  >
+                                    {(provided) => (
+                                      <Card
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        sx={{
+                                          mb: 2,
+                                          border: '1px solid',
+                                          borderColor: isSelected ? 'primary.main' : 'divider',
+                                          outline: isSelected ? '2px solid' : 'none',
+                                          outlineColor: isSelected ? 'primary.main' : 'transparent',
+                                        }}
+                                      >
+                                        <CardContent>
+                                          <Stack spacing={1.25}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                              <Stack spacing={0.5}>
+                                                <Typography variant="subtitle1" fontWeight={700}>
+                                                  {job.title}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                  {[job.property?.name, job.unit?.unitNumber ? `Unit ${job.unit.unitNumber}` : null]
+                                                    .filter(Boolean)
+                                                    .join(' • ')}
+                                                </Typography>
+                                              </Stack>
+                                              <Checkbox
+                                                color="primary"
+                                                checked={isSelected}
+                                                onChange={() => handleToggleJobSelection(job.id)}
+                                                onClick={(event) => event.stopPropagation()}
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                                inputProps={{ 'aria-label': `Select job ${job.title}` }}
+                                              />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary">
+                                              {job.description || 'No description provided'}
                                             </Typography>
+                                            <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                                              <Chip
+                                                label={job.priority}
+                                                color={getPriorityColor(job.priority)}
+                                                size="small"
+                                              />
+                                              <Chip
+                                                label={JOB_STATUS_LABELS[job.status] || job.status}
+                                                color={getStatusColor(job.status)}
+                                                size="small"
+                                                variant="outlined"
+                                              />
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                              <PersonIcon fontSize="small" color="action" />
+                                              <Typography variant="body2" color="text.primary">
+                                                {job.assignedTo
+                                                  ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                                  : 'Unassigned'}
+                                              </Typography>
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                              <AccessTimeIcon
+                                                fontSize="small"
+                                                color={isOverdue(job) ? 'error' : 'action'}
+                                              />
+                                              <Typography
+                                                variant="body2"
+                                                color={isOverdue(job) ? 'error.main' : 'text.secondary'}
+                                              >
+                                                {job.scheduledDate
+                                                  ? moment(job.scheduledDate).format('MMM D, YYYY')
+                                                  : 'No schedule'}
+                                              </Typography>
+                                              {isOverdue(job) && (
+                                                <Chip label="Overdue" size="small" color="error" variant="outlined" />
+                                              )}
+                                            </Stack>
                                           </Stack>
-                                          <Stack direction="row" spacing={1} alignItems="center">
-                                            <AccessTimeIcon
-                                              fontSize="small"
-                                              color={isOverdue(job) ? 'error' : 'action'}
-                                            />
-                                            <Typography
-                                              variant="body2"
-                                              color={isOverdue(job) ? 'error.main' : 'text.secondary'}
-                                            >
-                                              {job.scheduledDate
-                                                ? moment(job.scheduledDate).format('MMM D, YYYY')
-                                                : 'No schedule'}
-                                            </Typography>
-                                            {isOverdue(job) && (
-                                              <Chip label="Overdue" size="small" color="error" variant="outlined" />
-                                            )}
-                                          </Stack>
-                                        </Stack>
-                                      </CardContent>
-                                    </Card>
-                                  )}
-                                </Draggable>
-                              ))}
+                                        </CardContent>
+                                      </Card>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
                             {provided.placeholder}
                           </Box>
                         )}
