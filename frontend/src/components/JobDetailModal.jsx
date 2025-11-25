@@ -180,8 +180,15 @@ const JobDetailModal = ({ job, open, onClose }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
     },
     onError: (errorResponse, _variables, context) => {
-      setActionError(errorResponse?.response?.data?.message || 'Failed to update status');
+      const statusCode = errorResponse?.response?.status;
+      const message =
+        statusCode === 401 || statusCode === 403
+          ? 'You do not have permission to update job statuses. Changes have been reverted.'
+          : errorResponse?.response?.data?.message || 'Failed to update status';
+
+      setActionError(message);
       restoreJobQueries(queryClient, context?.previousJobs);
+      setSelectedStatus(jobData?.status || job?.status || '');
       setStatusConfirmOpen(false);
       setPendingStatus('');
     },
@@ -219,12 +226,17 @@ const JobDetailModal = ({ job, open, onClose }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
     },
     onError: (errorResponse, _variables, context) => {
+      const statusCode = errorResponse?.response?.status;
       const errorMessage =
-        errorResponse?.response?.status === 403
-          ? 'You do not have permission to update job assignments.'
+        statusCode === 401 || statusCode === 403
+          ? 'You do not have permission to update job assignments. Changes have been reverted.'
           : errorResponse?.response?.data?.message || 'Failed to update assignment';
+      const resolvedAssigneeId =
+        jobData?.assignedToId || jobData?.assignedTo?.id || job?.assignedToId || job?.assignedTo?.id || '';
+
       setActionError(errorMessage);
       restoreJobQueries(queryClient, context?.previousJobs);
+      setAssigneeId(resolvedAssigneeId);
       setAssignmentConfirmOpen(false);
     },
   });

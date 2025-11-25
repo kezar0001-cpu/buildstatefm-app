@@ -50,8 +50,17 @@ export const useJobStatusUpdate = () => {
       // Rollback on error
       restoreJobQueries(queryClient, context?.previousJobs);
 
-      const errorMessage = error.response?.data?.message || 'Failed to update job status';
+      const statusCode = error?.response?.status;
+      const errorMessage =
+        statusCode === 401 || statusCode === 403
+          ? 'You do not have permission to update job statuses. Reverting change.'
+          : error.response?.data?.message || 'Failed to update job status';
+
       toast.error(errorMessage);
+
+      if (variables?.jobId && (statusCode === 401 || statusCode === 403)) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(variables.jobId) });
+      }
     },
     onSuccess: (data, variables) => {
       toast.success('Job status updated successfully');
