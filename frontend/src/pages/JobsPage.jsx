@@ -60,6 +60,31 @@ import GradientButton from '../components/GradientButton';
 
 const localizer = momentLocalizer(moment);
 
+const VALID_TRANSITIONS = {
+  OPEN: ['ASSIGNED', 'CANCELLED'],
+  ASSIGNED: ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'ASSIGNED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
+const getAllowedStatuses = (currentStatus) => {
+  const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
+  const uniqueStatuses = new Set([currentStatus, ...allowedTransitions]);
+  return Array.from(uniqueStatuses);
+};
+
+const getStatusHelperText = (currentStatus) => {
+  const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
+
+  if (allowedTransitions.length === 0) {
+    return 'This status is terminal. No further transitions are available.';
+  }
+
+  const formattedTransitions = allowedTransitions.map((status) => status.replace('_', ' ')).join(', ');
+  return `Allowed transitions: ${formattedTransitions}`;
+};
+
 
 const JobsPage = () => {
   const navigate = useNavigate();
@@ -330,6 +355,17 @@ const JobsPage = () => {
 
     const newStatus = destination.droppableId;
     const currentStatus = job.status;
+
+    const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
+    if (!allowedTransitions.includes(newStatus)) {
+      const transitionList = allowedTransitions.map((status) => status.replace('_', ' ')).join(', ');
+      toast.error(
+        transitionList
+          ? `You can only move ${job.title} to: ${transitionList}`
+          : `${currentStatus.replace('_', ' ')} is a terminal status.`
+      );
+      return;
+    }
 
     // Update the job status
     updateStatus(job.id, currentStatus, newStatus, job.title);
@@ -734,13 +770,14 @@ const JobsPage = () => {
                                 fontSize: '0.875rem',
                               }
                             }}
-                            disabled={['COMPLETED', 'CANCELLED'].includes(job.status)}
+                            disabled={(VALID_TRANSITIONS[job.status] || []).length === 0}
+                            helperText={getStatusHelperText(job.status)}
                           >
-                            <MenuItem value="OPEN">Open</MenuItem>
-                            <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                            <MenuItem value="COMPLETED">Completed</MenuItem>
-                            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                            {getAllowedStatuses(job.status).map((statusOption) => (
+                              <MenuItem key={statusOption} value={statusOption}>
+                                {statusOption.replace('_', ' ')}
+                              </MenuItem>
+                            ))}
                           </TextField>
                           {isOverdue(job) && (
                             <Chip
