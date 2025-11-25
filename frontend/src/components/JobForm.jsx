@@ -203,14 +203,14 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const submitError = createMutation.error || updateMutation.error;
 
-  const propertyOptions = properties.map((property) => ({
+  const propertyOptions = ensureArray(properties).map((property) => ({
     value: property.id,
     label: property.name,
   }));
 
   const unitOptions = [
     { value: '', label: 'No specific unit' },
-    ...units.map((unit) => ({
+    ...ensureArray(units).map((unit) => ({
       value: unit.id,
       label: `Unit ${unit.unitNumber}`,
     })),
@@ -218,7 +218,7 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
 
   const technicianOptions = [
     { value: '', label: 'Unassigned' },
-    ...technicians.map((tech) => ({
+    ...ensureArray(technicians).map((tech) => ({
       value: tech.id,
       label: `${tech.firstName} ${tech.lastName} (${tech.email})`,
     })),
