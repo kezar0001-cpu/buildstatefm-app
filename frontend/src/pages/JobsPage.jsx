@@ -233,10 +233,26 @@ const JobsPage = () => {
     bulkAssignMutation.mutate({ jobIds: selectedJobIds, technicianId: bulkTechnicianId });
   };
 
-  const filteredJobs = jobs.filter(
-    (job) =>
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (job.description && job.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredJobs = jobs.filter((job) => {
+    const searchableFields = [
+      job.title,
+      job.description,
+      job.property?.name,
+      job.unit?.unitNumber ? `unit ${job.unit.unitNumber}` : '',
+      job.assignedTo ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}` : '',
+    ];
+
+    const matchesSearch = searchableFields.some((field) =>
+      (field || '').toString().toLowerCase().includes(normalizedSearch)
+    );
+
+    return matchesSearch;
+  });
+
+  const hasActiveFilters = Boolean(
+    filters.status || filters.priority || filters.filter || filters.propertyId || searchTerm
   );
 
   const selectedCount = selectedJobIds.length;
@@ -439,7 +455,7 @@ const JobsPage = () => {
           >
             <TextField
               variant="outlined"
-              placeholder="Search jobs by title, property, or notes..."
+              placeholder="Search jobs by title, property, assignee, unit, or notes..."
               value={searchTerm}
               onChange={handleSearchChange}
               size="small"
@@ -658,14 +674,19 @@ const JobsPage = () => {
       {!filteredJobs || filteredJobs.length === 0 ? (
         <EmptyState
           icon={BuildIcon}
-          title={filters.status || filters.priority || filters.filter || searchTerm ? 'No jobs match your filters' : 'No jobs yet'}
+          title={hasActiveFilters ? 'No jobs match your filters' : 'No jobs yet'}
           description={
-            filters.status || filters.priority || filters.filter || searchTerm
-              ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+            hasActiveFilters
+              ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all jobs, or create a new one to get started.'
               : 'Get started by creating your first maintenance job. Track work orders, assign technicians, and monitor progress all in one place.'
           }
-          actionLabel={filters.status || filters.priority || filters.filter || searchTerm ? undefined : 'Create First Job'}
-          onAction={filters.status || filters.priority || filters.filter || searchTerm ? undefined : handleCreate}
+          actionLabel="Create Job"
+          onAction={handleCreate}
+          helperText={
+            hasActiveFilters
+              ? 'Filters are still applied. Clear them to view all jobs or create a new job from here.'
+              : undefined
+          }
         />
       ) : (
         <>
@@ -930,30 +951,29 @@ const JobsPage = () => {
                                                 variant="outlined"
                                               />
                                             </Stack>
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                              <PersonIcon fontSize="small" color="action" />
-                                              <Typography variant="body2" color="text.primary">
-                                                {job.assignedTo
-                                                  ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                                                  : 'Unassigned'}
-                                              </Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                              <AccessTimeIcon
-                                                fontSize="small"
-                                                color={isOverdue(job) ? 'error' : 'action'}
+                                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                                              <Chip
+                                                icon={<PersonIcon fontSize="small" />}
+                                                label={
+                                                  job.assignedTo
+                                                    ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                                    : 'Unassigned'
+                                                }
+                                                size="small"
+                                                color={job.assignedTo ? 'default' : 'warning'}
+                                                variant={job.assignedTo ? 'outlined' : 'filled'}
                                               />
-                                              <Typography
-                                                variant="body2"
-                                                color={isOverdue(job) ? 'error.main' : 'text.secondary'}
-                                              >
-                                                {job.scheduledDate
-                                                  ? moment(job.scheduledDate).format('MMM D, YYYY')
-                                                  : 'No schedule'}
-                                              </Typography>
-                                              {isOverdue(job) && (
-                                                <Chip label="Overdue" size="small" color="error" variant="outlined" />
-                                              )}
+                                              <Chip
+                                                icon={<AccessTimeIcon fontSize="small" />}
+                                                label={
+                                                  job.scheduledDate
+                                                    ? `Due ${moment(job.scheduledDate).format('MMM D, YYYY')}`
+                                                    : 'No due date'
+                                                }
+                                                size="small"
+                                                color={isOverdue(job) ? 'error' : 'default'}
+                                                variant={isOverdue(job) ? 'filled' : 'outlined'}
+                                              />
                                             </Stack>
                                           </Stack>
                                         </CardContent>

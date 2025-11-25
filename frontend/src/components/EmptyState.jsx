@@ -13,14 +13,16 @@ import InboxIcon from '@mui/icons-material/Inbox';
  * @param {string} description - Supporting description text
  * @param {string} actionLabel - Label for the action button
  * @param {function} onAction - Callback function when action button is clicked
+ * @param {string} helperText - Optional helper text displayed beneath the description
  * @param {object} sx - Additional styling overrides
  */
 export default function EmptyState({
   icon = InboxIcon,
-  title = 'No items yet',
+ title = 'No items yet',
   description = "There's nothing here yet. Start by adding your first item.",
   actionLabel,
   onAction,
+  helperText,
   sx = {},
 }) {
   const defaultIconSx = { fontSize: { xs: 48, md: 56 }, color: 'primary.main', opacity: 0.8 };
@@ -113,6 +115,16 @@ export default function EmptyState({
         >
           {description}
         </Typography>
+
+        {helperText && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: { xs: '0.85rem', md: '0.95rem' } }}
+          >
+            {helperText}
+          </Typography>
+        )}
 
         {/* Action Button */}
         {actionLabel && onAction && (
