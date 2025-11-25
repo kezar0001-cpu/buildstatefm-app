@@ -66,6 +66,7 @@ const InspectionsPage = lazy(() => import('./pages/InspectionsPage.jsx'));
 const InspectionDetailPage = lazy(() => import('./pages/InspectionDetailPage.jsx'));
 const InspectionReportPage = lazy(() => import('./pages/InspectionReportPage.jsx'));
 const JobsPage = lazy(() => import('./pages/JobsPage.jsx'));
+const JobDetailPage = lazy(() => import('./pages/JobDetailPage.jsx'));
 const PlansPage = lazy(() => import('./pages/PlansPage.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const NewReportsPage = lazy(() => import('./pages/NewReportsPage.jsx'));
@@ -170,6 +171,7 @@ export default function App() {
           <Route path="/inspections/:id" element={<AuthGate><Layout><InspectionDetailPage /></Layout></AuthGate>} />
           <Route path="/inspections/:id/report" element={<AuthGate><Layout><InspectionReportPage /></Layout></AuthGate>} />
           <Route path="/jobs" element={<AuthGate><Layout><JobsPage /></Layout></AuthGate>} />
+          <Route path="/jobs/:id" element={<AuthGate><Layout><JobDetailPage /></Layout></AuthGate>} />
           <Route path="/plans" element={<AuthGate><Layout><PlansPage /></Layout></AuthGate>} />
           <Route path="/service-requests" element={<AuthGate><Layout><ServiceRequestsPage /></Layout></AuthGate>} />
           <Route path="/recommendations" element={<AuthGate><Layout><RecommendationsPage /></Layout></AuthGate>} />
