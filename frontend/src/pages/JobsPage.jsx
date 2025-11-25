@@ -25,6 +25,7 @@ import {
   Checkbox,
   useMediaQuery,
   useTheme,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,6 +41,7 @@ import {
   CalendarToday as CalendarTodayIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -430,86 +432,18 @@ const JobsPage = () => {
         </GradientButton>
       </Stack>
 
-      {/* Search and View Toggle */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        justifyContent="space-between"
-        sx={{ mb: 3 }}
+      <Paper
+        sx={{
+          p: { xs: 2.5, md: 3 },
+          mb: 3,
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+        }}
       >
-        <TextField
-          variant="outlined"
-          placeholder="Search jobs..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          size="small"
-          InputProps={{
-            startAdornment: (
-              <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-            ),
-          }}
-          sx={{ width: { xs: '100%', md: 320 } }}
-        />
-        <ToggleButtonGroup
-          value={view}
-          exclusive
-          onChange={handleViewChange}
-          aria-label="view toggle"
-          size="small"
-          sx={{
-            flexWrap: { xs: 'wrap', sm: 'nowrap' },
-            width: { xs: '100%', md: 'auto' },
-            backgroundColor: 'background.paper',
-            borderRadius: 999,
-            boxShadow: 1,
-            p: 0.5,
-            '& .MuiToggleButton-root': {
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-              minWidth: { xs: 'auto', sm: 110 },
-              minHeight: { xs: 42, md: 40 },
-              border: 'none',
-              borderRadius: '999px !important',
-              textTransform: 'none',
-              fontWeight: 600,
-              px: { xs: 1.5, sm: 2 },
-              py: { xs: 1, sm: 0.75 },
-            },
-            '& .Mui-selected': {
-              color: 'primary.main',
-              backgroundColor: 'rgba(185, 28, 28, 0.08)',
-            },
-          }}
-        >
-          <ToggleButton value="card" aria-label="card view">
-            <ViewModuleIcon fontSize="small" />
-            <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-              Card
-            </Typography>
-          </ToggleButton>
-          <ToggleButton value="kanban" aria-label="kanban view">
-            <ViewKanbanIcon fontSize="small" />
-            <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-              Kanban
-            </Typography>
-          </ToggleButton>
-          <ToggleButton value="calendar" aria-label="calendar view">
-            <CalendarTodayIcon fontSize="small" />
-            <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-              Calendar
-            </Typography>
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Stack>
-
-      {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
             {[{ value: 'overdue', label: 'Overdue' }, { value: 'unassigned', label: 'Unassigned' }].map((quickFilter) => (
               <Chip
                 key={quickFilter.value}
@@ -520,82 +454,157 @@ const JobsPage = () => {
               />
             ))}
           </Stack>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-status"
-                name="status"
-                label="Status"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="OPEN">Open</MenuItem>
-                <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="CANCELLED">Cancelled</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-priority"
-                name="priority"
-                label="Priority"
-                value={filters.priority}
-                onChange={(e) => handleFilterChange('priority', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="LOW">Low</MenuItem>
-                <MenuItem value="MEDIUM">Medium</MenuItem>
-                <MenuItem value="HIGH">High</MenuItem>
-                <MenuItem value="URGENT">Urgent</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-property"
-                name="propertyId"
-                label="Property"
-                value={filters.propertyId}
-                onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {properties.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                fullWidth
-                id="jobs-filter-quick"
-                name="filter"
-                label="Quick Filter"
-                value={filters.filter}
-                onChange={(e) => handleFilterChange('filter', e.target.value)}
-                size="small"
-              >
-                <MenuItem value="">None</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
-                <MenuItem value="unassigned">Unassigned</MenuItem>
-              </TextField>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+
+          <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+          >
+            <TextField
+              variant="outlined"
+              placeholder="Search jobs by title, property, or notes..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton aria-label="clear search" onClick={() => setSearchTerm('')} edge="end" size="small">
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flexGrow: 1, minWidth: 240 }}
+            />
+
+            <TextField
+              select
+              fullWidth
+              id="jobs-filter-status"
+              name="status"
+              label="Status"
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              size="small"
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="OPEN">Open</MenuItem>
+              <MenuItem value="ASSIGNED">Assigned</MenuItem>
+              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              id="jobs-filter-priority"
+              name="priority"
+              label="Priority"
+              value={filters.priority}
+              onChange={(e) => handleFilterChange('priority', e.target.value)}
+              size="small"
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="LOW">Low</MenuItem>
+              <MenuItem value="MEDIUM">Medium</MenuItem>
+              <MenuItem value="HIGH">High</MenuItem>
+              <MenuItem value="URGENT">Urgent</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              id="jobs-filter-property"
+              name="propertyId"
+              label="Property"
+              value={filters.propertyId}
+              onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+              size="small"
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All Properties</MenuItem>
+              {properties.map((property) => (
+                <MenuItem key={property.id} value={property.id}>
+                  {property.name}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              id="jobs-filter-quick"
+              name="filter"
+              label="Quick Filter"
+              value={filters.filter}
+              onChange={(e) => handleFilterChange('filter', e.target.value)}
+              size="small"
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">None</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="unassigned">Unassigned</MenuItem>
+            </TextField>
+
+            <ToggleButtonGroup
+              value={view}
+              exclusive
+              onChange={handleViewChange}
+              aria-label="view toggle"
+              size="small"
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                '& .MuiToggleButtonGroup-grouped': {
+                  minWidth: 40,
+                  border: 'none',
+                  '&:not(:first-of-type)': {
+                    borderRadius: 2,
+                  },
+                  '&:first-of-type': {
+                    borderRadius: 2,
+                  },
+                },
+                '& .MuiToggleButton-root': {
+                  color: 'text.secondary',
+                  px: 1,
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                },
+                '& .Mui-selected': {
+                  color: 'primary.main',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': {
+                    backgroundColor: 'action.hover !important',
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="card" aria-label="card view">
+                <ViewModuleIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="kanban" aria-label="kanban view">
+                <ViewKanbanIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="calendar" aria-label="calendar view">
+                <CalendarTodayIcon fontSize="small" />
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+        </Stack>
+      </Paper>
 
       {view === 'card' && selectedCount > 0 && (
         <Paper
