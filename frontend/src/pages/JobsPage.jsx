@@ -81,6 +81,7 @@ const JobsPage = () => {
     status: '',
     priority: '',
     filter: '',
+    propertyId: '',
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -105,6 +106,7 @@ const JobsPage = () => {
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.priority) queryParams.append('priority', filters.priority);
   if (filters.filter) queryParams.append('filter', filters.filter);
+  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
 
   // Fetch jobs with infinite query
   const {
@@ -133,6 +135,16 @@ const JobsPage = () => {
   // Flatten all pages into a single array
   const jobs = data?.pages?.flatMap(page => page.items) || [];
 
+  const { data: propertiesData } = useQuery({
+    queryKey: queryKeys.properties.selectOptions(),
+    queryFn: async () => {
+      const response = await apiClient.get('/properties?limit=100&offset=0');
+      return response.data;
+    },
+  });
+
+  const propertyOptions = ensureArray(propertiesData?.items || propertiesData);
+
   const { data: technicians = [] } = useQuery({
     queryKey: queryKeys.users.list({ role: 'TECHNICIAN' }),
     queryFn: async () => {
@@ -143,6 +155,13 @@ const JobsPage = () => {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleQuickFilterToggle = (quickFilterValue) => {
+    setFilters((prev) => ({
+      ...prev,
+      filter: prev.filter === quickFilterValue ? '' : quickFilterValue,
+    }));
   };
 
   const handleViewChange = (event, nextView) => {
@@ -512,7 +531,7 @@ const JobsPage = () => {
               sx={{ minWidth: 180 }}
             >
               <MenuItem value="">All Properties</MenuItem>
-              {properties.map((property) => (
+              {propertyOptions.map((property) => (
                 <MenuItem key={property.id} value={property.id}>
                   {property.name}
                 </MenuItem>
