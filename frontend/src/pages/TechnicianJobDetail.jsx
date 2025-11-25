@@ -33,6 +33,12 @@ import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import { format } from 'date-fns';
 import { queryKeys } from '../utils/queryKeys.js';
+import { canTransition } from '../constants/jobStatuses.js';
+import {
+  applyJobUpdateToQueries,
+  restoreJobQueries,
+  snapshotJobQueries,
+} from '../utils/jobCache.js';
 
 const STATUS_OPTIONS = [
   { value: 'IN_PROGRESS', label: 'Start Job', color: 'warning' },
@@ -66,16 +72,33 @@ export default function TechnicianJobDetail() {
       const response = await apiClient.patch(`/jobs/${id}`, updates);
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.technician() });
+    onMutate: async (updates) => {
+      setUpdateError('');
+      await queryClient.cancelQueries({ queryKey: ['jobs'] });
+
+      const previousJobs = snapshotJobQueries(queryClient);
+      const baseJob = job || { id };
+
+      applyJobUpdateToQueries(queryClient, {
+        ...baseJob,
+        id,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { previousJobs };
+    },
+    onSuccess: (updatedJob) => {
+      const normalizedJob = updatedJob?.job || updatedJob;
+      applyJobUpdateToQueries(queryClient, normalizedJob);
       setUpdateSuccess('Job updated successfully');
       setUpdateError('');
       setTimeout(() => setUpdateSuccess(''), 3000);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
       setUpdateError(error.response?.data?.message || 'Failed to update job');
       setUpdateSuccess('');
+      restoreJobQueries(queryClient, context?.previousJobs);
     },
   });
 
@@ -85,20 +108,37 @@ export default function TechnicianJobDetail() {
       const response = await apiClient.patch(`/jobs/${id}/status`, { status });
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.technician() });
+    onMutate: async (status) => {
+      setUpdateError('');
+      await queryClient.cancelQueries({ queryKey: ['jobs'] });
+
+      const previousJobs = snapshotJobQueries(queryClient);
+      const baseJob = job || { id };
+
+      applyJobUpdateToQueries(queryClient, {
+        ...baseJob,
+        id,
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { previousJobs };
+    },
+    onSuccess: (updatedJob) => {
+      const normalizedJob = updatedJob?.job || updatedJob;
+      applyJobUpdateToQueries(queryClient, normalizedJob);
       setUpdateSuccess('Job status updated successfully');
       setUpdateError('');
       setConfirmDialogOpen(false);
       setPendingStatus(null);
       setTimeout(() => setUpdateSuccess(''), 3000);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
       setUpdateError(error.response?.data?.message || 'Failed to update job status');
       setUpdateSuccess('');
       setConfirmDialogOpen(false);
       setPendingStatus(null);
+      restoreJobQueries(queryClient, context?.previousJobs);
     },
   });
 
@@ -142,11 +182,7 @@ export default function TechnicianJobDetail() {
     setActualCost('');
   };
 
-  const canUpdateStatus = (status) => {
-    if (job?.status === 'ASSIGNED' && status === 'IN_PROGRESS') return true;
-    if (job?.status === 'IN_PROGRESS' && status === 'COMPLETED') return true;
-    return false;
-  };
+  const canUpdateStatus = (status) => canTransition(job?.status, status);
 
   const jobDetailPath = `/technician/jobs/${id}`;
   const propertyLink = job?.property?.id
