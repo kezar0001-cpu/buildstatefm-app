@@ -33,6 +33,9 @@ import {
   CheckCircleOutline as CheckCircleOutlineIcon,
   Comment as CommentIcon,
   Send as SendIcon,
+  AddCircleOutline as AddCircleOutlineIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -43,6 +46,22 @@ import { formatDate } from '../utils/date';
 const JobDetailModal = ({ job, open, onClose }) => {
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState('');
+  const [newSubtask, setNewSubtask] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const commentsQueryKey = ['jobs', job?.id, 'comments'];
+
+  const { data: jobData, isLoading: jobLoading, error: jobError } = useQuery({
+    queryKey: queryKeys.jobs.detail(job?.id),
+    queryFn: async () => {
+      const response = await apiClient.get(`/jobs/${job.id}`);
+      return response.data;
+    },
+    enabled: open && !!job?.id,
+    initialData: job,
+  });
 
   // Fetch comments for this job
   const {
@@ -50,7 +69,7 @@ const JobDetailModal = ({ job, open, onClose }) => {
     isLoading: commentsLoading,
     error: commentsError,
   } = useQuery({
-    queryKey: queryKeys.jobs.detail(job?.id),
+    queryKey: commentsQueryKey,
     queryFn: async () => {
       const response = await apiClient.get(`/jobs/${job.id}/comments`);
       return response.data;
@@ -67,8 +86,23 @@ const JobDetailModal = ({ job, open, onClose }) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+      queryClient.invalidateQueries({ queryKey: commentsQueryKey });
       setCommentText('');
+    },
+  });
+
+  const updateEvidenceMutation = useMutation({
+    mutationFn: async (evidence) => {
+      const response = await apiClient.patch(`/jobs/${job.id}`, { evidence });
+      return response.data;
+    },
+    onSuccess: () => {
+      setActionError('');
+      setAttachmentError('');
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+    },
+    onError: (errorResponse) => {
+      setActionError(errorResponse?.response?.data?.message || 'Failed to save changes');
     },
   });
 
@@ -78,21 +112,110 @@ const JobDetailModal = ({ job, open, onClose }) => {
     }
   };
 
+  const createClientId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
   if (!job) {
     return null;
   }
 
-  // Placeholder data for subtasks and attachments (to be implemented later)
-  const subtasks = [
-    { id: 1, text: 'Purchase materials', completed: true },
-    { id: 2, text: 'Schedule with tenant', completed: false },
-    { id: 3, text: 'Complete post-job cleanup', completed: false },
-  ];
+  const evidence = jobData?.evidence || {};
+  const subtasks = Array.isArray(evidence.subtasks) ? evidence.subtasks : [];
+  const attachments = Array.isArray(evidence.attachments) ? evidence.attachments : [];
 
-  const attachments = [
-    { id: 1, name: 'Invoice.pdf', url: '#' },
-    { id: 2, name: 'Damage_Photo.jpg', url: '#' },
-  ];
+  const persistEvidence = (updater) => {
+    if (!job?.id) return;
+
+    const updatedEvidence = updater({ ...evidence });
+    updateEvidenceMutation.mutate(updatedEvidence);
+  };
+
+  const handleAddSubtask = () => {
+    if (!newSubtask.trim()) return;
+
+    const subtask = { id: createClientId(), text: newSubtask.trim(), completed: false };
+    persistEvidence((current) => ({
+      ...current,
+      subtasks: [...subtasks, subtask],
+    }));
+    setNewSubtask('');
+  };
+
+  const handleToggleSubtask = (subtaskId) => {
+    const updated = subtasks.map((task) =>
+      task.id === subtaskId ? { ...task, completed: !task.completed } : task
+    );
+
+    persistEvidence((current) => ({
+      ...current,
+      subtasks: updated,
+    }));
+  };
+
+  const handleDeleteSubtask = (subtaskId) => {
+    const updated = subtasks.filter((task) => task.id !== subtaskId);
+
+    persistEvidence((current) => ({
+      ...current,
+      subtasks: updated,
+    }));
+  };
+
+  const handleUploadAttachment = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('files', file);
+
+    setAttachmentError('');
+    setUploading(true);
+
+    try {
+      const uploadResponse = await apiClient.post('/uploads/documents', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const [url] = uploadResponse.data?.urls || [];
+
+      if (!url) {
+        throw new Error('Upload failed');
+      }
+
+      const newAttachment = {
+        id: createClientId(),
+        name: file.name,
+        url,
+        mimeType: file.type,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      persistEvidence((current) => ({
+        ...current,
+        attachments: [...attachments, newAttachment],
+      }));
+    } catch (uploadErr) {
+      setAttachmentError(uploadErr?.response?.data?.message || 'Failed to upload attachment');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId) => {
+    const updated = attachments.filter((file) => file.id !== attachmentId);
+
+    persistEvidence((current) => ({
+      ...current,
+      attachments: updated,
+    }));
+  };
 
   const getRoleBadgeColor = (role) => {
     switch (role) {
@@ -107,20 +230,37 @@ const JobDetailModal = ({ job, open, onClose }) => {
     }
   };
 
+  const modalJob = jobData || job;
+
   return (
     <Dialog open={open && !!job} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Typography variant="h5" component="span">
-          {job.title}
+          {modalJob?.title}
         </Typography>
         <Chip
-          label={job.status.replace('_', ' ')}
+          label={modalJob?.status.replace('_', ' ')}
           color="primary"
           size="small"
           sx={{ ml: 2 }}
         />
       </DialogTitle>
       <DialogContent dividers>
+        {jobError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Failed to load job details
+          </Alert>
+        )}
+        {actionError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {actionError}
+          </Alert>
+        )}
+        {jobLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={28} />
+          </Box>
+        )}
         <Grid container spacing={3}>
           {/* Left Column: Core Details */}
           <Grid item xs={12} md={6}>
@@ -131,25 +271,27 @@ const JobDetailModal = ({ job, open, onClose }) => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <PlaceIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 <Typography variant="body1">
-                  {job.property?.name || 'N/A'}
+                  {modalJob?.property?.name || 'N/A'}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <CalendarTodayIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 <Typography variant="body1">
-                  {job.scheduledDate ? formatDate(job.scheduledDate) : 'Not Scheduled'}
+                  {modalJob?.scheduledDate ? formatDate(modalJob.scheduledDate) : 'Not Scheduled'}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 <Typography variant="body1">
-                  {job.assignedTo ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}` : 'Unassigned'}
+                  {modalJob?.assignedTo
+                    ? `${modalJob.assignedTo.firstName} ${modalJob.assignedTo.lastName}`
+                    : 'Unassigned'}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 2 }}>
                 <NotesIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 <Typography variant="body2" color="text.secondary">
-                  {job.description}
+                  {modalJob?.description}
                 </Typography>
               </Box>
             </Paper>
@@ -160,16 +302,49 @@ const JobDetailModal = ({ job, open, onClose }) => {
                 <CheckCircleOutlineIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 Subtasks
               </Typography>
+              {subtasks.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  No subtasks yet. Add steps to track work progress.
+                </Typography>
+              )}
               <List dense>
                 {subtasks.map((task) => (
-                  <ListItem key={task.id} disablePadding>
+                  <ListItem key={task.id} secondaryAction={
+                    <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteSubtask(task.id)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  }>
                     <ListItemIcon>
-                      <Checkbox edge="start" checked={task.completed} tabIndex={-1} disableRipple />
+                      <Checkbox
+                        edge="start"
+                        checked={task.completed}
+                        tabIndex={-1}
+                        disableRipple
+                        onChange={() => handleToggleSubtask(task.id)}
+                      />
                     </ListItemIcon>
                     <ListItemText primary={task.text} />
                   </ListItem>
                 ))}
               </List>
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Add a subtask"
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  disabled={updateEvidenceMutation.isPending}
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<AddCircleOutlineIcon />}
+                  onClick={handleAddSubtask}
+                  disabled={!newSubtask.trim() || updateEvidenceMutation.isPending}
+                >
+                  Add
+                </Button>
+              </Stack>
             </Paper>
           </Grid>
 
@@ -284,16 +459,52 @@ const JobDetailModal = ({ job, open, onClose }) => {
                 <AttachFileIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 File Attachments
               </Typography>
+              {attachmentError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {attachmentError}
+                </Alert>
+              )}
+              {attachments.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  No files uploaded yet.
+                </Typography>
+              )}
               <List dense>
                 {attachments.map((file) => (
-                  <ListItem key={file.id} component="a" href={file.url} target="_blank" button>
+                  <ListItem
+                    key={file.id}
+                    secondaryAction={
+                      <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveAttachment(file.id)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    }
+                    component="a"
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <ListItemIcon>
                       <AttachFileIcon />
                     </ListItemIcon>
-                    <ListItemText primary={file.name} />
+                    <ListItemText
+                      primary={file.name}
+                      secondary={file.uploadedAt ? formatDate(file.uploadedAt) : undefined}
+                    />
                   </ListItem>
                 ))}
               </List>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<UploadFileIcon />}
+                  disabled={uploading || updateEvidenceMutation.isPending}
+                >
+                  {uploading ? 'Uploading...' : 'Upload File'}
+                  <input type="file" hidden onChange={handleUploadAttachment} />
+                </Button>
+                {updateEvidenceMutation.isPending && <CircularProgress size={20} />}
+              </Stack>
             </Paper>
           </Grid>
         </Grid>

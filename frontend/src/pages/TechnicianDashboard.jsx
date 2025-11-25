@@ -24,7 +24,7 @@ import {
   LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import { format } from 'date-fns';
@@ -46,10 +46,19 @@ const PRIORITY_COLORS = {
   URGENT: 'error',
 };
 
+const VALID_TRANSITIONS = {
+  OPEN: ['ASSIGNED', 'CANCELLED'],
+  ASSIGNED: ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'ASSIGNED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
 export default function TechnicianDashboard() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   // Fetch jobs assigned to technician
   const { data: jobs = [], isLoading, error, refetch } = useQuery({
@@ -57,6 +66,22 @@ export default function TechnicianDashboard() {
     queryFn: async () => {
       const response = await apiClient.get('/jobs');
       return ensureArray(response.data, ['items', 'data.items', 'jobs']);
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ jobId, status }) => {
+      const response = await apiClient.patch(`/jobs/${jobId}/status`, { status });
+      return response.data;
+    },
+    onSuccess: () => {
+      setActionError('');
+      refetch();
+      handleMenuClose();
+    },
+    onError: (mutationError) => {
+      setActionError(mutationError?.response?.data?.message || 'Failed to update job status');
+      handleMenuClose();
     },
   });
 
@@ -78,32 +103,14 @@ export default function TechnicianDashboard() {
     handleMenuClose();
   };
 
-  const handleStartJob = async () => {
-    if (!selectedJob) return;
-    
-    try {
-      await apiClient.patch(`/jobs/${selectedJob.id}`, {
-        status: 'IN_PROGRESS',
-      });
-      refetch();
-      handleMenuClose();
-    } catch (error) {
-      console.error('Error starting job:', error);
-    }
+  const canTransition = (job, targetStatus) => {
+    if (!job?.status) return false;
+    return VALID_TRANSITIONS[job.status]?.includes(targetStatus);
   };
 
-  const handleCompleteJob = async () => {
-    if (!selectedJob) return;
-    
-    try {
-      await apiClient.patch(`/jobs/${selectedJob.id}`, {
-        status: 'COMPLETED',
-      });
-      refetch();
-      handleMenuClose();
-    } catch (error) {
-      console.error('Error completing job:', error);
-    }
+  const handleStatusUpdate = (job, nextStatus) => {
+    if (!job || !canTransition(job, nextStatus)) return;
+    statusMutation.mutate({ jobId: job.id, status: nextStatus });
   };
 
   const getJobsByStatus = (status) => jobs.filter(job => job.status === status);
@@ -121,6 +128,11 @@ export default function TechnicianDashboard() {
         <Typography variant="body1" color="text.secondary">
           View and manage your assigned jobs
         </Typography>
+        {actionError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {actionError}
+          </Alert>
+        )}
       </Box>
 
       {/* Summary Cards */}
@@ -246,27 +258,27 @@ export default function TechnicianDashboard() {
 
                 <CardActions>
                   {job.status === 'ASSIGNED' && (
-                    <Button 
-                      size="small" 
+                    <Button
+                      size="small"
                       variant="contained"
+                      disabled={!canTransition(job, 'IN_PROGRESS') || statusMutation.isPending}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedJob(job);
-                        handleStartJob();
+                        handleStatusUpdate(job, 'IN_PROGRESS');
                       }}
                     >
                       Start Job
                     </Button>
                   )}
                   {job.status === 'IN_PROGRESS' && (
-                    <Button 
-                      size="small" 
-                      variant="contained" 
+                    <Button
+                      size="small"
+                      variant="contained"
                       color="success"
+                      disabled={!canTransition(job, 'COMPLETED') || statusMutation.isPending}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedJob(job);
-                        handleCompleteJob();
+                        handleStatusUpdate(job, 'COMPLETED');
                       }}
                     >
                       Mark Complete
@@ -295,11 +307,15 @@ export default function TechnicianDashboard() {
         onClose={handleMenuClose}
       >
         <MenuItem onClick={handleViewDetails}>View Details</MenuItem>
-        {selectedJob?.status === 'ASSIGNED' && (
-          <MenuItem onClick={handleStartJob}>Start Job</MenuItem>
+        {selectedJob && canTransition(selectedJob, 'IN_PROGRESS') && (
+          <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'IN_PROGRESS')}>
+            Start Job
+          </MenuItem>
         )}
-        {selectedJob?.status === 'IN_PROGRESS' && (
-          <MenuItem onClick={handleCompleteJob}>Mark Complete</MenuItem>
+        {selectedJob && canTransition(selectedJob, 'COMPLETED') && (
+          <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'COMPLETED')}>
+            Mark Complete
+          </MenuItem>
         )}
       </Menu>
     </Container>
