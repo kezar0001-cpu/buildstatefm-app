@@ -160,13 +160,6 @@ const JobsPage = () => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleQuickFilterToggle = (quickFilterValue) => {
-    setFilters((prev) => ({
-      ...prev,
-      filter: prev.filter === quickFilterValue ? '' : quickFilterValue,
-    }));
-  };
-
   const handleViewChange = (event, nextView) => {
     if (nextView !== null) {
       setView(nextView);
@@ -439,18 +432,6 @@ const JobsPage = () => {
         }}
       >
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
-            {[{ value: 'overdue', label: 'Overdue' }, { value: 'unassigned', label: 'Unassigned' }].map((quickFilter) => (
-              <Chip
-                key={quickFilter.value}
-                label={quickFilter.label}
-                color={filters.filter === quickFilter.value ? 'primary' : 'default'}
-                variant={filters.filter === quickFilter.value ? 'filled' : 'outlined'}
-                onClick={() => handleQuickFilterToggle(quickFilter.value)}
-              />
-            ))}
-          </Stack>
-
           <Stack
             direction={{ xs: 'column', lg: 'row' }}
             spacing={2}
