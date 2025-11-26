@@ -911,18 +911,17 @@ const JobsPage = () => {
                           sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}
                           inputProps={{ 'aria-label': `Select job ${job.title}` }}
                         />
-                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5, pt: 5, pb: 2, '&:last-child': { pb: 2 } }}>
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2, pt: 5, pb: 2, '&:last-child': { pb: 2 } }}>
+                      {/* Header */}
                       <Box
                         sx={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'flex-start',
-                          mb: 1.5,
                         }}
                       >
                         <Typography
                           variant="h6"
-                          gutterBottom
                           sx={{
                             fontSize: '1.125rem',
                             fontWeight: 700,
@@ -948,7 +947,8 @@ const JobsPage = () => {
                         </IconButton>
                       </Box>
 
-                      <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                      {/* Status and Priority */}
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
                         <Chip
                           label={job.status.replace('_', ' ')}
                           color={getStatusColor(job.status)}
@@ -964,17 +964,18 @@ const JobsPage = () => {
                         />
                       </Stack>
 
+                      {/* Overdue Alert */}
                       {isOverdue(job) && (
-                        <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
+                        <Alert severity="error" sx={{ py: 0 }}>
                           <Typography variant="caption">Overdue</Typography>
                         </Alert>
                       )}
 
+                      {/* Description */}
                       <Typography
                         variant="body2"
                         color="text.secondary"
                         sx={{
-                          mb: 2,
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
@@ -985,50 +986,70 @@ const JobsPage = () => {
                         {job.description || 'No description provided'}
                       </Typography>
 
-                      <Stack spacing={1} sx={{ mt: 'auto' }}>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                            Property
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 500,
-                            }}
-                          >
-                            {job.property?.name || 'N/A'}
-                          </Typography>
-                        </Box>
-
-                        {job.scheduledDate && (
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Scheduled
-                            </Typography>
-                            <Typography variant="body2">
-                              {moment(job.scheduledDate).format('MMM D, YYYY')}
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {job.assignedTo && (
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Assigned To
-                            </Typography>
-                            <Typography variant="body2">
-                              {job.assignedTo.firstName} {job.assignedTo.lastName}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Stack>
-
-                      {/* Actions */}
+                      {/* Property Details - Grouped in subtle box */}
                       <Box
-                        sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
+                        sx={{
+                          mt: 'auto',
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: 'action.hover',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack spacing={1.5}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Property
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 500,
+                                mt: 0.5,
+                              }}
+                            >
+                              {job.property?.name || 'N/A'}
+                            </Typography>
+                          </Box>
+
+                          {job.scheduledDate && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                                Scheduled
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {moment(job.scheduledDate).format('MMM D, YYYY')}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {job.assignedTo && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                                Assigned To
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {job.assignedTo.firstName} {job.assignedTo.lastName}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      {/* Actions - with divider */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 0.5,
+                          pt: 1.5,
+                          justifyContent: 'flex-end',
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                        }}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Tooltip title="View Details">
