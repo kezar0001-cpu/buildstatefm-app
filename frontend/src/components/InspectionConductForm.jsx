@@ -603,7 +603,6 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
       alert(error.response?.data?.message || 'Failed to upload photo. Please try again.');
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
       // Reset file input
       event.target.value = '';
     }
