@@ -904,40 +904,43 @@ const JobsPage = () => {
                           },
                         }}
                       >
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={() => handleToggleJobSelection(job.id)}
-                          color="primary"
-                          sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}
-                          inputProps={{ 'aria-label': `Select job ${job.title}` }}
-                        />
-                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2, pt: 5, pb: 2, '&:last-child': { pb: 2 } }}>
-                      {/* Header */}
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2, pt: 2, pb: 2, '&:last-child': { pb: 2 } }}>
+                      {/* Header with Checkbox */}
                       <Box
                         sx={{
                           display: 'flex',
                           justifyContent: 'space-between',
-                          alignItems: 'flex-start',
+                          alignItems: 'center',
+                          gap: 1,
                         }}
                       >
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            fontSize: '1.125rem',
-                            fontWeight: 700,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            lineHeight: 1.3,
-                            mb: 0,
-                            flex: 1,
-                            pr: 1,
-                          }}
-                        >
-                          {job.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleToggleJobSelection(job.id)}
+                            color="primary"
+                            sx={{ p: 0.5 }}
+                            inputProps={{ 'aria-label': `Select job ${job.title}` }}
+                          />
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              fontSize: '1.125rem',
+                              fontWeight: 700,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              lineHeight: 1.3,
+                              mb: 0,
+                              flex: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            {job.title}
+                          </Typography>
+                        </Box>
                         <IconButton
                           size="small"
                           onClick={(e) => handleStatusMenuOpen(e, job)}
