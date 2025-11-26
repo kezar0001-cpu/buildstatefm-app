@@ -73,6 +73,7 @@ import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
+import { useInspectionStatusUpdate } from '../hooks/useInspectionStatusUpdate';
 
 /**
  * Enhanced Inspections Page Component
@@ -128,7 +129,9 @@ const InspectionsPage = () => {
   // Menu states for status change
   const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
   const [statusMenuInspection, setStatusMenuInspection] = useState(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Inspection status update hook
+  const { updateStatus, isUpdating: isUpdatingStatus } = useInspectionStatusUpdate();
 
   // Bulk selection state (for table views)
   const [selectedIds, setSelectedIds] = useState([]);
@@ -241,34 +244,6 @@ const InspectionsPage = () => {
     });
   }, [inspections]);
 
-  // State for status update error
-  const [statusUpdateError, setStatusUpdateError] = useState(null);
-
-  // Mutation for updating inspection status
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }) => {
-      console.log('Updating inspection status:', { id, status });
-      const response = await apiClient.patch(`/inspections/${id}`, { status });
-      console.log('Status update response:', response.data);
-      return response.data;
-    },
-    onSuccess: () => {
-      console.log('Status update successful');
-      setStatusUpdateError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
-      setStatusMenuAnchor(null);
-      setStatusMenuInspection(null);
-      setIsUpdatingStatus(false);
-    },
-    onError: (error) => {
-      console.error('Failed to update status:', error);
-      setStatusUpdateError(error?.response?.data?.message || error?.message || 'Failed to update status');
-      setStatusMenuAnchor(null);
-      setStatusMenuInspection(null);
-      setIsUpdatingStatus(false);
-    },
-  });
-
   // Mutation for deleting inspection
   const deleteMutation = useMutation({
     mutationFn: async (inspectionId) => {
@@ -345,13 +320,9 @@ const InspectionsPage = () => {
 
   const handleStatusChange = (inspection, newStatus) => {
     if (inspection) {
-      setIsUpdatingStatus(true);
       setStatusMenuAnchor(null); // Close menu immediately
       setStatusMenuInspection(null);
-      updateStatusMutation.mutate({
-        id: inspection.id,
-        status: newStatus,
-      });
+      updateStatus(inspection.id, newStatus);
     }
   };
 
@@ -734,25 +705,15 @@ const InspectionsPage = () => {
       )}
 
       {/* Error Alerts */}
-      {statusUpdateError && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setStatusUpdateError(null)}
-        >
-          {statusUpdateError}
-        </Alert>
-      )}
-      {(deleteMutation.isError || updateStatusMutation.isError) && (
+      {deleteMutation.isError && (
         <Alert
           severity="error"
           sx={{ mb: 2 }}
           onClose={() => {
             deleteMutation.reset();
-            updateStatusMutation.reset();
           }}
         >
-          {deleteMutation.error?.message || updateStatusMutation.error?.message || 'An error occurred'}
+          {deleteMutation.error?.message || 'An error occurred'}
         </Alert>
       )}
 
