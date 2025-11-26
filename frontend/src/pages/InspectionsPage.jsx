@@ -1174,9 +1174,9 @@ const InspectionKanban = ({
                   }}
                   onClick={() => onView(inspection.id)}
                 >
-                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, '&:last-child': { pb: 2 } }}>
                     {/* Header */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
                         {inspection.title}
                       </Typography>
@@ -1195,95 +1195,116 @@ const InspectionKanban = ({
                         label={inspection.type.replace(/_/g, ' ')}
                         size="small"
                         variant="outlined"
-                        sx={{ mb: 1.5 }}
                       />
                     )}
 
                     {/* Overdue Warning */}
                     {inspection.isOverdue && (
-                      <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
+                      <Alert severity="error" sx={{ py: 0 }}>
                         <Typography variant="caption">Overdue</Typography>
                       </Alert>
                     )}
 
-                    {/* Details */}
-                    <Stack spacing={1}>
-                      {/* Property */}
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          Property
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          component={MuiLink}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (inspection.property?.id) {
-                              navigate(`/properties/${inspection.property.id}`);
-                            }
-                          }}
-                          sx={{
-                            color: 'primary.main',
-                            textDecoration: 'none',
-                            '&:hover': { textDecoration: 'underline' },
-                          }}
-                        >
-                          {inspection.property?.name || 'N/A'}
-                        </Typography>
-                      </Box>
-
-                      {/* Unit */}
-                      {inspection.unit && (
+                    {/* Details - Grouped in subtle box */}
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        bgcolor: 'action.hover',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        mt: 'auto',
+                      }}
+                    >
+                      <Stack spacing={1.5}>
+                        {/* Property */}
                         <Box>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Unit
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Property
                           </Typography>
                           <Typography
                             variant="body2"
                             component={MuiLink}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (inspection.unit?.id) {
-                                navigate(`/units/${inspection.unit.id}`);
+                              if (inspection.property?.id) {
+                                navigate(`/properties/${inspection.property.id}`);
                               }
                             }}
                             sx={{
                               color: 'primary.main',
                               textDecoration: 'none',
                               '&:hover': { textDecoration: 'underline' },
+                              mt: 0.5,
+                              display: 'block',
                             }}
                           >
-                            Unit {inspection.unit.unitNumber}
+                            {inspection.property?.name || 'N/A'}
                           </Typography>
                         </Box>
-                      )}
 
-                      {/* Scheduled Date */}
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          Scheduled
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatDateTime(inspection.scheduledDate)}
-                        </Typography>
-                      </Box>
+                        {/* Unit */}
+                        {inspection.unit && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Unit
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              component={MuiLink}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (inspection.unit?.id) {
+                                  navigate(`/units/${inspection.unit.id}`);
+                                }
+                              }}
+                              sx={{
+                                color: 'primary.main',
+                                textDecoration: 'none',
+                                '&:hover': { textDecoration: 'underline' },
+                                mt: 0.5,
+                                display: 'block',
+                              }}
+                            >
+                              Unit {inspection.unit.unitNumber}
+                            </Typography>
+                          </Box>
+                        )}
 
-                      {/* Assigned To */}
-                      {inspection.assignedTo && (
+                        {/* Scheduled Date */}
                         <Box>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Assigned To
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Scheduled
                           </Typography>
-                          <Typography variant="body2">
-                            {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {formatDateTime(inspection.scheduledDate)}
                           </Typography>
                         </Box>
-                      )}
-                    </Stack>
 
-                    {/* Actions */}
+                        {/* Assigned To */}
+                        {inspection.assignedTo && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Assigned To
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Stack>
+                    </Box>
+
+                    {/* Actions - with divider */}
                     <Box
-                      sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
+                      sx={{
+                        display: 'flex',
+                        gap: 0.5,
+                        pt: 1.5,
+                        justifyContent: 'flex-end',
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
+                      }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Tooltip title="View Details">
