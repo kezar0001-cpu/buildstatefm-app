@@ -584,6 +584,9 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
       if (response.data.success && response.data.urls && response.data.urls.length > 0) {
         const url = response.data.urls[0];
 
+        // Ensure progress remains at 100% after successful upload
+        setUploadProgress(100);
+
         // Add photo to inspection
         await addPhotoMutation.mutateAsync({
           roomId,
@@ -603,7 +606,6 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
       alert(error.response?.data?.message || 'Failed to upload photo. Please try again.');
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
       // Reset file input
       event.target.value = '';
     }
