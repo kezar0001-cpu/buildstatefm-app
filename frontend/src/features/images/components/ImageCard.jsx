@@ -13,6 +13,7 @@ import {
   LinearProgress,
   Typography,
   alpha,
+  Checkbox,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StarIcon from '@mui/icons-material/Star';
@@ -46,6 +47,9 @@ const ImageCard = memo(function ImageCard({
   onDragStart,
   onDragEnd,
   onClick,
+  isSelected = false,
+  onToggleSelect,
+  selectionMode = false,
 }) {
   const [captionValue, setCaptionValue] = useState(image.caption || '');
   const [isCaptionFocused, setIsCaptionFocused] = useState(false);
@@ -151,26 +155,67 @@ const ImageCard = memo(function ImageCard({
     return null;
   };
 
+  /**
+   * Handle card click for selection
+   */
+  const handleCardClick = (e) => {
+    if (selectionMode && onToggleSelect) {
+      // Prevent clicks on interactive elements from triggering selection
+      if (
+        e.target.closest('button') ||
+        e.target.closest('input') ||
+        e.target.closest('textarea')
+      ) {
+        return;
+      }
+      onToggleSelect(id);
+    } else if (onClick) {
+      onClick(e);
+    }
+  };
+
   return (
     <Card
-      draggable={draggable && !isUploading}
+      draggable={draggable && !isUploading && !selectionMode}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onClick={handleCardClick}
       sx={{
         position: 'relative',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         border: '2px solid',
-        borderColor: isPrimary ? 'primary.main' : 'transparent',
-        cursor: draggable && !isUploading ? 'move' : 'default',
+        borderColor: isSelected ? 'primary.main' : isPrimary ? 'primary.main' : 'transparent',
+        cursor: selectionMode ? 'pointer' : draggable && !isUploading ? 'move' : 'default',
         transition: 'all 0.2s',
+        backgroundColor: isSelected ? alpha('#1976d2', 0.08) : 'background.paper',
         '&:hover': {
           boxShadow: 6,
           transform: 'translateY(-4px)',
         },
       }}
     >
+      {/* Selection Checkbox */}
+      {selectionMode && (
+        <Checkbox
+          checked={isSelected}
+          onChange={() => onToggleSelect && onToggleSelect(id)}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 10,
+            backgroundColor: 'background.paper',
+            borderRadius: 1,
+            '&:hover': {
+              backgroundColor: 'background.paper',
+            },
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
+
       {/* Image Preview */}
       <Box
         sx={{
@@ -178,9 +223,8 @@ const ImageCard = memo(function ImageCard({
           paddingTop: '75%', // 4:3 aspect ratio
           overflow: 'hidden',
           backgroundColor: 'grey.100',
-          cursor: onClick ? 'pointer' : 'default',
+          cursor: selectionMode ? 'pointer' : onClick ? 'pointer' : 'default',
         }}
-        onClick={onClick}
       >
         {imageUrl ? (
           <CardMedia
