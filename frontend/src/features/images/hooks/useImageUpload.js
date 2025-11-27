@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import pLimit from 'p-limit';
 import { compressImage, createPreview } from '../utils/imageCompression';
@@ -533,13 +533,45 @@ export function useImageUpload(options = {}) {
       ));
 
       const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
+
       setError(errorMessage);
 
-      // Show error toast
-      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`, {
-        duration: 6000,
-        icon: '❌',
-      });
+      // Show error toast with "View Details" button
+      toast.error(
+        (t) => React.createElement(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+          React.createElement(
+            'span',
+            { style: { flex: 1 } },
+            `Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`
+          ),
+          React.createElement(
+            'button',
+            {
+              onClick: () => {
+                expandUploadQueue();
+                toast.dismiss(t.id);
+              },
+              style: {
+                background: '#fff',
+                color: '#f44336',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '13px',
+              },
+            },
+            'View Details'
+          )
+        ),
+        {
+          duration: 6000,
+          icon: '❌',
+        }
+      );
 
       if (onError) {
         onError(err);
