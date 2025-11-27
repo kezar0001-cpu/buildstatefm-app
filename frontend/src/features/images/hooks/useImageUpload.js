@@ -525,6 +525,75 @@ export function useImageUpload(options = {}) {
       }));
   }, [images]);
 
+  /**
+   * Bulk delete multiple images
+   */
+  const bulkDelete = useCallback((imageIds) => {
+    console.log(`[useImageUpload] Bulk deleting ${imageIds.length} images`);
+
+    // Cancel any active uploads for these images
+    imageIds.forEach(id => {
+      const controller = abortControllersRef.current.get(id);
+      if (controller) {
+        controller.abort();
+      }
+      delete lastProgressRefs.current[id];
+    });
+
+    setImages(prev => {
+      const updated = prev.filter(img => !imageIds.includes(img.id));
+      // Reassign order
+      return updated.map((img, index) => ({ ...img, order: index }));
+    });
+
+    setQueue(prev => prev.filter(id => !imageIds.includes(id)));
+  }, []);
+
+  /**
+   * Bulk reorder images to specific positions
+   * @param {Array<{id: string, newOrder: number}>} reorderMap - Array of {id, newOrder}
+   */
+  const bulkReorder = useCallback((reorderMap) => {
+    console.log(`[useImageUpload] Bulk reordering ${reorderMap.length} images`);
+
+    setImages(prev => {
+      // Create a copy of the images array
+      const result = [...prev];
+
+      // Sort reorderMap by newOrder to process in sequence
+      const sortedMap = [...reorderMap].sort((a, b) => a.newOrder - b.newOrder);
+
+      // Apply reordering for each image
+      sortedMap.forEach(({ id, newOrder }) => {
+        const currentIndex = result.findIndex(img => img.id === id);
+        if (currentIndex !== -1 && newOrder >= 0 && newOrder < result.length) {
+          const [removed] = result.splice(currentIndex, 1);
+          result.splice(newOrder, 0, removed);
+        }
+      });
+
+      // Update order property
+      return result.map((img, index) => ({ ...img, order: index }));
+    });
+  }, []);
+
+  /**
+   * Bulk update captions for multiple images
+   * @param {Array<{id: string, caption: string}>} captionUpdates - Array of {id, caption}
+   */
+  const bulkUpdateCaptions = useCallback((captionUpdates) => {
+    console.log(`[useImageUpload] Bulk updating captions for ${captionUpdates.length} images`);
+
+    const updateMap = new Map(captionUpdates.map(({ id, caption }) => [id, caption]));
+
+    setImages(prev => prev.map(img => {
+      if (updateMap.has(img.id)) {
+        return { ...img, caption: updateMap.get(img.id) };
+      }
+      return img;
+    }));
+  }, []);
+
   return {
     // State
     images,
@@ -544,6 +613,11 @@ export function useImageUpload(options = {}) {
     updateCaption,
     clearAll,
     getCompletedImages,
+
+    // Bulk operations
+    bulkDelete,
+    bulkReorder,
+    bulkUpdateCaptions,
 
     // Computed
     hasImages: images.length > 0,
