@@ -282,6 +282,7 @@ export function UnitImageManager({
         onUpdateCaption={handleUpdateCaption}
         onReorder={reorderImages}
         onClearAll={images.length > 0 ? handleClearAll : null}
+        onFilesSelected={handleFilesSelected}
         allowCaptions={allowCaptions}
         allowReordering={true}
       />

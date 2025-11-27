@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Grid, Box, Typography, Button, Alert, Paper, Toolbar, IconButton, Tooltip, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
+import { Grid, Box, Typography, Button, Alert, Paper, Toolbar, IconButton, Tooltip, FormControl, Select, MenuItem, InputLabel, MobileStepper } from '@mui/material';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SelectAllIcon from '@mui/icons-material/SelectAll';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import ReorderIcon from '@mui/icons-material/Reorder';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import { ImageCard } from './ImageCard';
+import { BulkCaptionEditor } from './BulkCaptionEditor';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
@@ -33,6 +38,7 @@ export function ImageGallery({
   onClearAll,
   onBulkDelete,
   onBulkReorder,
+  onFilesSelected,
   allowCaptions = false,
   allowReordering = true,
   enableBulkOperations = true,
@@ -47,8 +53,21 @@ export function ImageGallery({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Bulk caption editor state
+  const [bulkCaptionEditorOpen, setBulkCaptionEditorOpen] = useState(false);
+
+  // Empty state carousel
+  const [emptyStateStep, setEmptyStateStep] = useState(0);
+
   // Ref for drag ghost image
   const dragGhostRef = useRef(null);
+
+  // Ref for file input in empty state
+  const fileInputRef = useRef(null);
+
+  // Empty state drag and drop
+  const [emptyStateDragging, setEmptyStateDragging] = useState(false);
+  const [emptyStateDragCounter, setEmptyStateDragCounter] = useState(0);
 
   // Filter images by category
   const filteredImages = categoryFilter === 'ALL'
@@ -135,6 +154,20 @@ export function ImageGallery({
 
     deselectAll();
   }, [selectedIds, images, onBulkReorder, deselectAll]);
+
+  /**
+   * Handle bulk caption save
+   */
+  const handleBulkCaptionSave = useCallback((changes) => {
+    if (!onUpdateCaption) return;
+
+    // Apply all caption changes
+    changes.forEach(({ id, caption }) => {
+      onUpdateCaption(id, caption);
+    });
+
+    setBulkCaptionEditorOpen(false);
+  }, [onUpdateCaption]);
 
   /**
    * Handle keyboard shortcuts
@@ -279,6 +312,84 @@ export function ImageGallery({
   }, [filteredImages, selectionMode]);
 
   /**
+   * Empty state file input handlers
+   */
+  const handleEmptyStateClick = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  const handleEmptyStateFileChange = useCallback((event) => {
+    const files = event.target.files;
+    if (files && files.length > 0 && onFilesSelected) {
+      onFilesSelected(Array.from(files));
+      event.target.value = ''; // Reset input
+    }
+  }, [onFilesSelected]);
+
+  /**
+   * Empty state drag and drop handlers
+   */
+  const handleEmptyStateDragEnter = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEmptyStateDragCounter(prev => prev + 1);
+    if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
+      setEmptyStateDragging(true);
+    }
+  }, []);
+
+  const handleEmptyStateDragLeave = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEmptyStateDragCounter(prev => {
+      const newCounter = prev - 1;
+      if (newCounter === 0) {
+        setEmptyStateDragging(false);
+      }
+      return newCounter;
+    });
+  }, []);
+
+  const handleEmptyStateDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  const handleEmptyStateDrop = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEmptyStateDragging(false);
+    setEmptyStateDragCounter(0);
+
+    const files = event.dataTransfer.files;
+    if (files && files.length > 0 && onFilesSelected) {
+      onFilesSelected(Array.from(files));
+    }
+  }, [onFilesSelected]);
+
+  /**
+   * Empty state carousel navigation
+   */
+  const handleEmptyStateNext = () => {
+    setEmptyStateStep((prevStep) => (prevStep + 1) % onboardingTips.length);
+  };
+
+  const handleEmptyStateBack = () => {
+    setEmptyStateStep((prevStep) => (prevStep - 1 + onboardingTips.length) % onboardingTips.length);
+  };
+
+  // Onboarding tips for carousel
+  const onboardingTips = [
+    { title: 'Tip 1: Drag to Reorder', description: 'Click and drag images to rearrange their order' },
+    { title: 'Tip 2: Star Icon Sets Cover Photo', description: 'Click the star icon on any image to set it as the cover photo' },
+    { title: 'Tip 3: Bulk Operations', description: 'Select multiple images and perform actions like delete or reorder' },
+    { title: 'Tip 4: Add Captions', description: 'Enhance your images with descriptive captions for better context' },
+    { title: 'Tip 5: Categorize Images', description: 'Organize your images by room type for easy filtering' },
+  ];
+
+  /**
    * Prepare slides for lightbox with metadata
    */
   const lightboxSlides = filteredImages.map(image => ({
@@ -295,27 +406,178 @@ export function ImageGallery({
   }));
 
   /**
-   * Empty state
+   * Empty state with illustration and onboarding carousel
    */
   if (!hasImages) {
+    const currentTip = onboardingTips[emptyStateStep];
+
     return (
-      <Box
+      <Paper
+        elevation={emptyStateDragging ? 4 : 1}
+        onDragEnter={handleEmptyStateDragEnter}
+        onDragLeave={handleEmptyStateDragLeave}
+        onDragOver={handleEmptyStateDragOver}
+        onDrop={handleEmptyStateDrop}
+        onClick={handleEmptyStateClick}
         sx={{
           p: 6,
           textAlign: 'center',
           border: '2px dashed',
-          borderColor: 'divider',
+          borderColor: emptyStateDragging ? 'primary.main' : 'divider',
           borderRadius: 2,
-          backgroundColor: 'background.default',
+          backgroundColor: emptyStateDragging ? 'action.hover' : 'background.default',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            borderColor: 'primary.main',
+            backgroundColor: 'action.hover',
+          },
         }}
       >
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          No images yet
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleEmptyStateFileChange}
+          style={{ display: 'none' }}
+        />
+
+        {/* Illustration - Property Image Examples */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 2,
+            mb: 4,
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Placeholder image cards to illustrate property photos */}
+          {[1, 2, 3, 4].map((num) => (
+            <Box
+              key={num}
+              sx={{
+                width: 100,
+                height: 100,
+                borderRadius: 2,
+                background: `linear-gradient(135deg, ${
+                  num === 1 ? '#667eea 0%, #764ba2 100%' :
+                  num === 2 ? '#f093fb 0%, #f5576c 100%' :
+                  num === 3 ? '#4facfe 0%, #00f2fe 100%' :
+                  '#43e97b 0%, #38f9d7 100%'
+                })`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '2rem',
+                boxShadow: 2,
+                opacity: 0.8,
+                animation: `float${num} 3s ease-in-out infinite`,
+                '@keyframes float1': {
+                  '0%, 100%': { transform: 'translateY(0px)' },
+                  '50%': { transform: 'translateY(-10px)' },
+                },
+                '@keyframes float2': {
+                  '0%, 100%': { transform: 'translateY(0px)' },
+                  '50%': { transform: 'translateY(-15px)' },
+                },
+                '@keyframes float3': {
+                  '0%, 100%': { transform: 'translateY(0px)' },
+                  '50%': { transform: 'translateY(-8px)' },
+                },
+                '@keyframes float4': {
+                  '0%, 100%': { transform: 'translateY(0px)' },
+                  '50%': { transform: 'translateY(-12px)' },
+                },
+              }}
+            >
+              🏠
+            </Box>
+          ))}
+        </Box>
+
+        {/* Main Heading */}
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+          {emptyStateDragging ? 'Drop your images here!' : 'Add Your Property Photos'}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Upload images using the upload zone above
+
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          Showcase your property with stunning images
         </Typography>
-      </Box>
+
+        {/* Large Choose Files Button */}
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<CloudUploadIcon />}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleEmptyStateClick();
+          }}
+          sx={{
+            mb: 4,
+            py: 1.5,
+            px: 4,
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            boxShadow: 3,
+          }}
+        >
+          Choose Files
+        </Button>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+          or drag and drop your images anywhere in this area
+        </Typography>
+
+        {/* Onboarding Tips Carousel */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            backgroundColor: 'background.paper',
+            borderRadius: 2,
+            maxWidth: 500,
+            mx: 'auto',
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+            {currentTip.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {currentTip.description}
+          </Typography>
+
+          <MobileStepper
+            variant="dots"
+            steps={onboardingTips.length}
+            position="static"
+            activeStep={emptyStateStep}
+            sx={{
+              backgroundColor: 'transparent',
+              justifyContent: 'center',
+            }}
+            nextButton={
+              <Button size="small" onClick={handleEmptyStateNext}>
+                Next
+                <KeyboardArrowRight />
+              </Button>
+            }
+            backButton={
+              <Button size="small" onClick={handleEmptyStateBack}>
+                <KeyboardArrowLeft />
+                Back
+              </Button>
+            }
+          />
+        </Paper>
+
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 3, display: 'block' }}>
+          Supports: JPEG, PNG, GIF, WebP • Max 50 files • 10MB each
+        </Typography>
+      </Paper>
     );
   }
 
@@ -413,6 +675,19 @@ export function ImageGallery({
               <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Edit All Captions Button */}
+          {allowCaptions && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<EditNoteIcon />}
+              onClick={() => setBulkCaptionEditorOpen(true)}
+              disabled={images.length === 0}
+            >
+              Edit All Captions
+            </Button>
+          )}
 
           {enableBulkOperations && !selectionMode && (
             <Button
@@ -695,6 +970,14 @@ export function ImageGallery({
         styles={{
           container: { backgroundColor: 'rgba(0, 0, 0, 0.95)' },
         }}
+      />
+
+      {/* Bulk Caption Editor Modal */}
+      <BulkCaptionEditor
+        open={bulkCaptionEditorOpen}
+        onClose={() => setBulkCaptionEditorOpen(false)}
+        images={images}
+        onSave={handleBulkCaptionSave}
       />
     </Box>
   );

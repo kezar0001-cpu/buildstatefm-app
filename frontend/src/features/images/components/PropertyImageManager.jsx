@@ -292,6 +292,7 @@ export function PropertyImageManager({
         onUpdateCategory={handleUpdateCategory}
         onReorder={reorderImages}
         onClearAll={images.length > 0 ? handleClearAll : null}
+        onFilesSelected={handleFilesSelected}
         allowCaptions={allowCaptions}
         allowReordering={true}
       />
