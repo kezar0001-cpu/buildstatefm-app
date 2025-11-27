@@ -69,7 +69,7 @@ export function PropertyImageManager({
     endpoint: '/upload/multiple',
     compressImages: true,
     maxConcurrent: 3,
-    initialImages: preparedInitialImages,
+    defaultImages: preparedInitialImages,
     storageKey: propertyName ? `property_${propertyName}` : 'property_default',
     onSuccess: (completedImages) => {
       console.log('[PropertyImageManager] All uploads complete:', completedImages.length);
@@ -98,12 +98,11 @@ export function PropertyImageManager({
   const serializedCompleted = useMemo(() => {
     return JSON.stringify(
       completedImages.map((img) => ({
-        id: img.id ?? img.imageId ?? null,
-        imageId: img.imageId ?? null,
+        id: img.id ?? null,
         imageUrl: img.imageUrl ?? '',
         caption: img.caption ?? '',
         isPrimary: Boolean(img.isPrimary),
-        position: img.position ?? null,
+        displayOrder: img.displayOrder ?? 0,
       }))
     );
   }, [completedImages]);

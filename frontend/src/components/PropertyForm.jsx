@@ -125,7 +125,7 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
         property.images?.length ? property.images : property.imageUrl ? [{ imageUrl: property.imageUrl }] : []
       );
       setPhotoSelections(normalisedImages);
-      const initialCover = property.imageUrl || normalisedImages[0]?.url || '';
+      const initialCover = property.imageUrl || normalisedImages[0]?.imageUrl || '';
       setCoverImage(initialCover);
 
       reset({
@@ -217,36 +217,28 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
       nextCover: nextCover ? nextCover.substring(0, 50) + '...' : 'none',
     });
 
-    // Transform PropertyImageManager format to internal format
-    // PropertyImageManager returns: {imageUrl, caption, isPrimary, order}
-    // We need: {url, altText}
-    // Bug Fix: Preserve id, isPrimary, order to prevent re-mounts and flickering
-    const transformedImages = nextImages.map(img => ({
-      id: img.id || img.imageId, // Preserve ID to prevent re-mounts
-      url: img.imageUrl || img.url, // Support both formats for backward compatibility
-      altText: img.caption || img.altText || '',
-      isPrimary: img.isPrimary || false,
-      order: img.order !== undefined ? img.order : 0,
-    }));
+    // PropertyImageManager returns standardized ImageData format:
+    // {id, imageUrl, caption, isPrimary, displayOrder}
+    // No transformation needed
 
     // Bug Fix #9: Remove duplicate images by URL to prevent database bloat
     const uniqueImages = [];
     const seenUrls = new Set();
 
-    for (const image of transformedImages) {
-      if (image && image.url && !seenUrls.has(image.url)) {
-        seenUrls.add(image.url);
+    for (const image of nextImages) {
+      if (image && image.imageUrl && !seenUrls.has(image.imageUrl)) {
+        seenUrls.add(image.imageUrl);
         uniqueImages.push(image);
       }
     }
 
-    console.log('[PropertyForm] After transformation and deduplication:', {
+    console.log('[PropertyForm] After deduplication:', {
       uniqueCount: uniqueImages.length,
-      removed: transformedImages.length - uniqueImages.length,
+      removed: nextImages.length - uniqueImages.length,
     });
 
     setPhotoSelections(uniqueImages);
-    const resolvedCover = nextCover || uniqueImages[0]?.url || '';
+    const resolvedCover = nextCover || uniqueImages[0]?.imageUrl || '';
     setCoverImage(resolvedCover);
     setValue('imageUrl', resolvedCover || '', { shouldDirty: true, shouldValidate: true });
 
@@ -267,19 +259,18 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
       });
 
       const coverFromForm = typeof data.imageUrl === 'string' ? data.imageUrl.trim() : '';
+      // Images are already in standardized API format from PropertyImageManager
       const imagePayload = photoSelections
         .map((image, index) => {
-          if (!image || !image.url) {
+          if (!image || !image.imageUrl) {
             console.warn('[PropertyForm] Skipping invalid image at index', index, image);
             return null;
           }
 
-          const trimmedAltText = typeof image.altText === 'string' ? image.altText.trim() : '';
-
           return {
-            imageUrl: image.url,
-            caption: trimmedAltText ? trimmedAltText : null,
-            isPrimary: coverFromForm ? image.url === coverFromForm : index === 0,
+            imageUrl: image.imageUrl,
+            caption: image.caption || null,
+            isPrimary: coverFromForm ? image.imageUrl === coverFromForm : index === 0,
           };
         })
         .filter(Boolean);
