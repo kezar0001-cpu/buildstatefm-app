@@ -532,7 +532,11 @@ export function useImageUpload(options = {}) {
           : img
       ));
 
-      setError(err.message);
+      const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
+
+      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`);
+
+      setError(errorMessage);
 
       // Show error toast with "View Details" button
       const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
