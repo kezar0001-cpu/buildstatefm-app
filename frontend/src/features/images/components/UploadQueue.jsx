@@ -10,11 +10,13 @@ import {
   ListItemText,
   Chip,
   IconButton,
+  Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import UploadingIcon from '@mui/icons-material/CloudUpload';
+import RestoreIcon from '@mui/icons-material/Restore';
 
 /**
  * Upload queue progress indicator
@@ -23,11 +25,13 @@ import UploadingIcon from '@mui/icons-material/CloudUpload';
  * - Overall upload progress
  * - Individual file status
  * - Completion/error summary
+ * - Resume button for failed uploads
  */
 export function UploadQueue({
   images = [],
   isUploading = false,
   onClose,
+  onResumeUploads,
   compact = false,
 }) {
   const total = images.length;
@@ -116,6 +120,17 @@ export function UploadQueue({
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {failed > 0 && onResumeUploads && !isUploading && (
+              <Button
+                size="small"
+                startIcon={<RestoreIcon />}
+                onClick={onResumeUploads}
+                color="primary"
+                variant="outlined"
+              >
+                Resume uploads
+              </Button>
+            )}
             <Chip
               size="small"
               label={`${overallProgress}%`}

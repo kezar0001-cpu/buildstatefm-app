@@ -3,6 +3,79 @@ import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import apiClient from '../../../api/client';
 
+// LocalStorage keys
+const STORAGE_KEY_PREFIX = 'image_upload_state_';
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
+
+/**
+ * Save upload state to localStorage
+ */
+const saveUploadState = (key, images, queue) => {
+  try {
+    const state = {
+      images: images.map(img => ({
+        id: img.id,
+        fileName: img.file?.name,
+        fileSize: img.file?.size,
+        fileType: img.file?.type,
+        localPreview: img.localPreview,
+        remoteUrl: img.remoteUrl,
+        status: img.status,
+        progress: img.progress,
+        error: img.error,
+        isPrimary: img.isPrimary,
+        caption: img.caption,
+        order: img.order,
+        dimensions: img.dimensions,
+        retryCount: img.retryCount || 0,
+      })),
+      queue,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(key, JSON.stringify(state));
+    console.log('[useImageUpload] Saved state to localStorage');
+  } catch (error) {
+    console.error('[useImageUpload] Failed to save state:', error);
+  }
+};
+
+/**
+ * Load upload state from localStorage
+ */
+const loadUploadState = (key) => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return null;
+
+    const state = JSON.parse(saved);
+
+    // Check if state is too old (more than 24 hours)
+    const age = Date.now() - state.timestamp;
+    if (age > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(key);
+      return null;
+    }
+
+    return state;
+  } catch (error) {
+    console.error('[useImageUpload] Failed to load state:', error);
+    return null;
+  }
+};
+
+/**
+ * Clear upload state from localStorage
+ */
+const clearUploadState = (key) => {
+  try {
+    localStorage.removeItem(key);
+    console.log('[useImageUpload] Cleared state from localStorage');
+  } catch (error) {
+    console.error('[useImageUpload] Failed to clear state:', error);
+  }
+};
+
 /**
  * Image upload hook with queue management and optimistic UI
  *
@@ -13,6 +86,7 @@ import apiClient from '../../../api/client';
  * @param {boolean} options.compressImages - Enable client-side compression
  * @param {number} options.maxConcurrent - Max concurrent uploads
  * @param {Array} options.initialImages - Initial images to display (for edit mode)
+ * @param {string} options.storageKey - Unique key for localStorage persistence (optional)
  * @returns {Object} Upload state and methods
  */
 export function useImageUpload(options = {}) {
@@ -23,7 +97,11 @@ export function useImageUpload(options = {}) {
     compressImages = true,
     maxConcurrent = 3,
     initialImages = [],
+    storageKey,
   } = options;
+
+  // Generate storage key if persistence is enabled
+  const persistenceKey = storageKey ? `${STORAGE_KEY_PREFIX}${storageKey}` : null;
 
   // State - Initialize with existing images if provided
   const [images, setImages] = useState(() => {
@@ -41,6 +119,7 @@ export function useImageUpload(options = {}) {
         caption: img.altText || img.caption || '',
         order: img.order !== undefined ? img.order : index,
         dimensions: img.dimensions || null,
+        retryCount: 0,
       }));
     }
     return [];
@@ -48,12 +127,40 @@ export function useImageUpload(options = {}) {
   const [queue, setQueue] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [interruptedUploads, setInterruptedUploads] = useState(null);
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
 
   // Refs
   const uploadCounterRef = useRef(0);
   const abortControllersRef = useRef(new Map());
   const initialImagesProcessedRef = useRef(false);
   const lastProgressRefs = useRef({}); // Track last progress update per image
+  const mountedRef = useRef(false);
+
+  /**
+   * Detect interrupted uploads on component mount
+   */
+  useEffect(() => {
+    if (!persistenceKey || mountedRef.current) return;
+    mountedRef.current = true;
+
+    const savedState = loadUploadState(persistenceKey);
+    if (!savedState) return;
+
+    // Check if there are interrupted uploads (pending or uploading status)
+    const interrupted = savedState.images.filter(
+      img => img.status === 'pending' || img.status === 'uploading'
+    );
+
+    if (interrupted.length > 0) {
+      console.log(`[useImageUpload] Found ${interrupted.length} interrupted uploads`);
+      setInterruptedUploads(savedState);
+      setShowResumeDialog(true);
+    } else {
+      // No interrupted uploads, clear old state
+      clearUploadState(persistenceKey);
+    }
+  }, [persistenceKey]);
 
   /**
    * Sync initialImages to state when they change (for edit mode)
@@ -181,6 +288,7 @@ export function useImageUpload(options = {}) {
           caption: '',
           order: 0,
           dimensions: null,
+          retryCount: 0,
         };
       })
     );
@@ -203,6 +311,174 @@ export function useImageUpload(options = {}) {
   }, [generateId, onError]);
 
   /**
+   * Upload single image with retry logic
+   */
+  const uploadSingleImage = useCallback(async (image) => {
+    const retryCount = image.retryCount || 0;
+
+    try {
+      // Update status to uploading
+      setImages(prev => prev.map(img =>
+        img.id === image.id ? { ...img, status: 'uploading', progress: 0 } : img
+      ));
+
+      // Save state to localStorage before upload
+      if (persistenceKey) {
+        setImages(prev => {
+          saveUploadState(persistenceKey, prev, queue);
+          return prev;
+        });
+      }
+
+      // Compress if enabled
+      let fileToUpload = image.file;
+      if (compressImages && image.file) {
+        console.log(`[useImageUpload] Compressing ${image.file.name}...`);
+        fileToUpload = await compressImage(image.file);
+      }
+
+      // Upload to server
+      const formData = new FormData();
+      formData.append('files', fileToUpload);
+
+      const abortController = new AbortController();
+      abortControllersRef.current.set(image.id, abortController);
+
+      // Initialize per-image progress tracking
+      if (!lastProgressRefs.current[image.id]) {
+        lastProgressRefs.current[image.id] = 0;
+      }
+
+      const response = await apiClient.post(endpoint, formData, {
+        signal: abortController.signal,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+
+          // Get last progress for this specific image
+          const lastProgressUpdate = lastProgressRefs.current[image.id] || 0;
+
+          // Guard: Skip if already complete (prevents post-100% updates)
+          if (lastProgressUpdate >= 100) {
+            return;
+          }
+
+          // Bug Fix: Don't update to 100% here - let the completion handler do it
+          // This prevents race condition where progress=100 but status='uploading'
+          // which causes flickering when transitioning to status='complete'
+          if (progress >= 100) {
+            return;
+          }
+
+          // Throttle progress updates to every 5% to reduce re-renders
+          // Always update at 0%
+          if (progress === 0 || progress - lastProgressUpdate >= 5) {
+            lastProgressRefs.current[image.id] = progress;
+            setImages(prev => prev.map(img =>
+              img.id === image.id ? { ...img, progress } : img
+            ));
+          }
+        },
+      });
+
+      abortControllersRef.current.delete(image.id);
+
+      // Extract URL from response
+      const uploadedUrl = response.data?.urls?.[0] || response.data?.url;
+
+      if (!uploadedUrl) {
+        throw new Error('No URL returned from server');
+      }
+
+      console.log(`[useImageUpload] Upload complete: ${uploadedUrl.substring(0, 80)}...`);
+
+      // Update image with remote URL
+      setImages(prev => prev.map(img =>
+        img.id === image.id
+          ? {
+              ...img,
+              remoteUrl: uploadedUrl,
+              status: 'complete',
+              progress: 100,
+              error: null,
+              retryCount: 0,
+            }
+          : img
+      ));
+
+      // Clean up progress tracking for completed upload
+      delete lastProgressRefs.current[image.id];
+
+      // Remove from queue
+      setQueue(prev => prev.filter(id => id !== image.id));
+
+      return true;
+    } catch (err) {
+      console.error(`[useImageUpload] Upload failed for ${image.file?.name}:`, err);
+
+      abortControllersRef.current.delete(image.id);
+      delete lastProgressRefs.current[image.id];
+
+      // Check if cancelled
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        setImages(prev => prev.filter(img => img.id !== image.id));
+        setQueue(prev => prev.filter(id => id !== image.id));
+        return false;
+      }
+
+      // Check if this is a network error that should be retried
+      const isNetworkError =
+        err.code === 'ERR_NETWORK' ||
+        err.code === 'ECONNABORTED' ||
+        err.message?.includes('Network Error') ||
+        err.message?.includes('timeout');
+
+      if (isNetworkError && retryCount < MAX_RETRY_ATTEMPTS) {
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+        console.log(`[useImageUpload] Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
+
+        // Update retry count
+        setImages(prev => prev.map(img =>
+          img.id === image.id
+            ? { ...img, retryCount: retryCount + 1, status: 'pending', error: `Retrying... (attempt ${retryCount + 1})` }
+            : img
+        ));
+
+        // Wait before retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        // Retry the upload
+        const updatedImage = { ...image, retryCount: retryCount + 1 };
+        return await uploadSingleImage(updatedImage);
+      }
+
+      // Update image with error
+      setImages(prev => prev.map(img =>
+        img.id === image.id
+          ? {
+              ...img,
+              status: 'error',
+              error: err.response?.data?.message || err.message || 'Upload failed',
+              progress: 0,
+            }
+          : img
+      ));
+
+      setError(err.message);
+
+      if (onError) {
+        onError(err);
+      }
+
+      return false;
+    }
+  }, [compressImages, endpoint, onError, persistenceKey, queue]);
+
+  /**
    * Process upload queue
    */
   const processQueue = useCallback(async () => {
@@ -223,132 +499,21 @@ export function useImageUpload(options = {}) {
 
     // Upload files (sequential for now, can be made concurrent)
     for (const image of imagesToUpload) {
-      try {
-        // Update status to uploading
-        setImages(prev => prev.map(img =>
-          img.id === image.id ? { ...img, status: 'uploading', progress: 0 } : img
-        ));
-
-        // Compress if enabled
-        let fileToUpload = image.file;
-        if (compressImages) {
-          console.log(`[useImageUpload] Compressing ${image.file.name}...`);
-          fileToUpload = await compressImage(image.file);
-        }
-
-        // Upload to server
-        const formData = new FormData();
-        formData.append('files', fileToUpload);
-
-        const abortController = new AbortController();
-        abortControllersRef.current.set(image.id, abortController);
-
-        // Initialize per-image progress tracking
-        if (!lastProgressRefs.current[image.id]) {
-          lastProgressRefs.current[image.id] = 0;
-        }
-
-        const response = await apiClient.post(endpoint, formData, {
-          signal: abortController.signal,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            const progress = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-
-            // Get last progress for this specific image
-            const lastProgressUpdate = lastProgressRefs.current[image.id] || 0;
-
-            // Guard: Skip if already complete (prevents post-100% updates)
-            if (lastProgressUpdate >= 100) {
-              return;
-            }
-
-            // Bug Fix: Don't update to 100% here - let the completion handler do it
-            // This prevents race condition where progress=100 but status='uploading'
-            // which causes flickering when transitioning to status='complete'
-            if (progress >= 100) {
-              return;
-            }
-
-            // Throttle progress updates to every 5% to reduce re-renders
-            // Always update at 0%
-            if (progress === 0 || progress - lastProgressUpdate >= 5) {
-              lastProgressRefs.current[image.id] = progress;
-              setImages(prev => prev.map(img =>
-                img.id === image.id ? { ...img, progress } : img
-              ));
-            }
-          },
-        });
-
-        abortControllersRef.current.delete(image.id);
-
-        // Extract URL from response
-        const uploadedUrl = response.data?.urls?.[0] || response.data?.url;
-
-        if (!uploadedUrl) {
-          throw new Error('No URL returned from server');
-        }
-
-        console.log(`[useImageUpload] Upload complete: ${uploadedUrl.substring(0, 80)}...`);
-
-        // Update image with remote URL
-        setImages(prev => prev.map(img =>
-          img.id === image.id
-            ? {
-                ...img,
-                remoteUrl: uploadedUrl,
-                status: 'complete',
-                progress: 100,
-                error: null,
-              }
-            : img
-        ));
-
-        // Clean up progress tracking for completed upload
-        delete lastProgressRefs.current[image.id];
-
-        // Remove from queue
-        setQueue(prev => prev.filter(id => id !== image.id));
-
-      } catch (err) {
-        console.error(`[useImageUpload] Upload failed for ${image.file.name}:`, err);
-
-        abortControllersRef.current.delete(image.id);
-        delete lastProgressRefs.current[image.id];
-
-        // Check if cancelled
-        if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-          setImages(prev => prev.filter(img => img.id !== image.id));
-          setQueue(prev => prev.filter(id => id !== image.id));
-          continue;
-        }
-
-        // Update image with error
-        setImages(prev => prev.map(img =>
-          img.id === image.id
-            ? {
-                ...img,
-                status: 'error',
-                error: err.response?.data?.message || err.message || 'Upload failed',
-                progress: 0,
-              }
-            : img
-        ));
-
-        setError(err.message);
-
-        if (onError) {
-          onError(err);
-        }
-      }
+      await uploadSingleImage(image);
     }
 
     setIsUploading(false);
     console.log('[useImageUpload] Queue processing complete');
+
+    // Clear localStorage when all uploads are complete
+    if (persistenceKey) {
+      const allComplete = images.every(img =>
+        img.status === 'complete' || !queue.includes(img.id)
+      );
+      if (allComplete) {
+        clearUploadState(persistenceKey);
+      }
+    }
 
     // Call onSuccess if all uploads completed
     const allComplete = images.every(img =>
@@ -360,7 +525,7 @@ export function useImageUpload(options = {}) {
       onSuccess(completedImages);
     }
 
-  }, [isUploading, images, queue, compressImages, endpoint, onSuccess, onError]);
+  }, [isUploading, images, queue, uploadSingleImage, persistenceKey, onSuccess]);
 
   /**
    * Auto-process queue when items are added
@@ -594,12 +759,69 @@ export function useImageUpload(options = {}) {
     }));
   }, []);
 
+  /**
+   * Resume interrupted uploads
+   */
+  const resumeInterruptedUploads = useCallback(() => {
+    if (!interruptedUploads) return;
+
+    console.log('[useImageUpload] Resuming interrupted uploads');
+
+    // Note: We can't restore File objects from localStorage
+    // So we convert interrupted uploads to error state with a helpful message
+    const restoredImages = interruptedUploads.images.map(img => ({
+      ...img,
+      file: null,
+      status: img.status === 'complete' ? 'complete' : 'error',
+      error: img.status !== 'complete'
+        ? 'Upload interrupted. Please re-add the file to upload.'
+        : null,
+    }));
+
+    setImages(prev => {
+      // Merge with existing images, avoiding duplicates
+      const existingIds = new Set(prev.map(img => img.id));
+      const newImages = restoredImages.filter(img => !existingIds.has(img.id));
+      return [...prev, ...newImages];
+    });
+
+    setQueue(prev => {
+      const newQueue = interruptedUploads.queue.filter(id =>
+        !prev.includes(id) &&
+        restoredImages.find(img => img.id === id)?.status === 'pending'
+      );
+      return [...prev, ...newQueue];
+    });
+
+    setShowResumeDialog(false);
+    setInterruptedUploads(null);
+
+    if (persistenceKey) {
+      clearUploadState(persistenceKey);
+    }
+  }, [interruptedUploads, persistenceKey]);
+
+  /**
+   * Dismiss interrupted uploads dialog
+   */
+  const dismissInterruptedUploads = useCallback(() => {
+    console.log('[useImageUpload] Dismissing interrupted uploads');
+    setShowResumeDialog(false);
+    setInterruptedUploads(null);
+
+    if (persistenceKey) {
+      clearUploadState(persistenceKey);
+    }
+  }, [persistenceKey]);
+
   return {
     // State
     images,
     queue,
     isUploading,
     error,
+    interruptedUploads,
+    showResumeDialog,
 
     // Methods
     uploadFiles,
@@ -613,6 +835,8 @@ export function useImageUpload(options = {}) {
     updateCaption,
     clearAll,
     getCompletedImages,
+    resumeInterruptedUploads,
+    dismissInterruptedUploads,
 
     // Bulk operations
     bulkDelete,
