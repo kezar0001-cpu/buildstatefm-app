@@ -4,6 +4,7 @@ import { useImageUpload } from '../hooks';
 import { ImageUploadZone } from './ImageUploadZone';
 import { ImageGallery } from './ImageGallery';
 import { UploadQueue } from './UploadQueue';
+import { ResumeUploadsDialog } from './ResumeUploadsDialog';
 
 /**
  * Complete unit image management component
@@ -53,11 +54,16 @@ export function UnitImageManager({
     completedCount,
     errorCount,
     pendingCount,
+    interruptedUploads,
+    showResumeDialog,
+    resumeInterruptedUploads,
+    dismissInterruptedUploads,
   } = useImageUpload({
     endpoint: '/upload/multiple',
     compressImages: true,
     maxConcurrent: 3,
     initialImages: preparedInitialImages,
+    storageKey: unitName ? `unit_${unitName}` : 'unit_default',
     onSuccess: (completedImages) => {
       console.log('[UnitImageManager] All uploads complete:', completedImages.length);
     },
@@ -192,8 +198,33 @@ export function UnitImageManager({
     }
   }, [clearAll, disabled]);
 
+  /**
+   * Handle resume failed uploads
+   */
+  const handleResumeUploads = useCallback(() => {
+    if (disabled) return;
+    // Retry all failed uploads
+    const failedImages = images.filter(img => img.status === 'error');
+    failedImages.forEach(img => retryUpload(img.id));
+  }, [images, retryUpload, disabled]);
+
+  // Count interrupted uploads for dialog
+  const interruptedCount = interruptedUploads
+    ? interruptedUploads.images.filter(
+        img => img.status === 'pending' || img.status === 'uploading'
+      ).length
+    : 0;
+
   return (
     <Box>
+      {/* Resume Interrupted Uploads Dialog */}
+      <ResumeUploadsDialog
+        open={showResumeDialog}
+        interruptedCount={interruptedCount}
+        onResume={resumeInterruptedUploads}
+        onDismiss={dismissInterruptedUploads}
+      />
+
       {/* Upload Zone */}
       <ImageUploadZone
         onFilesSelected={handleFilesSelected}
@@ -209,6 +240,7 @@ export function UnitImageManager({
       <UploadQueue
         images={images}
         isUploading={isUploading}
+        onResumeUploads={handleResumeUploads}
         compact={true}
       />
 
