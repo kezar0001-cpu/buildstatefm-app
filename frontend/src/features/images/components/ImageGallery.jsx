@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Grid, Box, Typography, Button, Alert, Paper, Toolbar, IconButton, Tooltip } from '@mui/material';
+import { Grid, Box, Typography, Button, Alert, Paper, Toolbar, IconButton, Tooltip, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SelectAllIcon from '@mui/icons-material/SelectAll';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import ReorderIcon from '@mui/icons-material/Reorder';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { ImageCard } from './ImageCard';
 
 /**
@@ -23,6 +24,7 @@ export function ImageGallery({
   onSetCover,
   onRetry,
   onUpdateCaption,
+  onUpdateCategory,
   onReorder,
   onClearAll,
   onBulkDelete,
@@ -35,6 +37,12 @@ export function ImageGallery({
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+
+  // Filter images by category
+  const filteredImages = categoryFilter === 'ALL'
+    ? images
+    : images.filter(img => img.category === categoryFilter);
 
   const hasImages = images.length > 0;
   const hasErrors = images.some(img => img.status === 'error');
@@ -310,15 +318,36 @@ export function ImageGallery({
           justifyContent: 'space-between',
           alignItems: 'center',
           mb: 2,
+          gap: 2,
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {images.length} image{images.length !== 1 ? 's' : ''}
+          {filteredImages.length} of {images.length} image{images.length !== 1 ? 's' : ''}
           {allowReordering && !selectionMode && ' (drag to reorder)'}
           {selectionMode && ' (selection mode)'}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* Category Filter */}
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel id="category-filter-label">Category</InputLabel>
+            <Select
+              labelId="category-filter-label"
+              id="category-filter"
+              value={categoryFilter}
+              label="Category"
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <MenuItem value="ALL">All Categories</MenuItem>
+              <MenuItem value="EXTERIOR">Exterior</MenuItem>
+              <MenuItem value="INTERIOR">Interior</MenuItem>
+              <MenuItem value="KITCHEN">Kitchen</MenuItem>
+              <MenuItem value="BATHROOM">Bathroom</MenuItem>
+              <MenuItem value="BEDROOM">Bedroom</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
+            </Select>
+          </FormControl>
+
           {enableBulkOperations && !selectionMode && (
             <Button
               size="small"
@@ -345,7 +374,7 @@ export function ImageGallery({
 
       {/* Image Grid */}
       <Grid container spacing={2}>
-        {images.map((image, index) => (
+        {filteredImages.map((image, index) => (
           <Grid
             item
             xs={12}
@@ -369,6 +398,7 @@ export function ImageGallery({
               onSetCover={onSetCover}
               onRetry={onRetry}
               onUpdateCaption={onUpdateCaption}
+              onUpdateCategory={onUpdateCategory}
               allowCaptions={allowCaptions}
               draggable={allowReordering && !selectionMode}
               onDragStart={allowReordering && !selectionMode ? handleDragStart(index) : undefined}

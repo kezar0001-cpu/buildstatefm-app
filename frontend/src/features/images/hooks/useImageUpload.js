@@ -29,6 +29,7 @@ const saveUploadState = (key, images, queue) => {
         error: img.error,
         isPrimary: img.isPrimary,
         caption: img.caption,
+        category: img.category,
         order: img.order,
         dimensions: img.dimensions,
         retryCount: img.retryCount || 0,
@@ -121,6 +122,7 @@ export function useImageUpload(options = {}) {
         error: null,
         isPrimary: img.isPrimary || false,
         caption: img.altText || img.caption || '',
+        category: img.category || 'OTHER',
         order: img.order !== undefined ? img.order : index,
         dimensions: img.dimensions || null,
         retryCount: 0,
@@ -342,6 +344,7 @@ export function useImageUpload(options = {}) {
           error: null,
           isPrimary: false,
           caption: '',
+          category: 'OTHER',
           order: 0,
           dimensions: null,
           retryCount: 0,
@@ -785,6 +788,15 @@ export function useImageUpload(options = {}) {
   }, []);
 
   /**
+   * Update image category
+   */
+  const updateCategory = useCallback((imageId, category) => {
+    setImages(prev => prev.map(img =>
+      img.id === imageId ? { ...img, category } : img
+    ));
+  }, []);
+
+  /**
    * Clear all images
    */
   const clearAll = useCallback(() => {
@@ -1028,6 +1040,7 @@ export function useImageUpload(options = {}) {
     setCoverImage,
     reorderImages,
     updateCaption,
+    updateCategory,
     clearAll,
     getCompletedImages,
     resumeInterruptedUploads,

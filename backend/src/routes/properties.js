@@ -771,11 +771,13 @@ const propertyImageCreateSchema = z
     caption: optionalString(),
     altText: optionalString(),
     isPrimary: booleanLike().optional(),
+    category: z.enum(['EXTERIOR', 'INTERIOR', 'KITCHEN', 'BATHROOM', 'BEDROOM', 'OTHER']).optional(),
   })
   .transform((data) => ({
     imageUrl: data.imageUrl,
     caption: data.caption !== undefined ? data.caption : data.altText ?? null,
     isPrimary: data.isPrimary,
+    category: data.category ?? 'OTHER',
   }));
 
 const determineNewImagePrimaryFlag = (requestedIsPrimary, { hasExistingImages, hasExistingPrimary } = {}) => {
@@ -799,8 +801,9 @@ const propertyImageUpdateSchema = z
     caption: optionalString(),
     altText: optionalString(),
     isPrimary: booleanLike().optional(),
+    category: z.enum(['EXTERIOR', 'INTERIOR', 'KITCHEN', 'BATHROOM', 'BEDROOM', 'OTHER']).optional(),
   })
-  .refine((data) => data.caption !== undefined || data.altText !== undefined || data.isPrimary !== undefined, {
+  .refine((data) => data.caption !== undefined || data.altText !== undefined || data.isPrimary !== undefined || data.category !== undefined, {
     message: 'No updates provided',
   })
   .transform((data) => ({
@@ -811,6 +814,7 @@ const propertyImageUpdateSchema = z
           ? data.altText
           : undefined,
     isPrimary: data.isPrimary,
+    category: data.category,
   }));
 
 const propertyImageReorderSchema = z.object({
@@ -2124,6 +2128,7 @@ propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload,
           propertyId,
           imageUrl: parsed.imageUrl,
           caption: parsed.caption ?? null,
+          category: parsed.category ?? 'OTHER',
           isPrimary: shouldBePrimary,
           displayOrder: nextDisplayOrder,
           uploadedById: req.user.id,
@@ -2199,6 +2204,7 @@ propertyImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), async (
       const updateData = {};
       if (parsed.caption !== undefined) updateData.caption = parsed.caption ?? null;
       if (parsed.isPrimary !== undefined) updateData.isPrimary = parsed.isPrimary;
+      if (parsed.category !== undefined) updateData.category = parsed.category;
 
       const result = await tx.propertyImage.update({
         where: { id: imageId },

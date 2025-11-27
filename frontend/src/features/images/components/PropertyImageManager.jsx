@@ -50,6 +50,7 @@ export function PropertyImageManager({
     retryUpload,
     reorderImages,
     updateCaption,
+    updateCategory,
     clearAll,
     getCompletedImages,
     completedCount,
@@ -195,6 +196,14 @@ export function PropertyImageManager({
   }, [updateCaption, disabled]);
 
   /**
+   * Handle category update
+   */
+  const handleUpdateCategory = useCallback((imageId, category) => {
+    if (disabled) return;
+    updateCategory(imageId, category);
+  }, [updateCategory, disabled]);
+
+  /**
    * Handle clear all
    */
   const handleClearAll = useCallback(() => {
@@ -280,6 +289,7 @@ export function PropertyImageManager({
         onSetCover={handleSetCover}
         onRetry={handleRetry}
         onUpdateCaption={handleUpdateCaption}
+        onUpdateCategory={handleUpdateCategory}
         onReorder={reorderImages}
         onClearAll={images.length > 0 ? handleClearAll : null}
         allowCaptions={allowCaptions}

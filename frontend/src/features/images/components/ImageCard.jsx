@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import {
   Card,
   CardMedia,
@@ -14,6 +14,10 @@ import {
   Typography,
   alpha,
   Checkbox,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StarIcon from '@mui/icons-material/Star';
@@ -42,6 +46,7 @@ const ImageCard = memo(function ImageCard({
   onSetCover,
   onRetry,
   onUpdateCaption,
+  onUpdateCategory,
   allowCaptions = false,
   draggable = true,
   onDragStart,
@@ -52,7 +57,14 @@ const ImageCard = memo(function ImageCard({
   selectionMode = false,
 }) {
   const [captionValue, setCaptionValue] = useState(image.caption || '');
+  const [categoryValue, setCategoryValue] = useState(image.category || 'OTHER');
   const [isCaptionFocused, setIsCaptionFocused] = useState(false);
+
+  // Sync local state when image prop changes
+  useEffect(() => {
+    setCaptionValue(image.caption || '');
+    setCategoryValue(image.category || 'OTHER');
+  }, [image.caption, image.category]);
 
   const {
     id,
@@ -92,6 +104,17 @@ const ImageCard = memo(function ImageCard({
   const handleCaptionKeyPress = (e) => {
     if (e.key === 'Enter') {
       e.target.blur();
+    }
+  };
+
+  /**
+   * Handle category change
+   */
+  const handleCategoryChange = (e) => {
+    const newCategory = e.target.value;
+    setCategoryValue(newCategory);
+    if (onUpdateCategory) {
+      onUpdateCategory(id, newCategory);
     }
   };
 
@@ -323,9 +346,28 @@ const ImageCard = memo(function ImageCard({
         )}
       </Box>
 
-      {/* Caption Input */}
+      {/* Caption Input and Category Selector */}
       {allowCaptions && (
         <CardContent sx={{ flexGrow: 1, pt: 1, pb: 1 }}>
+          <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+            <InputLabel id={`category-label-${id}`}>Category</InputLabel>
+            <Select
+              labelId={`category-label-${id}`}
+              id={`category-select-${id}`}
+              value={categoryValue}
+              label="Category"
+              onChange={handleCategoryChange}
+              disabled={isUploading}
+              size="small"
+            >
+              <MenuItem value="EXTERIOR">Exterior</MenuItem>
+              <MenuItem value="INTERIOR">Interior</MenuItem>
+              <MenuItem value="KITCHEN">Kitchen</MenuItem>
+              <MenuItem value="BATHROOM">Bathroom</MenuItem>
+              <MenuItem value="BEDROOM">Bedroom</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             fullWidth
             size="small"

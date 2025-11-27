@@ -182,20 +182,22 @@ model Property {
 }
 
 model PropertyImage {
-  id           String   @id @default(cuid())
+  id           String                 @id @default(cuid())
   propertyId   String
   imageUrl     String
   caption      String?
-  isPrimary    Boolean  @default(false)
-  displayOrder Int      @default(0)
+  category     PropertyImageCategory  @default(OTHER)
+  isPrimary    Boolean                @default(false)
+  displayOrder Int                    @default(0)
   uploadedById String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
   @@index([displayOrder])
+  @@index([category])
 }
 
 model PropertyDocument {
@@ -1176,4 +1178,13 @@ enum RecurrenceFrequency {
   MONTHLY
   QUARTERLY
   YEARLY
+}
+
+enum PropertyImageCategory {
+  EXTERIOR
+  INTERIOR
+  KITCHEN
+  BATHROOM
+  BEDROOM
+  OTHER
 }
