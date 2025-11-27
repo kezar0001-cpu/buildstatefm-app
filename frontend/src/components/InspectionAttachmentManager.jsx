@@ -1,80 +1,92 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
+import { Box, Typography, Divider, Alert } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
-import AttachmentUploader from './AttachmentUploader';
-import AttachmentList from './AttachmentList';
+import { useImageUpload } from '../features/images/hooks';
+import { ImageUploadZone } from '../features/images/components/ImageUploadZone';
+import { ImageGallery } from '../features/images/components/ImageGallery';
+import { UploadQueue } from '../features/images/components/UploadQueue';
 
-function isImageAttachment(attachment) {
-  return attachment.mimeType?.startsWith('image/');
-}
-
-function isVideoAttachment(attachment) {
-  return attachment.mimeType?.startsWith('video/');
-}
-
-const defaultAnnotation = (attachment) => {
-  if (attachment?.annotations && typeof attachment.annotations === 'object') {
-    return attachment.annotations;
-  }
-  return { note: '' };
-};
-
+/**
+ * Modern inspection attachment manager with auto-upload
+ *
+ * Integrates:
+ * - Auto-upload on file selection (no manual "Upload" button)
+ * - Visual preview thumbnails before upload
+ * - Upload progress tracking
+ * - Optimistic UI
+ * - Annotation support for uploaded attachments
+ *
+ * This component uses the useImageUpload hook for a consistent
+ * upload experience matching PropertyImageManager.
+ */
 const InspectionAttachmentManager = ({ inspectionId, attachments = [], canEdit = false }) => {
   const queryClient = useQueryClient();
-  const [pendingFiles, setPendingFiles] = useState([]);
-  const [annotationDrafts, setAnnotationDrafts] = useState(() => {
-    const entries = attachments.map((attachment) => [attachment.id, defaultAnnotation(attachment).note || '']);
-    return Object.fromEntries(entries);
-  });
 
-  useEffect(() => {
-    setAnnotationDrafts((prev) => {
-      const next = { ...prev };
-      attachments.forEach((attachment) => {
-        if (!(attachment.id in next)) {
-          next[attachment.id] = defaultAnnotation(attachment).note || '';
-        }
-      });
-      Object.keys(next).forEach((key) => {
-        if (!attachments.find((attachment) => attachment.id === key)) {
-          delete next[key];
-        }
-      });
-      return next;
-    });
+  // Bug Fix: Track initial mount to prevent spurious API calls
+  const isInitialMount = useRef(true);
+  const previousCompletedSnapshotRef = useRef('');
+
+  // Filter existing attachments to only images
+  const existingImages = useMemo(() => {
+    return attachments
+      .filter(att => att.mimeType?.startsWith('image/'))
+      .map((att, index) => ({
+        id: att.id,
+        url: att.url,
+        imageUrl: att.url,
+        remoteUrl: att.url,
+        caption: att.annotations?.note || '',
+        isPrimary: false,
+        order: index,
+      }));
   }, [attachments]);
 
-  const uploadMutation = useMutation({
-    mutationFn: async (files) => {
-      const formData = new FormData();
-      files.forEach((file) => formData.append('files', file));
-      const uploadResponse = await apiClient.post('/upload/multiple', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+  // Use the useImageUpload hook for auto-upload functionality
+  const {
+    images,
+    isUploading,
+    error,
+    uploadFiles,
+    removeImage,
+    updateCaption,
+    retryUpload,
+    getCompletedImages,
+    completedCount,
+    errorCount,
+  } = useImageUpload({
+    endpoint: '/upload/multiple',
+    compressImages: true,
+    maxConcurrent: 3,
+    initialImages: existingImages,
+    onSuccess: (completedImages) => {
+      console.log('[InspectionAttachmentManager] All uploads complete:', completedImages.length);
+    },
+    onError: (err) => {
+      console.error('[InspectionAttachmentManager] Upload error:', err);
+    },
+  });
 
-      const urls = uploadResponse.data?.urls || [];
-      if (!urls.length) {
-        throw new Error('Upload failed');
-      }
-
-      const payload = urls.map((url, index) => ({
-        url,
-        name: files[index].name,
-        mimeType: files[index].type || 'application/octet-stream',
-        size: files[index].size,
-        annotations: { note: '' },
+  // Mutation to save uploaded attachments to the inspection
+  const saveAttachmentsMutation = useMutation({
+    mutationFn: async (attachmentsToSave) => {
+      const payload = attachmentsToSave.map(img => ({
+        url: img.imageUrl,
+        name: img.file?.name || 'image.jpg',
+        mimeType: img.file?.type || 'image/jpeg',
+        size: img.file?.size || 0,
+        annotations: { note: img.caption || '' },
       }));
 
       await apiClient.post(`/inspections/${inspectionId}/attachments`, { attachments: payload });
     },
     onSuccess: () => {
-      setPendingFiles([]);
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.detail(inspectionId) });
     },
   });
 
+  // Mutation to update attachment annotations
   const updateAnnotationMutation = useMutation({
     mutationFn: async ({ attachmentId, note }) => {
       await apiClient.patch(`/inspections/${inspectionId}/attachments/${attachmentId}`, {
@@ -86,6 +98,7 @@ const InspectionAttachmentManager = ({ inspectionId, attachments = [], canEdit =
     },
   });
 
+  // Mutation to delete attachments
   const deleteMutation = useMutation({
     mutationFn: async (attachmentId) => {
       await apiClient.delete(`/inspections/${inspectionId}/attachments/${attachmentId}`);
@@ -95,66 +108,175 @@ const InspectionAttachmentManager = ({ inspectionId, attachments = [], canEdit =
     },
   });
 
-  const handleFileChange = (event) => {
-    if (!event.target.files) return;
-    setPendingFiles(Array.from(event.target.files));
-  };
+  /**
+   * Memoize completed images to prevent unnecessary re-renders
+   */
+  const completedImages = useMemo(() => {
+    return getCompletedImages();
+  }, [getCompletedImages]);
 
-  const handleUpload = () => {
-    if (!pendingFiles.length) return;
-    uploadMutation.mutate(pendingFiles);
-  };
-
-  const handleAnnotationChange = (attachmentId, value) => {
-    setAnnotationDrafts((prev) => ({ ...prev, [attachmentId]: value }));
-  };
-
-  const handleAnnotationSave = (attachmentId) => {
-    const note = annotationDrafts[attachmentId] ?? '';
-    updateAnnotationMutation.mutate({ attachmentId, note });
-  };
-
-  const groupedAttachments = useMemo(() => {
-    return attachments.reduce(
-      (acc, attachment) => {
-        if (isImageAttachment(attachment)) {
-          acc.images.push(attachment);
-        } else if (isVideoAttachment(attachment)) {
-          acc.videos.push(attachment);
-        } else {
-          acc.documents.push(attachment);
-        }
-        return acc;
-      },
-      { images: [], videos: [], documents: [] },
+  /**
+   * Serialize completed images for comparison
+   */
+  const serializedCompleted = useMemo(() => {
+    return JSON.stringify(
+      completedImages.map((img) => ({
+        imageUrl: img.imageUrl ?? '',
+        caption: img.caption ?? '',
+      }))
     );
-  }, [attachments]);
+  }, [completedImages]);
+
+  /**
+   * Auto-save newly completed uploads to the inspection
+   * Only save new uploads, not existing attachments
+   */
+  useEffect(() => {
+    // Skip initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      previousCompletedSnapshotRef.current = serializedCompleted;
+      return;
+    }
+
+    // Only save if completed images actually changed
+    if (serializedCompleted === previousCompletedSnapshotRef.current) {
+      return;
+    }
+
+    previousCompletedSnapshotRef.current = serializedCompleted;
+
+    // Find newly uploaded images (ones that don't exist in attachments yet)
+    const newImages = completedImages.filter(img => {
+      // If it has a file object, it's a new upload
+      return img.file !== null && img.file !== undefined;
+    });
+
+    // Only save if there are new images to save
+    if (newImages.length > 0 && !isUploading) {
+      console.log('[InspectionAttachmentManager] Auto-saving', newImages.length, 'new uploads');
+      saveAttachmentsMutation.mutate(newImages);
+    }
+  }, [serializedCompleted, completedImages, isUploading, saveAttachmentsMutation]);
+
+  /**
+   * Handle file selection - auto-upload immediately
+   */
+  const handleFilesSelected = useCallback((files) => {
+    if (!canEdit) return;
+
+    // Filter to only image files
+    const imageFiles = Array.from(files).filter(file =>
+      file.type.startsWith('image/')
+    );
+
+    if (imageFiles.length > 0) {
+      uploadFiles(imageFiles);
+    }
+
+    // Show warning if non-image files were selected
+    if (imageFiles.length < files.length) {
+      console.warn('[InspectionAttachmentManager] Only image files are supported with auto-upload');
+    }
+  }, [uploadFiles, canEdit]);
+
+  /**
+   * Handle delete - for existing attachments, call API; for new uploads, just remove from state
+   */
+  const handleDelete = useCallback((imageId) => {
+    if (!canEdit) return;
+
+    // Check if this is an existing attachment (has string ID from backend)
+    const existingAttachment = attachments.find(att => att.id === imageId);
+
+    if (existingAttachment) {
+      // Delete from backend
+      deleteMutation.mutate(imageId);
+    } else {
+      // Just remove from local state (not saved yet)
+      removeImage(imageId);
+    }
+  }, [removeImage, deleteMutation, canEdit, attachments]);
+
+  /**
+   * Handle caption update
+   */
+  const handleUpdateCaption = useCallback((imageId, caption) => {
+    if (!canEdit) return;
+
+    // Update local state
+    updateCaption(imageId, caption);
+
+    // Check if this is an existing attachment
+    const existingAttachment = attachments.find(att => att.id === imageId);
+
+    if (existingAttachment) {
+      // Update on backend
+      updateAnnotationMutation.mutate({ attachmentId: imageId, note: caption });
+    }
+  }, [updateCaption, updateAnnotationMutation, canEdit, attachments]);
+
+  /**
+   * Handle retry
+   */
+  const handleRetry = useCallback((imageId) => {
+    if (!canEdit) return;
+    retryUpload(imageId);
+  }, [retryUpload, canEdit]);
 
   return (
     <Box>
+      {/* Upload Zone - Only show if user can edit */}
       {canEdit && (
-        <AttachmentUploader
-          pendingFiles={pendingFiles}
-          onFileChange={handleFileChange}
-          onUpload={handleUpload}
-          isUploading={uploadMutation.isPending}
-        />
+        <>
+          <ImageUploadZone
+            onFilesSelected={handleFilesSelected}
+            accept="image/*"
+            multiple={true}
+            maxFiles={50}
+            disabled={false}
+          />
+          <Divider sx={{ my: 3 }} />
+        </>
       )}
 
-      {!attachments.length ? (
+      {/* Upload Queue - Compact View */}
+      <UploadQueue
+        images={images}
+        isUploading={isUploading}
+        compact={true}
+      />
+
+      {/* Error Alert */}
+      {error && !isUploading && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Success Summary */}
+      {completedCount > 0 && !isUploading && errorCount === 0 && saveAttachmentsMutation.isSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Successfully uploaded {completedCount} image{completedCount !== 1 ? 's' : ''}
+        </Alert>
+      )}
+
+      {/* Image Gallery */}
+      {images.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No attachments uploaded yet.
+          No images uploaded yet.
         </Typography>
       ) : (
-        <AttachmentList
-          attachments={groupedAttachments}
-          canEdit={canEdit}
-          annotationDrafts={annotationDrafts}
-          onAnnotationChange={handleAnnotationChange}
-          onAnnotationSave={handleAnnotationSave}
-          onDelete={deleteMutation.mutate}
-          isUpdating={updateAnnotationMutation.isPending}
-          isDeleting={deleteMutation.isPending}
+        <ImageGallery
+          images={images}
+          onDelete={handleDelete}
+          onSetCover={null} // Inspections don't have cover images
+          onRetry={handleRetry}
+          onUpdateCaption={handleUpdateCaption}
+          onReorder={null} // Disable reordering for now
+          onClearAll={null} // Disable clear all for now
+          allowCaptions={true}
+          allowReordering={false}
         />
       )}
     </Box>
