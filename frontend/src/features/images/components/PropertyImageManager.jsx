@@ -251,12 +251,12 @@ export function PropertyImageManager({
 
       <Divider sx={{ my: 3 }} />
 
-      {/* Upload Queue - Compact View */}
+      {/* Upload Queue - Expanded View by default */}
       <UploadQueue
         images={images}
         isUploading={isUploading}
         onResumeUploads={handleResumeUploads}
-        compact={true}
+        compact={false}
       />
 
       {/* Error Alert */}
