@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import pLimit from 'p-limit';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
-import { expandUploadQueue } from '../components/UploadQueue';
 import apiClient from '../../../api/client';
 
 // LocalStorage keys
@@ -533,44 +533,13 @@ export function useImageUpload(options = {}) {
       ));
 
       const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
-
-      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`);
-
       setError(errorMessage);
 
-      // Show error toast with "View Details" button
-      const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
-      toast.error(
-        (t) => (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ flex: 1 }}>
-              {`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`}
-            </span>
-            <button
-              onClick={() => {
-                expandUploadQueue();
-                toast.dismiss(t.id);
-              }}
-              style={{
-                background: '#fff',
-                color: '#f44336',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '13px',
-              }}
-            >
-              View Details
-            </button>
-          </div>
-        ),
-        {
-          duration: 6000,
-          icon: '❌',
-        }
-      );
+      // Show error toast
+      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`, {
+        duration: 6000,
+        icon: '❌',
+      });
 
       if (onError) {
         onError(err);
@@ -581,7 +550,7 @@ export function useImageUpload(options = {}) {
   }, [compressImages, endpoint, onError, persistenceKey, queue]);
 
   /**
-   * Process upload queue
+   * Process upload queue with concurrent uploads
    */
   const processQueue = useCallback(async () => {
     if (isUploading) return;
@@ -599,10 +568,17 @@ export function useImageUpload(options = {}) {
       return;
     }
 
-    // Upload files (sequential for now, can be made concurrent)
-    for (const image of imagesToUpload) {
-      await uploadSingleImage(image);
-    }
+    // Upload files concurrently with rate limiting
+    console.log(`[useImageUpload] Uploading ${imagesToUpload.length} files with maxConcurrent=${maxConcurrent}`);
+    const limit = pLimit(maxConcurrent);
+
+    // Create array of limited upload promises
+    const uploadPromises = imagesToUpload.map(image =>
+      limit(() => uploadSingleImage(image))
+    );
+
+    // Wait for all uploads to complete
+    await Promise.all(uploadPromises);
 
     setIsUploading(false);
     console.log('[useImageUpload] Queue processing complete');
@@ -643,7 +619,7 @@ export function useImageUpload(options = {}) {
       }
     }
 
-  }, [isUploading, images, queue, uploadSingleImage, persistenceKey, onSuccess]);
+  }, [isUploading, images, queue, uploadSingleImage, persistenceKey, onSuccess, maxConcurrent]);
 
   /**
    * Auto-process queue when items are added
