@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
@@ -523,7 +524,11 @@ export function useImageUpload(options = {}) {
           : img
       ));
 
-      setError(err.message);
+      const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
+
+      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`);
+
+      setError(errorMessage);
 
       if (onError) {
         onError(err);
