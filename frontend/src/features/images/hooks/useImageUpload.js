@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
+import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
 import apiClient from '../../../api/client';
 
 // LocalStorage keys
@@ -29,6 +30,7 @@ const saveUploadState = (key, images, queue) => {
         order: img.order,
         dimensions: img.dimensions,
         retryCount: img.retryCount || 0,
+        hash: img.hash,
       })),
       queue,
       timestamp: Date.now(),
@@ -129,6 +131,8 @@ export function useImageUpload(options = {}) {
   const [error, setError] = useState(null);
   const [interruptedUploads, setInterruptedUploads] = useState(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [duplicateData, setDuplicateData] = useState(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
 
   // Refs
   const uploadCounterRef = useRef(0);
@@ -243,7 +247,7 @@ export function useImageUpload(options = {}) {
   }, []);
 
   /**
-   * Add files to upload queue
+   * Add files to upload queue with duplicate detection
    */
   const addFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
@@ -270,9 +274,59 @@ export function useImageUpload(options = {}) {
 
     if (valid.length === 0) return;
 
-    // Create image objects with previews
+    // Compute hashes for all valid files
+    console.log('[useImageUpload] Computing file hashes...');
+    const fileHashMap = await computeFileHashes(valid);
+
+    // Get existing hashes from current images
+    const existingHashes = images
+      .filter(img => img.hash)
+      .map(img => img.hash);
+
+    // Find duplicates
+    const { duplicates, unique } = findDuplicates(fileHashMap, existingHashes);
+
+    // If duplicates found, show dialog
+    if (duplicates.length > 0) {
+      console.log(`[useImageUpload] Found ${duplicates.length} duplicate files`);
+
+      // Find matching image info for duplicates
+      const duplicateInfo = duplicates.map(({ file, hash }) => {
+        const existingImage = images.find(img => img.hash === hash);
+        return {
+          file,
+          hash,
+          existingFileName: existingImage?.file?.name || 'uploaded file',
+          existingImage,
+        };
+      });
+
+      // Store data for dialog
+      setDuplicateData({
+        duplicates: duplicateInfo,
+        uniqueFiles: unique,
+        allFiles: valid,
+      });
+      setShowDuplicateDialog(true);
+
+      return; // Wait for user decision
+    }
+
+    // No duplicates, proceed with adding files
+    await addFilesWithHashes(unique);
+  }, [generateId, onError, images]);
+
+  /**
+   * Add files with their computed hashes (internal helper)
+   */
+  const addFilesWithHashes = useCallback(async (filesWithHashes) => {
+    if (!filesWithHashes || filesWithHashes.length === 0) return;
+
+    console.log(`[useImageUpload] Adding ${filesWithHashes.length} files with hashes`);
+
+    // Create image objects with previews and hashes
     const newImages = await Promise.all(
-      valid.map(async (file) => {
+      filesWithHashes.map(async ({ file, hash }) => {
         const id = generateId();
         const preview = await createPreview(file);
 
@@ -289,6 +343,7 @@ export function useImageUpload(options = {}) {
           order: 0,
           dimensions: null,
           retryCount: 0,
+          hash,
         };
       })
     );
@@ -308,7 +363,7 @@ export function useImageUpload(options = {}) {
     setQueue(prev => [...prev, ...newImages.map(img => img.id)]);
 
     console.log(`[useImageUpload] Added ${newImages.length} images to queue`);
-  }, [generateId, onError]);
+  }, [generateId]);
 
   /**
    * Upload single image with retry logic
@@ -814,6 +869,73 @@ export function useImageUpload(options = {}) {
     }
   }, [persistenceKey]);
 
+  /**
+   * Handle duplicate dialog - Skip duplicates
+   */
+  const skipDuplicates = useCallback(async () => {
+    if (!duplicateData) return;
+
+    console.log('[useImageUpload] Skipping duplicates, adding unique files only');
+    setShowDuplicateDialog(false);
+
+    // Add only unique files
+    await addFilesWithHashes(duplicateData.uniqueFiles);
+
+    setDuplicateData(null);
+  }, [duplicateData, addFilesWithHashes]);
+
+  /**
+   * Handle duplicate dialog - Replace duplicates
+   */
+  const replaceDuplicates = useCallback(async () => {
+    if (!duplicateData) return;
+
+    console.log('[useImageUpload] Replacing duplicates with new files');
+    setShowDuplicateDialog(false);
+
+    // Remove existing images that have duplicate hashes
+    const hashesToReplace = new Set(duplicateData.duplicates.map(d => d.hash));
+    const idsToRemove = images
+      .filter(img => img.hash && hashesToReplace.has(img.hash))
+      .map(img => img.id);
+
+    if (idsToRemove.length > 0) {
+      // Cancel any active uploads for these images
+      idsToRemove.forEach(id => {
+        const controller = abortControllersRef.current.get(id);
+        if (controller) {
+          controller.abort();
+        }
+        delete lastProgressRefs.current[id];
+      });
+
+      // Remove from state
+      setImages(prev => prev.filter(img => !idsToRemove.includes(img.id)));
+      setQueue(prev => prev.filter(id => !idsToRemove.includes(id)));
+    }
+
+    // Re-compute hashes for all files (both duplicates and unique)
+    const allFilesWithHashes = await computeFileHashes(duplicateData.allFiles);
+    const filesArray = Array.from(allFilesWithHashes.entries()).map(([file, hash]) => ({
+      file,
+      hash,
+    }));
+
+    // Add all files
+    await addFilesWithHashes(filesArray);
+
+    setDuplicateData(null);
+  }, [duplicateData, images, addFilesWithHashes]);
+
+  /**
+   * Handle duplicate dialog - Cancel
+   */
+  const cancelDuplicateDialog = useCallback(() => {
+    console.log('[useImageUpload] Cancelling duplicate dialog');
+    setShowDuplicateDialog(false);
+    setDuplicateData(null);
+  }, []);
+
   return {
     // State
     images,
@@ -822,6 +944,8 @@ export function useImageUpload(options = {}) {
     error,
     interruptedUploads,
     showResumeDialog,
+    duplicateData,
+    showDuplicateDialog,
 
     // Methods
     uploadFiles,
@@ -837,6 +961,9 @@ export function useImageUpload(options = {}) {
     getCompletedImages,
     resumeInterruptedUploads,
     dismissInterruptedUploads,
+    skipDuplicates,
+    replaceDuplicates,
+    cancelDuplicateDialog,
 
     // Bulk operations
     bulkDelete,

@@ -5,6 +5,7 @@ import { ImageUploadZone } from './ImageUploadZone';
 import { ImageGallery } from './ImageGallery';
 import { UploadQueue } from './UploadQueue';
 import { ResumeUploadsDialog } from './ResumeUploadsDialog';
+import { DuplicateFilesDialog } from './DuplicateFilesDialog';
 
 /**
  * Complete property image management component
@@ -58,6 +59,11 @@ export function PropertyImageManager({
     showResumeDialog,
     resumeInterruptedUploads,
     dismissInterruptedUploads,
+    duplicateData,
+    showDuplicateDialog,
+    skipDuplicates,
+    replaceDuplicates,
+    cancelDuplicateDialog,
   } = useImageUpload({
     endpoint: '/upload/multiple',
     compressImages: true,
@@ -223,6 +229,15 @@ export function PropertyImageManager({
         interruptedCount={interruptedCount}
         onResume={resumeInterruptedUploads}
         onDismiss={dismissInterruptedUploads}
+      />
+
+      {/* Duplicate Files Dialog */}
+      <DuplicateFilesDialog
+        open={showDuplicateDialog}
+        duplicates={duplicateData?.duplicates || []}
+        onSkip={skipDuplicates}
+        onReplace={replaceDuplicates}
+        onCancel={cancelDuplicateDialog}
       />
 
       {/* Upload Zone */}

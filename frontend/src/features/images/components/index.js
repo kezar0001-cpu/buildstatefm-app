@@ -3,5 +3,6 @@ export { ImageCard } from './ImageCard';
 export { ImageGallery } from './ImageGallery';
 export { UploadQueue } from './UploadQueue';
 export { ResumeUploadsDialog } from './ResumeUploadsDialog';
+export { DuplicateFilesDialog } from './DuplicateFilesDialog';
 export { PropertyImageManager } from './PropertyImageManager';
 export { UnitImageManager } from './UnitImageManager';
