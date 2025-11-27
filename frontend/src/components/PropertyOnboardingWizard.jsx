@@ -24,6 +24,8 @@ import {
   Chip,
   Switch,
   FormControlLabel,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -636,8 +638,8 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
       />
 
       {isUploadingImages && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          Images are uploading... Please wait before continuing to the next step.
+        <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mt: 2 }}>
+          ⏳ Uploading images... Please wait before continuing.
         </Alert>
       )}
     </Stack>
@@ -981,7 +983,18 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         <Stepper activeStep={activeStep} alternativeLabel sx={{ py: 2 }}>
           {steps.map((step, index) => (
             <Step key={step.label} completed={Boolean(completed[index])}>
-              <StepLabel>{step.label}</StepLabel>
+              <StepLabel
+                optional={
+                  index === 0 && activeStep === 0 && isUploadingImages ? (
+                    <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                      <CircularProgress size={12} />
+                      Uploading images...
+                    </Typography>
+                  ) : undefined
+                }
+              >
+                {step.label}
+              </StepLabel>
             </Step>
           ))}
         </Stepper>
@@ -1021,13 +1034,26 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         )}
 
         {activeStep < steps.length - 1 && (
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={isUploadingImages || isSendingOwnerInvites}
+          <Tooltip
+            title={
+              isUploadingImages
+                ? 'Please wait for images to finish uploading before continuing'
+                : isSendingOwnerInvites
+                ? 'Sending owner invitations...'
+                : ''
+            }
+            arrow
           >
-            {isUploadingImages ? 'Uploading images...' : 'Save & Continue'}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                disabled={isUploadingImages || isSendingOwnerInvites}
+              >
+                {isUploadingImages ? 'Uploading images...' : 'Save & Continue'}
+              </Button>
+            </span>
+          </Tooltip>
         )}
 
         {activeStep === steps.length - 1 && (

@@ -35,6 +35,7 @@
     "lodash": "^4.17.21",
     "lowlight": "^3.3.0",
     "moment": "^2.30.1",
+    "p-limit": "^7.2.0",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-big-calendar": "^1.19.4",
