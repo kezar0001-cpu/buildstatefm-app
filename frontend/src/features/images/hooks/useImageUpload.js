@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
@@ -534,24 +534,26 @@ export function useImageUpload(options = {}) {
 
       const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
 
-      toast.error(`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`);
-
       setError(errorMessage);
 
       // Show error toast with "View Details" button
-      const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
       toast.error(
-        (t) => (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ flex: 1 }}>
-              {`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`}
-            </span>
-            <button
-              onClick={() => {
+        (t) => React.createElement(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+          React.createElement(
+            'span',
+            { style: { flex: 1 } },
+            `Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`
+          ),
+          React.createElement(
+            'button',
+            {
+              onClick: () => {
                 expandUploadQueue();
                 toast.dismiss(t.id);
-              }}
-              style={{
+              },
+              style: {
                 background: '#fff',
                 color: '#f44336',
                 border: 'none',
@@ -560,11 +562,10 @@ export function useImageUpload(options = {}) {
                 cursor: 'pointer',
                 fontWeight: '600',
                 fontSize: '13px',
-              }}
-            >
-              View Details
-            </button>
-          </div>
+              },
+            },
+            'View Details'
+          )
         ),
         {
           duration: 6000,
