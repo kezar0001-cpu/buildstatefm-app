@@ -199,6 +199,7 @@ const ImageCard = memo(function ImageCard({
 
   return (
     <Card
+      className="image-card-drag-target"
       draggable={draggable && !isUploading && !selectionMode}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -210,7 +211,7 @@ const ImageCard = memo(function ImageCard({
         flexDirection: 'column',
         border: '2px solid',
         borderColor: isSelected ? 'primary.main' : isPrimary ? 'primary.main' : 'transparent',
-        cursor: selectionMode ? 'pointer' : draggable && !isUploading ? 'move' : 'default',
+        cursor: selectionMode ? 'pointer' : onClick && !selectionMode ? 'pointer' : draggable && !isUploading ? 'move' : 'default',
         transition: 'all 0.2s',
         backgroundColor: isSelected ? alpha('#1976d2', 0.08) : 'background.paper',
         '&:hover': {
