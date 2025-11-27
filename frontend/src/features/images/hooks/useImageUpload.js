@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
+import { expandUploadQueue } from '../components/UploadQueue';
 import apiClient from '../../../api/client';
 
 // LocalStorage keys
@@ -362,6 +364,13 @@ export function useImageUpload(options = {}) {
     // Add to upload queue
     setQueue(prev => [...prev, ...newImages.map(img => img.id)]);
 
+    // Show toast notification
+    const fileWord = newImages.length === 1 ? 'file' : 'files';
+    toast.info(`Uploading ${newImages.length} ${fileWord}...`, {
+      icon: '📤',
+      duration: 3000,
+    });
+
     console.log(`[useImageUpload] Added ${newImages.length} images to queue`);
   }, [generateId]);
 
@@ -525,6 +534,40 @@ export function useImageUpload(options = {}) {
 
       setError(err.message);
 
+      // Show error toast with "View Details" button
+      const errorMessage = err.response?.data?.message || err.message || 'Upload failed';
+      toast.error(
+        (t) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ flex: 1 }}>
+              {`Failed to upload ${image.file?.name || 'file'}: ${errorMessage}`}
+            </span>
+            <button
+              onClick={() => {
+                expandUploadQueue();
+                toast.dismiss(t.id);
+              }}
+              style={{
+                background: '#fff',
+                color: '#f44336',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '13px',
+              }}
+            >
+              View Details
+            </button>
+          </div>
+        ),
+        {
+          duration: 6000,
+          icon: '❌',
+        }
+      );
+
       if (onError) {
         onError(err);
       }
@@ -575,9 +618,25 @@ export function useImageUpload(options = {}) {
       img.status === 'complete' || !queue.includes(img.id)
     );
 
-    if (allComplete && onSuccess) {
+    if (allComplete) {
       const completedImages = images.filter(img => img.status === 'complete');
-      onSuccess(completedImages);
+      const newlyCompleted = completedImages.filter(img =>
+        imagesToUpload.some(upload => upload.id === img.id)
+      );
+
+      // Show success toast for newly completed uploads
+      if (newlyCompleted.length > 0) {
+        const imageWord = newlyCompleted.length === 1 ? 'image' : 'images';
+        toast.success(`Successfully uploaded ${newlyCompleted.length} ${imageWord}`, {
+          icon: '✅',
+          duration: 3000,
+        });
+      }
+
+      // Call parent onSuccess callback
+      if (onSuccess) {
+        onSuccess(completedImages);
+      }
     }
 
   }, [isUploading, images, queue, uploadSingleImage, persistenceKey, onSuccess]);

@@ -148,26 +148,48 @@ export default function App() {
     <ErrorBoundary>
       <CssBaseline />
       <GlobalGuard />
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
             background: '#363636',
             color: '#fff',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            fontSize: '14px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
           },
           success: {
             duration: 3000,
+            style: {
+              background: '#4caf50',
+              color: '#fff',
+            },
             iconTheme: {
-              primary: '#4caf50',
-              secondary: '#fff',
+              primary: '#fff',
+              secondary: '#4caf50',
             },
           },
           error: {
-            duration: 5000,
+            duration: 6000,
+            style: {
+              background: '#f44336',
+              color: '#fff',
+            },
             iconTheme: {
-              primary: '#f44336',
-              secondary: '#fff',
+              primary: '#fff',
+              secondary: '#f44336',
+            },
+          },
+          loading: {
+            style: {
+              background: '#2196f3',
+              color: '#fff',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#2196f3',
             },
           },
         }}
