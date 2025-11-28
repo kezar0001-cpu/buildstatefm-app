@@ -1078,7 +1078,7 @@ const Footer = () => (
             <Typography
               variant="body2"
               component={RouterLink}
-              to="/subscriptions"
+              to="/pricing"
               sx={{
                 color: 'inherit',
                 textDecoration: 'none',
