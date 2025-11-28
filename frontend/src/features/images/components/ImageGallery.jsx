@@ -43,6 +43,7 @@ export function ImageGallery({
   allowCaptions = false,
   allowReordering = true,
   enableBulkOperations = true,
+  entityType = 'property', // 'property' or 'unit'
 }) {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -574,11 +575,11 @@ export function ImageGallery({
 
         {/* Main Heading */}
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-          {emptyStateDragging ? 'Drop your images here!' : 'Add Your Property Photos'}
+          {emptyStateDragging ? 'Drop your images here!' : `Add Your ${entityType === 'unit' ? 'Unit' : 'Property'} Photos`}
         </Typography>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Showcase your property with stunning images
+          Showcase your {entityType === 'unit' ? 'unit' : 'property'} with stunning images
         </Typography>
 
         {/* Large Choose Files Button */}
