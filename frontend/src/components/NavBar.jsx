@@ -23,10 +23,15 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
 import { useCurrentUser } from '../context/UserContext';
 
+import { useTheme } from '../context/ThemeContext';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+
 function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useCurrentUser();
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -109,7 +114,7 @@ function NavBar() {
       elevation={0}
       sx={{
         top: 'var(--trial-banner-height, 0px)',
-        bgcolor: 'rgba(255, 255, 255, 0.85)',
+        bgcolor: 'background.paper',
         color: 'text.primary',
         borderBottom: '1px solid',
         borderColor: 'divider',
@@ -207,7 +212,7 @@ function NavBar() {
                   transition: 'width 0.3s ease-in-out',
                 },
                 '&:hover': {
-                  bgcolor: 'rgba(185, 28, 28, 0.08)',
+                  bgcolor: 'action.hover',
                   '&::after': {
                     width: '60%',
                   },
@@ -231,6 +236,12 @@ function NavBar() {
           </Tooltip>
 
           <NotificationBell />
+
+          <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+            <IconButton onClick={toggleTheme} color="inherit">
+              {theme === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title="Account">
             <IconButton
@@ -387,5 +398,7 @@ function NavBar() {
     </AppBar>
   );
 }
+
+export default NavBar;
 
 export default NavBar;
