@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import {
@@ -8,55 +9,19 @@ import {
   getUploadedFileUrls,
   isUsingCloudStorage,
 } from '../services/uploadService.js';
+import { uploadResponsiveImage, getPrimaryImageUrl, buildSrcSet } from '../services/responsiveImageService.js';
+import { uploadRateLimiter } from '../middleware/redisRateLimiter.js';
+import {
+  getCloudFrontImageUrl,
+  getResponsiveCloudFrontUrls,
+  buildCloudFrontSrcSet,
+  isCloudFrontConfigured,
+} from '../services/cloudFrontImageService.js';
 
 const router = express.Router();
 
-// Bug Fix #6: Add rate limiting for uploads to prevent abuse
-const uploadRateLimits = new Map();
-const UPLOAD_RATE_LIMIT = 30; // Max 30 uploads per window
-const UPLOAD_RATE_WINDOW = 60 * 1000; // 1 minute window
-
-const checkUploadRateLimit = (userId) => {
-  const now = Date.now();
-  const userLimits = uploadRateLimits.get(userId) || { count: 0, windowStart: now };
-
-  if (now - userLimits.windowStart > UPLOAD_RATE_WINDOW) {
-    userLimits.count = 0;
-    userLimits.windowStart = now;
-  }
-
-  userLimits.count++;
-  uploadRateLimits.set(userId, userLimits);
-
-  // Clean up old entries to prevent memory leak
-  if (uploadRateLimits.size > 10000) {
-    const threshold = now - UPLOAD_RATE_WINDOW;
-    for (const [key, value] of uploadRateLimits.entries()) {
-      if (value.windowStart < threshold) {
-        uploadRateLimits.delete(key);
-      }
-    }
-  }
-
-  return userLimits.count <= UPLOAD_RATE_LIMIT;
-};
-
-const rateLimitUpload = (req, res, next) => {
-  if (!req.user?.id) {
-    return next();
-  }
-
-  if (!checkUploadRateLimit(req.user.id)) {
-    return sendError(
-      res,
-      429,
-      `Too many uploads. Maximum ${UPLOAD_RATE_LIMIT} uploads per minute.`,
-      ErrorCodes.RATE_LIMIT_EXCEEDED
-    );
-  }
-
-  next();
-};
+// Use Redis-backed rate limiting (replaces in-memory Map-based rate limiting)
+const rateLimitUpload = uploadRateLimiter;
 
 // Create upload middleware (uses S3 if configured, local storage otherwise)
 const upload = createUploadMiddleware();
@@ -157,6 +122,153 @@ router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoU
   } catch (error) {
     console.error('Inspection photo upload error:', error);
     return sendError(res, 500, 'Inspection photo upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
+  }
+});
+
+/**
+ * POST /uploads/responsive-image
+ * FormData field name must be: "image"
+ * Returns: {
+ *   success: true,
+ *   variants: {
+ *     'thumbnail-jpg': 'url',
+ *     'thumbnail-webp': 'url',
+ *     'medium-jpg': 'url',
+ *     'medium-webp': 'url',
+ *     'original-jpg': 'url',
+ *     'original-webp': 'url'
+ *   },
+ *   primaryUrl: 'url',
+ *   srcSet: {
+ *     jpg: 'srcset string',
+ *     webp: 'srcset string'
+ *   }
+ * }
+ * Processes images into multiple size variants (thumbnail, medium, original) and formats (JPEG, WebP)
+ * Requires authentication
+ */
+const memoryStorage = multer.memoryStorage();
+const responsiveImageUpload = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1,
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype?.toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'Only image files are allowed'));
+    }
+  },
+});
+
+router.post('/responsive-image', requireAuth, rateLimitUpload, responsiveImageUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No image uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    const { buffer, originalname } = req.file;
+    const folder = req.body.folder || 'properties';
+
+    // Process and upload responsive image variants
+    const variants = await uploadResponsiveImage(buffer, originalname, folder);
+
+    // Build response with all variant URLs and helper metadata
+    const response = {
+      success: true,
+      variants,
+      primaryUrl: getPrimaryImageUrl(variants),
+      srcSet: {
+        jpg: buildSrcSet(variants, 'jpg'),
+        webp: buildSrcSet(variants, 'webp'),
+      },
+    };
+
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
+    console.log(`✅ Uploaded responsive image to ${storageType} by user ${req.user.id}: ${originalname}`);
+    console.log(`   Generated ${Object.keys(variants).length} variants`);
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Responsive image upload error:', error);
+    return sendError(res, 500, 'Responsive image upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
+  }
+});
+
+/**
+ * POST /uploads/cloudfront-url
+ * Generate CloudFront URL with image transformation query parameters
+ * Body: {
+ *   s3Key: 'properties/image.jpg',
+ *   width: 800,
+ *   height: 600,
+ *   format: 'webp',
+ *   quality: 85,
+ *   fit: 'cover'
+ * }
+ * Returns: { url: 'https://cloudfront.net/properties/image.jpg?w=800&h=600&f=webp&q=85&fit=cover' }
+ */
+router.post('/cloudfront-url', requireAuth, (req, res) => {
+  try {
+    if (!isCloudFrontConfigured()) {
+      return sendError(res, 400, 'CloudFront is not configured', ErrorCodes.CONFIGURATION_ERROR);
+    }
+
+    const { s3Key, width, height, format, quality, fit } = req.body;
+
+    if (!s3Key) {
+      return sendError(res, 400, 's3Key is required', ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const url = getCloudFrontImageUrl(s3Key, { width, height, format, quality, fit });
+
+    res.json({ success: true, url });
+  } catch (error) {
+    console.error('CloudFront URL generation error:', error);
+    return sendError(res, 500, 'Failed to generate CloudFront URL', ErrorCodes.INTERNAL_SERVER_ERROR);
+  }
+});
+
+/**
+ * POST /uploads/cloudfront-responsive-urls
+ * Generate responsive CloudFront URLs for an image
+ * Body: {
+ *   s3Key: 'properties/image.jpg',
+ *   format: 'webp'
+ * }
+ * Returns: {
+ *   thumbnail: 'url',
+ *   medium: 'url',
+ *   original: 'url',
+ *   srcSet: 'srcset string'
+ * }
+ */
+router.post('/cloudfront-responsive-urls', requireAuth, (req, res) => {
+  try {
+    if (!isCloudFrontConfigured()) {
+      return sendError(res, 400, 'CloudFront is not configured', ErrorCodes.CONFIGURATION_ERROR);
+    }
+
+    const { s3Key, format = 'jpg' } = req.body;
+
+    if (!s3Key) {
+      return sendError(res, 400, 's3Key is required', ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const urls = getResponsiveCloudFrontUrls(s3Key, format);
+    const srcSet = buildCloudFrontSrcSet(s3Key, format);
+
+    res.json({
+      success: true,
+      urls,
+      srcSet,
+    });
+  } catch (error) {
+    console.error('CloudFront responsive URLs generation error:', error);
+    return sendError(res, 500, 'Failed to generate CloudFront URLs', ErrorCodes.INTERNAL_SERVER_ERROR);
   }
 });
 

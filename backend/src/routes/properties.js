@@ -30,59 +30,9 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Bug Fix #5: Add rate limiting for image uploads to prevent abuse
-// Prevents spam uploads that could fill disk space or overload server
-const uploadRateLimits = new Map();
-const UPLOAD_RATE_LIMIT = 20; // Max 20 uploads per window
-const UPLOAD_RATE_WINDOW = 60 * 1000; // 1 minute window
-let lastCleanupTime = Date.now();
-const CLEANUP_INTERVAL = 5 * 60 * 1000; // Clean up every 5 minutes
-
-const checkUploadRateLimit = (userId) => {
-  const now = Date.now();
-  const userLimits = uploadRateLimits.get(userId) || { count: 0, windowStart: now };
-
-  // Reset window if expired
-  if (now - userLimits.windowStart > UPLOAD_RATE_WINDOW) {
-    userLimits.count = 0;
-    userLimits.windowStart = now;
-  }
-
-  userLimits.count++;
-  uploadRateLimits.set(userId, userLimits);
-
-  // Clean up expired entries periodically to prevent memory leak
-  // This runs every 5 minutes OR when map exceeds 1000 entries (much lower threshold)
-  const shouldCleanup = (now - lastCleanupTime > CLEANUP_INTERVAL) || (uploadRateLimits.size > 1000);
-  if (shouldCleanup) {
-    const threshold = now - UPLOAD_RATE_WINDOW;
-    for (const [key, value] of uploadRateLimits.entries()) {
-      if (value.windowStart < threshold) {
-        uploadRateLimits.delete(key);
-      }
-    }
-    lastCleanupTime = now;
-  }
-
-  return userLimits.count <= UPLOAD_RATE_LIMIT;
-};
-
-const rateLimitUpload = (req, res, next) => {
-  if (!req.user?.id) {
-    return next();
-  }
-
-  if (!checkUploadRateLimit(req.user.id)) {
-    return sendError(
-      res,
-      429,
-      `Too many uploads. Maximum ${UPLOAD_RATE_LIMIT} uploads per minute.`,
-      ErrorCodes.RATE_LIMIT_EXCEEDED
-    );
-  }
-
-  next();
-};
+// Use Redis-backed rate limiting for property uploads (replaces in-memory Map-based rate limiting)
+import { propertyUploadRateLimiter } from '../middleware/redisRateLimiter.js';
+const rateLimitUpload = propertyUploadRateLimiter;
 
 const propertyImageUpload = createUploadMiddleware({
   maxFileSize: 10 * 1024 * 1024,
