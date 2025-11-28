@@ -21,6 +21,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
 import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
+import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import { useCurrentUser } from '../context/UserContext';
 
 import { useTheme } from '../context/ThemeContext';
@@ -62,13 +63,7 @@ function NavBar() {
     { name: 'Plans', href: '/plans' },
     { name: 'Service Requests', href: '/service-requests' },
     { name: 'Recommendations', href: '/recommendations' },
-    { name: 'Subscriptions', href: '/subscriptions' },
   ];
-
-  // Add Team link for Property Managers
-  if (user?.role === 'PROPERTY_MANAGER') {
-    navigation.push({ name: 'Team', href: '/team' });
-  }
 
   const handleNavigation = (path) => {
     navigate(path);
@@ -129,19 +124,10 @@ function NavBar() {
           minHeight: { xs: 64, sm: 72 },
           display: 'flex',
           alignItems: 'center',
-          gap: { xs: 1.5, md: 2 },
-          flexWrap: 'wrap',
+          justifyContent: 'space-between',
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: { xs: '100%', md: 'auto' },
-            gap: 1.5,
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
             variant="h6"
             onClick={() => navigate('/dashboard')}
@@ -161,87 +147,75 @@ function NavBar() {
             BuildState FM
           </Typography>
 
-          <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
-            <IconButton
-              size="large"
-              aria-label="open navigation menu"
-              aria-controls="mobile-menu"
-              aria-haspopup="true"
-              onClick={handleOpenMobileMenu}
-              color="inherit"
-            >
-              <MenuIcon />
-            </IconButton>
+          <Box
+            sx={{
+              flexGrow: 1,
+              display: { xs: 'none', lg: 'flex' },
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+            }}
+          >
+            {navigation.map((item) => (
+              <Button
+                key={item.name}
+                color="inherit"
+                onClick={() => handleNavigation(item.href)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.9rem',
+                  fontWeight: isActive(item.href) ? 600 : 500,
+                  color: isActive(item.href) ? 'primary.main' : 'text.primary',
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1,
+                  position: 'relative',
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: 4,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: isActive(item.href) ? '60%' : '0%',
+                    height: '2px',
+                    bgcolor: 'primary.main',
+                    borderRadius: 1,
+                    transition: 'width 0.3s ease-in-out',
+                  },
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    '&::after': {
+                      width: '60%',
+                    },
+                  },
+                }}
+              >
+                {item.name}
+              </Button>
+            ))}
           </Box>
         </Box>
 
-        <Box
-          sx={{
-            flexGrow: 1,
-            display: { xs: 'none', md: 'flex' },
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
-            flexWrap: 'wrap',
-          }}
-        >
-          {navigation.map((item) => (
-            <Button
-              key={item.name}
-              color="inherit"
-              onClick={() => handleNavigation(item.href)}
-              sx={{
-                textTransform: 'none',
-                fontSize: '0.9rem',
-                fontWeight: isActive(item.href) ? 600 : 500,
-                color: isActive(item.href) ? 'primary.main' : 'text.primary',
-                borderRadius: 2,
-                px: 2,
-                py: 1,
-                position: 'relative',
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: 4,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: isActive(item.href) ? '60%' : '0%',
-                  height: '2px',
-                  bgcolor: 'primary.main',
-                  borderRadius: 1,
-                  transition: 'width 0.3s ease-in-out',
-                },
-                '&:hover': {
-                  bgcolor: 'action.hover',
-                  '&::after': {
-                    width: '60%',
-                  },
-                },
-              }}
-            >
-              {item.name}
-            </Button>
-          ))}
-        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
+            <Tooltip title="Search (Ctrl+K)">
+              <IconButton
+                color="inherit"
+                onClick={() => setSearchOpen(true)}
+                size="medium"
+              >
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
 
-        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
-          <Tooltip title="Search (Ctrl+K)">
-            <IconButton
-              color="inherit"
-              onClick={() => setSearchOpen(true)}
-              size="medium"
-            >
-              <SearchIcon />
-            </IconButton>
-          </Tooltip>
+            <NotificationBell />
 
-          <NotificationBell />
-
-          <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-            <IconButton onClick={toggleTheme} color="inherit">
-              {theme === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
-            </IconButton>
-          </Tooltip>
+            <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+              <IconButton onClick={toggleTheme} color="inherit">
+                {theme === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
+              </IconButton>
+            </Tooltip>
+          </Box>
 
           <Tooltip title="Account">
             <IconButton
@@ -270,6 +244,19 @@ function NavBar() {
             </IconButton>
           </Tooltip>
           
+          <Box sx={{ display: { xs: 'flex', lg: 'none' } }}>
+            <IconButton
+              size="large"
+              aria-label="open navigation menu"
+              aria-controls="mobile-menu"
+              aria-haspopup="true"
+              onClick={handleOpenMobileMenu}
+              color="inherit"
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+
           <Menu
             anchorEl={userMenuAnchor}
             open={Boolean(userMenuAnchor)}
@@ -303,6 +290,11 @@ function NavBar() {
               Profile
             </MenuItem>
             
+            <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
+              <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
+              Subscriptions
+            </MenuItem>
+
             {user?.role === 'PROPERTY_MANAGER' && (
               <MenuItem onClick={() => handleUserMenuNavigation('/team')}>
                 <GroupIcon fontSize="small" sx={{ mr: 1.5 }} />
@@ -373,6 +365,11 @@ function NavBar() {
             Profile
           </MenuItem>
           
+          <MenuItem onClick={() => handleNavigation('/subscriptions')}>
+            <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
+            Subscriptions
+          </MenuItem>
+
           {user?.role === 'PROPERTY_MANAGER' && (
             <MenuItem onClick={() => handleNavigation('/team')}>
               <GroupIcon fontSize="small" sx={{ mr: 1.5 }} />
