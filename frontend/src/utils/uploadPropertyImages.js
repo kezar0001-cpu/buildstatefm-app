@@ -80,30 +80,32 @@ export async function uploadPropertyImages(files) {
 }
 
 /**
- * Normalises existing image data into the shape used by the uploader component.
+ * Normalises existing image data into standardized ImageData format.
  *
- * @param {Array<{ imageUrl?: string, url?: string, caption?: string, altText?: string, name?: string }>} images
+ * @param {Array<{ id?: string|number, imageUrl?: string, url?: string, caption?: string, altText?: string, isPrimary?: boolean, displayOrder?: number }>} images
+ * @returns {Array<{ id: string|number, imageUrl: string, caption: string|null, isPrimary: boolean, displayOrder: number }>}
  */
 export function normaliseUploadedImages(images) {
   if (!Array.isArray(images)) return [];
   return images
     .map((image, index) => {
       if (!image) return null;
-      const url = typeof image.url === 'string' && image.url.trim()
+      const imageUrl = typeof image.url === 'string' && image.url.trim()
         ? image.url.trim()
         : typeof image.imageUrl === 'string' && image.imageUrl.trim()
           ? image.imageUrl.trim()
           : null;
 
-      if (!url) return null;
+      if (!imageUrl) return null;
 
-      const altText = typeof image.altText === 'string' ? image.altText : image.caption;
+      const caption = typeof image.altText === 'string' ? image.altText : image.caption;
 
       return {
         id: image.id || `image-${index}`,
-        url,
-        name: image.name || image.originalName || `Image ${index + 1}`,
-        altText: altText ?? '',
+        imageUrl,
+        caption: caption || null,
+        isPrimary: image.isPrimary || false,
+        displayOrder: image.displayOrder !== undefined ? image.displayOrder : index,
       };
     })
     .filter(Boolean);

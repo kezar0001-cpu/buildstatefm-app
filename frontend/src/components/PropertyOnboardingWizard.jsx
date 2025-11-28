@@ -166,25 +166,15 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
   };
 
   const handleUploadedImagesChange = (nextImages = [], nextCover = '') => {
-    // Transform PropertyImageManager format to internal format
-    // PropertyImageManager returns: {imageUrl, caption, isPrimary, order}
-    // We need: {url, altText}
-    // Bug Fix: Preserve id, isPrimary, order to prevent re-mounts and flickering
-    const transformedImages = nextImages.map(img => ({
-      id: img.id || img.imageId, // Preserve ID to prevent re-mounts
-      url: img.imageUrl || img.url, // Support both formats for backward compatibility
-      altText: img.caption || img.altText || '',
-      isPrimary: img.isPrimary || false,
-      order: img.order !== undefined ? img.order : 0,
-    }));
-
+    // PropertyImageManager returns standardized ImageData format:
+    // {id, imageUrl, caption, isPrimary, displayOrder}
     setFormState((prev) => ({
       ...prev,
       basicInfo: {
         ...prev.basicInfo,
-        imageUrl: nextCover || transformedImages[0]?.url || '',
+        imageUrl: nextCover || nextImages[0]?.imageUrl || '',
       },
-      images: transformedImages,
+      images: nextImages,
     }));
   };
 
@@ -381,19 +371,17 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         imageUrl: basicInfo.imageUrl.trim() || null,
       };
 
+      // Images are already in standardized API format from PropertyImageManager
       const imagePayload = uploadedImages
-        .map((image, index) => {
-          if (!image || !image.url) {
+        .map((image) => {
+          if (!image || !image.imageUrl) {
             return null;
           }
 
-          const trimmedAltText = typeof image.altText === 'string' ? image.altText.trim() : '';
-          const coverFromState = typeof basicInfo.imageUrl === 'string' ? basicInfo.imageUrl.trim() : '';
-
           return {
-            imageUrl: image.url,
-            caption: trimmedAltText ? trimmedAltText : null,
-            isPrimary: coverFromState ? image.url === coverFromState : index === 0,
+            imageUrl: image.imageUrl,
+            caption: image.caption || null,
+            isPrimary: image.isPrimary,
           };
         })
         .filter(Boolean);

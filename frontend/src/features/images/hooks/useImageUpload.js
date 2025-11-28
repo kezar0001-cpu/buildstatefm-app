@@ -30,7 +30,7 @@ const saveUploadState = (key, images, queue) => {
         isPrimary: img.isPrimary,
         caption: img.caption,
         category: img.category,
-        order: img.order,
+        displayOrder: img.displayOrder,
         dimensions: img.dimensions,
         retryCount: img.retryCount || 0,
         hash: img.hash,
@@ -82,54 +82,70 @@ const clearUploadState = (key) => {
 };
 
 /**
- * Image upload hook with queue management and optimistic UI
+ * Image upload hook with controlled/uncontrolled pattern
+ *
+ * CONTROLLED MODE:
+ * Pass both `images` and `onChange` props to control the state externally.
+ * The hook will call `onChange` with updated images whenever they change.
+ *
+ * UNCONTROLLED MODE:
+ * Omit `images` and `onChange` props. Optionally provide `defaultImages`
+ * for initial state. The hook manages state internally.
  *
  * @param {Object} options
+ * @param {Array} options.images - Controlled mode: external images array
+ * @param {Function} options.onChange - Controlled mode: callback when images change
+ * @param {Array} options.defaultImages - Uncontrolled mode: initial images (used once)
  * @param {Function} options.onSuccess - Called when all uploads complete
  * @param {Function} options.onError - Called when an upload fails
  * @param {string} options.endpoint - Upload endpoint URL
  * @param {boolean} options.compressImages - Enable client-side compression
  * @param {number} options.maxConcurrent - Max concurrent uploads
- * @param {Array} options.initialImages - Initial images to display (for edit mode)
  * @param {string} options.storageKey - Unique key for localStorage persistence (optional)
  * @returns {Object} Upload state and methods
  */
 export function useImageUpload(options = {}) {
   const {
+    images: controlledImages,
+    onChange: controlledOnChange,
+    defaultImages = [],
     onSuccess,
     onError,
     endpoint = '/upload/multiple',
     compressImages = true,
     maxConcurrent = 3,
-    initialImages = [],
     storageKey,
   } = options;
+
+  // Determine if we're in controlled mode
+  const isControlled = controlledImages !== undefined && controlledOnChange !== undefined;
 
   // Generate storage key if persistence is enabled
   const persistenceKey = storageKey ? `${STORAGE_KEY_PREFIX}${storageKey}` : null;
 
-  // State - Initialize with existing images if provided
-  const [images, setImages] = useState(() => {
-    // Convert initialImages to internal format
-    if (initialImages && initialImages.length > 0) {
-      return initialImages.map((img, index) => ({
+  // State - Initialize with defaultImages for uncontrolled mode only
+  const [internalImages, setInternalImages] = useState(() => {
+    // Only use defaultImages in uncontrolled mode, and only for initial state
+    if (!isControlled && defaultImages && defaultImages.length > 0) {
+      return defaultImages.map((img, index) => ({
         id: img.id || `existing-${Date.now()}-${index}`,
         file: null,
         localPreview: null,
-        remoteUrl: img.url || img.imageUrl || img.remoteUrl,
+        remoteUrl: img.imageUrl || img.url || img.remoteUrl,
         status: 'complete',
         progress: 100,
         error: null,
         isPrimary: img.isPrimary || false,
-        caption: img.altText || img.caption || '',
+        caption: img.caption || '',
         category: img.category || 'OTHER',
-        order: img.order !== undefined ? img.order : index,
+        displayOrder: img.displayOrder !== undefined ? img.displayOrder : index,
         dimensions: img.dimensions || null,
         retryCount: 0,
       }));
     }
     return [];
   });
+
   const [queue, setQueue] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -141,9 +157,23 @@ export function useImageUpload(options = {}) {
   // Refs
   const uploadCounterRef = useRef(0);
   const abortControllersRef = useRef(new Map());
-  const initialImagesProcessedRef = useRef(false);
   const lastProgressRefs = useRef({}); // Track last progress update per image
   const mountedRef = useRef(false);
+
+  // Get the current images (controlled or uncontrolled)
+  const images = isControlled ? controlledImages : internalImages;
+
+  // Update images (controlled or uncontrolled)
+  const updateImages = useCallback((updater) => {
+    if (isControlled) {
+      // In controlled mode, call onChange with the new images
+      const newImages = typeof updater === 'function' ? updater(controlledImages) : updater;
+      controlledOnChange(newImages);
+    } else {
+      // In uncontrolled mode, update internal state
+      setInternalImages(updater);
+    }
+  }, [isControlled, controlledImages, controlledOnChange]);
 
   /**
    * Detect interrupted uploads on component mount
@@ -169,79 +199,6 @@ export function useImageUpload(options = {}) {
       clearUploadState(persistenceKey);
     }
   }, [persistenceKey]);
-
-  /**
-   * Sync initialImages to state when they change (for edit mode)
-   * This handles the case where initialImages prop updates after initial mount
-   * Bug Fix: Prevent infinite loops by comparing content, not just signature
-   */
-  useEffect(() => {
-    // Skip if no initial images or if we've already processed them
-    if (!initialImages || initialImages.length === 0) {
-      // If we have images and initialImages becomes empty, clear them
-      if (images.length > 0 && !images.some(img => img.status === 'pending' || img.status === 'uploading')) {
-        console.log('[useImageUpload] InitialImages is now empty, clearing state');
-        setImages([]);
-        initialImagesProcessedRef.current = '';
-      }
-      return;
-    }
-
-    // If we already have active uploads, don't overwrite local state with incoming props
-    // This prevents losing pending uploads when parents update the images prop mid-upload
-    const hasActiveLocalUploads = images.some((img) => img.status === 'pending' || img.status === 'uploading');
-    if (hasActiveLocalUploads) {
-      console.log('[useImageUpload] Skipping sync - active uploads in progress');
-      return;
-    }
-
-    // Create a unique signature for the current initialImages
-    const signature = initialImages.map(img => img.id || img.url || img.imageUrl).join(',');
-
-    // Only update if the signature has changed
-    if (initialImagesProcessedRef.current === signature) {
-      return;
-    }
-
-    // Additional check: Compare current completed images with initialImages
-    // to prevent syncing if they're essentially the same
-    const currentCompletedUrls = images
-      .filter(img => img.status === 'complete')
-      .map(img => img.remoteUrl)
-      .sort()
-      .join(',');
-
-    const incomingUrls = initialImages
-      .map(img => img.url || img.imageUrl || img.remoteUrl)
-      .sort()
-      .join(',');
-
-    if (currentCompletedUrls === incomingUrls && images.length === initialImages.length) {
-      console.log('[useImageUpload] Skipping sync - images are already in sync');
-      initialImagesProcessedRef.current = signature;
-      return;
-    }
-
-    console.log('[useImageUpload] Syncing initialImages to state:', initialImages.length, 'images');
-    initialImagesProcessedRef.current = signature;
-
-    // Convert initialImages to internal format
-    const formattedImages = initialImages.map((img, index) => ({
-      id: img.id || `existing-${Date.now()}-${index}`,
-      file: null,
-      localPreview: null,
-      remoteUrl: img.url || img.imageUrl || img.remoteUrl,
-      status: 'complete',
-      progress: 100,
-      error: null,
-      isPrimary: img.isPrimary || false,
-      caption: img.altText || img.caption || '',
-      order: img.order !== undefined ? img.order : index,
-      dimensions: img.dimensions || null,
-    }));
-
-    setImages(formattedImages);
-  }, [initialImages, images]);
 
   /**
    * Generate unique ID for image
@@ -345,7 +302,7 @@ export function useImageUpload(options = {}) {
           isPrimary: false,
           caption: '',
           category: 'OTHER',
-          order: 0,
+          displayOrder: 0,
           dimensions: null,
           retryCount: 0,
           hash,
@@ -354,14 +311,14 @@ export function useImageUpload(options = {}) {
     );
 
     // Update state - show optimistic UI immediately
-    setImages(prev => {
+    updateImages(prev => {
       const updated = [...prev, ...newImages];
       // Set first image as primary if no primary exists
       if (!prev.some(img => img.isPrimary) && updated.length > 0) {
         updated[0].isPrimary = true;
       }
-      // Update order
-      return updated.map((img, index) => ({ ...img, order: index }));
+      // Update displayOrder
+      return updated.map((img, index) => ({ ...img, displayOrder: index }));
     });
 
     // Add to upload queue
@@ -375,7 +332,7 @@ export function useImageUpload(options = {}) {
     });
 
     console.log(`[useImageUpload] Added ${newImages.length} images to queue`);
-  }, [generateId]);
+  }, [generateId, updateImages]);
 
   /**
    * Upload single image with retry logic
@@ -385,13 +342,13 @@ export function useImageUpload(options = {}) {
 
     try {
       // Update status to uploading
-      setImages(prev => prev.map(img =>
+      updateImages(prev => prev.map(img =>
         img.id === image.id ? { ...img, status: 'uploading', progress: 0 } : img
       ));
 
       // Save state to localStorage before upload
       if (persistenceKey) {
-        setImages(prev => {
+        updateImages(prev => {
           saveUploadState(persistenceKey, prev, queue);
           return prev;
         });
@@ -434,18 +391,15 @@ export function useImageUpload(options = {}) {
             return;
           }
 
-          // Bug Fix: Don't update to 100% here - let the completion handler do it
-          // This prevents race condition where progress=100 but status='uploading'
-          // which causes flickering when transitioning to status='complete'
+          // Don't update to 100% here - let the completion handler do it
           if (progress >= 100) {
             return;
           }
 
           // Throttle progress updates to every 5% to reduce re-renders
-          // Always update at 0%
           if (progress === 0 || progress - lastProgressUpdate >= 5) {
             lastProgressRefs.current[image.id] = progress;
-            setImages(prev => prev.map(img =>
+            updateImages(prev => prev.map(img =>
               img.id === image.id ? { ...img, progress } : img
             ));
           }
@@ -464,7 +418,7 @@ export function useImageUpload(options = {}) {
       console.log(`[useImageUpload] Upload complete: ${uploadedUrl.substring(0, 80)}...`);
 
       // Update image with remote URL
-      setImages(prev => prev.map(img =>
+      updateImages(prev => prev.map(img =>
         img.id === image.id
           ? {
               ...img,
@@ -492,7 +446,7 @@ export function useImageUpload(options = {}) {
 
       // Check if cancelled
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-        setImages(prev => prev.filter(img => img.id !== image.id));
+        updateImages(prev => prev.filter(img => img.id !== image.id));
         setQueue(prev => prev.filter(id => id !== image.id));
         return false;
       }
@@ -509,7 +463,7 @@ export function useImageUpload(options = {}) {
         console.log(`[useImageUpload] Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
 
         // Update retry count
-        setImages(prev => prev.map(img =>
+        updateImages(prev => prev.map(img =>
           img.id === image.id
             ? { ...img, retryCount: retryCount + 1, status: 'pending', error: `Retrying... (attempt ${retryCount + 1})` }
             : img
@@ -524,7 +478,7 @@ export function useImageUpload(options = {}) {
       }
 
       // Update image with error
-      setImages(prev => prev.map(img =>
+      updateImages(prev => prev.map(img =>
         img.id === image.id
           ? {
               ...img,
@@ -582,7 +536,7 @@ export function useImageUpload(options = {}) {
 
       return false;
     }
-  }, [compressImages, endpoint, onError, persistenceKey, queue]);
+  }, [compressImages, endpoint, onError, persistenceKey, queue, updateImages]);
 
   /**
    * Process upload queue with concurrent uploads
@@ -658,7 +612,6 @@ export function useImageUpload(options = {}) {
 
   /**
    * Auto-process queue when items are added
-   * Bug Fix: Use useEffect instead of setTimeout to avoid stale closure issues
    */
   useEffect(() => {
     // Only process if there are pending items and not already uploading
@@ -714,9 +667,9 @@ export function useImageUpload(options = {}) {
     // Clean up progress tracking
     delete lastProgressRefs.current[imageId];
 
-    setImages(prev => prev.filter(img => img.id !== imageId));
+    updateImages(prev => prev.filter(img => img.id !== imageId));
     setQueue(prev => prev.filter(id => id !== imageId));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Retry failed upload
@@ -727,7 +680,7 @@ export function useImageUpload(options = {}) {
     // Reset progress tracking for retry
     lastProgressRefs.current[imageId] = 0;
 
-    setImages(prev => prev.map(img =>
+    updateImages(prev => prev.map(img =>
       img.id === imageId
         ? { ...img, status: 'pending', error: null, progress: 0 }
         : img
@@ -735,7 +688,7 @@ export function useImageUpload(options = {}) {
 
     setQueue(prev => [...prev, imageId]);
     processQueue();
-  }, [processQueue]);
+  }, [processQueue, updateImages]);
 
   /**
    * Remove image from gallery
@@ -744,12 +697,12 @@ export function useImageUpload(options = {}) {
     console.log(`[useImageUpload] Removing image: ${imageId}`);
 
     cancelUpload(imageId);
-    setImages(prev => {
+    updateImages(prev => {
       const updated = prev.filter(img => img.id !== imageId);
-      // Reassign order
-      return updated.map((img, index) => ({ ...img, order: index }));
+      // Reassign displayOrder
+      return updated.map((img, index) => ({ ...img, displayOrder: index }));
     });
-  }, [cancelUpload]);
+  }, [cancelUpload, updateImages]);
 
   /**
    * Set cover/primary image
@@ -757,11 +710,11 @@ export function useImageUpload(options = {}) {
   const setCoverImage = useCallback((imageId) => {
     console.log(`[useImageUpload] Setting cover image: ${imageId}`);
 
-    setImages(prev => prev.map(img => ({
+    updateImages(prev => prev.map(img => ({
       ...img,
       isPrimary: img.id === imageId,
     })));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Reorder images
@@ -769,32 +722,32 @@ export function useImageUpload(options = {}) {
   const reorderImages = useCallback((startIndex, endIndex) => {
     console.log(`[useImageUpload] Reordering: ${startIndex} -> ${endIndex}`);
 
-    setImages(prev => {
+    updateImages(prev => {
       const result = Array.from(prev);
       const [removed] = result.splice(startIndex, 1);
       result.splice(endIndex, 0, removed);
-      // Update order
-      return result.map((img, index) => ({ ...img, order: index }));
+      // Update displayOrder
+      return result.map((img, index) => ({ ...img, displayOrder: index }));
     });
-  }, []);
+  }, [updateImages]);
 
   /**
    * Update image caption
    */
   const updateCaption = useCallback((imageId, caption) => {
-    setImages(prev => prev.map(img =>
+    updateImages(prev => prev.map(img =>
       img.id === imageId ? { ...img, caption } : img
     ));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Update image category
    */
   const updateCategory = useCallback((imageId, category) => {
-    setImages(prev => prev.map(img =>
+    updateImages(prev => prev.map(img =>
       img.id === imageId ? { ...img, category } : img
     ));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Clear all images
@@ -809,22 +762,23 @@ export function useImageUpload(options = {}) {
       }
     });
 
-    setImages([]);
+    updateImages([]);
     setQueue([]);
     setError(null);
-  }, [images, cancelUpload]);
+  }, [images, cancelUpload, updateImages]);
 
   /**
-   * Get completed images (for form submission)
+   * Get completed images in API-ready format (standardized ImageData format)
    */
   const getCompletedImages = useCallback(() => {
     return images
       .filter(img => img.status === 'complete' && img.remoteUrl)
       .map(img => ({
+        id: img.id,
         imageUrl: img.remoteUrl,
         caption: img.caption || null,
         isPrimary: img.isPrimary,
-        order: img.order,
+        displayOrder: img.displayOrder,
       }));
   }, [images]);
 
@@ -843,14 +797,14 @@ export function useImageUpload(options = {}) {
       delete lastProgressRefs.current[id];
     });
 
-    setImages(prev => {
+    updateImages(prev => {
       const updated = prev.filter(img => !imageIds.includes(img.id));
-      // Reassign order
-      return updated.map((img, index) => ({ ...img, order: index }));
+      // Reassign displayOrder
+      return updated.map((img, index) => ({ ...img, displayOrder: index }));
     });
 
     setQueue(prev => prev.filter(id => !imageIds.includes(id)));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Bulk reorder images to specific positions
@@ -859,7 +813,7 @@ export function useImageUpload(options = {}) {
   const bulkReorder = useCallback((reorderMap) => {
     console.log(`[useImageUpload] Bulk reordering ${reorderMap.length} images`);
 
-    setImages(prev => {
+    updateImages(prev => {
       // Create a copy of the images array
       const result = [...prev];
 
@@ -875,10 +829,10 @@ export function useImageUpload(options = {}) {
         }
       });
 
-      // Update order property
-      return result.map((img, index) => ({ ...img, order: index }));
+      // Update displayOrder property
+      return result.map((img, index) => ({ ...img, displayOrder: index }));
     });
-  }, []);
+  }, [updateImages]);
 
   /**
    * Bulk update captions for multiple images
@@ -889,13 +843,13 @@ export function useImageUpload(options = {}) {
 
     const updateMap = new Map(captionUpdates.map(({ id, caption }) => [id, caption]));
 
-    setImages(prev => prev.map(img => {
+    updateImages(prev => prev.map(img => {
       if (updateMap.has(img.id)) {
         return { ...img, caption: updateMap.get(img.id) };
       }
       return img;
     }));
-  }, []);
+  }, [updateImages]);
 
   /**
    * Resume interrupted uploads
@@ -916,7 +870,7 @@ export function useImageUpload(options = {}) {
         : null,
     }));
 
-    setImages(prev => {
+    updateImages(prev => {
       // Merge with existing images, avoiding duplicates
       const existingIds = new Set(prev.map(img => img.id));
       const newImages = restoredImages.filter(img => !existingIds.has(img.id));
@@ -937,7 +891,7 @@ export function useImageUpload(options = {}) {
     if (persistenceKey) {
       clearUploadState(persistenceKey);
     }
-  }, [interruptedUploads, persistenceKey]);
+  }, [interruptedUploads, persistenceKey, updateImages]);
 
   /**
    * Dismiss interrupted uploads dialog
@@ -993,7 +947,7 @@ export function useImageUpload(options = {}) {
       });
 
       // Remove from state
-      setImages(prev => prev.filter(img => !idsToRemove.includes(img.id)));
+      updateImages(prev => prev.filter(img => !idsToRemove.includes(img.id)));
       setQueue(prev => prev.filter(id => !idsToRemove.includes(id)));
     }
 
@@ -1008,7 +962,7 @@ export function useImageUpload(options = {}) {
     await addFilesWithHashes(filesArray);
 
     setDuplicateData(null);
-  }, [duplicateData, images, addFilesWithHashes]);
+  }, [duplicateData, images, addFilesWithHashes, updateImages]);
 
   /**
    * Handle duplicate dialog - Cancel
