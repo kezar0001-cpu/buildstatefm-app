@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -21,6 +21,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { inspectionSchema, inspectionDefaultValues } from '../schemas/inspectionSchema';
 import { FormTextField, FormSelect } from './form';
 import { formatDateTimeForInput, toISOString } from '../utils/date';
+import InspectionTemplatePreview from './InspectionTemplatePreview';
 
 const INSPECTION_TYPE_OPTIONS = [
   { value: 'ROUTINE', label: 'Routine' },
@@ -48,6 +49,10 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
   });
 
   const propertyId = watch('propertyId');
+  const inspectionType = watch('type');
+  const templateId = watch('templateId');
+
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   const { data: propertiesData, isLoading: loadingProperties } = useQuery({
     queryKey: queryKeys.properties.all(),
@@ -89,10 +94,43 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
     },
   });
 
+  const { data: templatesData, isLoading: loadingTemplates } = useQuery({
+    queryKey: ['inspection-templates', inspectionType, propertyId],
+    queryFn: async () => {
+      const params = {
+        type: inspectionType,
+        isActive: true,
+      };
+      if (propertyId) {
+        params.propertyId = propertyId;
+      }
+      const response = await apiClient.get('/inspection-templates', { params });
+      return response.data;
+    },
+    enabled: Boolean(inspectionType),
+  });
+
+  const templates = ensureArray(templatesData, ['templates', 'data', 'items', 'results']);
+
+  // Update selected template when templateId changes
+  useEffect(() => {
+    if (templateId && templates.length > 0) {
+      const template = templates.find((t) => t.id === templateId);
+      setSelectedTemplate(template || null);
+    } else {
+      setSelectedTemplate(null);
+    }
+  }, [templateId, templates]);
+
   // Reset unitId when propertyId changes
   useEffect(() => {
     setValue('unitId', '');
   }, [propertyId, setValue]);
+
+  // Reset templateId when type or property changes
+  useEffect(() => {
+    setValue('templateId', '');
+  }, [inspectionType, propertyId, setValue]);
 
   // Initialize form with inspection data if editing
   useEffect(() => {
@@ -108,6 +146,7 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
         assignedToId: inspection.assignedToId || '',
         notes: inspection.notes || '',
         tags: inspection.tags || [],
+        templateId: inspection.templateId || '',
       });
     } else {
       reset(inspectionDefaultValues);
@@ -151,6 +190,7 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
       assignedToId: data.assignedToId || undefined,
       notes: data.notes || undefined,
       tags: data.tags,
+      templateId: data.templateId || undefined,
     };
 
     if (isEditing) {
@@ -251,6 +291,62 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
               disabled={!propertyId || !units.length}
             />
           </Grid>
+
+          <Grid item xs={12}>
+            <Controller
+              name="templateId"
+              control={control}
+              render={({ field: { value, onChange }, fieldState: { error } }) => (
+                <Autocomplete
+                  size="small"
+                  options={templates}
+                  value={templates.find((option) => option.id === value) || null}
+                  onChange={(_event, newValue) => onChange(newValue?.id || '')}
+                  getOptionLabel={(option) => option.name || ''}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Template (optional)"
+                      helperText={error?.message || 'Select a template to auto-populate rooms and checklist items'}
+                      error={!!error}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingTemplates ? <CircularProgress size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                      inputProps={{
+                        ...params.inputProps,
+                        'aria-invalid': !!error,
+                        'aria-describedby': error ? 'templateId-error' : undefined,
+                      }}
+                      FormHelperTextProps={{
+                        id: error ? 'templateId-error' : undefined,
+                        role: error ? 'alert' : undefined,
+                        'aria-live': error ? 'polite' : undefined,
+                      }}
+                    />
+                  )}
+                  disabled={!inspectionType || loadingTemplates}
+                  noOptionsText={
+                    !inspectionType
+                      ? 'Select inspection type first'
+                      : 'No templates available'
+                  }
+                />
+              )}
+            />
+          </Grid>
+
+          {selectedTemplate && (
+            <Grid item xs={12}>
+              <InspectionTemplatePreview template={selectedTemplate} />
+            </Grid>
+          )}
 
           <Grid item xs={12} sm={6}>
             <Controller

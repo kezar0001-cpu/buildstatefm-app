@@ -128,6 +128,24 @@ export const baseInspectionInclude = {
     select: { id: true, title: true, status: true },
     orderBy: { createdAt: 'desc' },
   },
+  rooms: {
+    select: {
+      id: true,
+      name: true,
+      roomType: true,
+      order: true,
+      checklistItems: {
+        select: {
+          id: true,
+          description: true,
+          status: true,
+          order: true,
+        },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { order: 'asc' },
+  },
 };
 
 export async function completeInspection(inspectionId, userId, userRole, payload) {

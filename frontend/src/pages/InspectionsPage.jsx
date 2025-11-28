@@ -70,6 +70,7 @@ import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
+import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -1256,6 +1257,9 @@ const InspectionKanban = ({
                       </Stack>
                     </Box>
 
+                    {/* Progress Indicator */}
+                    <InspectionProgressIndicator inspection={inspection} variant="full" />
+
                     {/* Actions - with divider */}
                     <Box
                       sx={{
@@ -1498,6 +1502,11 @@ const InspectionListItem = ({
             </Grid>
           )}
         </Grid>
+
+        {/* Progress Indicator */}
+        <Box sx={{ mt: 2 }}>
+          <InspectionProgressIndicator inspection={inspection} variant="compact" />
+        </Box>
       </Box>
 
       {/* Actions */}
@@ -1610,6 +1619,7 @@ const InspectionTable = ({
             <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Scheduled</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Progress</TableCell>
             <TableCell sx={{ fontWeight: 700 }} align="right">
               Actions
             </TableCell>
@@ -1698,6 +1708,11 @@ const InspectionTable = ({
                   color={getStatusColor(inspection.displayStatus)}
                   size="small"
                 />
+              </TableCell>
+              <TableCell>
+                <Box sx={{ minWidth: 150 }}>
+                  <InspectionProgressIndicator inspection={inspection} variant="compact" />
+                </Box>
               </TableCell>
               <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                 <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
