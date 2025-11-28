@@ -220,30 +220,15 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
     // PropertyImageManager returns standardized ImageData format:
     // {id, imageUrl, caption, isPrimary, displayOrder}
     // No transformation needed
+    // Deduplication is now handled by useImageUpload hook
 
-    // Bug Fix #9: Remove duplicate images by URL to prevent database bloat
-    const uniqueImages = [];
-    const seenUrls = new Set();
-
-    for (const image of nextImages) {
-      if (image && image.imageUrl && !seenUrls.has(image.imageUrl)) {
-        seenUrls.add(image.imageUrl);
-        uniqueImages.push(image);
-      }
-    }
-
-    console.log('[PropertyForm] After deduplication:', {
-      uniqueCount: uniqueImages.length,
-      removed: nextImages.length - uniqueImages.length,
-    });
-
-    setPhotoSelections(uniqueImages);
-    const resolvedCover = nextCover || uniqueImages[0]?.imageUrl || '';
+    setPhotoSelections(nextImages);
+    const resolvedCover = nextCover || nextImages[0]?.imageUrl || '';
     setCoverImage(resolvedCover);
     setValue('imageUrl', resolvedCover || '', { shouldDirty: true, shouldValidate: true });
 
     console.log('[PropertyForm] State updated:', {
-      photoSelections: uniqueImages.length,
+      photoSelections: nextImages.length,
       coverImage: resolvedCover ? resolvedCover.substring(0, 50) + '...' : 'none',
     });
   };

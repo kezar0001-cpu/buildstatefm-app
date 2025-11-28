@@ -1,7 +1,6 @@
 import React, { useState, memo, useEffect } from 'react';
 import {
   Card,
-  CardMedia,
   CardContent,
   CardActions,
   IconButton,
@@ -25,6 +24,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { LazyImage } from './LazyImage';
 
 /**
  * Individual image card with actions and status
@@ -240,48 +240,47 @@ const ImageCard = memo(function ImageCard({
         />
       )}
 
-      {/* Image Preview */}
+      {/* Image Preview with Lazy Loading */}
       <Box
         sx={{
           position: 'relative',
-          paddingTop: '75%', // 4:3 aspect ratio
-          overflow: 'hidden',
-          backgroundColor: 'grey.100',
           cursor: selectionMode ? 'pointer' : onClick ? 'pointer' : 'default',
         }}
       >
         {imageUrl ? (
-          <CardMedia
-            component="img"
-            image={imageUrl}
+          <LazyImage
+            src={imageUrl}
             alt={file?.name || 'Image preview'}
+            aspectRatio="4/3"
+            eager={isUploading || isPending} // Load immediately if still uploading
             sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
               opacity: isUploading ? 0.6 : 1,
               transition: 'opacity 0.3s ease-in-out',
-              // Bug Fix: Remove dynamic willChange to prevent layer switching during transition
-              // The browser will optimize opacity transitions automatically
             }}
           />
         ) : (
           <Box
             sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              position: 'relative',
+              paddingTop: '75%', // 4:3 aspect ratio
+              overflow: 'hidden',
+              backgroundColor: 'grey.100',
             }}
           >
-            <CircularProgress />
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CircularProgress />
+            </Box>
           </Box>
         )}
 
