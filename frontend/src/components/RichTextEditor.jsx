@@ -371,20 +371,18 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
             '& h2': { fontSize: '1.5em' },
             '& h3': { fontSize: '1.25em' },
             '& code': {
-              backgroundColor: 'action.hover',
+              backgroundColor: '#f5f5f5',
               borderRadius: 1,
               padding: '0.2em 0.4em',
               fontFamily: 'monospace',
             },
             '& pre': {
-              background: 'background.default',
-              color: 'text.primary',
+              background: '#1e293b',
+              color: '#f1f5f9',
               fontFamily: 'monospace',
               padding: '0.75rem 1rem',
               borderRadius: 1,
               overflow: 'auto',
-              border: '1px solid',
-              borderColor: 'divider',
               '& code': {
                 color: 'inherit',
                 padding: 0,
@@ -394,10 +392,9 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
             },
             '& blockquote': {
               paddingLeft: '1rem',
-              borderLeft: '3px solid',
-              borderColor: 'divider',
+              borderLeft: '3px solid #cbd5e1',
               fontStyle: 'italic',
-              color: 'text.secondary',
+              color: '#64748b',
             },
             '& img': {
               maxWidth: '100%',
@@ -405,7 +402,7 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
               borderRadius: 1,
             },
             '& a': {
-              color: 'primary.main',
+              color: '#3b82f6',
               textDecoration: 'underline',
             },
             '& ul, & ol': {
@@ -415,7 +412,7 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
           '& .ProseMirror p.is-editor-empty:first-child::before': {
             content: 'attr(data-placeholder)',
             float: 'left',
-            color: 'text.disabled',
+            color: '#adb5bd',
             pointerEvents: 'none',
             height: 0,
           },

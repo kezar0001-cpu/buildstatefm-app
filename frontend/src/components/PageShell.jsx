@@ -64,17 +64,13 @@ function PageShell({
             )}
             <Typography
               variant="h4"
-              sx={(theme) => ({
+              sx={{
                 fontWeight: 800,
                 letterSpacing: '-0.02em',
-                ...(theme.palette.mode === 'dark'
-                  ? { color: 'primary.main' }
-                  : {
-                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }),
-              })}
+                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
             >
               {title}
             </Typography>
