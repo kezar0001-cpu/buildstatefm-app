@@ -89,13 +89,14 @@ const clearUploadState = (key) => {
  * The hook will call `onChange` with updated images whenever they change.
  *
  * UNCONTROLLED MODE:
- * Omit `images` and `onChange` props. Optionally provide `defaultImages`
+ * Omit `images` and `onChange` props. Optionally provide `defaultImages` or `initialImages`
  * for initial state. The hook manages state internally.
  *
  * @param {Object} options
  * @param {Array} options.images - Controlled mode: external images array
  * @param {Function} options.onChange - Controlled mode: callback when images change
  * @param {Array} options.defaultImages - Uncontrolled mode: initial images (used once)
+ * @param {Array} options.initialImages - Uncontrolled mode: alias for defaultImages (deprecated, use defaultImages)
  * @param {Function} options.onSuccess - Called when all uploads complete
  * @param {Function} options.onError - Called when an upload fails
  * @param {string} options.endpoint - Upload endpoint URL
@@ -108,7 +109,8 @@ export function useImageUpload(options = {}) {
   const {
     images: controlledImages,
     onChange: controlledOnChange,
-    defaultImages = [],
+    defaultImages,
+    initialImages,
     onSuccess,
     onError,
     endpoint = '/upload/multiple',
@@ -117,17 +119,20 @@ export function useImageUpload(options = {}) {
     storageKey,
   } = options;
 
+  // Accept either defaultImages or initialImages (for backward compatibility)
+  const initialImageData = defaultImages || initialImages || [];
+
   // Determine if we're in controlled mode
   const isControlled = controlledImages !== undefined && controlledOnChange !== undefined;
 
   // Generate storage key if persistence is enabled
   const persistenceKey = storageKey ? `${STORAGE_KEY_PREFIX}${storageKey}` : null;
 
-  // State - Initialize with defaultImages for uncontrolled mode only
+  // State - Initialize with initialImageData for uncontrolled mode only
   const [internalImages, setInternalImages] = useState(() => {
-    // Only use defaultImages in uncontrolled mode, and only for initial state
-    if (!isControlled && defaultImages && defaultImages.length > 0) {
-      return defaultImages.map((img, index) => ({
+    // Only use initialImageData in uncontrolled mode, and only for initial state
+    if (!isControlled && initialImageData && initialImageData.length > 0) {
+      return initialImageData.map((img, index) => ({
         id: img.id || `existing-${Date.now()}-${index}`,
         file: null,
         localPreview: null,
