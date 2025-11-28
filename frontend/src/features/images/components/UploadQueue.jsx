@@ -80,6 +80,18 @@ export function UploadQueue({
 
   const show = isUploading || uploading > 0 || failed > 0;
 
+  // Screen reader announcement text
+  const srAnnouncement = React.useMemo(() => {
+    if (uploading > 0) {
+      return `Uploading ${uploading} of ${total} images. ${completed} completed. Progress: ${overallProgress}%`;
+    } else if (completed === total && total > 0 && failed === 0) {
+      return `Upload complete! All ${total} images uploaded successfully.`;
+    } else if (failed > 0) {
+      return `${failed} images failed to upload. ${completed} of ${total} completed.`;
+    }
+    return '';
+  }, [uploading, total, completed, failed, overallProgress]);
+
   // Listen for external expand requests via storage events
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -171,7 +183,23 @@ export function UploadQueue({
   if (isCollapsed) {
     return (
       <Collapse in={show}>
-        <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+        <Paper elevation={2} sx={{ p: 2, mb: 2 }} role="region" aria-label="Upload progress">
+          {/* ARIA live region for screen reader announcements */}
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+            style={{
+              position: 'absolute',
+              left: '-10000px',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+            }}
+          >
+            {srAnnouncement}
+          </div>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="body2" gutterBottom>
@@ -182,17 +210,19 @@ export function UploadQueue({
                 variant="determinate"
                 value={overallProgress}
                 sx={{ height: 8, borderRadius: 1 }}
+                aria-label={`Upload progress ${overallProgress} percent`}
               />
             </Box>
             <IconButton
               size="small"
               onClick={handleToggleCollapse}
               title="Expand upload details"
+              aria-label="Expand upload details"
             >
               <ExpandMoreIcon fontSize="small" />
             </IconButton>
             {onClose && !isUploading && (
-              <IconButton size="small" onClick={onClose}>
+              <IconButton size="small" onClick={onClose} aria-label="Close upload queue">
                 <CloseIcon fontSize="small" />
               </IconButton>
             )}
@@ -207,7 +237,23 @@ export function UploadQueue({
    */
   return (
     <Collapse in={show}>
-      <Paper elevation={2} sx={{ mb: 2 }}>
+      <Paper elevation={2} sx={{ mb: 2 }} role="region" aria-label="Upload progress details">
+        {/* ARIA live region for screen reader announcements */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+          style={{
+            position: 'absolute',
+            left: '-10000px',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden',
+          }}
+        >
+          {srAnnouncement}
+        </div>
         {/* Header */}
         <Box
           sx={{
@@ -238,6 +284,7 @@ export function UploadQueue({
                 onClick={onResumeUploads}
                 color="primary"
                 variant="outlined"
+                aria-label={`Resume ${failed} failed uploads`}
               >
                 Resume uploads
               </Button>
@@ -246,16 +293,18 @@ export function UploadQueue({
               size="small"
               label={`${overallProgress}%`}
               color={failed > 0 ? 'error' : 'primary'}
+              aria-label={`Overall upload progress: ${overallProgress} percent`}
             />
             <IconButton
               size="small"
               onClick={handleToggleCollapse}
               title="Collapse upload details"
+              aria-label="Collapse upload details"
             >
               <ExpandLessIcon fontSize="small" />
             </IconButton>
             {onClose && !isUploading && (
-              <IconButton size="small" onClick={onClose}>
+              <IconButton size="small" onClick={onClose} aria-label="Close upload queue">
                 <CloseIcon fontSize="small" />
               </IconButton>
             )}
@@ -268,15 +317,25 @@ export function UploadQueue({
             variant="determinate"
             value={overallProgress}
             sx={{ height: 8, borderRadius: 1 }}
+            aria-label={`Overall upload progress ${overallProgress} percent`}
           />
         </Box>
 
         {/* File List */}
-        <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+        <List dense sx={{ maxHeight: 200, overflow: 'auto' }} aria-label="Individual file upload status">
           {images.map((image) => (
             <ListItem
               key={image.id}
               secondaryAction={getStatusIcon(image.status)}
+              aria-label={`${image.file?.name || 'Unknown file'}: ${
+                image.status === 'uploading'
+                  ? `uploading ${image.progress} percent`
+                  : image.status === 'error'
+                  ? 'failed'
+                  : image.status === 'complete'
+                  ? 'uploaded successfully'
+                  : 'pending'
+              }`}
             >
               <ListItemText
                 primary={
@@ -309,6 +368,7 @@ export function UploadQueue({
                     right: 0,
                     height: 2,
                   }}
+                  aria-label={`${image.file?.name} upload progress ${image.progress} percent`}
                 />
               )}
             </ListItem>

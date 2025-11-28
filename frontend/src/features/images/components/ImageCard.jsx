@@ -241,6 +241,9 @@ const ImageCard = memo(function ImageCard({
             },
           }}
           onClick={(e) => e.stopPropagation()}
+          inputProps={{
+            'aria-label': `Select ${file?.name || 'image'}`,
+          }}
         />
       )}
 
@@ -416,6 +419,9 @@ const ImageCard = memo(function ImageCard({
               onChange={handleCategoryChange}
               disabled={isUploading}
               size="small"
+              inputProps={{
+                'aria-label': `Category for ${file?.name || 'this image'}`,
+              }}
             >
               <MenuItem value="EXTERIOR">Exterior</MenuItem>
               <MenuItem value="INTERIOR">Interior</MenuItem>
@@ -437,6 +443,9 @@ const ImageCard = memo(function ImageCard({
             disabled={isUploading}
             variant="standard"
             sx={{ fontSize: '0.875rem' }}
+            inputProps={{
+              'aria-label': `Caption for ${file?.name || 'this image'}`,
+            }}
           />
         </CardContent>
       )}
@@ -452,6 +461,7 @@ const ImageCard = memo(function ImageCard({
                 onClick={() => onSetCover && onSetCover(id)}
                 disabled={isUploading || isPrimary}
                 color={isPrimary ? 'primary' : 'default'}
+                aria-label={isPrimary ? `${file?.name || 'This image'} is the cover photo` : `Set ${file?.name || 'this image'} as cover photo`}
               >
                 {isPrimary ? <StarIcon /> : <StarBorderIcon />}
               </IconButton>
@@ -465,6 +475,7 @@ const ImageCard = memo(function ImageCard({
                 size="small"
                 onClick={() => onRetry(id)}
                 color="primary"
+                aria-label={`Retry upload for ${file?.name || 'this image'}`}
               >
                 <RefreshIcon />
               </IconButton>
@@ -479,6 +490,7 @@ const ImageCard = memo(function ImageCard({
             onClick={() => onDelete && onDelete(id)}
             disabled={isUploading}
             color="error"
+            aria-label={`Remove ${file?.name || 'this image'}`}
           >
             <DeleteIcon />
           </IconButton>
