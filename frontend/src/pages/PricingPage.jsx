@@ -25,6 +25,7 @@ import StarIcon from '@mui/icons-material/Star';
 import BusinessIcon from '@mui/icons-material/Business';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { useCurrentUser } from '../context/UserContext.jsx';
+import BlogPublicNav from '../components/BlogPublicNav';
 
 const PRICING_TIERS = [
   {
@@ -276,14 +277,16 @@ export default function PricingPage() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #fff7f7 0%, #ffffff 60%)',
-        py: 8,
-      }}
-    >
-      <Container maxWidth="lg">
+    <>
+      <BlogPublicNav />
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(180deg, #fff7f7 0%, #ffffff 60%)',
+          py: 8,
+        }}
+      >
+        <Container maxWidth="lg">
         <Stack spacing={6}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
@@ -461,5 +464,6 @@ export default function PricingPage() {
         </Stack>
       </Container>
     </Box>
+    </>
   );
 }

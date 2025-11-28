@@ -16,11 +16,10 @@ const BlogPublicNav = () => {
         Buildstate FM
       </Link>
       <div className="landing-nav-links">
-        <a href="/#features">Platform</a>
-        <a href="/#workflow">How it works</a>
-        <a href="/#roles">Solutions</a>
+        <a href="/#features">Features</a>
+        <a href="/#how-it-works">How It Works</a>
+        <Link to="/pricing">Pricing</Link>
         <Link to="/blog">Blog</Link>
-        <a href="/#faqs">FAQ</a>
       </div>
       <div className="landing-nav-cta">
         <Link to="/signin" className="landing-link">
