@@ -153,7 +153,12 @@ const adminSetupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1, 'Password is required'),
   phone: z.string().optional(),
+  adminSecret: z.string().optional(),
 });
+
+// The secret PIN to bypass the single-admin restriction
+// In production, this should strictly come from environment variables
+const ADMIN_SETUP_PIN = process.env.ADMIN_SETUP_PIN || 'AgentFM-2025-Secure-Setup';
 
 // ========================================
 // GET /api/auth/setup/check
@@ -177,20 +182,23 @@ router.get('/setup/check', async (req, res) => {
 
 // ========================================
 // POST /api/auth/setup
-// Create first admin account (only works if no admin exists)
+// Create first admin account (only works if no admin exists OR if recovery PIN is provided)
 // ========================================
 router.post('/setup', async (req, res) => {
   try {
+    const { firstName, lastName, email, password, phone, adminSecret } = adminSetupSchema.parse(req.body);
+
     // Check if any admin already exists
     const adminExists = await prisma.user.findFirst({
       where: { role: 'ADMIN' },
     });
 
-    if (adminExists) {
+    // Allow bypass if the correct secret PIN is provided
+    const isRecoveryMode = adminSecret === ADMIN_SETUP_PIN;
+
+    if (adminExists && !isRecoveryMode) {
       return sendError(res, 403, 'Admin account already exists', ErrorCodes.BIZ_SETUP_ALREADY_COMPLETED);
     }
-
-    const { firstName, lastName, email, password, phone } = adminSetupSchema.parse(req.body);
 
     // Validate password strength and requirements
     const passwordValidation = validatePassword(password, [email, firstName, lastName]);
