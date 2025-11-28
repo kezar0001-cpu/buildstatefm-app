@@ -50,6 +50,12 @@ export function ImageGallery({
   const [selectionMode, setSelectionMode] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
+  // Keyboard navigation state
+  const [focusedIndex, setFocusedIndex] = useState(null);
+  const [moveMode, setMoveMode] = useState(false);
+  const [moveSourceIndex, setMoveSourceIndex] = useState(null);
+  const [moveTargetIndex, setMoveTargetIndex] = useState(null);
+
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -175,31 +181,98 @@ export function ImageGallery({
    */
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Skip if focused on an input element
+      const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+
       // Cmd/Ctrl+A - Select all
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && enableBulkOperations) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && enableBulkOperations && !isInputFocused) {
         e.preventDefault();
         selectAll();
       }
 
       // Delete/Backspace - Delete selected
-      if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection && enableBulkOperations) {
-        // Only trigger if not focused on an input element
-        if (!['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection && enableBulkOperations && !isInputFocused) {
+        e.preventDefault();
+        handleBulkDelete();
+      }
+
+      // Escape - Cancel move mode or deselect all
+      if (e.key === 'Escape') {
+        if (moveMode) {
           e.preventDefault();
-          handleBulkDelete();
+          setMoveMode(false);
+          setMoveSourceIndex(null);
+          setMoveTargetIndex(null);
+        } else if (hasSelection) {
+          e.preventDefault();
+          deselectAll();
         }
       }
 
-      // Escape - Deselect all
-      if (e.key === 'Escape' && hasSelection) {
+      // Arrow keys - Navigate through images or move target in move mode
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && !isInputFocused) {
         e.preventDefault();
-        deselectAll();
+
+        if (filteredImages.length === 0) return;
+
+        if (moveMode) {
+          // In move mode, arrow keys adjust the target position
+          const currentTarget = moveTargetIndex !== null ? moveTargetIndex : moveSourceIndex;
+          let newTarget = currentTarget;
+
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            newTarget = Math.min(currentTarget + 1, filteredImages.length - 1);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            newTarget = Math.max(currentTarget - 1, 0);
+          }
+
+          setMoveTargetIndex(newTarget);
+        } else {
+          // Normal navigation mode
+          let currentIndex = focusedIndex !== null ? focusedIndex : 0;
+          let newIndex = currentIndex;
+
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            newIndex = Math.min(currentIndex + 1, filteredImages.length - 1);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            newIndex = Math.max(currentIndex - 1, 0);
+          }
+
+          setFocusedIndex(newIndex);
+
+          // Focus the image card
+          const imageCards = document.querySelectorAll('.image-card-keyboard-target');
+          if (imageCards[newIndex]) {
+            imageCards[newIndex].focus();
+          }
+        }
+      }
+
+      // Enter - Toggle move mode or confirm move
+      if (e.key === 'Enter' && allowReordering && !isInputFocused && focusedIndex !== null) {
+        e.preventDefault();
+
+        if (moveMode) {
+          // Confirm move
+          const targetIndex = moveTargetIndex !== null ? moveTargetIndex : moveSourceIndex;
+          if (moveSourceIndex !== null && targetIndex !== moveSourceIndex && onReorder) {
+            onReorder(moveSourceIndex, targetIndex);
+          }
+          setMoveMode(false);
+          setMoveSourceIndex(null);
+          setMoveTargetIndex(null);
+        } else {
+          // Enter move mode
+          setMoveMode(true);
+          setMoveSourceIndex(focusedIndex);
+          setMoveTargetIndex(null);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectAll, deselectAll, handleBulkDelete, hasSelection, enableBulkOperations]);
+  }, [selectAll, deselectAll, handleBulkDelete, hasSelection, enableBulkOperations, moveMode, focusedIndex, moveSourceIndex, moveTargetIndex, filteredImages, allowReordering, onReorder]);
 
   /**
    * Clear selection when images change significantly
@@ -584,6 +657,28 @@ export function ImageGallery({
 
   return (
     <Box>
+      {/* ARIA live region for keyboard navigation announcements */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'absolute',
+          left: '-10000px',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+        }}
+      >
+        {moveMode && moveSourceIndex !== null && (
+          <>
+            {moveTargetIndex !== null && moveTargetIndex !== moveSourceIndex
+              ? `Moving image ${moveSourceIndex + 1} to position ${moveTargetIndex + 1}. Press Enter to confirm, Escape to cancel.`
+              : `Move mode active for image ${moveSourceIndex + 1}. Use arrow keys to select target position.`}
+          </>
+        )}
+      </div>
+
       {/* Error Alert */}
       {hasErrors && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -834,7 +929,12 @@ export function ImageGallery({
         // Regular grid with animations for smaller galleries
         <Grid container spacing={2}>
           <AnimatePresence mode="popLayout">
-            {filteredImages.map((image, index) => (
+            {filteredImages.map((image, index) => {
+              const isMoving = moveMode && moveSourceIndex === index;
+              const isMoveTarget = moveMode && moveTargetIndex === index;
+              const isFocused = focusedIndex === index;
+
+              return (
               <Grid
                 item
                 xs={12}
@@ -859,7 +959,112 @@ export function ImageGallery({
                     scale: { duration: 0.2 },
                   }}
                   style={{ position: 'relative', height: '100%' }}
+                  tabIndex={0}
+                  className="image-card-keyboard-target"
+                  onFocus={() => setFocusedIndex(index)}
+                  aria-label={`${image.file?.name || 'Image'} ${index + 1} of ${filteredImages.length}. ${allowReordering ? 'Press Enter to move, arrow keys to navigate.' : ''}`}
                 >
+                  {/* Keyboard Move Mode Indicators */}
+                  {isMoving && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        left: -8,
+                        right: -8,
+                        bottom: -8,
+                        border: '4px solid',
+                        borderColor: 'warning.main',
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                        zIndex: 10,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: 'warning.main',
+                          color: 'white',
+                          padding: '8px 16px',
+                          borderRadius: 1,
+                          fontWeight: 'bold',
+                          fontSize: '0.9rem',
+                          boxShadow: 3,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Moving... Use arrow keys to select position
+                      </Box>
+                    </Box>
+                  )}
+                  {isMoveTarget && moveSourceIndex !== index && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        left: -8,
+                        right: -8,
+                        bottom: -8,
+                        border: '4px dashed',
+                        borderColor: 'success.main',
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        zIndex: 10,
+                        pointerEvents: 'none',
+                        animation: 'pulse 1.5s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%, 100%': {
+                            opacity: 0.7,
+                            transform: 'scale(1)',
+                          },
+                          '50%': {
+                            opacity: 1,
+                            transform: 'scale(1.02)',
+                          },
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: 'success.main',
+                          color: 'white',
+                          padding: '8px 16px',
+                          borderRadius: 1,
+                          fontWeight: 'bold',
+                          fontSize: '0.9rem',
+                          boxShadow: 3,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Move here (Press Enter to confirm)
+                      </Box>
+                    </Box>
+                  )}
+                  {isFocused && !moveMode && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: -4,
+                        left: -4,
+                        right: -4,
+                        bottom: -4,
+                        border: '3px solid',
+                        borderColor: 'primary.main',
+                        borderRadius: 2,
+                        zIndex: 5,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+
                   {/* Drop Zone Indicator */}
                   {dragOverIndex === index && draggedIndex !== null && draggedIndex !== index && (
                     <Box
@@ -959,7 +1164,8 @@ export function ImageGallery({
                   />
                 </motion.div>
               </Grid>
-            ))}
+              );
+            })}
           </AnimatePresence>
         </Grid>
       )}
