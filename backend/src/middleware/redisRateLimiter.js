@@ -1,0 +1,165 @@
+// backend/src/middleware/redisRateLimiter.js
+import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
+import { getConnectedRedisClient } from '../config/redisClient.js';
+import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+
+/**
+ * In-memory fallback rate limiter (used when Redis is unavailable)
+ */
+const memoryLimiters = new Map();
+
+/**
+ * Get or create a memory-based rate limiter
+ * @param {string} keyPrefix - Rate limiter key prefix
+ * @param {number} points - Maximum number of points
+ * @param {number} duration - Duration in seconds
+ * @returns {RateLimiterMemory}
+ */
+function getMemoryLimiter(keyPrefix, points, duration) {
+  const key = `${keyPrefix}-${points}-${duration}`;
+
+  if (!memoryLimiters.has(key)) {
+    memoryLimiters.set(key, new RateLimiterMemory({
+      points,
+      duration,
+      keyPrefix,
+    }));
+  }
+
+  return memoryLimiters.get(key);
+}
+
+/**
+ * Create a Redis-backed rate limiter middleware
+ * Falls back to in-memory rate limiting if Redis is unavailable
+ *
+ * @param {Object} options - Rate limiter configuration
+ * @param {string} options.keyPrefix - Redis key prefix (e.g., 'upload_rate_limit')
+ * @param {number} options.points - Maximum number of requests (default: 30)
+ * @param {number} options.duration - Time window in seconds (default: 60)
+ * @param {string} options.errorMessage - Custom error message
+ * @param {Function} options.keyGenerator - Custom key generator function (req) => string
+ * @returns {Function} Express middleware
+ */
+export function createRedisRateLimiter(options = {}) {
+  const {
+    keyPrefix = 'rate_limit',
+    points = 30,
+    duration = 60,
+    errorMessage,
+    keyGenerator = (req) => req.user?.id || req.ip,
+  } = options;
+
+  let rateLimiter = null;
+  let isRedisAvailable = false;
+
+  // Initialize rate limiter asynchronously
+  (async () => {
+    try {
+      const redisClient = await getConnectedRedisClient();
+
+      if (redisClient && redisClient.isOpen) {
+        rateLimiter = new RateLimiterRedis({
+          storeClient: redisClient,
+          keyPrefix,
+          points,
+          duration,
+          execEvenly: false,
+          blockDuration: 0,
+        });
+        isRedisAvailable = true;
+        console.log(`✅ Redis rate limiter initialized: ${keyPrefix} (${points} requests per ${duration}s)`);
+      } else {
+        console.warn(`⚠️  Redis unavailable for rate limiter: ${keyPrefix}, using in-memory fallback`);
+        rateLimiter = getMemoryLimiter(keyPrefix, points, duration);
+        isRedisAvailable = false;
+      }
+    } catch (error) {
+      console.error(`❌ Failed to initialize Redis rate limiter: ${keyPrefix}`, error);
+      rateLimiter = getMemoryLimiter(keyPrefix, points, duration);
+      isRedisAvailable = false;
+    }
+  })();
+
+  // Return middleware function
+  return async (req, res, next) => {
+    // Wait for rate limiter to be initialized
+    if (!rateLimiter) {
+      // Use temporary in-memory limiter while initializing
+      const tempLimiter = getMemoryLimiter(keyPrefix, points, duration);
+      rateLimiter = tempLimiter;
+    }
+
+    try {
+      const key = keyGenerator(req);
+
+      if (!key) {
+        // No key available (e.g., unauthenticated request with no IP), allow the request
+        return next();
+      }
+
+      // Consume 1 point
+      await rateLimiter.consume(key, 1);
+
+      // Request allowed
+      next();
+    } catch (rateLimiterRes) {
+      // Rate limit exceeded
+      const message = errorMessage || `Too many requests. Maximum ${points} requests per ${duration} seconds.`;
+
+      // Add rate limit headers
+      if (rateLimiterRes?.msBeforeNext) {
+        res.set('Retry-After', Math.ceil(rateLimiterRes.msBeforeNext / 1000));
+        res.set('X-RateLimit-Limit', points);
+        res.set('X-RateLimit-Remaining', 0);
+        res.set('X-RateLimit-Reset', new Date(Date.now() + rateLimiterRes.msBeforeNext).toISOString());
+      }
+
+      return sendError(res, 429, message, ErrorCodes.RATE_LIMIT_EXCEEDED);
+    }
+  };
+}
+
+/**
+ * Pre-configured rate limiters for common use cases
+ */
+
+// Upload rate limiter: 30 uploads per minute
+export const uploadRateLimiter = createRedisRateLimiter({
+  keyPrefix: 'upload_rate_limit',
+  points: 30,
+  duration: 60,
+  errorMessage: 'Too many uploads. Maximum 30 uploads per minute.',
+});
+
+// Property upload rate limiter: 20 uploads per minute
+export const propertyUploadRateLimiter = createRedisRateLimiter({
+  keyPrefix: 'property_upload_rate_limit',
+  points: 20,
+  duration: 60,
+  errorMessage: 'Too many property uploads. Maximum 20 uploads per minute.',
+});
+
+// API rate limiter: 100 requests per minute
+export const apiRateLimiter = createRedisRateLimiter({
+  keyPrefix: 'api_rate_limit',
+  points: 100,
+  duration: 60,
+  errorMessage: 'Too many API requests. Maximum 100 requests per minute.',
+});
+
+// Strict rate limiter: 10 requests per minute (for sensitive operations)
+export const strictRateLimiter = createRedisRateLimiter({
+  keyPrefix: 'strict_rate_limit',
+  points: 10,
+  duration: 60,
+  errorMessage: 'Too many requests. Maximum 10 requests per minute.',
+});
+
+export default {
+  createRedisRateLimiter,
+  uploadRateLimiter,
+  propertyUploadRateLimiter,
+  apiRateLimiter,
+  strictRateLimiter,
+};

@@ -70,6 +70,7 @@ const ImageCard = memo(function ImageCard({
     id,
     localPreview,
     remoteUrl,
+    variants,
     status,
     progress,
     error,
@@ -82,6 +83,9 @@ const ImageCard = memo(function ImageCard({
   // the browser from having to load a new image when upload completes
   // remoteUrl is still stored and used for form submission, just not displayed
   const imageUrl = localPreview || remoteUrl;
+
+  // Check if responsive image variants are available
+  const hasResponsiveVariants = variants && typeof variants === 'object' && Object.keys(variants).length > 0;
 
   const isUploading = status === 'uploading';
   const isComplete = status === 'complete';
@@ -240,24 +244,77 @@ const ImageCard = memo(function ImageCard({
         />
       )}
 
-      {/* Image Preview with Lazy Loading */}
+      {/* Image Preview with Lazy Loading and Responsive Variants */}
       <Box
         sx={{
           position: 'relative',
           cursor: selectionMode ? 'pointer' : onClick ? 'pointer' : 'default',
         }}
       >
-        {imageUrl ? (
-          <LazyImage
-            src={imageUrl}
-            alt={file?.name || 'Image preview'}
-            aspectRatio="4/3"
-            eager={isUploading || isPending} // Load immediately if still uploading
-            sx={{
-              opacity: isUploading ? 0.6 : 1,
-              transition: 'opacity 0.3s ease-in-out',
-            }}
-          />
+        {imageUrl || hasResponsiveVariants ? (
+          hasResponsiveVariants && !localPreview ? (
+            // Use responsive picture element with srcset when variants are available
+            <Box
+              sx={{
+                position: 'relative',
+                paddingTop: '75%', // 4:3 aspect ratio
+                overflow: 'hidden',
+                backgroundColor: 'grey.100',
+              }}
+            >
+              <picture
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                }}
+              >
+                {/* WebP sources for modern browsers */}
+                {variants['thumbnail-webp'] && (
+                  <source
+                    type="image/webp"
+                    srcSet={`${variants['thumbnail-webp']} 200w${variants['medium-webp'] ? `, ${variants['medium-webp']} 800w` : ''}${variants['original-webp'] ? `, ${variants['original-webp']} 1920w` : ''}`}
+                    sizes="(max-width: 600px) 200px, (max-width: 1200px) 800px, 1920px"
+                  />
+                )}
+                {/* JPEG fallback */}
+                {variants['thumbnail-jpg'] && (
+                  <source
+                    type="image/jpeg"
+                    srcSet={`${variants['thumbnail-jpg']} 200w${variants['medium-jpg'] ? `, ${variants['medium-jpg']} 800w` : ''}${variants['original-jpg'] ? `, ${variants['original-jpg']} 1920w` : ''}`}
+                    sizes="(max-width: 600px) 200px, (max-width: 1200px) 800px, 1920px"
+                  />
+                )}
+                {/* Fallback img tag */}
+                <img
+                  src={variants['medium-jpg'] || variants['original-jpg'] || variants['thumbnail-jpg']}
+                  alt={file?.name || 'Image preview'}
+                  loading={isUploading || isPending ? 'eager' : 'lazy'}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    opacity: isUploading ? 0.6 : 1,
+                    transition: 'opacity 0.3s ease-in-out',
+                  }}
+                />
+              </picture>
+            </Box>
+          ) : (
+            // Use standard lazy image for non-responsive images or local previews
+            <LazyImage
+              src={imageUrl}
+              alt={file?.name || 'Image preview'}
+              aspectRatio="4/3"
+              eager={isUploading || isPending} // Load immediately if still uploading
+              sx={{
+                opacity: isUploading ? 0.6 : 1,
+                transition: 'opacity 0.3s ease-in-out',
+              }}
+            />
+          )
         ) : (
           <Box
             sx={{
