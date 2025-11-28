@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -21,7 +21,14 @@ import {
   List,
   ListItem,
   ListItemButton,
-  ListItemText
+  ListItemText,
+  Stepper,
+  Step,
+  StepLabel,
+  Tab,
+  Tabs,
+  Rating,
+  Divider
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -33,9 +40,15 @@ import {
   Build as BuildIcon,
   Assignment as AssignmentIcon,
   TrendingUp as TrendingUpIcon,
-  PlayCircleOutline as PlayIcon
+  PlayCircleOutline as PlayIcon,
+  Home as HomeIcon,
+  ArrowForward as ArrowForwardIcon,
+  Star as StarIcon,
+  People as PeopleIcon,
+  AutoAwesome as AutoAwesomeIcon
 } from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import GradientButton from '../components/GradientButton';
 
 // --- Styled Components & Animations ---
 
@@ -106,22 +119,44 @@ const Navbar = () => {
 
   const navLinks = [
     { label: 'Features', path: '#features' },
+    { label: 'How It Works', path: '#how-it-works' },
     { label: 'Blog', path: '/blog' },
-    { label: 'Admin', path: '/admin/blog/login' },
   ];
 
   return (
-    <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)' }}>
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
+      sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'rgba(255, 245, 245, 0.85)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+      }}
+    >
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
-          <Stack direction="row" alignItems="center" spacing={1} component={RouterLink} to="/" sx={{ textDecoration: 'none', color: 'text.primary' }}>
-            <Box sx={{ width: 40, height: 40, bgcolor: 'primary.main', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
-              B
-            </Box>
-            <Typography variant="h6" fontWeight="bold">
-              Buildstate FM
-            </Typography>
-          </Stack>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 } }}>
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'scale(1.02)',
+              },
+            }}
+          >
+            BuildState FM
+          </Typography>
 
           {isMobile ? (
             <>
@@ -143,7 +178,9 @@ const Navbar = () => {
                     </ListItemButton>
                   </ListItem>
                   <ListItem sx={{ mt: 2 }}>
-                     <Button fullWidth variant="contained" color="primary" component={RouterLink} to="/signup">Get Started</Button>
+                    <GradientButton fullWidth component={RouterLink} to="/signup">
+                      Get Started Free
+                    </GradientButton>
                   </ListItem>
                 </List>
               </Drawer>
@@ -154,22 +191,41 @@ const Navbar = () => {
                 {navLinks.map((link) => (
                   <Typography
                     key={link.label}
-                    component={RouterLink}
-                    to={link.path}
+                    component={link.path.startsWith('#') ? 'a' : RouterLink}
+                    to={link.path.startsWith('#') ? undefined : link.path}
+                    href={link.path.startsWith('#') ? link.path : undefined}
                     variant="body2"
-                    sx={{ textDecoration: 'none', color: 'text.secondary', fontWeight: 500, '&:hover': { color: 'primary.main' } }}
+                    sx={{
+                      textDecoration: 'none',
+                      color: 'text.secondary',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'color 0.2s',
+                      '&:hover': { color: 'primary.main' }
+                    }}
                   >
                     {link.label}
                   </Typography>
                 ))}
               </Stack>
               <Stack direction="row" spacing={2}>
-                <Button variant="outlined" color="primary" component={RouterLink} to="/signin" size="small">
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  component={RouterLink}
+                  to="/signin"
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    px: 2.5
+                  }}
+                >
                   Sign In
                 </Button>
-                <Button variant="contained" color="primary" component={RouterLink} to="/signup" size="small">
-                  Get Started
-                </Button>
+                <GradientButton component={RouterLink} to="/signup">
+                  Get Started Free
+                </GradientButton>
               </Stack>
             </Stack>
           )}
@@ -180,35 +236,145 @@ const Navbar = () => {
 };
 
 const Hero = () => (
-  <Box sx={{ bgcolor: 'background.default', pt: { xs: 8, md: 12 }, pb: { xs: 8, md: 8 }, overflow: 'hidden' }}>
-    <Container maxWidth="lg">
+  <Box
+    sx={{
+      background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
+      pt: { xs: 8, md: 12 },
+      pb: { xs: 8, md: 12 },
+      overflow: 'hidden',
+      position: 'relative'
+    }}
+  >
+    {/* Decorative gradient blobs */}
+    <Box
+      sx={{
+        position: 'absolute',
+        top: -100,
+        right: -100,
+        width: 400,
+        height: 400,
+        background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none'
+      }}
+    />
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: -100,
+        left: -100,
+        width: 400,
+        height: 400,
+        background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none'
+      }}
+    />
+
+    <Container maxWidth="lg" sx={{ position: 'relative' }}>
       <Grid container spacing={6} alignItems="center">
         <Grid item xs={12} md={6}>
           <FadeIn>
-            <Chip label="New: Inspection Workflows" color="secondary" size="small" sx={{ mb: 3, fontWeight: 600 }} />
-            <Typography variant="h2" fontWeight={800} sx={{ mb: 2, background: 'linear-gradient(45deg, #b91c1c 30%, #f97316 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Property Management <br /> Built for Trust.
+            <Chip
+              icon={<AutoAwesomeIcon />}
+              label="New: AI-Powered Inspection Workflows"
+              color="secondary"
+              sx={{
+                mb: 3,
+                fontWeight: 600,
+                px: 1,
+                background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                color: 'white'
+              }}
+            />
+            <Typography
+              variant="h1"
+              fontWeight={800}
+              sx={{
+                mb: 3,
+                fontSize: { xs: '2.5rem', md: '3.5rem' },
+                lineHeight: 1.1,
+                letterSpacing: '-0.02em',
+                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              Property Management Built for Trust
             </Typography>
-            <Typography variant="h5" color="text.secondary" sx={{ mb: 4, lineHeight: 1.6 }}>
-              Stop chasing paperwork. Start making decisions with immutable data, real-time audits, and a platform your team will actually love.
+            <Typography
+              variant="h5"
+              color="text.secondary"
+              sx={{
+                mb: 5,
+                lineHeight: 1.7,
+                fontWeight: 400,
+                fontSize: { xs: '1.1rem', md: '1.3rem' }
+              }}
+            >
+              Stop chasing paperwork. Start making data-driven decisions with immutable audit trails,
+              real-time sync, and a platform your entire team will love.
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <Button variant="contained" size="large" component={RouterLink} to="/signup" sx={{ px: 4, py: 1.5, fontSize: '1.1rem' }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 5 }}>
+              <GradientButton
+                size="large"
+                component={RouterLink}
+                to="/signup"
+                endIcon={<ArrowForwardIcon />}
+                sx={{ px: 4, py: 1.5, fontSize: '1.1rem' }}
+              >
                 Start Free Trial
-              </Button>
-              <Button variant="outlined" size="large" component={RouterLink} to="/demo" sx={{ px: 4, py: 1.5, fontSize: '1.1rem' }}>
-                View Demo
+              </GradientButton>
+              <Button
+                variant="outlined"
+                size="large"
+                component="a"
+                href="#how-it-works"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderWidth: 2,
+                  borderRadius: 2,
+                  color: 'primary.main',
+                  borderColor: 'primary.main',
+                  '&:hover': {
+                    borderWidth: 2,
+                    borderColor: 'primary.dark',
+                    bgcolor: 'rgba(185, 28, 28, 0.04)'
+                  }
+                }}
+              >
+                See How It Works
               </Button>
             </Stack>
-            <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ mt: 5, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
               <Stack direction="row" spacing={-1}>
-                {[1, 2, 3, 4].map((i) => (
-                  <Avatar key={i} src={`https://i.pravatar.cc/100?img=${i + 10}`} sx={{ border: '2px solid white' }} />
+                {[11, 12, 13, 14, 15].map((i) => (
+                  <Avatar
+                    key={i}
+                    src={`https://i.pravatar.cc/100?img=${i}`}
+                    sx={{
+                      border: '3px solid white',
+                      width: 48,
+                      height: 48
+                    }}
+                  />
                 ))}
               </Stack>
               <Box>
-                <Typography variant="subtitle2" fontWeight="bold">Trusted by 500+ Managers</Typography>
-                <Typography variant="caption" color="text.secondary">Across 10,000+ Units</Typography>
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                  <Rating value={5} size="small" readOnly />
+                  <Typography variant="caption" fontWeight="bold">5.0</Typography>
+                </Stack>
+                <Typography variant="body2" fontWeight={600} color="text.primary">
+                  Trusted by 500+ Property Managers
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Managing 10,000+ units worldwide
+                </Typography>
               </Box>
             </Box>
           </FadeIn>
@@ -223,6 +389,250 @@ const Hero = () => (
   </Box>
 );
 
+// Workflow demonstration component
+const HowItWorks = () => {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    {
+      label: 'Add Your Properties',
+      icon: <HomeIcon />,
+      title: 'Set Up Your Portfolio in Minutes',
+      description: 'Import properties and units with our simple onboarding wizard. Add all essential details, amenities, and documentation in one centralized location.',
+      features: ['Bulk property import', 'Unit-level tracking', 'Document management', 'Custom fields & tags']
+    },
+    {
+      label: 'Schedule Inspections',
+      icon: <AssignmentIcon />,
+      title: 'Create Smart Inspection Workflows',
+      description: 'Design custom checklists, assign inspections to technicians, and track completion status in real-time with photo evidence and digital signatures.',
+      features: ['Custom checklists', 'Photo documentation', 'Digital signatures', 'Automated scheduling']
+    },
+    {
+      label: 'Track Maintenance',
+      icon: <BuildIcon />,
+      title: 'Manage Jobs from Start to Finish',
+      description: 'From service requests to work orders, track every maintenance job with cost estimates, vendor assignments, and completion verification.',
+      features: ['Service request portal', 'Vendor management', 'Cost tracking', 'Priority levels']
+    },
+    {
+      label: 'Analyze & Optimize',
+      icon: <TrendingUpIcon />,
+      title: 'Make Data-Driven Decisions',
+      description: 'Access real-time analytics, generate compliance reports, and identify optimization opportunities across your entire portfolio.',
+      features: ['Real-time dashboards', 'Compliance reports', 'Cost analysis', 'Performance metrics']
+    }
+  ];
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveStep((prev) => (prev + 1) % steps.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Box id="how-it-works" sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}>
+      <Container maxWidth="lg">
+        <Box textAlign="center" mb={8}>
+          <Typography
+            variant="overline"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 'bold',
+              letterSpacing: '0.1em',
+              fontSize: '0.875rem'
+            }}
+          >
+            HOW IT WORKS
+          </Typography>
+          <Typography variant="h3" fontWeight={800} mb={2} mt={1}>
+            From Setup to Success in 4 Steps
+          </Typography>
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            maxWidth={700}
+            mx="auto"
+            sx={{ lineHeight: 1.7, fontWeight: 400 }}
+          >
+            BuildState FM streamlines your entire property management workflow.
+            Here's how you'll transform your operations.
+          </Typography>
+        </Box>
+
+        <Grid container spacing={6} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Stepper activeStep={activeStep} orientation="vertical">
+              {steps.map((step, index) => (
+                <Step key={step.label} expanded>
+                  <StepLabel
+                    onClick={() => setActiveStep(index)}
+                    sx={{ cursor: 'pointer' }}
+                    StepIconProps={{
+                      sx: {
+                        fontSize: '2rem',
+                        '&.Mui-active': {
+                          color: 'primary.main',
+                          transform: 'scale(1.2)'
+                        },
+                        '&.Mui-completed': {
+                          color: 'secondary.main'
+                        }
+                      }
+                    }}
+                  >
+                    <Typography variant="h6" fontWeight={700}>
+                      {step.label}
+                    </Typography>
+                  </StepLabel>
+                  <AnimatePresence mode="wait">
+                    {activeStep === index && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Box sx={{ pl: 4, pr: 2, pb: 3 }}>
+                          <Typography variant="body1" color="text.secondary" paragraph>
+                            {step.description}
+                          </Typography>
+                          <Stack spacing={1}>
+                            {step.features.map((feature) => (
+                              <Stack key={feature} direction="row" spacing={1} alignItems="center">
+                                <CheckCircleIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                                <Typography variant="body2" color="text.secondary">
+                                  {feature}
+                                </Typography>
+                              </Stack>
+                            ))}
+                          </Stack>
+                        </Box>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Step>
+              ))}
+            </Stepper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeStep}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Card
+                  elevation={0}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)'
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 4,
+                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(255, 255, 255, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backdropFilter: 'blur(10px)'
+                      }}
+                    >
+                      {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: 36 } })}
+                    </Box>
+                    <Typography variant="h5" fontWeight={700}>
+                      {steps[activeStep].title}
+                    </Typography>
+                  </Box>
+                  <CardContent sx={{ p: 4 }}>
+                    {/* Placeholder for screenshot/mockup */}
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 300,
+                        bgcolor: '#f5f5f5',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        backgroundImage: 'url(https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          inset: 0,
+                          bgcolor: 'rgba(185, 28, 28, 0.9)',
+                          backdropFilter: 'blur(4px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white'
+                        }}
+                      >
+                        <Stack alignItems="center" spacing={1}>
+                          {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: 48 } })}
+                          <Typography variant="h6" fontWeight={600}>
+                            {steps[activeStep].label}
+                          </Typography>
+                          <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                            Interactive Demo Coming Soon
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
+          </Grid>
+        </Grid>
+
+        <Box textAlign="center" mt={8}>
+          <GradientButton
+            size="large"
+            component={RouterLink}
+            to="/signup"
+            endIcon={<ArrowForwardIcon />}
+            sx={{ px: 5, py: 2, fontSize: '1.1rem' }}
+          >
+            Start Your Free Trial
+          </GradientButton>
+          <Typography variant="body2" color="text.secondary" mt={2}>
+            No credit card required • Full access for 14 days
+          </Typography>
+        </Box>
+      </Container>
+    </Box>
+  );
+};
+
 const Features = () => {
   const features = [
     { icon: <AssignmentIcon fontSize="large" color="primary" />, title: 'Smart Inspections', description: 'Customizable checklists, photo evidence, and instant report generation.' },
@@ -234,30 +644,79 @@ const Features = () => {
   ];
 
   return (
-    <Box id="features" sx={{ py: 12, bgcolor: 'background.paper' }}>
+    <Box id="features" sx={{ py: { xs: 8, md: 12 }, background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)' }}>
       <Container maxWidth="lg">
         <Box textAlign="center" mb={8}>
-          <Typography variant="overline" color="primary" fontWeight="bold">Features</Typography>
-          <Typography variant="h3" fontWeight={800} mb={2}>Everything you need to scale.</Typography>
-          <Typography variant="h6" color="text.secondary" maxWidth={600} mx="auto">
-            A complete operating system for modern property management.
+          <Typography
+            variant="overline"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 'bold',
+              letterSpacing: '0.1em',
+              fontSize: '0.875rem'
+            }}
+          >
+            FEATURES
+          </Typography>
+          <Typography variant="h3" fontWeight={800} mb={2} mt={1}>
+            Everything You Need to Scale
+          </Typography>
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            maxWidth={700}
+            mx="auto"
+            sx={{ lineHeight: 1.7, fontWeight: 400 }}
+          >
+            A complete operating system for modern property management teams.
           </Typography>
         </Box>
         <Grid container spacing={4}>
           {features.map((feature, index) => (
             <Grid item xs={12} sm={6} md={4} key={index}>
               <FadeIn delay={index * 0.1}>
-                <Card elevation={0} sx={{ height: '100%', bgcolor: 'background.default', '&:hover': { bgcolor: 'white', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }, transition: 'all 0.3s' }}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: '100%',
+                    bgcolor: 'white',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 24px rgba(185, 28, 28, 0.1)',
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                >
                   <CardContent sx={{ p: 4 }}>
-                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'primary.light', display: 'inline-flex', opacity: 0.15 }}>
-                      {React.cloneElement(feature.icon, { sx: { color: 'primary.main' } })}
+                    <Box
+                      sx={{
+                        mb: 3,
+                        width: 64,
+                        height: 64,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        transition: 'transform 0.3s',
+                        '&:hover': {
+                          transform: 'rotate(5deg) scale(1.05)'
+                        }
+                      }}
+                    >
+                      {React.cloneElement(feature.icon, { sx: { fontSize: 32, color: 'white' } })}
                     </Box>
-                    <Box sx={{ mt: -7, mb: 2, ml: 1 }}>
-                       {/* Re-render icon on top of the background box */}
-                       {React.cloneElement(feature.icon, { sx: { color: 'primary.main' } })}
-                    </Box>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>{feature.title}</Typography>
-                    <Typography variant="body2" color="text.secondary" lineHeight={1.7}>{feature.description}</Typography>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>
+                      {feature.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" lineHeight={1.7}>
+                      {feature.description}
+                    </Typography>
                   </CardContent>
                 </Card>
               </FadeIn>
@@ -306,32 +765,245 @@ const ImageShowcase = () => (
   </Box>
 );
 
+// Testimonials section
+const Testimonials = () => {
+  const testimonials = [
+    {
+      name: 'Sarah Mitchell',
+      role: 'Property Manager',
+      company: 'Urban Living Properties',
+      avatar: 'https://i.pravatar.cc/100?img=25',
+      rating: 5,
+      text: 'BuildState FM has completely transformed how we manage our portfolio. The inspection workflows alone have saved us 15+ hours per week.'
+    },
+    {
+      name: 'James Rodriguez',
+      role: 'Facilities Director',
+      company: 'Apex Real Estate Group',
+      avatar: 'https://i.pravatar.cc/100?img=33',
+      rating: 5,
+      text: 'The audit trail feature gives us complete peace of mind during compliance reviews. We can track every action, every time. It\'s a game changer.'
+    },
+    {
+      name: 'Emily Chen',
+      role: 'Operations Manager',
+      company: 'Gateway Residential',
+      avatar: 'https://i.pravatar.cc/100?img=45',
+      rating: 5,
+      text: 'Our maintenance costs dropped by 23% in the first quarter after implementing BuildState FM. The analytics help us spot issues before they become expensive problems.'
+    }
+  ];
+
+  return (
+    <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}>
+      <Container maxWidth="lg">
+        <Box textAlign="center" mb={8}>
+          <Typography
+            variant="overline"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 'bold',
+              letterSpacing: '0.1em',
+              fontSize: '0.875rem'
+            }}
+          >
+            TESTIMONIALS
+          </Typography>
+          <Typography variant="h3" fontWeight={800} mb={2} mt={1}>
+            Trusted by Industry Leaders
+          </Typography>
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            maxWidth={700}
+            mx="auto"
+            sx={{ lineHeight: 1.7, fontWeight: 400 }}
+          >
+            See what property management professionals are saying about BuildState FM.
+          </Typography>
+        </Box>
+
+        <Grid container spacing={4}>
+          {testimonials.map((testimonial, index) => (
+            <Grid item xs={12} md={4} key={index}>
+              <FadeIn delay={index * 0.1}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: '100%',
+                    p: 4,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 3,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 24px rgba(185, 28, 28, 0.08)'
+                    }
+                  }}
+                >
+                  <Rating value={testimonial.rating} readOnly sx={{ mb: 2 }} />
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      mb: 3,
+                      lineHeight: 1.8,
+                      fontStyle: 'italic',
+                      color: 'text.secondary'
+                    }}
+                  >
+                    "{testimonial.text}"
+                  </Typography>
+                  <Divider sx={{ my: 2 }} />
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Avatar
+                      src={testimonial.avatar}
+                      sx={{
+                        width: 56,
+                        height: 56,
+                        border: '2px solid',
+                        borderColor: 'primary.main'
+                      }}
+                    />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        {testimonial.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {testimonial.role}
+                      </Typography>
+                      <Typography variant="caption" color="primary.main" fontWeight={600}>
+                        {testimonial.company}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Card>
+              </FadeIn>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+    </Box>
+  );
+};
+
 const CTA = () => (
-  <Box sx={{ py: 12, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
-    <Container maxWidth="md">
+  <Box
+    sx={{
+      py: { xs: 8, md: 12 },
+      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+      color: 'white',
+      textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden'
+    }}
+  >
+    {/* Decorative elements */}
+    <Box
+      sx={{
+        position: 'absolute',
+        top: -50,
+        right: -50,
+        width: 300,
+        height: 300,
+        borderRadius: '50%',
+        background: 'rgba(255, 255, 255, 0.1)',
+        pointerEvents: 'none'
+      }}
+    />
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: -100,
+        left: -100,
+        width: 400,
+        height: 400,
+        borderRadius: '50%',
+        background: 'rgba(255, 255, 255, 0.05)',
+        pointerEvents: 'none'
+      }}
+    />
+
+    <Container maxWidth="md" sx={{ position: 'relative' }}>
       <FadeIn>
-        <Typography variant="h3" fontWeight={800} mb={3}>
-          Ready to transform your operations?
+        <Typography variant="h2" fontWeight={800} mb={3} sx={{ fontSize: { xs: '2rem', md: '3rem' } }}>
+          Ready to Transform Your Operations?
         </Typography>
-        <Typography variant="h6" mb={5} sx={{ opacity: 0.9 }}>
-          Join hundreds of property managers who have switched to Buildstate FM.
+        <Typography variant="h5" mb={6} sx={{ opacity: 0.95, fontWeight: 400 }}>
+          Join hundreds of property managers who have switched to BuildState FM.
+          Start your free 14-day trial today—no credit card required.
         </Typography>
-        <Button
-          variant="contained"
-          size="large"
-          component={RouterLink}
-          to="/signup"
-          sx={{
-            bgcolor: 'white',
-            color: 'primary.main',
-            px: 6,
-            py: 2,
-            fontSize: '1.2rem',
-            '&:hover': { bgcolor: 'grey.100' }
-          }}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          justifyContent="center"
+          alignItems="center"
         >
-          Get Started Now
-        </Button>
+          <Button
+            variant="contained"
+            size="large"
+            component={RouterLink}
+            to="/signup"
+            endIcon={<ArrowForwardIcon />}
+            sx={{
+              bgcolor: 'white',
+              color: 'primary.main',
+              px: 5,
+              py: 2,
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              textTransform: 'none',
+              borderRadius: 2,
+              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+              '&:hover': {
+                bgcolor: 'grey.100',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 12px 24px rgba(0, 0, 0, 0.25)'
+              },
+              transition: 'all 0.2s'
+            }}
+          >
+            Start Free Trial
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            component={RouterLink}
+            to="/signin"
+            sx={{
+              borderColor: 'white',
+              color: 'white',
+              px: 5,
+              py: 2,
+              fontSize: '1.2rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 2,
+              borderWidth: 2,
+              '&:hover': {
+                borderWidth: 2,
+                borderColor: 'white',
+                bgcolor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            Sign In
+          </Button>
+        </Stack>
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CheckCircleIcon />
+            <Typography variant="body2">14-day free trial</Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CheckCircleIcon />
+            <Typography variant="body2">No credit card required</Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CheckCircleIcon />
+            <Typography variant="body2">Cancel anytime</Typography>
+          </Stack>
+        </Box>
       </FadeIn>
     </Container>
   </Box>
@@ -342,36 +1014,183 @@ const Footer = () => (
     <Container maxWidth="lg">
       <Grid container spacing={4}>
         <Grid item xs={12} md={4}>
-          <Typography variant="h6" color="white" gutterBottom fontWeight="bold">Buildstate FM</Typography>
-          <Typography variant="body2" mb={2}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            fontWeight={800}
+            sx={{
+              background: 'linear-gradient(135deg, #f87171 0%, #fb923c 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              mb: 2
+            }}
+          >
+            BuildState FM
+          </Typography>
+          <Typography variant="body2" mb={2} sx={{ lineHeight: 1.7 }}>
             The modern operating system for property management. Built for trust, speed, and compliance.
           </Typography>
-        </Grid>
-        <Grid item xs={6} md={2}>
-          <Typography variant="subtitle2" color="white" gutterBottom>Product</Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2" component={RouterLink} to="/features" sx={{ color: 'inherit', textDecoration: 'none' }}>Features</Typography>
-            <Typography variant="body2" component={RouterLink} to="/pricing" sx={{ color: 'inherit', textDecoration: 'none' }}>Pricing</Typography>
+          <Stack direction="row" spacing={1} mt={3}>
+            <Chip
+              label="Trusted"
+              size="small"
+              sx={{ bgcolor: 'rgba(185, 28, 28, 0.2)', color: 'white', fontWeight: 600 }}
+            />
+            <Chip
+              label="Secure"
+              size="small"
+              sx={{ bgcolor: 'rgba(249, 115, 22, 0.2)', color: 'white', fontWeight: 600 }}
+            />
           </Stack>
         </Grid>
         <Grid item xs={6} md={2}>
-          <Typography variant="subtitle2" color="white" gutterBottom>Company</Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2" component={RouterLink} to="/about" sx={{ color: 'inherit', textDecoration: 'none' }}>About</Typography>
-            <Typography variant="body2" component={RouterLink} to="/blog" sx={{ color: 'inherit', textDecoration: 'none' }}>Blog</Typography>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Product
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component="a"
+              href="#features"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Features
+            </Typography>
+            <Typography
+              variant="body2"
+              component="a"
+              href="#how-it-works"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              How It Works
+            </Typography>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/subscriptions"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Pricing
+            </Typography>
+          </Stack>
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Company
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/blog"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Blog
+            </Typography>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/about"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              About
+            </Typography>
           </Stack>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Typography variant="subtitle2" color="white" gutterBottom>Admin</Typography>
-          <Button variant="outlined" size="small" color="inherit" component={RouterLink} to="/admin/blog/login">
-            Admin Login
-          </Button>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Get Started
+          </Typography>
+          <Typography variant="body2" mb={2} mt={2} sx={{ lineHeight: 1.7 }}>
+            Start your free 14-day trial today. No credit card required.
+          </Typography>
+          <GradientButton
+            size="small"
+            component={RouterLink}
+            to="/signup"
+            sx={{ mt: 1 }}
+          >
+            Sign Up Free
+          </GradientButton>
         </Grid>
       </Grid>
-      <Box mt={8} pt={4} borderTop="1px solid #333" textAlign="center">
-        <Typography variant="body2">
-          © {new Date().getFullYear()} Buildstate FM. All rights reserved.
-        </Typography>
+      <Box mt={8} pt={4} borderTop="1px solid #333">
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" textAlign={{ xs: 'center', md: 'left' }}>
+              © {new Date().getFullYear()} BuildState FM. All rights reserved.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent={{ xs: 'center', md: 'flex-end' }}
+            >
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/privacy"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Privacy
+              </Typography>
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/terms"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Terms
+              </Typography>
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/admin/blog/login"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'secondary.light' }
+                }}
+              >
+                Admin
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
       </Box>
     </Container>
   </Box>
@@ -382,8 +1201,10 @@ const LandingPage = () => {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
       <Hero />
+      <HowItWorks />
       <Features />
       <ImageShowcase />
+      <Testimonials />
       <CTA />
       <Footer />
     </Box>
