@@ -84,9 +84,23 @@ const PhotoUpload = ({ inspectionId, roomId, issueId, onUploadComplete }) => {
   );
 };
 
-export const InspectionStepConduct = ({ inspection, rooms, actions }) => {
+export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved }) => {
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [newIssue, setNewIssue] = useState({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
+
+  const formatLastSaved = (date) => {
+    if (!date) return null;
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+
+    if (diffSec < 10) return 'Last saved just now';
+    if (diffSec < 60) return `Last saved ${diffSec} seconds ago`;
+    if (diffMin < 60) return `Last saved ${diffMin} minute${diffMin > 1 ? 's' : ''} ago`;
+
+    return `Last saved at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  };
 
   const handleAddIssue = async () => {
     if (!newIssue.title) return;
@@ -103,7 +117,14 @@ export const InspectionStepConduct = ({ inspection, rooms, actions }) => {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h6">Conduct Inspection</Typography>
+        <Box>
+          <Typography variant="h6">Conduct Inspection</Typography>
+          {lastSaved && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+              {formatLastSaved(lastSaved)}
+            </Typography>
+          )}
+        </Box>
         <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setIssueDialogOpen(true)}>
           Add Issue
         </Button>

@@ -10,7 +10,7 @@ import { InspectionStepReview } from './inspections/InspectionStepReview';
 const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
   const {
     activeStep, setActiveStep, completedSteps, stepError, setStepError,
-    snackbar, setSnackbar, rooms, issues, actions
+    snackbar, setSnackbar, rooms, issues, actions, lastSaved
   } = useInspectionConduct(inspection, onComplete);
 
   const steps = ['Start Inspection', 'Add Rooms', 'Conduct Inspection', 'Review & Complete'];
@@ -28,7 +28,7 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
     switch (activeStep) {
       case 0: return <InspectionStepStart inspection={inspection} onStart={actions.startInspection} />;
       case 1: return <InspectionStepAddRooms inspection={inspection} rooms={rooms} actions={actions} />;
-      case 2: return <InspectionStepConduct inspection={inspection} rooms={rooms} actions={actions} />;
+      case 2: return <InspectionStepConduct inspection={inspection} rooms={rooms} actions={actions} lastSaved={lastSaved} />;
       case 3: return <InspectionStepReview inspection={inspection} rooms={rooms} issues={issues} onComplete={actions.completeInspection} isCompleting={actions.isCompleting} />;
       default: return null;
     }
