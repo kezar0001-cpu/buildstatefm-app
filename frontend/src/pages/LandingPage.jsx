@@ -143,7 +143,7 @@ const Navbar = () => {
                     </ListItemButton>
                   </ListItem>
                   <ListItem sx={{ mt: 2 }}>
-                     <Button fullWidth variant="contained" component={RouterLink} to="/signup">Get Started</Button>
+                     <Button fullWidth variant="contained" color="primary" component={RouterLink} to="/signup">Get Started</Button>
                   </ListItem>
                 </List>
               </Drawer>
@@ -164,10 +164,10 @@ const Navbar = () => {
                 ))}
               </Stack>
               <Stack direction="row" spacing={2}>
-                <Button variant="outlined" component={RouterLink} to="/signin" size="small">
+                <Button variant="outlined" color="primary" component={RouterLink} to="/signin" size="small">
                   Sign In
                 </Button>
-                <Button variant="contained" component={RouterLink} to="/signup" size="small">
+                <Button variant="contained" color="primary" component={RouterLink} to="/signup" size="small">
                   Get Started
                 </Button>
               </Stack>
@@ -180,13 +180,13 @@ const Navbar = () => {
 };
 
 const Hero = () => (
-  <Box sx={{ bgcolor: 'background.paper', pt: { xs: 8, md: 12 }, pb: { xs: 8, md: 8 }, overflow: 'hidden' }}>
+  <Box sx={{ bgcolor: 'background.default', pt: { xs: 8, md: 12 }, pb: { xs: 8, md: 8 }, overflow: 'hidden' }}>
     <Container maxWidth="lg">
       <Grid container spacing={6} alignItems="center">
         <Grid item xs={12} md={6}>
           <FadeIn>
-            <Chip label="New: Inspection Workflows" color="primary" size="small" sx={{ mb: 3, fontWeight: 600 }} />
-            <Typography variant="h2" fontWeight={800} sx={{ mb: 2, background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <Chip label="New: Inspection Workflows" color="secondary" size="small" sx={{ mb: 3, fontWeight: 600 }} />
+            <Typography variant="h2" fontWeight={800} sx={{ mb: 2, background: 'linear-gradient(45deg, #b91c1c 30%, #f97316 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Property Management <br /> Built for Trust.
             </Typography>
             <Typography variant="h5" color="text.secondary" sx={{ mb: 4, lineHeight: 1.6 }}>
@@ -234,7 +234,7 @@ const Features = () => {
   ];
 
   return (
-    <Box id="features" sx={{ py: 12, bgcolor: '#F9FAFB' }}>
+    <Box id="features" sx={{ py: 12, bgcolor: 'background.paper' }}>
       <Container maxWidth="lg">
         <Box textAlign="center" mb={8}>
           <Typography variant="overline" color="primary" fontWeight="bold">Features</Typography>
@@ -247,10 +247,14 @@ const Features = () => {
           {features.map((feature, index) => (
             <Grid item xs={12} sm={6} md={4} key={index}>
               <FadeIn delay={index * 0.1}>
-                <Card elevation={0} sx={{ height: '100%', bgcolor: 'transparent', '&:hover': { bgcolor: 'white', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }, transition: 'all 0.3s' }}>
+                <Card elevation={0} sx={{ height: '100%', bgcolor: 'background.default', '&:hover': { bgcolor: 'white', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }, transition: 'all 0.3s' }}>
                   <CardContent sx={{ p: 4 }}>
-                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'primary.light', display: 'inline-flex', opacity: 0.9 }}>
-                      {React.cloneElement(feature.icon, { sx: { color: 'white' } })}
+                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'primary.light', display: 'inline-flex', opacity: 0.15 }}>
+                      {React.cloneElement(feature.icon, { sx: { color: 'primary.main' } })}
+                    </Box>
+                    <Box sx={{ mt: -7, mb: 2, ml: 1 }}>
+                       {/* Re-render icon on top of the background box */}
+                       {React.cloneElement(feature.icon, { sx: { color: 'primary.main' } })}
                     </Box>
                     <Typography variant="h6" fontWeight="bold" gutterBottom>{feature.title}</Typography>
                     <Typography variant="body2" color="text.secondary" lineHeight={1.7}>{feature.description}</Typography>
@@ -266,7 +270,7 @@ const Features = () => {
 };
 
 const ImageShowcase = () => (
-  <Box sx={{ py: 12 }}>
+  <Box sx={{ py: 12, bgcolor: 'background.default' }}>
     <Container maxWidth="lg">
       <Grid container spacing={8} alignItems="center">
         <Grid item xs={12} md={6}>
