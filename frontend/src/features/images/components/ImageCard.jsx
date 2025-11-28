@@ -458,7 +458,10 @@ const ImageCard = memo(function ImageCard({
             <span>
               <IconButton
                 size="small"
-                onClick={() => onSetCover && onSetCover(id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetCover && onSetCover(id);
+                }}
                 disabled={isUploading || isPrimary}
                 color={isPrimary ? 'primary' : 'default'}
                 aria-label={isPrimary ? `${file?.name || 'This image'} is the cover photo` : `Set ${file?.name || 'this image'} as cover photo`}
@@ -473,7 +476,10 @@ const ImageCard = memo(function ImageCard({
             <Tooltip title="Retry upload">
               <IconButton
                 size="small"
-                onClick={() => onRetry(id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry(id);
+                }}
                 color="primary"
                 aria-label={`Retry upload for ${file?.name || 'this image'}`}
               >
@@ -487,7 +493,10 @@ const ImageCard = memo(function ImageCard({
         <Tooltip title="Remove image">
           <IconButton
             size="small"
-            onClick={() => onDelete && onDelete(id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete && onDelete(id);
+            }}
             disabled={isUploading}
             color="error"
             aria-label={`Remove ${file?.name || 'this image'}`}

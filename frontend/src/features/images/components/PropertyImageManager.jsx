@@ -248,16 +248,19 @@ export function PropertyImageManager({
         onCancel={cancelDuplicateDialog}
       />
 
-      {/* Upload Zone */}
-      <ImageUploadZone
-        onFilesSelected={handleFilesSelected}
-        accept="image/*"
-        multiple={true}
-        maxFiles={50}
-        disabled={disabled}
-      />
-
-      <Divider sx={{ my: 3 }} />
+      {/* Upload Zone - Only show when there are images (empty state handles initial upload) */}
+      {images.length > 0 && (
+        <>
+          <ImageUploadZone
+            onFilesSelected={handleFilesSelected}
+            accept="image/*"
+            multiple={true}
+            maxFiles={50}
+            disabled={disabled}
+          />
+          <Divider sx={{ my: 3 }} />
+        </>
+      )}
 
       {/* Upload Queue - Expanded View by default */}
       <UploadQueue
@@ -294,6 +297,7 @@ export function PropertyImageManager({
         onFilesSelected={handleFilesSelected}
         allowCaptions={allowCaptions}
         allowReordering={true}
+        entityType="property"
       />
     </Box>
   );
