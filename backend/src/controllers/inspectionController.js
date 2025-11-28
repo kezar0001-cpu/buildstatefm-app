@@ -22,6 +22,7 @@ const inspectionCreateSchema = z.object({
   notes: z.string().optional().nullable(),
   tags: z.array(z.string().min(1)).optional().default([]),
   findings: z.string().optional().nullable(),
+  templateId: z.string().optional().nullable(),
 });
 
 const inspectionUpdateSchema = inspectionCreateSchema.partial();
@@ -197,14 +198,59 @@ export const createInspection = async (req, res) => {
   try {
     const payload = inspectionCreateSchema.parse(req.body);
 
-    const inspection = await prisma.inspection.create({
-      data: {
-        ...payload,
-        scheduledDate: payload.scheduledDate,
-        tags: payload.tags ?? [],
-      },
-      include: inspectionService.baseInspectionInclude,
-    });
+    let inspection;
+
+    if (payload.templateId) {
+      const template = await prisma.inspectionTemplate.findUnique({
+        where: { id: payload.templateId },
+        include: {
+          rooms: {
+            include: {
+              checklistItems: {
+                orderBy: { order: 'asc' },
+              },
+            },
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      if (!template) {
+        return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
+      }
+
+      inspection = await prisma.inspection.create({
+        data: {
+          ...payload,
+          scheduledDate: payload.scheduledDate,
+          tags: payload.tags ?? [],
+          rooms: {
+            create: template.rooms.map((room) => ({
+              name: room.name,
+              roomType: room.roomType,
+              order: room.order,
+              checklistItems: {
+                create: room.checklistItems.map((item) => ({
+                  description: item.description,
+                  order: item.order,
+                  status: 'PENDING',
+                })),
+              },
+            })),
+          },
+        },
+        include: inspectionService.baseInspectionInclude,
+      });
+    } else {
+      inspection = await prisma.inspection.create({
+        data: {
+          ...payload,
+          scheduledDate: payload.scheduledDate,
+          tags: payload.tags ?? [],
+        },
+        include: inspectionService.baseInspectionInclude,
+      });
+    }
 
     await inspectionService.logAudit(inspection.id, req.user.id, 'CREATED', { after: inspection });
 

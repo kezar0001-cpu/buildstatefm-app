@@ -13,6 +13,7 @@ export const inspectionSchema = z.object({
   assignedToId: z.string().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   tags: z.array(z.string()).default([]),
+  templateId: z.string().optional().nullable(),
 });
 
 export const inspectionDefaultValues = {
@@ -24,4 +25,5 @@ export const inspectionDefaultValues = {
   assignedToId: '',
   notes: '',
   tags: [],
+  templateId: '',
 };
