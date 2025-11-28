@@ -1,52 +1,18 @@
-import React from 'react';
-import {
-  Box,
-  Grid,
-  Paper,
-  Typography,
-  Card,
-  CardContent,
-  Divider,
-  Chip,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
-import {
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  TrendingFlat as TrendingFlatIcon,
-  Assessment as AssessmentIcon,
-} from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
-import {
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import { apiClient } from '../api/client';
-import { queryKeys } from '../utils/queryKeys';
-import DataState from './DataState';
-
-const COLORS = {
-  primary: '#b91c1c',
-  secondary: '#f97316',
-  success: '#10b981',
-  warning: '#f59e0b',
-  info: '#3b82f6',
-  purple: '#8b5cf6',
-};
-
-const PIE_COLORS = ['#b91c1c', '#f97316', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
+import { useTheme } from '@mui/material/styles';
 
 const AnalyticsCharts = ({ months = 6 }) => {
+  const theme = useTheme();
+
+  // Define dynamic colors based on the theme
+  const PIE_COLORS = [
+    theme.palette.primary.main,
+    theme.palette.secondary.main,
+    theme.palette.warning.main,
+    theme.palette.success.main,
+    theme.palette.info.main,
+    theme.palette.augmentColor({ color: { main: '#8b5cf6' } }).main,
+  ];
+
   const {
     data: analytics,
     isLoading,
@@ -95,6 +61,8 @@ const AnalyticsCharts = ({ months = 6 }) => {
   }
 
   const { comparison, jobsCompletedOverTime, inspectionCompletionRate, jobsByPriority, serviceRequestCategories } = analytics;
+  const gridStrokeColor = theme.palette.mode === 'dark' ? '#4b5563' : '#e5e7eb';
+  const axisStrokeColor = theme.palette.mode === 'dark' ? '#9ca3af' : '#6b7280';
 
   return (
     <Box sx={{ mb: 4 }}>
@@ -127,7 +95,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               thisMonth={comparison.thisMonth.jobs}
               lastMonth={comparison.lastMonth.jobs}
               change={comparison.changes.jobs}
-              color={COLORS.warning}
+              color={theme.palette.warning.main}
             />
           </Grid>
           <Grid item xs={12} md={6}>
@@ -136,7 +104,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               thisMonth={comparison.thisMonth.inspections}
               lastMonth={comparison.lastMonth.inspections}
               change={comparison.changes.inspections}
-              color={COLORS.purple}
+              color={PIE_COLORS[5]} // Purple
             />
           </Grid>
         </Grid>
@@ -152,6 +120,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               border: '1px solid',
               borderColor: 'divider',
               height: '100%',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="h6" gutterBottom fontWeight={700}>
@@ -161,28 +130,29 @@ const AnalyticsCharts = ({ months = 6 }) => {
             {jobsCompletedOverTime && jobsCompletedOverTime.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={jobsCompletedOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 12 }}
-                    stroke="#6b7280"
+                    tick={{ fontSize: 12, fill: axisStrokeColor }}
+                    stroke={axisStrokeColor}
                   />
-                  <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                  <YAxis tick={{ fontSize: 12, fill: axisStrokeColor }} stroke={axisStrokeColor} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
                       borderRadius: 8,
+                      color: theme.palette.text.primary,
                     }}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ color: theme.palette.text.secondary }} />
                   <Line
                     type="monotone"
                     dataKey="count"
                     name="Jobs Completed"
-                    stroke={COLORS.warning}
+                    stroke={theme.palette.warning.main}
                     strokeWidth={2}
-                    dot={{ fill: COLORS.warning, r: 4 }}
+                    dot={{ fill: theme.palette.warning.main, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -201,6 +171,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               border: '1px solid',
               borderColor: 'divider',
               height: '100%',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="h6" gutterBottom fontWeight={700}>
@@ -210,34 +181,35 @@ const AnalyticsCharts = ({ months = 6 }) => {
             {inspectionCompletionRate && inspectionCompletionRate.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={inspectionCompletionRate}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 12 }}
-                    stroke="#6b7280"
+                    tick={{ fontSize: 12, fill: axisStrokeColor }}
+                    stroke={axisStrokeColor}
                   />
                   <YAxis
-                    tick={{ fontSize: 12 }}
-                    stroke="#6b7280"
+                    tick={{ fontSize: 12, fill: axisStrokeColor }}
+                    stroke={axisStrokeColor}
                     domain={[0, 100]}
                     tickFormatter={(value) => `${value}%`}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
                       borderRadius: 8,
+                      color: theme.palette.text.primary,
                     }}
                     formatter={(value) => `${value}%`}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ color: theme.palette.text.secondary }} />
                   <Line
                     type="monotone"
                     dataKey="rate"
                     name="Completion Rate"
-                    stroke={COLORS.purple}
+                    stroke={PIE_COLORS[5]} // Purple
                     strokeWidth={2}
-                    dot={{ fill: COLORS.purple, r: 4 }}
+                    dot={{ fill: PIE_COLORS[5], r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -259,6 +231,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               border: '1px solid',
               borderColor: 'divider',
               height: '100%',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="h6" gutterBottom fontWeight={700}>
@@ -287,7 +260,14 @@ const AnalyticsCharts = ({ months = 6 }) => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 8,
+                      color: theme.palette.text.primary,
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -304,6 +284,7 @@ const AnalyticsCharts = ({ months = 6 }) => {
               border: '1px solid',
               borderColor: 'divider',
               height: '100%',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="h6" gutterBottom fontWeight={700}>
@@ -332,7 +313,14 @@ const AnalyticsCharts = ({ months = 6 }) => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 8,
+                      color: theme.palette.text.primary,
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
