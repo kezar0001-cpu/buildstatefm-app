@@ -371,18 +371,20 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
             '& h2': { fontSize: '1.5em' },
             '& h3': { fontSize: '1.25em' },
             '& code': {
-              backgroundColor: '#f5f5f5',
+              backgroundColor: 'action.hover',
               borderRadius: 1,
               padding: '0.2em 0.4em',
               fontFamily: 'monospace',
             },
             '& pre': {
-              background: '#1e293b',
-              color: '#f1f5f9',
+              background: 'background.default',
+              color: 'text.primary',
               fontFamily: 'monospace',
               padding: '0.75rem 1rem',
               borderRadius: 1,
               overflow: 'auto',
+              border: '1px solid',
+              borderColor: 'divider',
               '& code': {
                 color: 'inherit',
                 padding: 0,
@@ -392,9 +394,10 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
             },
             '& blockquote': {
               paddingLeft: '1rem',
-              borderLeft: '3px solid #cbd5e1',
+              borderLeft: '3px solid',
+              borderColor: 'divider',
               fontStyle: 'italic',
-              color: '#64748b',
+              color: 'text.secondary',
             },
             '& img': {
               maxWidth: '100%',
@@ -402,7 +405,7 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
               borderRadius: 1,
             },
             '& a': {
-              color: '#3b82f6',
+              color: 'primary.main',
               textDecoration: 'underline',
             },
             '& ul, & ol': {
@@ -412,7 +415,7 @@ const RichTextEditor = ({ content, onChange, placeholder = 'Start writing...' })
           '& .ProseMirror p.is-editor-empty:first-child::before': {
             content: 'attr(data-placeholder)',
             float: 'left',
-            color: '#adb5bd',
+            color: 'text.disabled',
             pointerEvents: 'none',
             height: 0,
           },

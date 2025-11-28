@@ -73,20 +73,20 @@ export default function EmptyState({
       >
         {/* Icon Container */}
         <Box
-          sx={{
+          sx={(theme) => ({
             width: { xs: 80, md: 100 },
             height: { xs: 80, md: 100 },
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)',
-            boxShadow: '0 4px 14px 0 rgb(59 130 246 / 0.15)',
+            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'primary.lighter',
+            boxShadow: `0 4px 14px 0 ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(59,130,246,0.15)'}`,
             transition: 'transform 0.3s ease',
             '&:hover': {
               transform: 'scale(1.05)',
             },
-          }}
+          })}
         >
           {renderIcon()}
         </Box>
@@ -136,16 +136,14 @@ export default function EmptyState({
               px: 4,
               py: 1.5,
               borderRadius: 3,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
               textTransform: 'none',
               fontSize: '1rem',
               fontWeight: 600,
-              boxShadow: '0 4px 14px 0 rgb(185 28 28 / 0.25)',
+              boxShadow: (theme) => `0 4px 14px 0 ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(185,28,28,0.25)'}`,
               transition: 'all 0.3s ease',
               '&:hover': {
                 transform: 'translateY(-2px)',
-                boxShadow: '0 6px 20px 0 rgb(185 28 28 / 0.35)',
-                background: 'linear-gradient(135deg, #991b1b 0%, #ea580c 100%)',
+                boxShadow: (theme) => `0 6px 20px 0 ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(185,28,28,0.35)'}`,
               },
               '&:active': {
                 transform: 'translateY(0)',

@@ -30,27 +30,31 @@ const defaultDotsSx = {
   gap: 0.5,
 };
 
-const defaultDotSx = (isActive) => ({
+const defaultDotSx = (isActive, theme) => ({
   width: 10,
   height: 10,
   borderRadius: '50%',
-  backgroundColor: isActive ? 'primary.main' : 'grey.300',
+  backgroundColor: isActive ? theme.palette.primary.main : theme.palette.divider,
   cursor: 'pointer',
   transition: 'background-color 0.3s, transform 0.2s',
   '&:hover': {
-    backgroundColor: isActive ? 'primary.dark' : 'grey.400',
+    backgroundColor: isActive ? theme.palette.primary.dark : theme.palette.action.hover,
     transform: 'scale(1.1)',
   },
 });
 
-const defaultArrowSx = {
+const defaultArrowSx = (theme) => ({
   position: 'absolute',
   top: '50%',
   transform: 'translateY(-50%)',
-  backgroundColor: 'rgba(255,255,255,0.85)',
-  '&:hover': { backgroundColor: 'rgba(255,255,255,0.95)' },
+  backgroundColor:
+    theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)',
+  '&:hover': {
+    backgroundColor:
+      theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
+  },
   zIndex: 2,
-};
+});
 
 const defaultImageSx = {
   width: '100%',
