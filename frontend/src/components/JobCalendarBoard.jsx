@@ -143,6 +143,7 @@ const JobCalendarBoard = ({
                   border: '1px solid',
                   borderColor: 'divider',
                   minHeight: 220,
+                  bgcolor: 'background.paper',
                   display: 'flex',
                   flexDirection: 'column',
                 }}

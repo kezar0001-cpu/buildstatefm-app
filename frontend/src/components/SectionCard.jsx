@@ -15,7 +15,7 @@ function SectionCard({ title, subtitle, action, children, spacing = { xs: 2, md:
         borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
-        bgcolor: 'background.paper',
+        background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
         boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
       }}
     >

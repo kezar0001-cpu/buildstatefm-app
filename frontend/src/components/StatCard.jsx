@@ -32,7 +32,7 @@ export default function StatCard({
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         overflow: 'visible',
-        bgcolor: 'background.paper',
+        background: 'linear-gradient(135deg, #ffffff 0%, #fafbff 100%)',
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -61,11 +61,13 @@ export default function StatCard({
             <Typography
               variant="h3"
               component="div"
-              sx={(theme) => ({
+              sx={{
                 fontWeight: 700,
-                color: theme.palette[color]?.main || theme.palette.primary.main,
+                background: gradients[color] || gradients.primary,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
                 letterSpacing: '-0.02em',
-              })}
+              }}
             >
               {value}
             </Typography>
