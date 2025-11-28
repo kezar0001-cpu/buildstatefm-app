@@ -68,7 +68,7 @@ export function UnitImageManager({
     endpoint: '/upload/multiple',
     compressImages: true,
     maxConcurrent: 3,
-    initialImages: preparedInitialImages,
+    defaultImages: preparedInitialImages,
     storageKey: unitName ? `unit_${unitName}` : 'unit_default',
     onSuccess: (completedImages) => {
       console.log('[UnitImageManager] All uploads complete:', completedImages.length);

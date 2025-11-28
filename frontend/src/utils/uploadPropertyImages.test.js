@@ -79,8 +79,8 @@ describe('normaliseUploadedImages', () => {
     ]);
 
     expect(result).toEqual([
-      { id: '123', url: 'https://example.com/a.png', name: 'Image 1', altText: 'A' },
-      { id: 'image-1', url: 'https://example.com/b.png', name: 'File B', altText: 'B alt' },
+      { id: '123', imageUrl: 'https://example.com/a.png', caption: 'A', isPrimary: false, displayOrder: 0 },
+      { id: 'image-1', imageUrl: 'https://example.com/b.png', caption: 'B alt', isPrimary: false, displayOrder: 1 },
     ]);
   });
 });
