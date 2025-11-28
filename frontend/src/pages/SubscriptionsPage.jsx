@@ -239,6 +239,7 @@ export default function SubscriptionsPage() {
   const params = new URLSearchParams(location.search);
   const showSuccess = params.get('success') === '1';
   const showCanceled = params.get('canceled') === '1';
+  const planFromUrl = params.get('plan');
 
   // Effect to refresh user data on successful subscription
   useEffect(() => {
@@ -258,6 +259,28 @@ export default function SubscriptionsPage() {
       isMounted = false;
     };
   }, [showSuccess, refreshUser, navigate, location.pathname]);
+
+  // Effect to auto-start checkout if plan is in URL and user just signed up
+  useEffect(() => {
+    if (!planFromUrl || hasActiveSubscription || checkoutMutation.isPending) return;
+
+    // Only auto-trigger checkout once
+    const hasAutoTriggered = sessionStorage.getItem('autoCheckoutTriggered');
+    if (hasAutoTriggered) {
+      // Clear the flag and plan from URL
+      sessionStorage.removeItem('autoCheckoutTriggered');
+      navigate(location.pathname, { replace: true });
+      return;
+    }
+
+    // Validate plan
+    const validPlans = ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+    const normalizedPlan = planFromUrl.toUpperCase();
+    if (validPlans.includes(normalizedPlan)) {
+      sessionStorage.setItem('autoCheckoutTriggered', 'true');
+      startCheckout(normalizedPlan);
+    }
+  }, [planFromUrl, hasActiveSubscription, checkoutMutation.isPending]);
 
   // Define variables based on the currentUser state
   const subscriptionPlan = currentUser?.subscriptionPlan;

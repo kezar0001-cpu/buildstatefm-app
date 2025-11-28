@@ -120,6 +120,7 @@ const Navbar = () => {
   const navLinks = [
     { label: 'Features', path: '#features' },
     { label: 'How It Works', path: '#how-it-works' },
+    { label: 'Pricing', path: '/pricing' },
     { label: 'Blog', path: '/blog' },
   ];
 

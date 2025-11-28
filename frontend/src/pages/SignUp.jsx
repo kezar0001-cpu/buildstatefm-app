@@ -13,6 +13,7 @@ export default function SignUp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
+  const selectedPlan = searchParams.get('plan'); // Get plan from URL params
 
   // MINIMAL CHANGE: Add 'role' to the initial state
   const [formData, setFormData] = useState({
@@ -131,7 +132,13 @@ export default function SignUp() {
 
       localStorage.setItem('auth_token', res.token);
       setCurrentUser(res.user);
-      navigate('/dashboard');
+
+      // If a plan was selected, redirect to subscriptions page with plan parameter
+      if (selectedPlan) {
+        navigate(`/subscriptions?plan=${selectedPlan}`);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       const msg =
         err?.response?.data?.errors?.[0]?.message ||
@@ -178,7 +185,9 @@ export default function SignUp() {
               Buildstate FM
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>Create Account</Typography>
-            <Typography variant="body2" color="text.secondary">Join Buildstate FM to streamline your property management</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {selectedPlan ? `Sign up to start your free trial with the ${selectedPlan.charAt(0) + selectedPlan.slice(1).toLowerCase()} plan` : 'Join Buildstate FM to streamline your property management'}
+            </Typography>
           </Box>
 
           {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
