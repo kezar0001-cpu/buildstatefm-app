@@ -44,7 +44,6 @@ import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import InspectionAttachmentManager from '../components/InspectionAttachmentManager';
 import InspectionForm from '../components/InspectionForm';
-import InspectionConductForm from '../components/InspectionConductForm';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
@@ -66,7 +65,6 @@ export default function InspectionDetailPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
-  const [conductDialogOpen, setConductDialogOpen] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
 
@@ -324,7 +322,7 @@ export default function InspectionDetailPage() {
                   variant="contained"
                   color="primary"
                   startIcon={<AddTaskIcon />}
-                  onClick={() => setConductDialogOpen(true)}
+                  onClick={() => navigate(`/inspections/${id}/conduct`)}
                 >
                   Conduct Inspection
                 </Button>
@@ -810,24 +808,6 @@ export default function InspectionDetailPage() {
             Create job
           </Button>
         </DialogActions>
-      </Dialog>
-
-      {/* Conduct Inspection Dialog */}
-      <Dialog
-        open={conductDialogOpen}
-        onClose={() => setConductDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        fullScreen
-      >
-        <InspectionConductForm
-          inspection={inspection}
-          onComplete={() => {
-            setConductDialogOpen(false);
-            queryClient.invalidateQueries(queryKeys.inspections.detail(id));
-          }}
-          onCancel={() => setConductDialogOpen(false)}
-        />
       </Dialog>
     </Container>
   );
