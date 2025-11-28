@@ -163,17 +163,54 @@ export function useImageUpload(options = {}) {
   // Get the current images (controlled or uncontrolled)
   const images = isControlled ? controlledImages : internalImages;
 
+  /**
+   * Deduplicate images by remoteUrl
+   * Ensures no duplicate URLs are in the images array
+   */
+  const deduplicateByUrl = useCallback((imagesToCheck) => {
+    const seenUrls = new Set();
+    const uniqueImages = [];
+    let duplicateCount = 0;
+
+    for (const image of imagesToCheck) {
+      // Only check images that have a remoteUrl
+      if (image.remoteUrl) {
+        if (seenUrls.has(image.remoteUrl)) {
+          duplicateCount++;
+          console.warn('[useImageUpload] Duplicate image detected and removed:', {
+            id: image.id,
+            url: image.remoteUrl.substring(0, 80) + '...',
+          });
+          continue;
+        }
+        seenUrls.add(image.remoteUrl);
+      }
+      uniqueImages.push(image);
+    }
+
+    if (duplicateCount > 0) {
+      console.warn(`[useImageUpload] Removed ${duplicateCount} duplicate image(s) by URL`);
+    }
+
+    return uniqueImages;
+  }, []);
+
   // Update images (controlled or uncontrolled)
   const updateImages = useCallback((updater) => {
     if (isControlled) {
       // In controlled mode, call onChange with the new images
       const newImages = typeof updater === 'function' ? updater(controlledImages) : updater;
-      controlledOnChange(newImages);
+      // Deduplicate before emitting to parent
+      const uniqueImages = deduplicateByUrl(newImages);
+      controlledOnChange(uniqueImages);
     } else {
       // In uncontrolled mode, update internal state
-      setInternalImages(updater);
+      const newImages = typeof updater === 'function' ? updater(internalImages) : updater;
+      // Deduplicate before updating state
+      const uniqueImages = deduplicateByUrl(newImages);
+      setInternalImages(uniqueImages);
     }
-  }, [isControlled, controlledImages, controlledOnChange]);
+  }, [isControlled, controlledImages, controlledOnChange, internalImages, deduplicateByUrl]);
 
   /**
    * Detect interrupted uploads on component mount
