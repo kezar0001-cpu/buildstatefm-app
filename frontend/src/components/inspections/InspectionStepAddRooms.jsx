@@ -9,9 +9,21 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 
 const ROOM_TYPES = [
-  'BEDROOM', 'BATHROOM', 'KITCHEN', 'LIVING_ROOM', 'DINING_ROOM',
-  'HALLWAY', 'LAUNDRY_ROOM', 'GARAGE', 'BASEMENT', 'ATTIC',
-  'BALCONY', 'PATIO', 'STORAGE', 'OFFICE', 'OTHER'
+  { value: 'BEDROOM', label: 'Bedroom' },
+  { value: 'BATHROOM', label: 'Bathroom' },
+  { value: 'KITCHEN', label: 'Kitchen' },
+  { value: 'LIVING_ROOM', label: 'Living Room' },
+  { value: 'DINING_ROOM', label: 'Dining Room' },
+  { value: 'HALLWAY', label: 'Hallway' },
+  { value: 'LAUNDRY_ROOM', label: 'Laundry Room' },
+  { value: 'GARAGE', label: 'Garage' },
+  { value: 'BASEMENT', label: 'Basement' },
+  { value: 'ATTIC', label: 'Attic' },
+  { value: 'BALCONY', label: 'Balcony' },
+  { value: 'PATIO', label: 'Patio' },
+  { value: 'STORAGE', label: 'Storage' },
+  { value: 'OFFICE', label: 'Office' },
+  { value: 'OTHER', label: 'Other' }
 ];
 
 // Hardcoded for now, but ideally fetched from backend
@@ -63,46 +75,60 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
     setDialogOpen(true);
   };
 
+  const handleRoomTypeChange = (newType) => {
+    const selectedRoom = ROOM_TYPES.find(rt => rt.value === newType);
+    setFormData(prev => ({
+      ...prev,
+      roomType: newType,
+      // Auto-populate name if not 'OTHER', keep existing name if editing
+      name: newType === 'OTHER' ? prev.name : (editingRoom ? prev.name : selectedRoom?.label || '')
+    }));
+  };
+
   const handleSave = () => {
-    if (!formData.name) return;
-    
+    // Require room type
+    if (!formData.roomType) return;
+    // Require name only if 'OTHER' is selected
+    if (formData.roomType === 'OTHER' && !formData.name) return;
+
+    const dataToSave = {
+      ...formData,
+      // Use room type label as name if not OTHER and name is not custom
+      name: formData.name || ROOM_TYPES.find(rt => rt.value === formData.roomType)?.label || 'Unnamed Room'
+    };
+
     if (editingRoom) {
-      actions.updateRoom({ roomId: editingRoom.id, data: formData });
+      actions.updateRoom({ roomId: editingRoom.id, data: dataToSave });
     } else {
-      actions.addRoom(formData);
+      actions.addRoom(dataToSave);
     }
     setDialogOpen(false);
   };
 
-  // Generate Checklist Mutation (Local to this component as it's specific logic)
+  // Generate AI Checklist Mutation
   const generateChecklistMutation = useMutation({
     mutationFn: async (room) => {
-      const template = CHECKLIST_TEMPLATES[inspection.type] || CHECKLIST_TEMPLATES.ROUTINE;
-      const roomSpecific = ROOM_SPECIFIC_ITEMS[room.roomType] || [];
-      const allItems = [...template, ...roomSpecific];
-
-      for (const item of allItems) {
-        // In a real app, we might want a bulk create endpoint
-        await apiClient.post(`/inspections/${inspection.id}/rooms/${room.id}/checklist`, { description: item });
-      }
+      // Use AI endpoint to generate checklist
+      const response = await apiClient.post(
+        `/inspections/${inspection.id}/rooms/${room.id}/checklist/generate`
+      );
+      return response.data;
     },
     onMutate: (room) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: true }));
     },
-    onSettled: (data, error, room) => {
+    onSuccess: (data, room) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
-      // We need to refetch rooms to show the new items count
-      // actions.refetchRooms() - but we don't have refetchRooms exposed directly. 
-      // Ideally the hook handles invalidation or we pass it.
-      // For now, let's assume React Query invalidation happens on the parent hook if we exposed it, 
-      // or we can cheat and force a reload if we passed refetch.
-      // Actually, let's just rely on the user navigating or manual refresh if we don't expose refetch.
-      // Wait, the mutation in the hook calls refetchRooms. We just need to trigger *something* that triggers that.
-      // The actions.addRoom etc trigger refetch. This one is local. 
-      // I should expose a refresh method or similar.
-      // For now, I'll accept the UI might not update the count immediately without a refetch trigger.
-      // Let's fix this by assuming the parent passes a refetch or we just use the queryKey.
-      // I'll leave it for now.
+      // Trigger refetch to update the checklist items count
+      if (actions.refetchRooms) {
+        actions.refetchRooms();
+      }
+    },
+    onError: (error, room) => {
+      setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
+      const errorMessage = error.response?.data?.message || 'Failed to generate checklist. Please try again.';
+      console.error('Failed to generate AI checklist:', error);
+      alert(errorMessage);
     }
   });
 
@@ -131,19 +157,24 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Stack>
-                  <Chip label={room.roomType || 'Not specified'} size="small" sx={{ mb: 1 }} />
+                  <Chip
+                    label={ROOM_TYPES.find(rt => rt.value === room.roomType)?.label || 'Not specified'}
+                    size="small"
+                    sx={{ mb: 1 }}
+                  />
                   <Typography variant="body2" color="text.secondary">
                     {room.checklistItems?.length || 0} checklist items
                   </Typography>
                   <Button
                     size="small"
+                    variant={room.checklistItems?.length > 0 ? 'outlined' : 'contained'}
                     onClick={() => generateChecklistMutation.mutate(room)}
                     sx={{ mt: 1 }}
                     disabled={generatingMap[room.id] || (room.checklistItems?.length > 0)}
                     startIcon={generatingMap[room.id] ? <CircularProgress size={16} /> : null}
                   >
-                    {generatingMap[room.id] ? 'Generating...' : 
-                     room.checklistItems?.length > 0 ? 'Checklist Generated' : 'Generate Checklist'}
+                    {generatingMap[room.id] ? 'Generating AI Checklist...' :
+                     room.checklistItems?.length > 0 ? 'Checklist Generated' : 'Generate AI Checklist'}
                   </Button>
                 </CardContent>
               </Card>
@@ -157,36 +188,48 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Room Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
               select
               label="Room Type"
               value={formData.roomType}
-              onChange={(e) => setFormData({ ...formData, roomType: e.target.value })}
+              onChange={(e) => handleRoomTypeChange(e.target.value)}
               fullWidth
+              required
+              helperText="Select the type of room to inspect"
             >
               {ROOM_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>{type.replace('_', ' ')}</MenuItem>
+                <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
               ))}
             </TextField>
+            {formData.roomType === 'OTHER' && (
+              <TextField
+                label="Custom Room Name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                fullWidth
+                required
+                helperText="Enter a custom name for this room"
+                autoFocus
+              />
+            )}
             <TextField
-              label="Notes"
+              label="Notes (optional)"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               fullWidth
               multiline
-              rows={2}
+              rows={3}
+              helperText="Add any specific details about this room that will help generate a better checklist"
+              placeholder="e.g., Recently painted, has water damage on ceiling, newly renovated kitchen with stainless steel appliances"
             />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained" disabled={!formData.name}>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={!formData.roomType || (formData.roomType === 'OTHER' && !formData.name)}
+          >
             {editingRoom ? 'Update Room' : 'Add Room'}
           </Button>
         </DialogActions>
