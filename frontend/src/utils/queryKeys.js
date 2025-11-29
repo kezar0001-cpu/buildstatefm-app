@@ -48,6 +48,7 @@ export const queryKeys = {
     rooms: (inspectionId) => ['inspections', inspectionId, 'rooms'],
     issues: (inspectionId) => ['inspections', inspectionId, 'issues'],
     photos: (inspectionId) => ['inspections', inspectionId, 'photos'],
+    templates: (filters) => ['inspections', 'templates', filters],
   },
   auth: {
     profile: (userId) => ['auth', 'profile', userId],
@@ -56,6 +57,7 @@ export const queryKeys = {
     all: () => ['users'],
     detail: (id) => ['users', id],
     list: (filters) => ['users', 'list', filters],
+    technicians: () => ['users', 'technicians'],
   },
   dashboard: {
     stats: () => ['dashboard', 'stats'],

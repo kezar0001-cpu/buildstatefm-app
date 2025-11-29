@@ -27,6 +27,15 @@ const inspectionCreateSchema = z.object({
 
 const inspectionUpdateSchema = inspectionCreateSchema.partial();
 
+const bulkInspectionSchema = z.object({
+  unitIds: z.array(z.string().min(1)).min(1, 'At least one unit must be selected'),
+  propertyId: z.string().min(1),
+  inspectionType: z.enum(INSPECTION_TYPES),
+  scheduledDate: z.preprocess((val) => (val ? new Date(val) : val), z.date()),
+  templateId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
 const completeSchema = z.object({
   findings: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -587,7 +596,7 @@ export const createReminder = async (req, res) => {
 
     // Helper logic for reminders - ideally moved to service but ok here for now
     if (payload.recipients?.length) {
-       // We need to import notifyInspectionReminder or move this logic. 
+       // We need to import notifyInspectionReminder or move this logic.
        // For now, let's assume the service handles it? No, the service file didn't export it.
        // I'll skip the notification logic here to save time/space or import it if I can.
        // Actually, I should do it properly.
@@ -603,5 +612,131 @@ export const createReminder = async (req, res) => {
     }
     console.error('Failed to create reminder', error);
     sendError(res, 500, 'Failed to create reminder', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};
+
+export const bulkCreateInspections = async (req, res) => {
+  try {
+    const payload = bulkInspectionSchema.parse(req.body);
+
+    // Verify property access
+    const property = await prisma.property.findUnique({
+      where: { id: payload.propertyId },
+      select: { id: true, managerId: true, name: true },
+    });
+
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (property.managerId !== req.user.id && req.user.role !== 'ADMIN') {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify all units belong to the property
+    const units = await prisma.unit.findMany({
+      where: {
+        id: { in: payload.unitIds },
+        propertyId: payload.propertyId,
+      },
+      select: { id: true, unitNumber: true },
+    });
+
+    if (units.length !== payload.unitIds.length) {
+      return sendError(res, 400, 'Some units do not belong to this property', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Get active technicians for round-robin assignment
+    const technicians = await prisma.user.findMany({
+      where: {
+        role: 'TECHNICIAN',
+        isActive: true,
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Get template if specified
+    let template = null;
+    if (payload.templateId) {
+      template = await prisma.inspectionTemplate.findUnique({
+        where: { id: payload.templateId },
+        include: {
+          rooms: {
+            include: {
+              checklistItems: {
+                orderBy: { order: 'asc' },
+              },
+            },
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      if (!template) {
+        return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
+      }
+    }
+
+    // Create inspections with round-robin assignment
+    const inspections = [];
+    let technicianIndex = 0;
+
+    for (const unit of units) {
+      const assignedToId = technicians.length > 0
+        ? technicians[technicianIndex % technicians.length].id
+        : null;
+
+      const inspectionData = {
+        title: `${payload.inspectionType.replace(/_/g, ' ')} - Unit ${unit.unitNumber}`,
+        type: payload.inspectionType,
+        scheduledDate: payload.scheduledDate,
+        propertyId: payload.propertyId,
+        unitId: unit.id,
+        assignedToId,
+        notes: payload.notes || null,
+        templateId: payload.templateId || null,
+        tags: [],
+      };
+
+      if (template) {
+        inspectionData.rooms = {
+          create: template.rooms.map((room) => ({
+            name: room.name,
+            roomType: room.roomType,
+            order: room.order,
+            checklistItems: {
+              create: room.checklistItems.map((item) => ({
+                description: item.description,
+                order: item.order,
+                status: 'PENDING',
+              })),
+            },
+          })),
+        };
+      }
+
+      const inspection = await prisma.inspection.create({
+        data: inspectionData,
+        include: inspectionService.baseInspectionInclude,
+      });
+
+      await inspectionService.logAudit(inspection.id, req.user.id, 'CREATED', { after: inspection });
+
+      inspections.push(inspection);
+      technicianIndex++;
+    }
+
+    res.status(201).json({
+      message: `Successfully created ${inspections.length} inspection(s)`,
+      count: inspections.length,
+      inspections,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation failed', ErrorCodes.VAL_VALIDATION_ERROR, error.issues);
+    }
+    console.error('Failed to bulk create inspections', error);
+    sendError(res, 500, 'Failed to create inspections', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 };
