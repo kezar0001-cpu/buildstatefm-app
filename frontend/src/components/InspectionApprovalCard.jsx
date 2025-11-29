@@ -15,7 +15,7 @@ import {
   Cancel as RejectIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { useApiMutation } from '../hooks/useApiMutation';
+import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys';
 import InspectionRejectionDialog from './InspectionRejectionDialog';
 
