@@ -53,4 +53,5 @@ const useApiQuery = ({ queryKey, url, enabled = true }) => {
   return { data, isLoading, isError, error, isFetching, refetch };
 };
 
+export { useApiQuery };
 export default useApiQuery;
