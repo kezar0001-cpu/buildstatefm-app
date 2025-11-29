@@ -44,6 +44,7 @@ import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import InspectionAttachmentManager from '../components/InspectionAttachmentManager';
 import InspectionForm from '../components/InspectionForm';
+import InspectionApprovalCard from '../components/InspectionApprovalCard';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
@@ -348,6 +349,9 @@ export default function InspectionDetailPage() {
           )}
         </Stack>
       </Stack>
+
+      {/* Approval workflow card for managers */}
+      <InspectionApprovalCard inspection={inspection} currentUser={user} />
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
