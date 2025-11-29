@@ -1,10 +1,11 @@
-import { Paper, Stack, Typography, Divider, Box } from '@mui/material';
+import { Paper, Stack, Typography, Divider, Box, useTheme } from '@mui/material';
 
 /**
  * SectionCard provides a consistent surface for feature blocks with
  * aligned padding, borders, and optional headers.
  */
 function SectionCard({ title, subtitle, action, children, spacing = { xs: 2, md: 2.5 } }) {
+  const theme = useTheme();
   const hasHeader = title || subtitle || action;
 
   return (
@@ -15,7 +16,9 @@ function SectionCard({ title, subtitle, action, children, spacing = { xs: 2, md:
         borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
-        background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(180deg, #1f2937 0%, #111827 100%)'
+          : 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
         boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
       }}
     >
