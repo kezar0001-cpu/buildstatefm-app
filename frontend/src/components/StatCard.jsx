@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Box, Typography, Icon } from '@mui/material';
+import { Card, CardContent, Box, Typography, Icon, useTheme } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -15,6 +15,8 @@ export default function StatCard({
   alert,
   onClick,
 }) {
+  const theme = useTheme();
+
   // Define gradient backgrounds based on color
   const gradients = {
     primary: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
@@ -32,7 +34,9 @@ export default function StatCard({
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         overflow: 'visible',
-        background: 'linear-gradient(135deg, #ffffff 0%, #fafbff 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)'
+          : 'linear-gradient(135deg, #ffffff 0%, #fafbff 100%)',
         '&::before': {
           content: '""',
           position: 'absolute',

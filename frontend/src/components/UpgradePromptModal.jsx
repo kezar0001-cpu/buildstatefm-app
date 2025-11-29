@@ -13,6 +13,7 @@ import {
   ListItemText,
   Chip,
   IconButton,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -29,6 +30,7 @@ import { calculateDaysRemaining } from '../utils/date';
 const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
+  const theme = useTheme();
 
   if (!user) return null;
 
@@ -79,7 +81,9 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
       PaperProps={{
         sx: {
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          background: theme.palette.mode === 'dark'
+            ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         },
       }}
     >
@@ -127,7 +131,9 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
       <DialogContent sx={{ pb: 3 }}>
         <Box
           sx={{
-            bgcolor: 'rgba(185, 28, 28, 0.05)',
+            bgcolor: theme.palette.mode === 'dark'
+              ? 'rgba(248, 113, 113, 0.1)'
+              : 'rgba(185, 28, 28, 0.05)',
             borderRadius: 2,
             p: 3,
             mb: 3,
@@ -167,7 +173,9 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 2,
-            bgcolor: '#f0fdf4',
+            bgcolor: theme.palette.mode === 'dark'
+              ? 'rgba(74, 222, 128, 0.1)'
+              : '#f0fdf4',
             borderRadius: 2,
             p: 2,
           }}
