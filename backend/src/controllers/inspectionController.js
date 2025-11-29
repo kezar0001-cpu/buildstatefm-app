@@ -81,11 +81,11 @@ function buildInspectionWhere(query, user) {
   const accessFilter = buildAccessWhere(user);
   if (accessFilter) filters.push(accessFilter);
 
-  const { search, propertyId, unitId, status, inspectorId, inspector, dateFrom, dateTo, tags, tag } = query;
+  const { search, propertyId, unitId, status, inspectorId, inspector, assignedToId, dateFrom, dateTo, tags, tag, hasRejection } = query;
 
   if (propertyId) filters.push({ propertyId });
   if (unitId) filters.push({ unitId });
-  
+
   if (status) {
     const statuses = Array.isArray(status)
       ? status
@@ -94,6 +94,12 @@ function buildInspectionWhere(query, user) {
   }
 
   if (inspectorId) filters.push({ assignedToId: inspectorId });
+  if (assignedToId) filters.push({ assignedToId: assignedToId });
+
+  // Filter for rejected inspections (those with rejection reason)
+  if (hasRejection === 'true' || hasRejection === true) {
+    filters.push({ rejectionReason: { not: null } });
+  }
   
   if (inspector) {
     const term = String(inspector).trim();

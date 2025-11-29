@@ -28,10 +28,12 @@ import {
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
+import RejectedInspectionsBanner from '../components/RejectedInspectionsBanner';
 import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { canTransition } from '../constants/jobStatuses';
+import { useCurrentUser } from '../context/UserContext';
 import {
   applyJobUpdateToQueries,
   restoreJobQueries,
@@ -56,6 +58,7 @@ const PRIORITY_COLORS = {
 export default function TechnicianDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useCurrentUser();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [actionError, setActionError] = useState('');
@@ -178,6 +181,9 @@ export default function TechnicianDashboard() {
           </Alert>
         )}
       </Box>
+
+      {/* Rejected inspections banner */}
+      <RejectedInspectionsBanner currentUser={user} />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
