@@ -64,6 +64,7 @@ import PropertyDocumentManager from '../components/PropertyDocumentManager';
 import PropertyNotesSection from '../components/PropertyNotesSection';
 import InviteOwnerDialog from '../components/InviteOwnerDialog.jsx';
 import AssignOwnerDialog from '../components/AssignOwnerDialog.jsx';
+import BulkInspectionSchedulingDialog from '../components/BulkInspectionSchedulingDialog.jsx';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import { normaliseArray } from '../utils/error';
 import {
@@ -154,6 +155,7 @@ export default function PropertyDetailPage() {
   const [ownerInviteDialogOpen, setOwnerInviteDialogOpen] = useState(false);
   const [assignOwnerDialogOpen, setAssignOwnerDialogOpen] = useState(false);
   const [ownerMenuAnchor, setOwnerMenuAnchor] = useState(null);
+  const [bulkScheduleDialogOpen, setBulkScheduleDialogOpen] = useState(false);
 
   useEffect(() => {
     unitDialogOpenRef.current = unitDialogOpen;
@@ -1451,7 +1453,7 @@ export default function PropertyDetailPage() {
               <Paper sx={{ p: { xs: 2, md: 3 } }}>
                 <Stack
                   direction={{ xs: 'column', md: 'row' }}
-                  spacing={{ xs: 2, md: 0 }}
+                  spacing={{ xs: 2, md: 1 }}
                   alignItems={{ xs: 'flex-start', md: 'center' }}
                   justifyContent="space-between"
                   sx={{ mb: 3 }}
@@ -1459,15 +1461,25 @@ export default function PropertyDetailPage() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Units
                   </Typography>
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddUnit}
-                    fullWidth={isSmallScreen}
-                    sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}
-                  >
-                    Add Unit
-                  </Button>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<CalendarIcon />}
+                      onClick={() => setBulkScheduleDialogOpen(true)}
+                      disabled={units.length === 0}
+                      fullWidth={isSmallScreen}
+                    >
+                      Bulk Schedule Inspections
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddUnit}
+                      fullWidth={isSmallScreen}
+                    >
+                      Add Unit
+                    </Button>
+                  </Stack>
                 </Stack>
 
                 {deleteUnitMutation.isError && (
@@ -1919,6 +1931,19 @@ export default function PropertyDetailPage() {
       <AssignOwnerDialog
         open={assignOwnerDialogOpen}
         onClose={() => setAssignOwnerDialogOpen(false)}
+        propertyId={id}
+      />
+
+      <BulkInspectionSchedulingDialog
+        open={bulkScheduleDialogOpen}
+        onClose={(success) => {
+          setBulkScheduleDialogOpen(false);
+          if (success) {
+            // Optionally refetch data or show success message
+            unitsQuery.refetch();
+          }
+        }}
+        units={units}
         propertyId={id}
       />
 
