@@ -41,6 +41,9 @@ export function useInspectionConduct(inspection, onComplete) {
       return apiClient.patch(`/inspections/${inspection.id}`, { status: 'IN_PROGRESS' });
     },
     onSuccess: () => {
+      // Invalidate inspection queries to refresh status
+      queryClient.invalidateQueries(queryKeys.inspections.detail(inspection.id));
+      queryClient.invalidateQueries(queryKeys.inspections.list());
       setActiveStep(1);
       setCompletedSteps(prev => new Set([...prev, 0]));
     },
@@ -112,6 +115,9 @@ export function useInspectionConduct(inspection, onComplete) {
       return apiClient.post(`/inspections/${inspection.id}/complete`, payload);
     },
     onSuccess: () => {
+      // Invalidate inspection queries to refresh status
+      queryClient.invalidateQueries(queryKeys.inspections.detail(inspection.id));
+      queryClient.invalidateQueries(queryKeys.inspections.list());
       onComplete();
     }
   });
@@ -139,7 +145,9 @@ export function useInspectionConduct(inspection, onComplete) {
       updateRoom: updateRoomMutation.mutate,
       updateChecklistItem,
       completeInspection: completeInspectionMutation.mutate,
-      isCompleting: completeInspectionMutation.isLoading
+      isCompleting: completeInspectionMutation.isLoading,
+      refetchRooms,
+      refetchIssues
     }
   };
 }

@@ -1,6 +1,7 @@
 import prisma from '../config/prismaClient.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { logAudit } from '../services/inspectionService.js';
+import inspectionAIService from '../services/inspectionAIService.js';
 
 // --- Rooms ---
 
@@ -77,6 +78,70 @@ export const deleteRoom = async (req, res) => {
 };
 
 // --- Checklist Items ---
+
+export const generateAIChecklist = async (req, res) => {
+  try {
+    const { id: inspectionId, roomId } = req.params;
+
+    // Get inspection and room details
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { type: true }
+    });
+
+    const room = await prisma.inspectionRoom.findUnique({
+      where: { id: roomId },
+      select: { name: true, roomType: true, notes: true }
+    });
+
+    if (!inspection || !room) {
+      return sendError(res, 404, 'Inspection or room not found', ErrorCodes.ERR_NOT_FOUND);
+    }
+
+    // Check if checklist already exists
+    const existingCount = await prisma.inspectionChecklistItem.count({ where: { roomId } });
+    if (existingCount > 0) {
+      return sendError(res, 400, 'Checklist already exists for this room', ErrorCodes.ERR_VALIDATION);
+    }
+
+    // Generate AI checklist
+    const aiItems = await inspectionAIService.generateChecklist({
+      roomType: room.roomType,
+      roomName: room.name,
+      notes: room.notes || '',
+      inspectionType: inspection.type
+    });
+
+    // Create checklist items in database
+    const createdItems = [];
+    for (let i = 0; i < aiItems.length; i++) {
+      const item = await prisma.inspectionChecklistItem.create({
+        data: {
+          roomId,
+          description: aiItems[i].description,
+          status: 'PENDING',
+          notes: aiItems[i].category ? `Category: ${aiItems[i].category}, Priority: ${aiItems[i].priority}` : '',
+          order: i,
+        },
+      });
+      createdItems.push(item);
+    }
+
+    await logAudit(inspectionId, req.user.id, 'AI_CHECKLIST_GENERATED', {
+      roomId,
+      itemCount: createdItems.length
+    });
+
+    res.status(201).json({
+      success: true,
+      items: createdItems,
+      count: createdItems.length
+    });
+  } catch (error) {
+    console.error('Failed to generate AI checklist', error);
+    sendError(res, 500, error.message || 'Failed to generate AI checklist', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};
 
 export const addChecklistItem = async (req, res) => {
   try {

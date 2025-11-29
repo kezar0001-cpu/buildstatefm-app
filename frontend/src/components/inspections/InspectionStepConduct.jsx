@@ -1,88 +1,12 @@
 import React, { useState } from 'react';
 import {
   Box, Stack, Typography, Button, Card, CardContent, Divider,
-  List, ListItem, Chip, CircularProgress, Grid, Dialog, DialogTitle,
-  DialogContent, DialogActions, TextField, MenuItem, LinearProgress
+  List, ListItem, Chip, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, MenuItem
 } from '@mui/material';
-import { Add as AddIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
-import { useMutation } from '@tanstack/react-query';
+import { Add as AddIcon } from '@mui/icons-material';
 import { apiClient } from '../../api/client';
-
-const PhotoUpload = ({ inspectionId, roomId, issueId, onUploadComplete }) => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [preview, setPreview] = useState(null);
-
-  const handleUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result);
-    reader.readAsDataURL(file);
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const formData = new FormData();
-      formData.append('photos', file);
-
-      const uploadRes = await apiClient.post('/uploads/inspection-photos', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (e) => setUploadProgress(Math.round((e.loaded * 100) / e.total)),
-      });
-
-      if (uploadRes.data.success && uploadRes.data.urls?.length) {
-        // Link photo to inspection
-        await apiClient.post(`/inspections/${inspectionId}/photos`, {
-          roomId,
-          issueId,
-          url: uploadRes.data.urls[0],
-        });
-        onUploadComplete();
-        setPreview(null);
-      }
-    } catch (error) {
-      console.error('Photo upload error:', error);
-      alert('Failed to upload photo');
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
-    }
-  };
-
-  return (
-    <Box>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <input
-          accept="image/jpeg,image/png,image/webp"
-          style={{ display: 'none' }}
-          id={`photo-upload-${roomId || issueId || 'general'}`}
-          type="file"
-          onChange={handleUpload}
-          disabled={isUploading}
-        />
-        <label htmlFor={`photo-upload-${roomId || issueId || 'general'}`}>
-          <Button
-            component="span"
-            startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-            size="small"
-            disabled={isUploading}
-          >
-            {isUploading ? 'Uploading...' : 'Add Photo'}
-          </Button>
-        </label>
-      </Stack>
-      {isUploading && <LinearProgress variant="determinate" value={uploadProgress} sx={{ mt: 1 }} />}
-    </Box>
-  );
-};
+import { InspectionPhotoUpload } from './InspectionPhotoUpload';
 
 export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved }) => {
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
@@ -108,9 +32,13 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
       await apiClient.post(`/inspections/${inspection.id}/issues`, newIssue);
       setIssueDialogOpen(false);
       setNewIssue({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
-      // Trigger refresh? ideally passed via actions or handled by invalidation
+      // Trigger refresh to show the new issue
+      if (actions.refetchIssues) {
+        actions.refetchIssues();
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to add issue:', e);
+      alert('Failed to add issue. Please try again.');
     }
   };
 
@@ -139,7 +67,12 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
             </Stack>
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Checklist Items:</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Inspection Checklist
+              <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                Mark each item as passed or failed. Failed items will become repair recommendations.
+              </Typography>
+            </Typography>
             <List>
               {room.checklistItems?.map((item) => (
                 <ListItem key={item.id} disablePadding sx={{ py: 1 }}>
@@ -160,32 +93,22 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
                         ))}
                       </Stack>
                     </Stack>
+                    {item.status === 'FAILED' && (
+                      <Typography variant="caption" color="error" sx={{ ml: 2, mt: 0.5, display: 'block' }}>
+                        This will be added to recommendations for the property owner
+                      </Typography>
+                    )}
                   </Box>
                 </ListItem>
               ))}
             </List>
 
             <Divider sx={{ my: 2 }} />
-            <Stack spacing={2}>
-              <PhotoUpload
-                inspectionId={inspection.id}
-                roomId={room.id}
-                onUploadComplete={() => {}} // Ideally refetch
-              />
-              {room.photos?.length > 0 && (
-                <Grid container spacing={1}>
-                  {room.photos.map((photo) => (
-                    <Grid item xs={4} key={photo.id}>
-                      <img
-                        src={photo.url}
-                        alt={photo.caption || 'Room photo'}
-                        style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 4 }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-            </Stack>
+            <InspectionPhotoUpload
+              inspectionId={inspection.id}
+              roomId={room.id}
+              onUploadComplete={actions.refetchRooms}
+            />
           </CardContent>
         </Card>
       ))}

@@ -53,7 +53,7 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel }) => {
       <Stack direction="row" spacing={2} sx={{ mt: 3 }} justifyContent="space-between">
         <Button onClick={onCancel} startIcon={<CancelIcon />}>Cancel</Button>
         <Stack direction="row" spacing={2}>
-          {activeStep > 0 && activeStep < 3 && (
+          {activeStep > 0 && (
             <Button onClick={() => setActiveStep(prev => prev - 1)} startIcon={<ArrowBackIcon />}>Back</Button>
           )}
           {activeStep > 0 && activeStep < 3 && (

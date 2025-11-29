@@ -144,6 +144,7 @@ router.delete('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsCon
 
 // --- Sub-resources: Checklist Items ---
 
+router.post('/:id/rooms/:roomId/checklist/generate', ensureInspectionAccess, inspectionDetailsController.generateAIChecklist);
 router.post('/:id/rooms/:roomId/checklist', ensureInspectionAccess, inspectionDetailsController.addChecklistItem);
 router.patch('/:id/rooms/:roomId/checklist/:itemId', ensureInspectionAccess, inspectionDetailsController.updateChecklistItem);
 router.delete('/:id/rooms/:roomId/checklist/:itemId', ensureInspectionAccess, inspectionDetailsController.deleteChecklistItem);
