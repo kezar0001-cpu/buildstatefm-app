@@ -7,6 +7,7 @@ import App from './App.jsx';
 import './index.css';  // Tailwind entry point
 import './i18n.js';
 import { UserProvider } from './context/UserContext.jsx';
+import LightThemeWrapper from './components/LightThemeWrapper.jsx';
 
 // ✅ Query Client
 const queryClient = new QueryClient({
@@ -28,11 +29,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <UserProvider>
-            <App />
-          </UserProvider>
-        </BrowserRouter>
+        <LightThemeWrapper>
+          <BrowserRouter>
+            <UserProvider>
+              <App />
+            </UserProvider>
+          </BrowserRouter>
+        </LightThemeWrapper>
       </QueryClientProvider>
     </HelmetProvider>
   </React.StrictMode>
