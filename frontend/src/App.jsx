@@ -6,7 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import GlobalGuard from './components/GlobalGuard.jsx';
 import AuthGate from './authGate';
-import Layout from './components/Layout';
+import ProtectedLayout from './components/ProtectedLayout';
 import SectionCard from './components/SectionCard.jsx';
 
 // Simple fallback
@@ -221,47 +221,47 @@ export default function App() {
           <Route path="/admin/blog/login" element={<BlogAdminLoginPage />} />
 
           {/* Blog Admin (Admin only) */}
-          <Route path="/admin/blog" element={<AuthGate><Layout><BlogAdminPage /></Layout></AuthGate>} />
-          <Route path="/admin/blog/posts/:id" element={<AuthGate><Layout><BlogPostEditorPage /></Layout></AuthGate>} />
-          <Route path="/admin/blog/categories/:id" element={<AuthGate><Layout><CategoryEditorPage /></Layout></AuthGate>} />
-          <Route path="/admin/blog/tags/:id" element={<AuthGate><Layout><TagEditorPage /></Layout></AuthGate>} />
+          <Route path="/admin/blog" element={<AuthGate><ProtectedLayout><BlogAdminPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/admin/blog/posts/:id" element={<AuthGate><ProtectedLayout><BlogPostEditorPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/admin/blog/categories/:id" element={<AuthGate><ProtectedLayout><CategoryEditorPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/admin/blog/tags/:id" element={<AuthGate><ProtectedLayout><TagEditorPage /></ProtectedLayout></AuthGate>} />
 
           {/* Protected */}
-          <Route path="/dashboard" element={<AuthGate><Layout><Dashboard /></Layout></AuthGate>} />
+          <Route path="/dashboard" element={<AuthGate><ProtectedLayout><Dashboard /></ProtectedLayout></AuthGate>} />
 
           {/* Properties (no /properties/add route) */}
-          <Route path="/properties" element={<AuthGate><Layout><PropertiesPage /></Layout></AuthGate>} />
-          <Route path="/properties/:id" element={<AuthGate><Layout><PropertyDetailPage /></Layout></AuthGate>} />
-          <Route path="/properties/:id/edit" element={<AuthGate><Layout><EditPropertyPage /></Layout></AuthGate>} />
-          
+          <Route path="/properties" element={<AuthGate><ProtectedLayout><PropertiesPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/properties/:id" element={<AuthGate><ProtectedLayout><PropertyDetailPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/properties/:id/edit" element={<AuthGate><ProtectedLayout><EditPropertyPage /></ProtectedLayout></AuthGate>} />
+
           {/* Units */}
-          <Route path="/units/:id" element={<AuthGate><Layout><UnitDetailPage /></Layout></AuthGate>} />
+          <Route path="/units/:id" element={<AuthGate><ProtectedLayout><UnitDetailPage /></ProtectedLayout></AuthGate>} />
 
           {/* Other feature pages */}
-          <Route path="/inspections" element={<AuthGate><Layout><InspectionsPage /></Layout></AuthGate>} />
-          <Route path="/inspections/:id" element={<AuthGate><Layout><InspectionDetailPage /></Layout></AuthGate>} />
-          <Route path="/inspections/:id/conduct" element={<AuthGate><Layout><InspectionConductPage /></Layout></AuthGate>} />
-          <Route path="/inspections/:id/sign" element={<AuthGate><Layout><InspectionSignaturePage /></Layout></AuthGate>} />
-          <Route path="/inspections/:id/report" element={<AuthGate><Layout><InspectionReportPage /></Layout></AuthGate>} />
-          <Route path="/jobs" element={<AuthGate><Layout><JobsPage /></Layout></AuthGate>} />
-          <Route path="/jobs/:id" element={<AuthGate><Layout><JobDetailPage /></Layout></AuthGate>} />
-          <Route path="/plans" element={<AuthGate><Layout><PlansPage /></Layout></AuthGate>} />
-          <Route path="/service-requests" element={<AuthGate><Layout><ServiceRequestsPage /></Layout></AuthGate>} />
-          <Route path="/recommendations" element={<AuthGate><Layout><RecommendationsPage /></Layout></AuthGate>} />
-          <Route path="/subscriptions" element={<AuthGate><Layout><SubscriptionsPage /></Layout></AuthGate>} />
-          <Route path="/reports" element={<AuthGate><Layout><ReportsPage /></Layout></AuthGate>} />
-          <Route path="/reports-new" element={<AuthGate><Layout><NewReportsPage /></Layout></AuthGate>} />
-          <Route path="/reports/:reportType" element={<AuthGate><Layout><ReportGenerator /></Layout></AuthGate>} />
-          <Route path="/profile" element={<AuthGate><Layout><ProfilePage /></Layout></AuthGate>} />
+          <Route path="/inspections" element={<AuthGate><ProtectedLayout><InspectionsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/inspections/:id" element={<AuthGate><ProtectedLayout><InspectionDetailPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/inspections/:id/conduct" element={<AuthGate><ProtectedLayout><InspectionConductPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/inspections/:id/sign" element={<AuthGate><ProtectedLayout><InspectionSignaturePage /></ProtectedLayout></AuthGate>} />
+          <Route path="/inspections/:id/report" element={<AuthGate><ProtectedLayout><InspectionReportPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/jobs" element={<AuthGate><ProtectedLayout><JobsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/jobs/:id" element={<AuthGate><ProtectedLayout><JobDetailPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/plans" element={<AuthGate><ProtectedLayout><PlansPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/service-requests" element={<AuthGate><ProtectedLayout><ServiceRequestsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/recommendations" element={<AuthGate><ProtectedLayout><RecommendationsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/subscriptions" element={<AuthGate><ProtectedLayout><SubscriptionsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/reports" element={<AuthGate><ProtectedLayout><ReportsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/reports-new" element={<AuthGate><ProtectedLayout><NewReportsPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/reports/:reportType" element={<AuthGate><ProtectedLayout><ReportGenerator /></ProtectedLayout></AuthGate>} />
+          <Route path="/profile" element={<AuthGate><ProtectedLayout><ProfilePage /></ProtectedLayout></AuthGate>} />
 
           {/* Role-specific dashboards */}
-          <Route path="/technician/dashboard" element={<AuthGate><Layout><TechnicianDashboard /></Layout></AuthGate>} />
-          <Route path="/technician/jobs/:id" element={<AuthGate><Layout><TechnicianJobDetail /></Layout></AuthGate>} />
-          <Route path="/owner/dashboard" element={<AuthGate><Layout><OwnerDashboard /></Layout></AuthGate>} />
-          <Route path="/tenant/dashboard" element={<AuthGate><Layout><TenantDashboard /></Layout></AuthGate>} />
-          
+          <Route path="/technician/dashboard" element={<AuthGate><ProtectedLayout><TechnicianDashboard /></ProtectedLayout></AuthGate>} />
+          <Route path="/technician/jobs/:id" element={<AuthGate><ProtectedLayout><TechnicianJobDetail /></ProtectedLayout></AuthGate>} />
+          <Route path="/owner/dashboard" element={<AuthGate><ProtectedLayout><OwnerDashboard /></ProtectedLayout></AuthGate>} />
+          <Route path="/tenant/dashboard" element={<AuthGate><ProtectedLayout><TenantDashboard /></ProtectedLayout></AuthGate>} />
+
           {/* Team Management (Property Manager only) */}
-          <Route path="/team" element={<AuthGate><Layout><TeamManagementPage /></Layout></AuthGate>} />
+          <Route path="/team" element={<AuthGate><ProtectedLayout><TeamManagementPage /></ProtectedLayout></AuthGate>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
