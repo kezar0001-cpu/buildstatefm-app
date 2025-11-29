@@ -20,8 +20,8 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useApiQuery } from '../hooks/useApiQuery';
-import { useApiMutation } from '../hooks/useApiMutation';
+import useApiQuery from '../hooks/useApiQuery';
+import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys';
 
 export default function RejectedInspectionsBanner({ currentUser }) {
