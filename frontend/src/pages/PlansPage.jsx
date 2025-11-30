@@ -50,7 +50,6 @@ import StatCard from '../components/StatCard.jsx';
 import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
 import ensureArray from '../utils/ensureArray';
-import GradientButton from '../components/GradientButton';
 import PageHeader from '../components/PageHeader';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
