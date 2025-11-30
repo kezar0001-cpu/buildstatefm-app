@@ -46,11 +46,11 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
     },
     milestone: {
       title: 'Great Progress! 🎉',
-      subtitle: "You're getting the most out of AgentFM. Upgrade to unlock unlimited potential",
+      subtitle: "You're getting the most out of Buildstate FM. Upgrade to unlock unlimited potential",
       icon: <SpeedIcon sx={{ fontSize: 48, color: '#10b981' }} />,
     },
     onboarding: {
-      title: 'Welcome to AgentFM! 👋',
+      title: 'Welcome to Buildstate FM! 👋',
       subtitle: 'Subscribe now to unlock all features and manage your properties without limits',
       icon: <SecurityIcon sx={{ fontSize: 48, color: '#f59e0b' }} />,
     },
@@ -182,7 +182,7 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
         >
           <SupportIcon sx={{ color: '#10b981' }} />
           <Typography variant="body2" color="text.secondary">
-            <strong>Join 500+</strong> property managers already using AgentFM Pro
+            <strong>Join 500+</strong> property managers already using Buildstate FM Pro
           </Typography>
         </Box>
       </DialogContent>

@@ -1,4 +1,4 @@
-# render.yaml — AgentFM (backend + frontend)
+# render.yaml — Buildstate FM (backend + frontend)
 
 services:
   # -----------------------------

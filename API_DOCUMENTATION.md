@@ -1,4 +1,4 @@
-# AgentFM API Documentation
+# Buildstate FM API Documentation
 
 **Base URL**: `http://localhost:3000/api` (development) or `https://api.buildstate.com.au/api` (production)
 

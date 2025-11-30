@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AgentFM Blog Automation Bot is an AI-powered system that automatically generates and publishes high-quality blog posts on a daily basis. It uses Claude (Anthropic's AI) to create SEO-optimized, engaging content tailored to your industry, with automatic image generation and intelligent topic selection.
+The Buildstate FM Blog Automation Bot is an AI-powered system that automatically generates and publishes high-quality blog posts on a daily basis. It uses Claude (Anthropic's AI) to create SEO-optimized, engaging content tailored to your industry, with automatic image generation and intelligent topic selection.
 
 ## Features
 
@@ -559,4 +559,4 @@ For issues or questions:
 
 ## License
 
-This blog automation system is part of the AgentFM platform.
+This blog automation system is part of the Buildstate FM platform.

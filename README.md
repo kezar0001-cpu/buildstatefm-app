@@ -287,7 +287,7 @@ Vercel and Render will automatically deploy the changes.
 1. **Backend not running**
    ```bash
    cd backend && npm run dev
-   # Should see: ✅ AgentFM backend listening on port 3000
+   # Should see: ✅ Buildstate FM backend listening on port 3000
    ```
 
 2. **Frontend can't reach backend**

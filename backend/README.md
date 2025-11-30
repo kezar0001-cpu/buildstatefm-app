@@ -1,6 +1,6 @@
-# AgentFM Backend
+# Buildstate FM Backend
 
-This package contains the backend API for the **AgentFM** Facilities Management and Services Marketplace app.  It is implemented with **Node.js**, **Express**, **Prisma**, **Zod** and **PostgreSQL**.  The API is multi‑tenant via an `orgId` field on every table.
+This package contains the backend API for the **Buildstate FM** Facilities Management and Services Marketplace app.  It is implemented with **Node.js**, **Express**, **Prisma**, **Zod** and **PostgreSQL**.  The API is multi‑tenant via an `orgId` field on every table.
 
 ## Prerequisites
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-All API endpoints in the AgentFM backend now return errors in a consistent, structured format. This standardization simplifies frontend error handling and provides clear error codes for programmatic error handling.
+All API endpoints in the Buildstate FM backend now return errors in a consistent, structured format. This standardization simplifies frontend error handling and provides clear error codes for programmatic error handling.
 
 ## Standard Error Response Format
 

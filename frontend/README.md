@@ -1,12 +1,12 @@
-# AgentFM Frontend
+# Buildstate FM Frontend
 
-This package contains the React frontend for the **AgentFM** Facilities Management and Services Marketplace app.  It is built with **Vite**, **React** (18), **React Router**, **TanStack Query**, **MUI**, **react‑hook‑form**, **Zod** and **i18next**.  The frontend communicates with the AgentFM backend API to manage properties, units, inspections, recommendations, jobs, plans and subscriptions.
+This package contains the React frontend for the **Buildstate FM** Facilities Management and Services Marketplace app.  It is built with **Vite**, **React** (18), **React Router**, **TanStack Query**, **MUI**, **react‑hook‑form**, **Zod** and **i18next**.  The frontend communicates with the Buildstate FM backend API to manage properties, units, inspections, recommendations, jobs, plans and subscriptions.
 
 ## Prerequisites
 
 * **Node.js** 18 or later
 * **npm**
-* The AgentFM backend running locally or accessible via network (see the backend `README.md` for setup)
+* The Buildstate FM backend running locally or accessible via network (see the backend `README.md` for setup)
 
 ## Setup
 

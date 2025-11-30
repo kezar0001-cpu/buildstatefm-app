@@ -1,4 +1,4 @@
-# Debug Pass Summary - AgentFM Application
+# Debug Pass Summary - Buildstate FM Application
 
 **Date**: October 29, 2025
 **Scope**: Comprehensive debug pass to find and fix all defects (no new features)
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Conducted a systematic debug pass of the AgentFM application, identifying and fixing 3 critical bugs that would have caused complete API failures. All fixes have been tested and verified. The application is now stable with 129/129 tests passing.
+Conducted a systematic debug pass of the Buildstate FM application, identifying and fixing 3 critical bugs that would have caused complete API failures. All fixes have been tested and verified. The application is now stable with 129/129 tests passing.
 
 ## Critical Bugs Fixed
 
