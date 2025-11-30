@@ -21,8 +21,14 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Stepper,
+  Step,
+  StepLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Divider,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,7 +39,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
-import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon } from '@mui/icons-material';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -62,9 +68,10 @@ const STATUS_OPTIONS = [
 ];
 
 export default function ReportsPage() {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [activeStep, setActiveStep] = useState(0);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [filterPropertyId, setFilterPropertyId] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -143,6 +150,8 @@ export default function ReportsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
       reset();
       setSelectedPropertyId('');
+      setActiveStep(0);
+      setIsWizardOpen(false);
     },
   });
 
@@ -151,6 +160,8 @@ export default function ReportsPage() {
     handleSubmit,
     reset,
     watch,
+    trigger,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(reportSchema),
@@ -164,12 +175,38 @@ export default function ReportsPage() {
   });
 
   const propertyIdValue = watch('propertyId');
+  const reportTypeValue = watch('reportType');
+  const unitIdValue = watch('unitId');
+  const fromDateValue = watch('fromDate');
+  const toDateValue = watch('toDate');
 
   useEffect(() => {
     if (propertyIdValue) {
       setSelectedPropertyId(propertyIdValue);
+    } else {
+      setSelectedPropertyId('');
+      setValue('unitId', '');
     }
-  }, [propertyIdValue]);
+  }, [propertyIdValue, setValue]);
+
+  const steps = [
+    {
+      label: 'Report type',
+      description: 'Pick the template and insights you want to export.',
+    },
+    {
+      label: 'Scope',
+      description: 'Choose the property and unit you want to audit.',
+    },
+    {
+      label: 'Timeline',
+      description: 'Set the coverage window for the report.',
+    },
+    {
+      label: 'Review & generate',
+      description: 'Confirm your selections before exporting.',
+    },
+  ];
 
   const onSubmit = handleSubmit((data) => {
     const payload = {
@@ -179,6 +216,47 @@ export default function ReportsPage() {
     };
     mutation.mutate(payload);
   });
+
+  const handleNext = async () => {
+    const validationFields = [
+      ['reportType'],
+      ['propertyId', 'unitId'],
+      ['fromDate', 'toDate'],
+      [],
+    ];
+
+    const currentFields = validationFields[activeStep] || [];
+    if (currentFields.length > 0) {
+      const isValid = await trigger(currentFields);
+      if (!isValid) return;
+    }
+
+    if (activeStep === steps.length - 1) {
+      onSubmit();
+    } else {
+      setActiveStep((prev) => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleStartNewReport = () => {
+    reset();
+    setSelectedPropertyId('');
+    setActiveStep(0);
+    setIsWizardOpen(true);
+  };
+
+  const handleCloseWizard = () => {
+    setIsWizardOpen(false);
+  };
+
+  const selectedReportSections =
+    REPORT_SECTIONS[reportTypeValue] || REPORT_SECTIONS.MAINTENANCE_HISTORY;
+  const selectedProperty = propertiesData.find((prop) => prop.id === propertyIdValue);
+  const selectedUnit = unitsData.find((unit) => unit.id === unitIdValue);
 
   const getStatusChip = (status) => {
     const colorMap = {
@@ -192,47 +270,35 @@ export default function ReportsPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Stack spacing={4}>
-        {/* Page Header */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2.5, md: 3.5 },
-            borderRadius: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            background: 'linear-gradient(135deg, #fff7ed 0%, #fff1f2 100%)',
-          }}
+      <Stack spacing={3}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={{ xs: 2, md: 0 }}
+          alignItems={{ xs: 'flex-start', md: 'center' }}
+          justifyContent="space-between"
         >
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'flex-start', md: 'center' }}
-            justifyContent="space-between"
-          >
-            <Box>
-              <Typography
-                variant="h4"
-                component="h1"
-                sx={{
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
-                  color: '#c2410c',
-                }}
-              >
-                Reports
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Generate audit-ready outputs for inspections, jobs, payments, and service requests.
-              </Typography>
-            </Box>
-            <GradientButton size="large" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
-              Start New Report
-            </GradientButton>
-          </Stack>
-        </Paper>
+          <Box>
+            <Typography
+              variant="h4"
+              component="h1"
+              sx={{
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+              }}
+              gutterBottom
+            >
+              Reports
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Generate audit-ready outputs for inspections, jobs, payments, and service requests.
+            </Typography>
+          </Box>
+          <GradientButton startIcon={<AddIcon />} size="medium" onClick={handleStartNewReport}>
+            Generate Report
+          </GradientButton>
+        </Stack>
 
-        {/* Generate New Report Section */}
+        {/* Filters Section */}
         <Paper
           elevation={0}
           sx={{
@@ -242,150 +308,15 @@ export default function ReportsPage() {
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
           }}
-          id="report-form"
         >
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Generate New Report
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create owner-ready outputs with consistent formatting
-            </Typography>
-          </Box>
-          <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <Controller
-                  name="reportType"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Report Type"
-                      error={!!errors.reportType}
-                      helperText={errors.reportType?.message}
-                    >
-                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                        <MenuItem key={key} value={key}>
-                          {value}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="propertyId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Property"
-                      disabled={isLoadingProperties}
-                      error={!!errors.propertyId}
-                      helperText={errors.propertyId?.message}
-                    >
-                      {propertiesData.map((prop) => (
-                        <MenuItem key={prop.id} value={prop.id}>
-                          {prop.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="unitId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Unit (Optional)"
-                      disabled={!selectedPropertyId || isLoadingUnits}
-                      error={!!errors.unitId}
-                      helperText={errors.unitId?.message}
-                    >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      {unitsData.map((unit) => (
-                        <MenuItem key={unit.id} value={unit.id}>
-                          {unit.unitNumber}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Controller
-                  name="fromDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="From"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.fromDate}
-                      helperText={errors.fromDate?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="toDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="To"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.toDate}
-                      helperText={errors.toDate?.message}
-                    />
-                  )}
-                />
-              </Stack>
-              {mutation.isError && (
-                <Alert severity="error">{mutation.error.message}</Alert>
-              )}
-              {mutation.isSuccess && (
-                <Alert severity="success">Report generation has been queued.</Alert>
-              )}
-              <Stack direction="row" justifyContent="flex-end">
-                <GradientButton
-                  type="submit"
-                  size="large"
-                  disabled={isSubmitting || mutation.isPending}
-                >
-                  {t('reports.submit')}
-                </GradientButton>
-              </Stack>
-            </Stack>
-          </form>
-        </Paper>
-
-        {/* Filters */}
-        <Paper
-          sx={{
-            p: { xs: 2.5, md: 3.5 },
-            mb: 1,
-            borderRadius: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-          }}
-        >
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" rowGap={2}>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            flexWrap="wrap"
+          >
             <TextField
-              placeholder="Search reports by property, unit, type, or status..."
+              placeholder="Search reports by property, unit, type, or status"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               InputProps={{
@@ -622,6 +553,230 @@ export default function ReportsPage() {
         )}
         </Paper>
       </Stack>
+
+      <Dialog open={isWizardOpen} onClose={handleCloseWizard} fullWidth maxWidth="md">
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+            <Box>
+              <Typography variant="h6" fontWeight={700} gutterBottom>
+                Generate report
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Follow the wizard to export an audit-ready report without missing details.
+              </Typography>
+            </Box>
+            <IconButton onClick={handleCloseWizard} aria-label="close wizard" size="small">
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <Divider />
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ pb: 1 }}>
+              {steps.map((step) => (
+                <Step key={step.label}>
+                  <StepLabel>{step.label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: { xs: 2, md: 3 },
+                borderRadius: 2,
+                backgroundColor: 'background.default',
+              }}
+            >
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    {steps[activeStep].label}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={700} gutterBottom>
+                    {steps[activeStep].description}
+                  </Typography>
+                </Box>
+
+                {activeStep === 0 && (
+                  <Stack spacing={2}>
+                    <Controller
+                      name="reportType"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          label="Report Type"
+                          error={!!errors.reportType}
+                          helperText={errors.reportType?.message}
+                        >
+                          {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                            <MenuItem key={key} value={key}>
+                              {value}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                    <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                      {selectedReportSections.map((section) => (
+                        <Chip key={section} label={section} color="default" variant="outlined" />
+                      ))}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      Each report includes an audit trail plus the sections shown above so stakeholders can review every
+                      update with consistent formatting.
+                    </Typography>
+                  </Stack>
+                )}
+
+                {activeStep === 1 && (
+                  <Stack spacing={2}>
+                    <Controller
+                      name="propertyId"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          label="Property"
+                          disabled={isLoadingProperties}
+                          error={!!errors.propertyId}
+                          helperText={errors.propertyId?.message}
+                        >
+                          {propertiesData.map((prop) => (
+                            <MenuItem key={prop.id} value={prop.id}>
+                              {prop.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                    <Controller
+                      name="unitId"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          label="Unit (Optional)"
+                          disabled={!selectedPropertyId || isLoadingUnits}
+                          error={!!errors.unitId}
+                          helperText={errors.unitId?.message}
+                        >
+                          <MenuItem value="">
+                            <em>All Units</em>
+                          </MenuItem>
+                          {unitsData.map((unit) => (
+                            <MenuItem key={unit.id} value={unit.id}>
+                              {unit.unitNumber}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                    <Alert severity="info" variant="outlined">
+                      You can scope the report to a single unit or leave it blank to include everything for the selected
+                      property.
+                    </Alert>
+                  </Stack>
+                )}
+
+                {activeStep === 2 && (
+                  <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }}>
+                    <Controller
+                      name="fromDate"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          type="date"
+                          label="From"
+                          InputLabelProps={{ shrink: true }}
+                          fullWidth
+                          error={!!errors.fromDate}
+                          helperText={errors.fromDate?.message}
+                        />
+                      )}
+                    />
+                    <Controller
+                      name="toDate"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          type="date"
+                          label="To"
+                          InputLabelProps={{ shrink: true }}
+                          fullWidth
+                          error={!!errors.toDate}
+                          helperText={errors.toDate?.message}
+                        />
+                      )}
+                    />
+                  </Stack>
+                )}
+
+                {activeStep === 3 && (
+                  <Stack spacing={2}>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        Report summary
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                        <Chip label={REPORT_TYPES[reportTypeValue] || 'Select a type'} color="primary" />
+                        <Chip label={selectedProperty?.name || 'No property selected'} />
+                        <Chip label={selectedUnit?.unitNumber ? `Unit ${selectedUnit.unitNumber}` : 'All Units'} />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        Coverage:{' '}
+                        {fromDateValue && toDateValue
+                          ? `${format(new Date(fromDateValue), 'PP')} – ${format(
+                              new Date(toDateValue),
+                              'PP'
+                            )}`
+                          : 'Select dates'}
+                      </Typography>
+                    </Stack>
+                    <Alert severity="success" variant="outlined">
+                      We will generate an audit-ready export with the sections shown above. You can download it once the
+                      status reaches Completed.
+                    </Alert>
+                  </Stack>
+                )}
+
+                <Stack direction="row" spacing={2} justifyContent="space-between" sx={{ pt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={handleBack}
+                    disabled={activeStep === 0 || isSubmitting || mutation.isPending}
+                    sx={{ textTransform: 'none', borderRadius: 2 }}
+                  >
+                    Back
+                  </Button>
+                  <GradientButton
+                    size="large"
+                    onClick={handleNext}
+                    disabled={isSubmitting || mutation.isPending}
+                  >
+                    {activeStep === steps.length - 1
+                      ? mutation.isPending
+                        ? 'Generating...'
+                        : 'Generate Report'
+                      : 'Continue'}
+                  </GradientButton>
+                </Stack>
+              </Stack>
+            </Paper>
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 }
