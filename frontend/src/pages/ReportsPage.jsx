@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -7,7 +7,6 @@ import {
   TextField,
   Button,
   Alert,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -21,11 +20,8 @@ import {
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { format } from 'date-fns';
@@ -34,24 +30,8 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
 import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon } from '@mui/icons-material';
-
-const reportSchema = z.object({
-  reportType: z.string().min(1, 'forms.required'),
-  propertyId: z.string().min(1, 'forms.required'),
-  unitId: z.string().optional().nullable(),
-  fromDate: z.string().min(1, 'forms.required'),
-  toDate: z.string().min(1, 'forms.required'),
-});
-
-const REPORT_TYPES = {
-  MAINTENANCE_HISTORY: 'Maintenance History',
-  UNIT_LEDGER: 'Unit Ledger',
-};
-
-const REPORT_SECTIONS = {
-  MAINTENANCE_HISTORY: ['Audit Trail', 'Inspections', 'Jobs', 'Service Requests', 'Upcoming'],
-  UNIT_LEDGER: ['Audit Trail', 'Payments', 'Unit Updates', 'Upcoming'],
-};
+import ReportWizard from '../components/ReportWizard';
+import { REPORT_TYPES, REPORT_SECTIONS } from '../constants/reportConstants';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
@@ -62,7 +42,6 @@ const STATUS_OPTIONS = [
 ];
 
 export default function ReportsPage() {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [filterPropertyId, setFilterPropertyId] = useState('');
@@ -71,6 +50,8 @@ export default function ReportsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [lastQueuedMessage, setLastQueuedMessage] = useState('');
 
   // Data fetching
   const { data: propertiesData = [], isLoading: isLoadingProperties } = useQuery({
@@ -139,46 +120,31 @@ export default function ReportsPage() {
 
   const mutation = useMutation({
     mutationFn: (newReport) => apiClient.post('/reports', newReport),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
-      reset();
-      setSelectedPropertyId('');
-    },
   });
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(reportSchema),
-    defaultValues: {
-      reportType: '',
-      propertyId: '',
-      unitId: '',
-      fromDate: '',
-      toDate: '',
-    },
-  });
-
-  const propertyIdValue = watch('propertyId');
-
-  useEffect(() => {
-    if (propertyIdValue) {
-      setSelectedPropertyId(propertyIdValue);
-    }
-  }, [propertyIdValue]);
-
-  const onSubmit = handleSubmit((data) => {
+  const handleWizardSubmit = (data, resetWizard) => {
     const payload = {
       ...data,
       fromDate: new Date(data.fromDate).toISOString(),
       toDate: new Date(data.toDate).toISOString(),
     };
-    mutation.mutate(payload);
-  });
+
+    mutation.mutate(payload, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
+        resetWizard?.();
+        setSelectedPropertyId('');
+        setWizardOpen(false);
+        setLastQueuedMessage('Report generation has been queued. We will refresh this list once it finishes.');
+      },
+    });
+  };
+
+  const closeWizard = () => {
+    setWizardOpen(false);
+    setSelectedPropertyId('');
+    mutation.reset();
+  };
 
   const getStatusChip = (status) => {
     const colorMap = {
@@ -226,150 +192,72 @@ export default function ReportsPage() {
                 Generate audit-ready outputs for inspections, jobs, payments, and service requests.
               </Typography>
             </Box>
-            <GradientButton size="large" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
+            <GradientButton
+              size="large"
+              onClick={() => {
+                setLastQueuedMessage('');
+                setWizardOpen(true);
+              }}
+            >
               Start New Report
             </GradientButton>
           </Stack>
         </Paper>
 
-        {/* Generate New Report Section */}
+        {/* Wizard CTA */}
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2, md: 3 },
+            p: { xs: 2.5, md: 3.5 },
             borderRadius: 3,
             border: '1px solid',
             borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.06)',
+            background: 'linear-gradient(135deg, #fff7ed 0%, #fff1f2 100%)',
           }}
-          id="report-form"
         >
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Generate New Report
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create owner-ready outputs with consistent formatting
-            </Typography>
-          </Box>
-          <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <Controller
-                  name="reportType"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Report Type"
-                      error={!!errors.reportType}
-                      helperText={errors.reportType?.message}
-                    >
-                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                        <MenuItem key={key} value={key}>
-                          {value}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="propertyId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Property"
-                      disabled={isLoadingProperties}
-                      error={!!errors.propertyId}
-                      helperText={errors.propertyId?.message}
-                    >
-                      {propertiesData.map((prop) => (
-                        <MenuItem key={prop.id} value={prop.id}>
-                          {prop.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="unitId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Unit (Optional)"
-                      disabled={!selectedPropertyId || isLoadingUnits}
-                      error={!!errors.unitId}
-                      helperText={errors.unitId?.message}
-                    >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      {unitsData.map((unit) => (
-                        <MenuItem key={unit.id} value={unit.id}>
-                          {unit.unitNumber}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems={{ xs: 'flex-start', md: 'center' }}>
+            <Box flex={1}>
+              <Typography variant="h6" fontWeight={700} gutterBottom>
+                Generate reports with the guided wizard
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Launch the same multi-step workflow used across inspections, jobs, and service requests to keep report
+                generation consistent.
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} divider={<span style={{ width: 1 }} />}>
+                <Chip label="Pick template" size="small" color="primary" variant="outlined" />
+                <Chip label="Set scope" size="small" color="primary" variant="outlined" />
+                <Chip label="Confirm dates" size="small" color="primary" variant="outlined" />
               </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Controller
-                  name="fromDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="From"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.fromDate}
-                      helperText={errors.fromDate?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="toDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="To"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.toDate}
-                      helperText={errors.toDate?.message}
-                    />
-                  )}
-                />
-              </Stack>
-              {mutation.isError && (
-                <Alert severity="error">{mutation.error.message}</Alert>
+              {lastQueuedMessage && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  {lastQueuedMessage}
+                </Alert>
               )}
-              {mutation.isSuccess && (
-                <Alert severity="success">Report generation has been queued.</Alert>
-              )}
-              <Stack direction="row" justifyContent="flex-end">
-                <GradientButton
-                  type="submit"
-                  size="large"
-                  disabled={isSubmitting || mutation.isPending}
-                >
-                  {t('reports.submit')}
-                </GradientButton>
-              </Stack>
+            </Box>
+            <Stack direction={{ xs: 'row', md: 'column' }} spacing={1.5} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+              <GradientButton
+                size="large"
+                onClick={() => {
+                  setLastQueuedMessage('');
+                  setWizardOpen(true);
+                }}
+              >
+                Generate Report
+              </GradientButton>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setLastQueuedMessage('');
+                  setWizardOpen(true);
+                }}
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Use Wizard
+              </Button>
             </Stack>
-          </form>
+          </Stack>
         </Paper>
 
         {/* Filters */}
@@ -515,6 +403,16 @@ export default function ReportsPage() {
             <Typography variant="body2" color="text.secondary">
               Keep track of processing and completed exports
             </Typography>
+            <GradientButton
+              size="medium"
+              sx={{ mt: 1.5 }}
+              onClick={() => {
+                setLastQueuedMessage('');
+                setWizardOpen(true);
+              }}
+            >
+              Generate Report
+            </GradientButton>
           </Box>
         {isLoadingReports ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -621,6 +519,19 @@ export default function ReportsPage() {
           </Box>
         )}
         </Paper>
+
+        <ReportWizard
+          open={wizardOpen}
+          onClose={closeWizard}
+          onSubmit={handleWizardSubmit}
+          propertiesData={propertiesData}
+          unitsData={unitsData}
+          isLoadingProperties={isLoadingProperties}
+          isLoadingUnits={isLoadingUnits}
+          onPropertyChange={setSelectedPropertyId}
+          isSubmitting={mutation.isPending}
+          serverError={mutation.error?.message}
+        />
       </Stack>
     </Container>
   );
