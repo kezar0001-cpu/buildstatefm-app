@@ -14,6 +14,7 @@ import prisma, { prisma as prismaInstance } from './src/config/prismaClient.js';
 import logger from './src/utils/logger.js';
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
+import scheduleOverdueInspectionCron from './src/cron/overdueInspections.js';
 import { initializeWebSocket } from './src/websocket.js';
 
 // ---- Load env
@@ -31,6 +32,7 @@ const PORT = process.env.PORT || 3000;
 // ---- Cron Jobs
 const maintenancePlanCronTask = scheduleMaintenancePlanCron();
 startRecurringInspectionCron();
+const overdueInspectionCronTask = scheduleOverdueInspectionCron();
 
 // Trust proxy so secure cookies & redirects work behind Render/CF
 app.set('trust proxy', 1);
@@ -348,6 +350,13 @@ async function startServer() {
           maintenancePlanCronTask.stop();
         } catch (cronError) {
           logger.error('Error stopping maintenance plan cron task:', cronError);
+        }
+      }
+      if (overdueInspectionCronTask) {
+        try {
+          overdueInspectionCronTask.stop();
+        } catch (cronError) {
+          logger.error('Error stopping overdue inspection cron task:', cronError);
         }
       }
       try {

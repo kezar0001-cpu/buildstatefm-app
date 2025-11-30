@@ -31,7 +31,7 @@ const INSPECTION_TYPE_OPTIONS = [
   { value: 'COMPLIANCE', label: 'Compliance' },
 ];
 
-const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
+const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues = {} }) => {
   const isEditing = Boolean(inspection);
 
   const {
@@ -44,7 +44,7 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(inspectionSchema),
-    defaultValues: inspectionDefaultValues,
+    defaultValues: { ...inspectionDefaultValues, ...initialValues },
     mode: 'onBlur',
   });
 
@@ -149,9 +149,9 @@ const InspectionForm = ({ inspection, onSuccess, onCancel }) => {
         templateId: inspection.templateId || '',
       });
     } else {
-      reset(inspectionDefaultValues);
+      reset({ ...inspectionDefaultValues, ...initialValues });
     }
-  }, [inspection, reset]);
+  }, [inspection, reset, initialValues]);
 
   // Auto-focus on first error field
   useEffect(() => {

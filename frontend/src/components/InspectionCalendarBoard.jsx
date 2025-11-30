@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -8,11 +8,23 @@ import {
   Stack,
   Tooltip,
   Typography,
+  Collapse,
+  LinearProgress,
+  Avatar,
+  AvatarGroup,
+  Badge,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   CalendarMonth as CalendarMonthIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon,
+  Image as ImageIcon,
+  Room as RoomIcon,
 } from '@mui/icons-material';
 
 const STATUS_COLOR = {
@@ -28,6 +40,216 @@ const DATE_LABEL = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 function toDateKey(date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
+
+// Enhanced Inspection Card Component
+const EnhancedInspectionCard = ({ inspection, canDrag, onDragStart }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  // Calculate room progress
+  const rooms = inspection.rooms || [];
+  const totalRooms = rooms.length;
+  const completedRooms = rooms.filter(room => {
+    const items = room.checklistItems || [];
+    return items.length > 0 && items.every(item => item.isChecked);
+  }).length;
+  const roomProgress = totalRooms > 0 ? (completedRooms / totalRooms) * 100 : 0;
+
+  // Calculate issue counts and severity
+  const issues = inspection.issues || [];
+  const criticalIssues = issues.filter(i => i.severity === 'CRITICAL').length;
+  const highIssues = issues.filter(i => i.severity === 'HIGH').length;
+  const mediumIssues = issues.filter(i => i.severity === 'MEDIUM').length;
+  const lowIssues = issues.filter(i => i.severity === 'LOW').length;
+  const totalIssues = issues.length;
+
+  // Get highest severity for badge color
+  const getSeverityColor = () => {
+    if (criticalIssues > 0) return 'error';
+    if (highIssues > 0) return 'error';
+    if (mediumIssues > 0) return 'warning';
+    if (lowIssues > 0) return 'info';
+    return 'default';
+  };
+
+  // Get photos
+  const photos = inspection.photos || [];
+  const photoCount = photos.length;
+
+  const handleExpand = (e) => {
+    e.stopPropagation();
+    setExpanded(!expanded);
+  };
+
+  return (
+    <Card
+      variant="outlined"
+      draggable={canDrag}
+      onDragStart={(event) => onDragStart(event, inspection.id)}
+      sx={{
+        cursor: canDrag ? 'grab' : 'default',
+        transition: 'all 0.2s',
+        '&:hover': {
+          boxShadow: 2,
+        }
+      }}
+    >
+      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+        {/* Header */}
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ flex: 1, pr: 1 }}>
+            {inspection.title}
+          </Typography>
+          {totalRooms > 0 && (
+            <IconButton
+              size="small"
+              onClick={handleExpand}
+              sx={{ mt: -0.5, mr: -0.5 }}
+            >
+              {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          )}
+        </Stack>
+
+        {/* Status and Badges */}
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+          <Chip
+            size="small"
+            label={inspection.status?.replace('_', ' ') || 'Scheduled'}
+            color={STATUS_COLOR[inspection.status] || 'default'}
+          />
+
+          {totalIssues > 0 && (
+            <Tooltip title={`${criticalIssues} critical, ${highIssues} high, ${mediumIssues} medium, ${lowIssues} low`}>
+              <Chip
+                size="small"
+                icon={<ErrorIcon />}
+                label={totalIssues}
+                color={getSeverityColor()}
+              />
+            </Tooltip>
+          )}
+
+          {photoCount > 0 && (
+            <Tooltip title={`${photoCount} photo${photoCount > 1 ? 's' : ''}`}>
+              <Chip
+                size="small"
+                icon={<ImageIcon />}
+                label={photoCount}
+                color="default"
+              />
+            </Tooltip>
+          )}
+        </Stack>
+
+        {/* Property and Unit */}
+        {inspection.property && (
+          <Typography variant="caption" color="text.secondary" display="block">
+            {inspection.property}
+          </Typography>
+        )}
+        {inspection.unit && (
+          <Typography variant="caption" color="text.secondary" display="block">
+            Unit {inspection.unit}
+          </Typography>
+        )}
+
+        {/* Room Progress Bar (always visible if rooms exist) */}
+        {totalRooms > 0 && (
+          <Box sx={{ mt: 1 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                Rooms: {completedRooms}/{totalRooms}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                {Math.round(roomProgress)}%
+              </Typography>
+            </Stack>
+            <LinearProgress
+              variant="determinate"
+              value={roomProgress}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: 'action.hover',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 3,
+                  bgcolor: roomProgress === 100 ? 'success.main' : 'primary.main',
+                }
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Expandable Details */}
+        <Collapse in={expanded}>
+          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+            {/* Room Details */}
+            {rooms.length > 0 && (
+              <Box sx={{ mb: 1.5 }}>
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                  <RoomIcon fontSize="small" color="action" />
+                  <Typography variant="caption" fontWeight={600}>
+                    Rooms ({rooms.length})
+                  </Typography>
+                </Stack>
+                <Stack spacing={0.5}>
+                  {rooms.slice(0, 3).map((room) => {
+                    const items = room.checklistItems || [];
+                    const checkedItems = items.filter(i => i.isChecked).length;
+                    const isComplete = items.length > 0 && checkedItems === items.length;
+                    return (
+                      <Stack key={room.id} direction="row" spacing={0.5} alignItems="center">
+                        {isComplete ? (
+                          <CheckCircleIcon fontSize="small" color="success" />
+                        ) : (
+                          <Box sx={{ width: 20, height: 20 }} />
+                        )}
+                        <Typography variant="caption" color="text.secondary">
+                          {room.name} {items.length > 0 && `(${checkedItems}/${items.length})`}
+                        </Typography>
+                      </Stack>
+                    );
+                  })}
+                  {rooms.length > 3 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ pl: 3 }}>
+                      +{rooms.length - 3} more
+                    </Typography>
+                  )}
+                </Stack>
+              </Box>
+            )}
+
+            {/* Photo Previews */}
+            {photos.length > 0 && (
+              <Box>
+                <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+                  Photos ({photoCount})
+                </Typography>
+                <AvatarGroup max={4} sx={{ justifyContent: 'flex-start' }}>
+                  {photos.slice(0, 4).map((photo, idx) => (
+                    <Avatar
+                      key={photo.id || idx}
+                      src={photo.url}
+                      variant="rounded"
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <ImageIcon fontSize="small" />
+                    </Avatar>
+                  ))}
+                </AvatarGroup>
+              </Box>
+            )}
+          </Box>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+};
 
 const InspectionCalendarBoard = ({
   startDate,
@@ -162,36 +384,12 @@ const InspectionCalendarBoard = ({
                     </Typography>
                   )}
                   {dayEvents.map((inspection) => (
-                    <Card
+                    <EnhancedInspectionCard
                       key={inspection.id}
-                      variant="outlined"
-                      draggable={canDrag}
-                      onDragStart={(event) => handleDragStart(event, inspection.id)}
-                      sx={{ cursor: canDrag ? 'grab' : 'default' }}
-                    >
-                      <CardContent sx={{ p: 1.5 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          {inspection.title}
-                        </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                          <Chip
-                            size="small"
-                            label={inspection.status?.replace('_', ' ') || 'Scheduled'}
-                            color={STATUS_COLOR[inspection.status] || 'default'}
-                          />
-                          {inspection.property && (
-                            <Typography variant="caption" color="text.secondary">
-                              {inspection.property}
-                            </Typography>
-                          )}
-                        </Stack>
-                        {inspection.unit && (
-                          <Typography variant="caption" color="text.secondary">
-                            Unit {inspection.unit}
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
+                      inspection={inspection}
+                      canDrag={canDrag}
+                      onDragStart={handleDragStart}
+                    />
                   ))}
                 </Stack>
               </Box>

@@ -113,6 +113,7 @@ router.use(hydrateInspectionUser);
 router.get('/tags', inspectionController.getTags);
 router.get('/analytics', inspectionController.getAnalytics);
 router.get('/calendar', inspectionController.getCalendar);
+router.get('/overdue', hydrateInspectionUser, inspectionController.getOverdueInspections);
 
 router.get('/', inspectionController.listInspections);
 router.post('/', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.createInspection);

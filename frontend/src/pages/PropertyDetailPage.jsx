@@ -76,6 +76,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
 import { getCurrentUser } from '../lib/auth';
 import { resolvePropertyImageUrl } from '../utils/propertyImages.js';
+import InspectionForm from '../components/InspectionForm';
 
 const UNITS_PAGE_SIZE = 50;
 
@@ -156,6 +157,7 @@ export default function PropertyDetailPage() {
   const [assignOwnerDialogOpen, setAssignOwnerDialogOpen] = useState(false);
   const [ownerMenuAnchor, setOwnerMenuAnchor] = useState(null);
   const [bulkScheduleDialogOpen, setBulkScheduleDialogOpen] = useState(false);
+  const [inspectionFormDialogOpen, setInspectionFormDialogOpen] = useState(false);
 
   useEffect(() => {
     unitDialogOpenRef.current = unitDialogOpen;
@@ -690,6 +692,16 @@ export default function PropertyDetailPage() {
                 </Box>
               </Stack>
               <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+                <Button
+                  variant="contained"
+                  startIcon={<CalendarIcon />}
+                  onClick={() => setInspectionFormDialogOpen(true)}
+                  fullWidth
+                  sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+                  aria-label="Schedule inspection for this property"
+                >
+                  Schedule Inspection
+                </Button>
                 <Button
                   variant="outlined"
                   startIcon={<PersonAddIcon />}
@@ -1946,6 +1958,26 @@ export default function PropertyDetailPage() {
         units={units}
         propertyId={id}
       />
+
+      {/* Schedule Inspection Dialog */}
+      <Dialog
+        open={inspectionFormDialogOpen}
+        onClose={() => setInspectionFormDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <InspectionForm
+          onSuccess={() => {
+            setInspectionFormDialogOpen(false);
+            queryClient.invalidateQueries({ queryKey: queryKeys.inspections.list() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.properties.activity(id) });
+          }}
+          onCancel={() => setInspectionFormDialogOpen(false)}
+          initialValues={{
+            propertyId: id,
+          }}
+        />
+      </Dialog>
 
       {/* Image Lightbox Dialog */}
       <Dialog

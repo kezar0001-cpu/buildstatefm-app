@@ -82,6 +82,18 @@ const DashboardPage = () => {
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
   });
 
+  // Fetch overdue inspections
+  const { data: overdueData } = useQuery({
+    queryKey: queryKeys.inspections.overdue(),
+    queryFn: async () => {
+      const response = await apiClient.get('/inspections/overdue');
+      return response.data;
+    },
+    refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
+  });
+
+  const overdueInspections = overdueData?.inspections || [];
+
   const handleRefresh = () => {
     refetch();
   };
@@ -211,6 +223,64 @@ const DashboardPage = () => {
           </GradientButton>
         </Stack>
       </Stack>
+
+      {/* Overdue Inspections Alert */}
+      {overdueInspections.length > 0 && (
+        <Alert
+          severity="error"
+          icon={<WarningIcon />}
+          sx={{
+            mb: 3,
+            animation: 'fade-in-down 0.5s ease-out',
+            borderLeft: '4px solid #dc2626',
+          }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate('/inspections', { state: { filter: 'overdue' } })}
+              sx={{ fontWeight: 600 }}
+            >
+              View All
+            </Button>
+          }
+        >
+          <AlertTitle sx={{ fontWeight: 700 }}>
+            {overdueInspections.length} Overdue Inspection{overdueInspections.length > 1 ? 's' : ''}
+          </AlertTitle>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            {overdueInspections.slice(0, 3).map((inspection) => (
+              <Box
+                key={inspection.id}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+                onClick={() => navigate(`/inspections/${inspection.id}`)}
+              >
+                <Chip
+                  label={`${inspection.daysOverdue} day${inspection.daysOverdue > 1 ? 's' : ''} overdue`}
+                  size="small"
+                  color="error"
+                  sx={{ fontWeight: 600 }}
+                />
+                <Typography variant="body2">
+                  {inspection.title} - {inspection.property?.name}
+                  {inspection.unit ? ` (Unit ${inspection.unit.unitNumber})` : ''}
+                </Typography>
+              </Box>
+            ))}
+            {overdueInspections.length > 3 && (
+              <Typography variant="caption" color="text.secondary">
+                and {overdueInspections.length - 3} more...
+              </Typography>
+            )}
+          </Stack>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4, animation: 'fade-in-up 0.6s ease-out' }}>

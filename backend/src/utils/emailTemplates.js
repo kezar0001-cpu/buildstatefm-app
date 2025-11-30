@@ -321,6 +321,117 @@ export const emailTemplates = {
       </html>
     `,
   }),
+
+  inspectionOverdue: (data) => ({
+    subject: `Overdue Inspection: ${data.inspectionTitle}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+          .content { background-color: #f9fafb; padding: 20px; }
+          .alert-box { background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; margin: 15px 0; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚠️ Inspection Overdue</h1>
+          </div>
+          <div class="content">
+            <p>Hello ${data.technicianName},</p>
+            <div class="alert-box">
+              <p><strong>This inspection is now overdue and requires immediate attention.</strong></p>
+            </div>
+            <h2>${data.inspectionTitle}</h2>
+            <p><strong>Property:</strong> ${data.propertyName}</p>
+            ${data.unitNumber ? `<p><strong>Unit:</strong> ${data.unitNumber}</p>` : ''}
+            <p><strong>Type:</strong> ${data.inspectionType}</p>
+            <p><strong>Scheduled Date:</strong> ${data.scheduledDate}</p>
+            <p><strong>Days Overdue:</strong> <span style="color: #dc2626; font-weight: bold;">${data.daysOverdue}</span></p>
+            <p>Please complete this inspection as soon as possible or contact your manager to reschedule.</p>
+            <a href="${data.inspectionUrl}" class="button">Complete Inspection Now</a>
+          </div>
+          <div class="footer">
+            <p>AgentFM - Facilities Management Platform</p>
+            <p>This is an automated message, please do not reply.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
+
+  overdueInspectionDigest: (data) => ({
+    subject: `Daily Digest: ${data.inspectionCount} Overdue Inspection${data.inspectionCount > 1 ? 's' : ''}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+          .content { background-color: #f9fafb; padding: 20px; }
+          .inspection-item { background-color: white; padding: 15px; margin: 12px 0; border-radius: 6px; border-left: 4px solid #dc2626; }
+          .overdue-badge { background-color: #dc2626; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+          .stats-box { background-color: #fee2e2; padding: 15px; border-radius: 6px; margin: 20px 0; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 4px; margin: 10px 5px; }
+          .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📋 Overdue Inspections Digest</h1>
+          </div>
+          <div class="content">
+            <p>Hello ${data.managerName},</p>
+            <div class="stats-box">
+              <p style="margin: 0; font-size: 18px;"><strong>${data.inspectionCount}</strong> inspection${data.inspectionCount > 1 ? 's are' : ' is'} currently overdue and require${data.inspectionCount === 1 ? 's' : ''} immediate attention.</p>
+            </div>
+
+            <h3>Overdue Inspections:</h3>
+            ${data.inspections.map(inspection => `
+              <div class="inspection-item">
+                <h4 style="margin-top: 0;">${inspection.title}</h4>
+                <p style="margin: 5px 0;"><strong>Property:</strong> ${inspection.property.name}</p>
+                ${inspection.unit ? `<p style="margin: 5px 0;"><strong>Unit:</strong> ${inspection.unit.unitNumber}</p>` : ''}
+                <p style="margin: 5px 0;"><strong>Type:</strong> ${inspection.type}</p>
+                <p style="margin: 5px 0;"><strong>Scheduled:</strong> ${new Date(inspection.scheduledDate).toLocaleDateString()}</p>
+                <p style="margin: 5px 0;">
+                  <span class="overdue-badge">${Math.round((new Date() - new Date(inspection.scheduledDate)) / (1000 * 60 * 60 * 24))} days overdue</span>
+                </p>
+                ${inspection.assignedTo ? `<p style="margin: 5px 0;"><strong>Assigned to:</strong> ${inspection.assignedTo.firstName} ${inspection.assignedTo.lastName}</p>` : '<p style="margin: 5px 0; color: #dc2626;"><strong>Not assigned to anyone</strong></p>'}
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/inspections/${inspection.id}" class="button" style="font-size: 14px; padding: 8px 16px;">View Details</a>
+              </div>
+            `).join('')}
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+              <h3>Recommended Actions:</h3>
+              <ul>
+                <li>Review each overdue inspection and take appropriate action</li>
+                <li>Reassign inspections if technicians are unavailable</li>
+                <li>Reschedule inspections if necessary</li>
+                <li>Contact technicians to understand delays</li>
+              </ul>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/inspections?status=overdue" class="button">View All Overdue Inspections</a>
+            </div>
+          </div>
+          <div class="footer">
+            <p>AgentFM - Facilities Management Platform</p>
+            <p>This is an automated daily digest. You will continue to receive this email until all inspections are completed or rescheduled.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
 };
 
 export default emailTemplates;
