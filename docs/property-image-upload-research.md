@@ -134,7 +134,7 @@ This document captures best practices from major real estate platforms (realesta
 - Minimum touch target size (44x44px)
 - Sufficient color contrast
 
-## Recommended workflow for AgentFM
+## Recommended workflow for Buildstate FM
 
 1. **Onboard / add property wizard**
    - Accept multiple uploads, allow per-image alt text, and let managers choose the hero image before submission.

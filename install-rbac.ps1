@@ -1,8 +1,8 @@
-# AgentFM RBAC Installation Script for Windows
+# Buildstate FM RBAC Installation Script for Windows
 # Run this in PowerShell
 
 Write-Host "=============================================="
-Write-Host "  AgentFM RBAC System Installation (Windows)"
+Write-Host "  Buildstate FM RBAC System Installation (Windows)"
 Write-Host "=============================================="
 Write-Host ""
 

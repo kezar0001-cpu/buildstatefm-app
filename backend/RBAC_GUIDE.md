@@ -2,7 +2,7 @@
 
 ## Overview
 
-AgentFM now implements a comprehensive role-based access control system with 5 distinct user roles, each with specific permissions and workflows.
+Buildstate FM now implements a comprehensive role-based access control system with 5 distinct user roles, each with specific permissions and workflows.
 
 ## User Roles
 
@@ -18,7 +18,7 @@ AgentFM now implements a comprehensive role-based access control system with 5 d
 - View all analytics and reports
 
 **Use Cases:**
-- AgentFM platform administrators
+- Buildstate FM platform administrators
 - System maintenance
 - Support escalations
 

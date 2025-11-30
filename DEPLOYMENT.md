@@ -1,7 +1,7 @@
-# Deployment Guide for AgentFM (Buildstate)
+# Deployment Guide for Buildstate FM (Buildstate)
 
 ## Overview
-This guide covers the deployment configuration for the AgentFM application, including environment variables, domain setup, and troubleshooting.
+This guide covers the deployment configuration for the Buildstate FM application, including environment variables, domain setup, and troubleshooting.
 
 ## Architecture
 

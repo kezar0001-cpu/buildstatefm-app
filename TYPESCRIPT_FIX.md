@@ -81,7 +81,7 @@ Once deployed to Render, verify:
 
 1. **Check Render logs** for clean startup:
    ```
-   ✅ AgentFM backend listening on port 3000
+   ✅ Buildstate FM backend listening on port 3000
    ```
 
 2. **Test the endpoint** with curl:

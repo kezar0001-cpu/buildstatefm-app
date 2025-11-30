@@ -35,7 +35,7 @@ export const emailTemplates = {
             <a href="${data.jobUrl}" class="button">View Job Details</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -75,7 +75,7 @@ export const emailTemplates = {
             <a href="${data.inspectionUrl}" class="button">View Inspection Details</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -116,7 +116,7 @@ export const emailTemplates = {
             <a href="${data.requestUrl}" class="button">View Request Details</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export const emailTemplates = {
   }),
 
   trialExpiring: (data) => ({
-    subject: 'Your AgentFM Trial is Expiring Soon',
+    subject: 'Your Buildstate FM Trial is Expiring Soon',
     html: `
       <!DOCTYPE html>
       <html>
@@ -147,8 +147,8 @@ export const emailTemplates = {
           </div>
           <div class="content">
             <p>Hello ${data.userName},</p>
-            <p>Your AgentFM trial period is expiring in <strong>${data.daysRemaining} days</strong>.</p>
-            <p>To continue using AgentFM without interruption, please upgrade to a paid plan.</p>
+            <p>Your Buildstate FM trial period is expiring in <strong>${data.daysRemaining} days</strong>.</p>
+            <p>To continue using Buildstate FM without interruption, please upgrade to a paid plan.</p>
             <h3>Why Upgrade?</h3>
             <ul>
               <li>Unlimited properties and units</li>
@@ -159,7 +159,7 @@ export const emailTemplates = {
             <a href="${data.upgradeUrl}" class="button">Upgrade Now</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -169,7 +169,7 @@ export const emailTemplates = {
   }),
 
   welcomeEmail: (data) => ({
-    subject: 'Welcome to AgentFM!',
+    subject: 'Welcome to Buildstate FM!',
     html: `
       <!DOCTYPE html>
       <html>
@@ -186,11 +186,11 @@ export const emailTemplates = {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Welcome to AgentFM!</h1>
+            <h1>Welcome to Buildstate FM!</h1>
           </div>
           <div class="content">
             <p>Hello ${data.userName},</p>
-            <p>Thank you for signing up for AgentFM! We're excited to help you manage your facilities more efficiently.</p>
+            <p>Thank you for signing up for Buildstate FM! We're excited to help you manage your facilities more efficiently.</p>
             <h3>Getting Started:</h3>
             <ol>
               <li>Complete your profile</li>
@@ -202,7 +202,7 @@ export const emailTemplates = {
             <a href="${data.dashboardUrl}" class="button">Go to Dashboard</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>Need help? Contact us at support@agentfm.com</p>
           </div>
         </div>
@@ -243,7 +243,7 @@ export const emailTemplates = {
             <a href="${data.jobUrl}" class="button">View Job Details</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -313,7 +313,7 @@ export const emailTemplates = {
             <a href="${data.inspectionUrl}" class="button">View Inspection Report</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -358,7 +358,7 @@ export const emailTemplates = {
             <a href="${data.inspectionUrl}" class="button">Complete Inspection Now</a>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated message, please do not reply.</p>
           </div>
         </div>
@@ -424,7 +424,7 @@ export const emailTemplates = {
             </div>
           </div>
           <div class="footer">
-            <p>AgentFM - Facilities Management Platform</p>
+            <p>Buildstate FM - Facilities Management Platform</p>
             <p>This is an automated daily digest. You will continue to receive this email until all inspections are completed or rescheduled.</p>
           </div>
         </div>

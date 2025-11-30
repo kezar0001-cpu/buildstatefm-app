@@ -412,7 +412,7 @@ How to Use:
 Questions? Reply to this email or contact support.
 
 Best regards,
-The AgentFM Team
+The Buildstate FM Team
 ```
 
 ### Phase 5: Success Criteria

@@ -158,7 +158,7 @@ const adminSetupSchema = z.object({
 
 // The secret PIN to bypass the single-admin restriction
 // In production, this should strictly come from environment variables
-const ADMIN_SETUP_PIN = process.env.ADMIN_SETUP_PIN || 'AgentFM-2025-Secure-Setup';
+const ADMIN_SETUP_PIN = process.env.ADMIN_SETUP_PIN || 'Buildstate FM-2025-Secure-Setup';
 
 // ========================================
 // GET /api/auth/setup/check

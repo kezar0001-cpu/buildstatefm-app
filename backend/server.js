@@ -20,7 +20,7 @@ import { initializeWebSocket } from './src/websocket.js';
 // ---- Load env
 dotenv.config();
 
-logger.info('>>> STARTING AgentFM Backend <<<');
+logger.info('>>> STARTING Buildstate FM Backend <<<');
 
 // ---- Prisma (re-exported for backwards compatibility)
 export { prismaInstance as prisma };
@@ -291,7 +291,7 @@ app.get('/health', async (_req, res) => {
 });
 
 app.get('/', (_req, res) => {
-  res.json({ status: 'ok', message: 'AgentFM API is running' });
+  res.json({ status: 'ok', message: 'Buildstate FM API is running' });
 });
 
 app.use('*', (req, res) => {
@@ -327,7 +327,7 @@ app.use((err, req, res, _next) => {
 async function startServer() {
   try {
     const server = app.listen(PORT, () => {
-      logger.info(`✅ AgentFM backend listening on port ${PORT}`);
+      logger.info(`✅ Buildstate FM backend listening on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
     });
@@ -372,7 +372,7 @@ async function startServer() {
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
   } catch (error) {
-    logger.error('❌ Failed to start AgentFM backend:', error);
+    logger.error('❌ Failed to start Buildstate FM backend:', error);
     process.exit(1);
   }
 }

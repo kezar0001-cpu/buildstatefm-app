@@ -2,7 +2,7 @@
 
 ## 🎉 What We Just Built
 
-We've successfully implemented the **foundation for role-based access control** in your AgentFM app. This is a complete MVP implementation of the database and middleware layer that will power all 5 user workflows.
+We've successfully implemented the **foundation for role-based access control** in your Buildstate FM app. This is a complete MVP implementation of the database and middleware layer that will power all 5 user workflows.
 
 ---
 

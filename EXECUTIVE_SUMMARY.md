@@ -1,4 +1,4 @@
-# 🎉 AgentFM Phase 1: RBAC Foundation - COMPLETE!
+# 🎉 Buildstate FM Phase 1: RBAC Foundation - COMPLETE!
 
 ## What We Just Built
 

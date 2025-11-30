@@ -1,4 +1,4 @@
-// Complete AgentFM MVP Schema
+// Complete Buildstate FM MVP Schema
 // This extends the previous schema with all remaining modules
 
 generator client {
