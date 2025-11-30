@@ -21,11 +21,9 @@ import DataState from '../components/DataState.jsx';
 import GradientButton from '../components/GradientButton';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
-import PageHeader from '../components/PageHeader';
 
 export default function RecommendationsPage() {
   const { t } = useTranslation();
-  const pageTitle = t('recommendations.title', 'Recommendations');
   const query = useApiQuery({ queryKey: queryKeys.recommendations.all(), url: '/recommendations' });
   const mutation = useApiMutation({
     url: '/recommendations/:id/convert',
@@ -46,10 +44,23 @@ export default function RecommendationsPage() {
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
       <Stack spacing={4}>
-        <PageHeader
-          title={pageTitle}
-          description="Review inspection follow-ups and convert them into jobs without leaving the workspace."
-        />
+        {/* Page Header */}
+        <Box>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              color: 'text.primary',
+              mb: 1,
+            }}
+          >
+            {t('recommendations.title')}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Review inspection follow-ups and convert them into jobs without leaving the workspace.
+          </Typography>
+        </Box>
 
         {/* Recommendations Section */}
         <Paper

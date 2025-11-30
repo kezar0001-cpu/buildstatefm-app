@@ -36,7 +36,6 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
-import PageHeader from '../components/PageHeader';
 
 const ServiceRequestsPage = () => {
   const navigate = useNavigate();
@@ -190,17 +189,45 @@ const ServiceRequestsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <PageHeader
-        title="Service Requests"
-        description={
-          userRole === 'TENANT'
-            ? 'Submit and track your maintenance requests'
-            : 'Review and manage tenant service requests'
-        }
-        actionLabel={userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
-        actionIcon={<AddIcon />}
-        onActionClick={handleCreate}
-      />
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={{ xs: 2, md: 0 }}
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        justifyContent="space-between"
+        sx={{ mb: 3, animation: 'fade-in-down 0.5s ease-out' }}
+      >
+        <Box>
+          <Typography
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Service Requests
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {userRole === 'TENANT'
+              ? 'Submit and track your maintenance requests'
+              : 'Review and manage tenant service requests'}
+          </Typography>
+        </Box>
+        <GradientButton
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+          size="medium"
+          sx={{
+            maxWidth: { xs: '100%', md: 'auto' },
+          }}
+        >
+          {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
+        </GradientButton>
+      </Stack>
 
       {/* Filters */}
       <Card
