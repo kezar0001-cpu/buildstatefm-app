@@ -74,6 +74,7 @@ import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
 import { InspectionContextActions } from '../components/InspectionContextActions';
+import GradientButton from '../components/GradientButton';
 import PageHeader from '../components/PageHeader';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
