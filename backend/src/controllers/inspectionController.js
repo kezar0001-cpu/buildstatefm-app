@@ -185,6 +185,41 @@ export const listInspections = async (req, res) => {
   }
 };
 
+export const getOverdueInspections = async (req, res) => {
+  try {
+    const now = new Date();
+    const accessFilter = buildAccessWhere(req.user);
+
+    const where = {
+      status: 'SCHEDULED',
+      scheduledDate: {
+        lt: now,
+      },
+      ...(accessFilter || {}),
+    };
+
+    const inspections = await prisma.inspection.findMany({
+      where,
+      include: inspectionService.baseInspectionInclude,
+      orderBy: { scheduledDate: 'asc' },
+    });
+
+    // Calculate days overdue for each inspection
+    const overdueInspections = inspections.map(inspection => ({
+      ...inspection,
+      daysOverdue: Math.round((now - new Date(inspection.scheduledDate)) / (1000 * 60 * 60 * 24)),
+    }));
+
+    res.json({
+      inspections: overdueInspections,
+      total: overdueInspections.length,
+    });
+  } catch (error) {
+    console.error('Failed to fetch overdue inspections', error);
+    sendError(res, 500, 'Failed to load overdue inspections', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};
+
 export const getInspection = async (req, res) => {
   try {
     const inspection = await prisma.inspection.findUnique({
