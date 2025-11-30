@@ -16,11 +16,21 @@ import {
   Chip,
   CircularProgress,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
   InputAdornment,
   IconButton,
   FormControl,
   InputLabel,
   Select,
+  Stepper,
+  Step,
+  StepLabel,
+  Grid,
+  FormHelperText,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
@@ -53,6 +63,19 @@ const REPORT_SECTIONS = {
   UNIT_LEDGER: ['Audit Trail', 'Payments', 'Unit Updates', 'Upcoming'],
 };
 
+const REPORT_TYPE_DETAILS = {
+  MAINTENANCE_HISTORY: {
+    title: 'Maintenance History',
+    description: 'Create an audit-ready history of inspections, jobs, service requests, and upcoming work.',
+  },
+  UNIT_LEDGER: {
+    title: 'Unit Ledger',
+    description: 'Capture payments, unit updates, and an audit trail for resident communications.',
+  },
+};
+
+const WIZARD_STEPS = ['Select report type', 'Choose scope', 'Date range', 'Review & submit'];
+
 const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   { value: 'PENDING', label: 'Pending' },
@@ -71,6 +94,8 @@ export default function ReportsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
 
   // Data fetching
   const { data: propertiesData = [], isLoading: isLoadingProperties } = useQuery({
@@ -143,6 +168,8 @@ export default function ReportsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
       reset();
       setSelectedPropertyId('');
+      setActiveStep(0);
+      setIsWizardOpen(false);
     },
   });
 
@@ -151,6 +178,8 @@ export default function ReportsPage() {
     handleSubmit,
     reset,
     watch,
+    trigger,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(reportSchema),
@@ -171,6 +200,41 @@ export default function ReportsPage() {
     }
   }, [propertyIdValue]);
 
+  const handleWizardOpen = () => {
+    setIsWizardOpen(true);
+  };
+
+  const handleWizardClose = () => {
+    setIsWizardOpen(false);
+    setActiveStep(0);
+    reset();
+    setSelectedPropertyId('');
+  };
+
+  const handleNextStep = async () => {
+    const fieldsByStep = [
+      ['reportType'],
+      ['propertyId'],
+      ['fromDate', 'toDate'],
+      [],
+    ];
+
+    const currentFields = fieldsByStep[activeStep] || [];
+    if (currentFields.length === 0) {
+      setActiveStep((prev) => prev + 1);
+      return;
+    }
+
+    const isValid = await trigger(currentFields);
+    if (isValid) {
+      setActiveStep((prev) => prev + 1);
+    }
+  };
+
+  const handleBackStep = () => {
+    setActiveStep((prev) => Math.max(prev - 1, 0));
+  };
+
   const onSubmit = handleSubmit((data) => {
     const payload = {
       ...data,
@@ -189,6 +253,211 @@ export default function ReportsPage() {
     };
     return <Chip label={status} color={colorMap[status] || 'default'} size="small" />;
   };
+
+  const renderWizardContent = () => {
+    switch (activeStep) {
+      case 0:
+        return (
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Choose a report type
+            </Typography>
+            <Controller
+              name="reportType"
+              control={control}
+              render={({ field }) => (
+                <Grid container spacing={2}>
+                  {Object.entries(REPORT_TYPE_DETAILS).map(([key, details]) => {
+                    const isSelected = field.value === key;
+                    return (
+                      <Grid item xs={12} sm={6} key={key}>
+                        <Paper
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => field.onChange(key)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              field.onChange(key);
+                            }
+                          }}
+                          variant="outlined"
+                          sx={{
+                            p: 2.5,
+                            height: '100%',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'primary.light' : 'background.paper',
+                            transition: 'all 0.2s ease',
+                            '&:hover': { boxShadow: 4, borderColor: 'primary.main' },
+                            outline: 'none',
+                          }}
+                        >
+                          <Stack spacing={1} alignItems="flex-start">
+                            <Chip label={REPORT_TYPES[key]} color={isSelected ? 'primary' : 'default'} size="small" />
+                            <Typography variant="subtitle1" fontWeight={700}>
+                              {details.title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {details.description}
+                            </Typography>
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            />
+            {errors.reportType && <FormHelperText error>{errors.reportType.message}</FormHelperText>}
+          </Stack>
+        );
+      case 1:
+        return (
+          <Stack spacing={2}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Choose property and scope
+            </Typography>
+            <Controller
+              name="propertyId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  label="Property"
+                  disabled={isLoadingProperties}
+                  error={!!errors.propertyId}
+                  helperText={errors.propertyId?.message || 'Select where this report should focus'}
+                >
+                  {propertiesData.map((prop) => (
+                    <MenuItem key={prop.id} value={prop.id}>
+                      {prop.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+            <Controller
+              name="unitId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  label="Unit (Optional)"
+                  disabled={!selectedPropertyId || isLoadingUnits}
+                  error={!!errors.unitId}
+                  helperText={errors.unitId?.message || 'Limit the report to a single unit (optional)'}
+                >
+                  <MenuItem value="">
+                    <em>All Units</em>
+                  </MenuItem>
+                  {unitsData.map((unit) => (
+                    <MenuItem key={unit.id} value={unit.id}>
+                      {unit.unitNumber}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          </Stack>
+        );
+      case 2:
+        return (
+          <Stack spacing={2}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Set date coverage
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Controller
+                name="fromDate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    type="date"
+                    label="From"
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                    error={!!errors.fromDate}
+                    helperText={errors.fromDate?.message || 'Starting date for the report window'}
+                  />
+                )}
+              />
+              <Controller
+                name="toDate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    type="date"
+                    label="To"
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                    error={!!errors.toDate}
+                    helperText={errors.toDate?.message || 'Ending date for the report window'}
+                  />
+                )}
+              />
+            </Stack>
+          </Stack>
+        );
+      case 3:
+      default:
+        {
+          const values = getValues();
+          const selectedProperty = propertiesData.find((prop) => prop.id === values.propertyId);
+          const selectedUnit = unitsData.find((unit) => unit.id === values.unitId);
+          return (
+            <Stack spacing={2}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Review
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
+                      Report Type
+                    </Typography>
+                    <Chip label={REPORT_TYPES[values.reportType] || 'Not selected'} color="primary" size="small" />
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
+                      Property
+                    </Typography>
+                    <Typography variant="body2">
+                      {selectedProperty?.name || 'Not selected'}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
+                      Unit
+                    </Typography>
+                    <Typography variant="body2">
+                      {selectedUnit?.unitNumber ? `Unit ${selectedUnit.unitNumber}` : 'All Units'}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
+                      Coverage
+                    </Typography>
+                    <Typography variant="body2">
+                      {values.fromDate && values.toDate
+                        ? `${format(new Date(values.fromDate), 'PP')} - ${format(new Date(values.toDate), 'PP')}`
+                        : 'Not set'}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Paper>
+            </Stack>
+          );
+        }
+    }
+  };
+
+  const isLastStep = activeStep === WIZARD_STEPS.length - 1;
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
@@ -226,7 +495,7 @@ export default function ReportsPage() {
                 Generate audit-ready outputs for inspections, jobs, payments, and service requests.
               </Typography>
             </Box>
-            <GradientButton size="large" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
+            <GradientButton size="large" onClick={handleWizardOpen}>
               Start New Report
             </GradientButton>
           </Stack>
@@ -244,132 +513,76 @@ export default function ReportsPage() {
           }}
           id="report-form"
         >
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Generate New Report
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create owner-ready outputs with consistent formatting
-            </Typography>
-          </Box>
-          <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <Controller
-                  name="reportType"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Report Type"
-                      error={!!errors.reportType}
-                      helperText={errors.reportType?.message}
-                    >
-                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                        <MenuItem key={key} value={key}>
-                          {value}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="propertyId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Property"
-                      disabled={isLoadingProperties}
-                      error={!!errors.propertyId}
-                      helperText={errors.propertyId?.message}
-                    >
-                      {propertiesData.map((prop) => (
-                        <MenuItem key={prop.id} value={prop.id}>
-                          {prop.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  name="unitId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      fullWidth
-                      label="Unit (Optional)"
-                      disabled={!selectedPropertyId || isLoadingUnits}
-                      error={!!errors.unitId}
-                      helperText={errors.unitId?.message}
-                    >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      {unitsData.map((unit) => (
-                        <MenuItem key={unit.id} value={unit.id}>
-                          {unit.unitNumber}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
+          <Stack spacing={3}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2.5}
+              alignItems={{ xs: 'flex-start', md: 'center' }}
+              justifyContent="space-between"
+            >
+              <Stack spacing={1}>
+                <Typography variant="h6" fontWeight={700}>
+                  Generate New Report
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720 }}>
+                  Launch the guided workflow to choose your report type, select the property and unit scope, and confirm
+                  coverage before submitting.
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                  {WIZARD_STEPS.map((step) => (
+                    <Chip key={step} label={step} size="small" color="default" />
+                  ))}
+                </Stack>
               </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Controller
-                  name="fromDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="From"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.fromDate}
-                      helperText={errors.fromDate?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="toDate"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="date"
-                      label="To"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      error={!!errors.toDate}
-                      helperText={errors.toDate?.message}
-                    />
-                  )}
-                />
-              </Stack>
-              {mutation.isError && (
-                <Alert severity="error">{mutation.error.message}</Alert>
-              )}
-              {mutation.isSuccess && (
-                <Alert severity="success">Report generation has been queued.</Alert>
-              )}
-              <Stack direction="row" justifyContent="flex-end">
-                <GradientButton
-                  type="submit"
-                  size="large"
-                  disabled={isSubmitting || mutation.isPending}
-                >
-                  {t('reports.submit')}
-                </GradientButton>
-              </Stack>
+              <GradientButton size="large" onClick={handleWizardOpen}>
+                Launch Report Wizard
+              </GradientButton>
             </Stack>
-          </form>
+
+            <Divider />
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ p: 2.5, height: '100%', borderRadius: 2 }}>
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      What happens in the wizard
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      • Pick the report template that matches your need.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      • Choose the property and optional unit scope.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      • Lock in the date coverage and review before submitting.
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ p: 2.5, height: '100%', borderRadius: 2 }}>
+                  <Stack spacing={1.5}>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Report coverage
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                      {Object.values(REPORT_SECTIONS)
+                        .flat()
+                        .filter((section, index, arr) => arr.indexOf(section) === index)
+                        .map((section) => (
+                          <Chip key={section} label={section} size="small" />
+                        ))}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      Reports keep the same audit-friendly formatting used across inspections, jobs, payments, and service
+                      requests.
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Stack>
         </Paper>
 
         {/* Filters */}
@@ -521,7 +734,14 @@ export default function ReportsPage() {
             <CircularProgress />
           </Box>
         ) : filteredReports.length === 0 ? (
-          <Alert severity="info">
+          <Alert
+            severity="info"
+            action={
+              <Button color="inherit" size="small" onClick={handleWizardOpen}>
+                New Report
+              </Button>
+            }
+          >
             No reports match your filters. Try expanding the date range or clearing filters.
           </Alert>
         ) : (
@@ -622,6 +842,39 @@ export default function ReportsPage() {
         )}
         </Paper>
       </Stack>
+
+      <Dialog open={isWizardOpen} onClose={handleWizardClose} fullWidth maxWidth="md">
+        <DialogTitle>Report creation wizard</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {WIZARD_STEPS.map((step) => (
+                <Step key={step}>
+                  <StepLabel>{step}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            <Stack spacing={2}>{renderWizardContent()}</Stack>
+            {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2.5 }}>
+          <Button onClick={handleWizardClose} color="inherit">
+            Cancel
+          </Button>
+          {activeStep > 0 && (
+            <Button onClick={handleBackStep} disabled={mutation.isPending || isSubmitting}>
+              Back
+            </Button>
+          )}
+          <GradientButton
+            onClick={isLastStep ? onSubmit : handleNextStep}
+            disabled={mutation.isPending || isSubmitting}
+          >
+            {isLastStep ? (mutation.isPending ? 'Submitting...' : t('reports.submit')) : 'Next'}
+          </GradientButton>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
