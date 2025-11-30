@@ -104,7 +104,6 @@ export function saveTokenFromUrl(autoRedirect = true) {
       apiClient
         .get('/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
         })
         .then((response) => response?.data ?? response)
         .then((payload) => {

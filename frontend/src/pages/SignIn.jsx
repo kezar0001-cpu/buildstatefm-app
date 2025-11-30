@@ -49,8 +49,7 @@ export default function SignIn() {
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
           role: formData.role,
-        },
-        { withCredentials: true }
+        }
       );
 
       const payload = response?.data ?? response;

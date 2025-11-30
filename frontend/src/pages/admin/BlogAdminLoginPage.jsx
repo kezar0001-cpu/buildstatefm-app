@@ -43,8 +43,7 @@ export default function BlogAdminLoginPage() {
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
           role: 'ADMIN',
-        },
-        { withCredentials: true }
+        }
       );
 
       const payload = response?.data ?? response;
