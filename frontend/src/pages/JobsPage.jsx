@@ -70,7 +70,6 @@ import { queryKeys } from '../utils/queryKeys.js';
 import toast from 'react-hot-toast';
 import { useJobStatusUpdate } from '../hooks/useJobStatusUpdate';
 import GradientButton from '../components/GradientButton';
-import PageHeader from '../components/PageHeader';
 import {
   JOB_STATUS_LABELS,
   VALID_STATUS_TRANSITIONS,
@@ -597,14 +596,43 @@ const JobsPage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
       {/* Header */}
-      <PageHeader
-        title="Jobs"
-        description="Manage and track maintenance jobs"
-        actionLabel="Create Job"
-        actionIcon={<AddIcon />}
-        onActionClick={handleCreate}
-        actionProps={{ size: 'large' }}
-      />
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={{ xs: 2, md: 0 }}
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        justifyContent="space-between"
+        sx={{ mb: 3, animation: 'fade-in-down 0.5s ease-out' }}
+      >
+        <Box>
+          <Typography
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.75rem', md: '2.125rem' },
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Jobs
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
+            Manage and track maintenance jobs
+          </Typography>
+        </Box>
+        <GradientButton
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+          size="large"
+          sx={{
+            maxWidth: { xs: '100%', md: 'auto' },
+          }}
+        >
+          Create Job
+        </GradientButton>
+      </Stack>
 
       {/* Filters */}
       <Paper
