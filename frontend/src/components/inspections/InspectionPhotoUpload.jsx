@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Stack, Typography, Button, IconButton, Grid, Card, CardMedia,
-  Collapse, LinearProgress, Alert
+  Collapse, LinearProgress, Alert, List, ListItem, ListItemText, ListItemAvatar,
+  Avatar, Chip
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
   ExpandMore as ExpandMoreIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Compress as CompressIcon,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
+import { compressImage } from '../../features/images/utils/imageCompression';
 
 /**
- * Improved photo upload component for inspections
+ * Enhanced photo upload component for inspections
  * Features:
  * - Minimized by default, expands when adding photos
- * - Simplified UI without category filters
+ * - Image compression before upload using browser-image-compression
+ * - Upload queue with progress tracking
+ * - Immediate thumbnail preview using blob URLs
  * - Direct integration with inspection photo API
  * - Loads existing photos from the room
  */
 export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, onUploadComplete }) => {
   const [expanded, setExpanded] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
+  const [uploadQueue, setUploadQueue] = useState([]); // Track all uploads in queue
   const queryClient = useQueryClient();
 
   // Fetch room data to get photos
@@ -42,20 +49,60 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
   const photos = currentRoom?.photos || [];
 
   const uploadMutation = useMutation({
-    mutationFn: async (file) => {
-      setUploading(true);
-      setUploadProgress(0);
-      setError(null);
+    mutationFn: async ({ file, queueId }) => {
+      // Update queue status to compressing
+      setUploadQueue(prev => prev.map(item =>
+        item.id === queueId ? { ...item, status: 'compressing' } : item
+      ));
+
+      // Compress image before upload
+      let fileToUpload = file;
+      const originalSize = file.size / 1024 / 1024;
+
+      if (originalSize > 0.5) { // Compress if larger than 500KB
+        try {
+          fileToUpload = await compressImage(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 2000,
+            useWebWorker: true,
+          });
+
+          const compressedSize = fileToUpload.size / 1024 / 1024;
+          const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(0);
+
+          // Update queue with compression info
+          setUploadQueue(prev => prev.map(item =>
+            item.id === queueId ? {
+              ...item,
+              compressed: true,
+              compressionRatio: `${reduction}%`,
+              status: 'uploading'
+            } : item
+          ));
+        } catch (compressionError) {
+          console.warn('Compression failed, uploading original:', compressionError);
+          setUploadQueue(prev => prev.map(item =>
+            item.id === queueId ? { ...item, status: 'uploading' } : item
+          ));
+        }
+      } else {
+        setUploadQueue(prev => prev.map(item =>
+          item.id === queueId ? { ...item, status: 'uploading' } : item
+        ));
+      }
 
       try {
         // Step 1: Upload to storage
         const formData = new FormData();
-        formData.append('photos', file);
+        formData.append('photos', fileToUpload);
 
         const uploadRes = await apiClient.post('/uploads/inspection-photos', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (e) => {
-            setUploadProgress(Math.round((e.loaded * 100) / e.total));
+            const progress = Math.round((e.loaded * 100) / e.total);
+            setUploadQueue(prev => prev.map(item =>
+              item.id === queueId ? { ...item, progress } : item
+            ));
           },
         });
 
@@ -70,31 +117,35 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
           url: uploadRes.data.urls[0],
         });
 
-        return linkRes.data.photo;
-      } finally {
-        setUploading(false);
+        return { photo: linkRes.data.photo, queueId, originalFile: file };
+      } catch (err) {
+        setUploadQueue(prev => prev.map(item =>
+          item.id === queueId ? { ...item, status: 'error', error: err.message } : item
+        ));
+        throw err;
       }
     },
-    onMutate: async (file) => {
+    onMutate: async ({ file, queueId }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspectionId) });
 
       // Snapshot the previous value for rollback
       const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspectionId));
 
-      // Create optimistic photo with temporary ID and blob URL for preview
+      // Create optimistic photo with temporary ID and blob URL for immediate preview
       const optimisticPhoto = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${queueId}`,
         url: URL.createObjectURL(file),
         roomId,
         issueId: checklistItemId,
         caption: null,
         order: photos.length,
         uploadedAt: new Date().toISOString(),
-        _isOptimistic: true, // Flag to identify optimistic updates
+        _isOptimistic: true,
+        _queueId: queueId,
       };
 
-      // Optimistically update the UI
+      // Optimistically update the UI with thumbnail preview
       queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), (old) => {
         if (!old?.rooms) return old;
         return {
@@ -109,7 +160,7 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
 
       return { previousRooms, optimisticPhoto };
     },
-    onError: (err, file, context) => {
+    onError: (err, { queueId }, context) => {
       // Rollback to previous state on error
       if (context?.previousRooms) {
         queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), context.previousRooms);
@@ -120,14 +171,23 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
       }
       console.error('Photo upload error:', err);
       setError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
-      setUploadProgress(0);
     },
-    onSuccess: (photo, file, context) => {
+    onSuccess: ({ photo, queueId, originalFile }, _, context) => {
       // Revoke the blob URL after successful upload
       if (context?.optimisticPhoto?._isOptimistic) {
         URL.revokeObjectURL(context.optimisticPhoto.url);
       }
-      setUploadProgress(0);
+
+      // Update queue status to completed
+      setUploadQueue(prev => prev.map(item =>
+        item.id === queueId ? { ...item, status: 'completed', progress: 100 } : item
+      ));
+
+      // Remove from queue after 2 seconds
+      setTimeout(() => {
+        setUploadQueue(prev => prev.filter(item => item.id !== queueId));
+      }, 2000);
+
       queryClient.invalidateQueries(queryKeys.inspections.rooms(inspectionId));
       if (onUploadComplete) {
         onUploadComplete(photo);
@@ -140,13 +200,9 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
       await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
     },
     onMutate: async (photoId) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspectionId) });
-
-      // Snapshot the previous value for rollback
       const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspectionId));
 
-      // Optimistically remove the photo from the UI
       queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), (old) => {
         if (!old?.rooms) return old;
         return {
@@ -162,7 +218,6 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
       return { previousRooms };
     },
     onError: (_err, _photoId, context) => {
-      // Rollback to previous state on error
       if (context?.previousRooms) {
         queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), context.previousRooms);
       }
@@ -193,9 +248,27 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
 
     if (validFiles.length > 0) {
       setExpanded(true);
-      // Upload files sequentially
-      validFiles.forEach(file => {
-        uploadMutation.mutate(file);
+
+      // Add files to upload queue
+      const newQueueItems = validFiles.map((file, index) => ({
+        id: `${Date.now()}-${index}`,
+        name: file.name,
+        size: (file.size / 1024 / 1024).toFixed(2),
+        preview: URL.createObjectURL(file),
+        status: 'pending',
+        progress: 0,
+        compressed: false,
+        compressionRatio: null,
+      }));
+
+      setUploadQueue(prev => [...prev, ...newQueueItems]);
+
+      // Start uploading files
+      validFiles.forEach((file, index) => {
+        uploadMutation.mutate({
+          file,
+          queueId: newQueueItems[index].id
+        });
       });
     }
 
@@ -208,6 +281,51 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
       deleteMutation.mutate(photoId);
     }
   };
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      uploadQueue.forEach(item => {
+        if (item.preview) {
+          URL.revokeObjectURL(item.preview);
+        }
+      });
+    };
+  }, [uploadQueue]);
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircleIcon color="success" fontSize="small" />;
+      case 'error':
+        return <ErrorIcon color="error" fontSize="small" />;
+      case 'compressing':
+        return <CompressIcon color="primary" fontSize="small" />;
+      default:
+        return <ImageIcon color="action" fontSize="small" />;
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'compressing':
+        return 'Compressing...';
+      case 'uploading':
+        return 'Uploading...';
+      case 'completed':
+        return 'Completed';
+      case 'error':
+        return 'Failed';
+      default:
+        return status;
+    }
+  };
+
+  const hasActiveUploads = uploadQueue.some(item =>
+    ['pending', 'compressing', 'uploading'].includes(item.status)
+  );
 
   return (
     <Box>
@@ -226,7 +344,7 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
             type="file"
             multiple
             onChange={handleFileSelect}
-            disabled={uploading}
+            disabled={hasActiveUploads}
           />
           <label htmlFor={`photo-upload-${roomId || 'general'}`}>
             <Button
@@ -234,9 +352,9 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
               startIcon={<CloudUploadIcon />}
               size="small"
               variant="outlined"
-              disabled={uploading}
+              disabled={hasActiveUploads}
             >
-              {uploading ? 'Uploading...' : 'Add Photos'}
+              {hasActiveUploads ? 'Uploading...' : 'Add Photos'}
             </Button>
           </label>
           {photos.length > 0 && (
@@ -254,8 +372,71 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
         </Stack>
       </Stack>
 
-      {uploading && (
-        <LinearProgress variant="determinate" value={uploadProgress} sx={{ mt: 1 }} />
+      {/* Upload Queue */}
+      {uploadQueue.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="caption" color="text.secondary" gutterBottom>
+            Upload Queue ({uploadQueue.length} {uploadQueue.length === 1 ? 'item' : 'items'})
+          </Typography>
+          <List dense sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+            {uploadQueue.map((item) => (
+              <ListItem key={item.id}>
+                <ListItemAvatar>
+                  <Avatar
+                    src={item.preview}
+                    variant="rounded"
+                    sx={{ width: 48, height: 48 }}
+                  >
+                    <ImageIcon />
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                        {item.name}
+                      </Typography>
+                      {item.compressed && item.compressionRatio && (
+                        <Chip
+                          label={`-${item.compressionRatio}`}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          icon={<CompressIcon />}
+                        />
+                      )}
+                      <Chip
+                        label={getStatusText(item.status)}
+                        size="small"
+                        color={item.status === 'completed' ? 'success' : item.status === 'error' ? 'error' : 'default'}
+                        icon={getStatusIcon(item.status)}
+                      />
+                    </Stack>
+                  }
+                  secondary={
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.size} MB
+                      </Typography>
+                      {item.status === 'uploading' && (
+                        <LinearProgress
+                          variant="determinate"
+                          value={item.progress}
+                          sx={{ mt: 0.5 }}
+                        />
+                      )}
+                      {item.status === 'error' && item.error && (
+                        <Typography variant="caption" color="error">
+                          {item.error}
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
       )}
 
       {error && (
@@ -275,23 +456,28 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
                     height="120"
                     image={photo.url}
                     alt="Inspection photo"
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDelete(photo.id)}
                     sx={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255,255,255,1)',
-                      }
+                      objectFit: 'cover',
+                      opacity: photo._isOptimistic ? 0.6 : 1,
                     }}
-                  >
-                    <DeleteIcon fontSize="small" color="error" />
-                  </IconButton>
+                  />
+                  {!photo._isOptimistic && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(photo.id)}
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,1)',
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
+                  )}
                 </Card>
               </Grid>
             ))}

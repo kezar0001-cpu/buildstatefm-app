@@ -75,6 +75,10 @@ import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
 import { InspectionContextActions } from '../components/InspectionContextActions';
 import PageHeader from '../components/PageHeader';
+import InspectionKanbanSkeleton from '../components/skeletons/InspectionKanbanSkeleton';
+import InspectionListSkeleton from '../components/skeletons/InspectionListSkeleton';
+import CardGridSkeleton from '../components/skeletons/CardGridSkeleton';
+import VirtualizedInspectionList from '../components/VirtualizedInspectionList';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -492,11 +496,49 @@ const InspectionsPage = () => {
     return displayStatus.replace(/_/g, ' ');
   };
 
-  // Loading state
+  // Loading state with skeleton loaders
   if (isLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-        <DataState type="loading" message="Loading inspections..." />
+        <PageShell
+          title="Inspections"
+          subtitle="Schedule and manage property inspections"
+          actions={(
+            <GradientButton
+              startIcon={<AddIcon />}
+              disabled
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              Create Inspection
+            </GradientButton>
+          )}
+        >
+          <Box sx={{ mb: 3 }}>
+            {/* Skeleton for toolbar/filters */}
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <TextField
+                  fullWidth
+                  placeholder="Search inspections..."
+                  disabled
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+            </Stack>
+          </Box>
+
+          {/* Skeleton based on view mode */}
+          {viewMode === 'grid' && <InspectionKanbanSkeleton cardsPerColumn={3} />}
+          {viewMode === 'list' && <InspectionListSkeleton items={6} />}
+          {viewMode === 'calendar' && <CardGridSkeleton cards={7} />}
+        </PageShell>
       </Container>
     );
   }
@@ -807,10 +849,11 @@ const InspectionsPage = () => {
             />
           )}
 
-          {/* List View */}
+          {/* List View with Virtual Scrolling */}
           {viewMode === 'list' && (
-            <Stack spacing={2}>
-              {inspectionsWithOverdue.map((inspection) => (
+            <VirtualizedInspectionList
+              inspections={inspectionsWithOverdue}
+              renderItem={(inspection) => (
                 <InspectionListItem
                   key={inspection.id}
                   inspection={inspection}
@@ -824,8 +867,12 @@ const InspectionsPage = () => {
                   getStatusIcon={getStatusIcon}
                   formatStatusText={formatStatusText}
                 />
-              ))}
-            </Stack>
+              )}
+              onLoadMore={fetchNextPage}
+              hasMore={hasNextPage}
+              isLoadingMore={isFetchingNextPage}
+              scrollKey="inspections-list-scroll"
+            />
           )}
 
           {/* Calendar View */}
