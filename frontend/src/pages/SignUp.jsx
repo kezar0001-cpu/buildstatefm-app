@@ -124,7 +124,7 @@ export default function SignUp() {
         payload.inviteToken = inviteToken;
       }
 
-      const response = await apiClient.post('/auth/register', payload, { withCredentials: true });
+      const response = await apiClient.post('/auth/register', payload);
 
       const res = response?.data ?? response;
 
