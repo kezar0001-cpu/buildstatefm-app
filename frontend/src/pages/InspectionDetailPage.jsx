@@ -48,6 +48,7 @@ import InspectionForm from '../components/InspectionForm';
 import InspectionApprovalCard from '../components/InspectionApprovalCard';
 import { CompleteInspectionDialog } from '../components/CompleteInspectionDialog';
 import { InspectionPhotoGalleryModal } from '../components/InspectionPhotoGalleryModal';
+import SkeletonDetail from '../components/SkeletonDetail';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
@@ -212,7 +213,7 @@ export default function InspectionDetailPage() {
   if (isLoading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <DataState type="loading" message="Loading inspection" />
+        <SkeletonDetail variant="default" showTabs={true} showActions={true} />
       </Container>
     );
   }
