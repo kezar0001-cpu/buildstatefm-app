@@ -88,36 +88,25 @@ export default function InspectionDetailPage() {
 
   const canManage = useMemo(() => user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN', [user?.role]);
 
+  // Batched query for inspection details - combines inspection data, audit logs, and inspector options
+  // This reduces 3 separate API calls to 1, improving performance and reducing network overhead
   const {
-    data: inspection,
+    data: batchedData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: queryKeys.inspections.detail(id),
+    queryKey: queryKeys.inspections.batchedDetail(id),
     queryFn: async () => {
-      const response = await apiClient.get(`/inspections/${id}`);
+      const response = await apiClient.get(`/inspections/${id}/batch`);
       return response.data;
     },
+    staleTime: 30 * 1000, // Cache for 30 seconds to reduce unnecessary refetches
   });
 
-  const { data: auditData } = useQuery({
-    queryKey: queryKeys.inspections.audit(id),
-    queryFn: async () => {
-      const response = await apiClient.get(`/inspections/${id}/audit`);
-      return response.data?.logs || [];
-    },
-    enabled: Boolean(inspection),
-  });
-
-  const { data: inspectorData = { inspectors: [] } } = useQuery({
-    queryKey: queryKeys.inspections.inspectors(),
-    queryFn: async () => {
-      const response = await apiClient.get('/inspections/inspectors');
-      return response.data;
-    },
-  });
-
-  const inspectorOptions = inspectorData.inspectors || [];
+  // Extract data from batched response
+  const inspection = batchedData?.inspection;
+  const auditData = batchedData?.auditLogs || [];
+  const inspectorOptions = batchedData?.inspectors || [];
 
   const previewMutation = useMutation({
     mutationFn: async (payload) => {

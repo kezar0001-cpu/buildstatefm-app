@@ -119,6 +119,7 @@ router.get('/', inspectionController.listInspections);
 router.post('/', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.createInspection);
 router.post('/bulk', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.bulkCreateInspections);
 router.get('/:id', ensureInspectionAccess, inspectionController.getInspection);
+router.get('/:id/batch', ensureInspectionAccess, inspectionDetailsController.getBatchedInspectionDetails);
 router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.updateInspection);
 router.delete('/:id', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.deleteInspection);
 

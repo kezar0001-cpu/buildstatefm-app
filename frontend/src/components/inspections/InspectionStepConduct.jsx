@@ -5,10 +5,13 @@ import {
   DialogContent, DialogActions, TextField, MenuItem
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { queryKeys } from '../../utils/queryKeys';
 import { InspectionPhotoUpload } from './InspectionPhotoUpload';
 
 export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved }) => {
+  const queryClient = useQueryClient();
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [newIssue, setNewIssue] = useState({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
 
@@ -26,20 +29,54 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
     return `Last saved at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
-  const handleAddIssue = async () => {
-    if (!newIssue.title) return;
-    try {
-      await apiClient.post(`/inspections/${inspection.id}/issues`, newIssue);
-      setIssueDialogOpen(false);
-      setNewIssue({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
-      // Trigger refresh to show the new issue
+  // Issue creation mutation with optimistic updates and automatic rollback on error
+  const addIssueMutation = useMutation({
+    mutationFn: (issueData) => apiClient.post(`/inspections/${inspection.id}/issues`, issueData),
+    onMutate: async (issueData) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.inspections.issues(inspection.id) });
+
+      // Snapshot the previous value for rollback
+      const previousIssues = queryClient.getQueryData(queryKeys.inspections.issues(inspection.id));
+
+      // Create optimistic issue with temporary ID
+      const optimisticIssue = {
+        id: `temp-${Date.now()}`,
+        ...issueData,
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+        photos: [],
+        room: issueData.roomId ? rooms.find(r => r.id === issueData.roomId) : null,
+      };
+
+      // Optimistically update the UI
+      queryClient.setQueryData(queryKeys.inspections.issues(inspection.id), (old) => ({
+        ...old,
+        issues: [optimisticIssue, ...(old?.issues || [])],
+      }));
+
+      return { previousIssues };
+    },
+    onError: (_err, _issueData, context) => {
+      // Rollback to previous state on error
+      if (context?.previousIssues) {
+        queryClient.setQueryData(queryKeys.inspections.issues(inspection.id), context.previousIssues);
+      }
+      alert('Failed to add issue. Please try again.');
+    },
+    onSuccess: () => {
+      // Trigger refresh to get the real data from server
       if (actions.refetchIssues) {
         actions.refetchIssues();
       }
-    } catch (e) {
-      console.error('Failed to add issue:', e);
-      alert('Failed to add issue. Please try again.');
-    }
+      setIssueDialogOpen(false);
+      setNewIssue({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
+    },
+  });
+
+  const handleAddIssue = () => {
+    if (!newIssue.title) return;
+    addIssueMutation.mutate(newIssue);
   };
 
   return (

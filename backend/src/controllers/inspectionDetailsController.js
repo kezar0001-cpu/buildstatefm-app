@@ -350,3 +350,96 @@ export const deletePhoto = async (req, res) => {
     sendError(res, 500, 'Failed to delete photo', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 };
+
+// --- Batched Queries ---
+
+/**
+ * Batched endpoint for inspection detail page
+ * Combines inspection data, audit logs, and inspector options in a single optimized request
+ */
+export const getBatchedInspectionDetails = async (req, res) => {
+  try {
+    const inspectionId = req.params.id;
+
+    // Execute all queries in parallel for maximum performance
+    const [inspection, auditLogs, inspectors] = await Promise.all([
+      // 1. Get full inspection data
+      prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        include: {
+          property: true,
+          unit: true,
+          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+          completedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          rooms: {
+            orderBy: { order: 'asc' },
+            include: {
+              checklistItems: { orderBy: { order: 'asc' } },
+              issues: {
+                include: { photos: { orderBy: { order: 'asc' } } },
+              },
+              photos: { orderBy: { order: 'asc' } },
+            },
+          },
+          issues: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              room: true,
+              checklistItem: true,
+              photos: { orderBy: { order: 'asc' } },
+            },
+          },
+          jobs: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              status: true,
+              priority: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          },
+          attachments: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      }),
+
+      // 2. Get audit logs
+      prisma.inspectionAuditLog.findMany({
+        where: { inspectionId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+        take: 50, // Limit to recent 50 entries for performance
+      }),
+
+      // 3. Get inspector options (technicians)
+      prisma.user.findMany({
+        where: { role: 'TECHNICIAN', isActive: true },
+        select: { id: true, firstName: true, lastName: true, email: true },
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      }),
+    ]);
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    // Return batched response
+    res.json({
+      inspection,
+      auditLogs,
+      inspectors,
+      _meta: {
+        batchedAt: new Date().toISOString(),
+        queriesOptimized: 3,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to load batched inspection details', error);
+    sendError(res, 500, 'Failed to load inspection details', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};

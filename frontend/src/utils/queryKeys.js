@@ -40,6 +40,7 @@ export const queryKeys = {
   inspections: {
     all: () => ['inspections'],
     detail: (id) => ['inspections', id],
+    batchedDetail: (id) => ['inspections', id, 'batched'],
     list: (filters) => ['inspections', 'list', filters],
     overdue: () => ['inspections', 'overdue'],
     tags: () => ['inspections', 'tags'],

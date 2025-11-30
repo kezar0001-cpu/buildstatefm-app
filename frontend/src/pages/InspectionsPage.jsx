@@ -103,6 +103,7 @@ const InspectionsPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [propertyFilter, setPropertyFilter] = useState(searchParams.get('property') || '');
+  const [technicianFilter, setTechnicianFilter] = useState(searchParams.get('technician') || '');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
@@ -174,6 +175,7 @@ const InspectionsPage = () => {
     if (debouncedSearch) params.append('search', debouncedSearch);
     if (statusFilter) params.append('status', statusFilter);
     if (propertyFilter) params.append('propertyId', propertyFilter);
+    if (technicianFilter) params.append('assignedToId', technicianFilter);
     if (dateFrom) params.append('dateFrom', dateFrom);
     if (dateTo) params.append('dateTo', dateTo);
     return params;
@@ -193,6 +195,7 @@ const InspectionsPage = () => {
       search: debouncedSearch,
       status: statusFilter,
       propertyId: propertyFilter,
+      technicianId: technicianFilter,
       dateFrom,
       dateTo,
     }),
@@ -221,6 +224,17 @@ const InspectionsPage = () => {
   });
 
   const properties = propertiesData?.items || [];
+
+  // Fetch technicians for filter dropdown
+  const { data: techniciansData } = useQuery({
+    queryKey: queryKeys.users.technicians(),
+    queryFn: async () => {
+      const response = await apiClient.get('/inspections/inspectors');
+      return response.data;
+    },
+  });
+
+  const technicians = techniciansData?.inspectors || [];
 
   // Flatten all pages into a single array
   const inspections = useMemo(() => {
@@ -497,7 +511,7 @@ const InspectionsPage = () => {
     );
   }
 
-  const hasFilters = debouncedSearch || statusFilter || propertyFilter || dateFrom || dateTo;
+  const hasFilters = debouncedSearch || statusFilter || propertyFilter || technicianFilter || dateFrom || dateTo;
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, position: 'relative' }}>
@@ -604,6 +618,50 @@ const InspectionsPage = () => {
               <MenuItem value="CANCELLED">Cancelled</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Property Filter */}
+          {viewMode === 'calendar' && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Property</InputLabel>
+              <Select
+                value={propertyFilter}
+                label="Property"
+                onChange={(e) => {
+                  setPropertyFilter(e.target.value);
+                  updateSearchParam('property', e.target.value);
+                }}
+              >
+                <MenuItem value="">All Properties</MenuItem>
+                {properties.map((property) => (
+                  <MenuItem key={property.id} value={property.id}>
+                    {property.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Technician Filter */}
+          {viewMode === 'calendar' && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Technician</InputLabel>
+              <Select
+                value={technicianFilter}
+                label="Technician"
+                onChange={(e) => {
+                  setTechnicianFilter(e.target.value);
+                  updateSearchParam('technician', e.target.value);
+                }}
+              >
+                <MenuItem value="">All Technicians</MenuItem>
+                {technicians.map((tech) => (
+                  <MenuItem key={tech.id} value={tech.id}>
+                    {tech.firstName} {tech.lastName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Date From */}
           <TextField

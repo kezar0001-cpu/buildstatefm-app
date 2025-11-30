@@ -75,27 +75,102 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
         setUploading(false);
       }
     },
-    onSuccess: (photo) => {
+    onMutate: async (file) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspectionId) });
+
+      // Snapshot the previous value for rollback
+      const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspectionId));
+
+      // Create optimistic photo with temporary ID and blob URL for preview
+      const optimisticPhoto = {
+        id: `temp-${Date.now()}`,
+        url: URL.createObjectURL(file),
+        roomId,
+        issueId: checklistItemId,
+        caption: null,
+        order: photos.length,
+        uploadedAt: new Date().toISOString(),
+        _isOptimistic: true, // Flag to identify optimistic updates
+      };
+
+      // Optimistically update the UI
+      queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), (old) => {
+        if (!old?.rooms) return old;
+        return {
+          ...old,
+          rooms: old.rooms.map(room =>
+            room.id === roomId
+              ? { ...room, photos: [...(room.photos || []), optimisticPhoto] }
+              : room
+          ),
+        };
+      });
+
+      return { previousRooms, optimisticPhoto };
+    },
+    onError: (err, file, context) => {
+      // Rollback to previous state on error
+      if (context?.previousRooms) {
+        queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), context.previousRooms);
+      }
+      // Revoke the blob URL to prevent memory leaks
+      if (context?.optimisticPhoto?._isOptimistic) {
+        URL.revokeObjectURL(context.optimisticPhoto.url);
+      }
+      console.error('Photo upload error:', err);
+      setError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
+      setUploadProgress(0);
+    },
+    onSuccess: (photo, file, context) => {
+      // Revoke the blob URL after successful upload
+      if (context?.optimisticPhoto?._isOptimistic) {
+        URL.revokeObjectURL(context.optimisticPhoto.url);
+      }
       setUploadProgress(0);
       queryClient.invalidateQueries(queryKeys.inspections.rooms(inspectionId));
       if (onUploadComplete) {
         onUploadComplete(photo);
       }
     },
-    onError: (err) => {
-      console.error('Photo upload error:', err);
-      setError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
-      setUploadProgress(0);
-    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (photoId) => {
       await apiClient.delete(`/inspections/${inspectionId}/photos/${photoId}`);
     },
+    onMutate: async (photoId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspectionId) });
+
+      // Snapshot the previous value for rollback
+      const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspectionId));
+
+      // Optimistically remove the photo from the UI
+      queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), (old) => {
+        if (!old?.rooms) return old;
+        return {
+          ...old,
+          rooms: old.rooms.map(room =>
+            room.id === roomId
+              ? { ...room, photos: room.photos.filter(p => p.id !== photoId) }
+              : room
+          ),
+        };
+      });
+
+      return { previousRooms };
+    },
+    onError: (_err, _photoId, context) => {
+      // Rollback to previous state on error
+      if (context?.previousRooms) {
+        queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), context.previousRooms);
+      }
+      setError('Failed to delete photo. Please try again.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(queryKeys.inspections.rooms(inspectionId));
-    }
+    },
   });
 
   const handleFileSelect = (event) => {
