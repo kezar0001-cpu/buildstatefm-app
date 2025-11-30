@@ -11,13 +11,16 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Chip,
   CircularProgress,
-  Link,
   Paper,
+  InputAdornment,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
@@ -30,6 +33,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
+import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon } from '@mui/icons-material';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -44,10 +48,29 @@ const REPORT_TYPES = {
   UNIT_LEDGER: 'Unit Ledger',
 };
 
+const REPORT_SECTIONS = {
+  MAINTENANCE_HISTORY: ['Audit Trail', 'Inspections', 'Jobs', 'Service Requests', 'Upcoming'],
+  UNIT_LEDGER: ['Audit Trail', 'Payments', 'Unit Updates', 'Upcoming'],
+};
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All Statuses' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'PROCESSING', label: 'Processing' },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'FAILED', label: 'Failed' },
+];
+
 export default function ReportsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [filterPropertyId, setFilterPropertyId] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Data fetching
   const { data: propertiesData = [], isLoading: isLoadingProperties } = useQuery({
@@ -91,6 +114,28 @@ export default function ReportsPage() {
     () => (Array.isArray(rawReportsData) ? rawReportsData : []),
     [rawReportsData]
   );
+
+  const filteredReports = useMemo(() => {
+    return reportsData.filter((report) => {
+      const matchesStatus = statusFilter ? report.status === statusFilter : true;
+      const matchesType = typeFilter ? report.reportType === typeFilter : true;
+      const matchesProperty = filterPropertyId ? report.property?.id === filterPropertyId : true;
+      const createdAt = report.createdAt || report.created_at || report.createdDate;
+      const createdDate = createdAt ? new Date(createdAt) : null;
+      const matchesFrom = dateFrom && createdDate ? createdDate >= new Date(dateFrom) : true;
+      const matchesTo = dateTo && createdDate ? createdDate <= new Date(dateTo) : true;
+      const searchTarget = `${report.property?.name || ''} ${report.unit?.unitNumber || ''} ${
+        REPORT_TYPES[report.reportType] || report.reportType || ''
+      } ${report.status || ''}`
+        .toLowerCase()
+        .trim();
+      const matchesSearch = searchInput
+        ? searchTarget.includes(searchInput.toLowerCase())
+        : true;
+
+      return matchesStatus && matchesType && matchesProperty && matchesFrom && matchesTo && matchesSearch;
+    });
+  }, [reportsData, statusFilter, typeFilter, filterPropertyId, dateFrom, dateTo, searchInput]);
 
   const mutation = useMutation({
     mutationFn: (newReport) => apiClient.post('/reports', newReport),
@@ -149,22 +194,43 @@ export default function ReportsPage() {
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
       <Stack spacing={4}>
         {/* Page Header */}
-        <Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontWeight: 700,
-              color: 'text.primary',
-              mb: 1,
-            }}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2.5, md: 3.5 },
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: 'linear-gradient(135deg, #fff7ed 0%, #fff1f2 100%)',
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'flex-start', md: 'center' }}
+            justifyContent="space-between"
           >
-            {t('reports.title')}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {t('reports.description')}
-          </Typography>
-        </Box>
+            <Box>
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
+                  color: '#c2410c',
+                }}
+              >
+                Reports
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Generate audit-ready outputs for inspections, jobs, payments, and service requests.
+              </Typography>
+            </Box>
+            <GradientButton size="large" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
+              Start New Report
+            </GradientButton>
+          </Stack>
+        </Paper>
 
         {/* Generate New Report Section */}
         <Paper
@@ -174,7 +240,9 @@ export default function ReportsPage() {
             borderRadius: 3,
             border: '1px solid',
             borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
           }}
+          id="report-form"
         >
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -186,117 +254,247 @@ export default function ReportsPage() {
           </Box>
           <form onSubmit={onSubmit} noValidate>
             <Stack spacing={2}>
-            <Controller
-              name="reportType"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label="Report Type"
-                  error={!!errors.reportType}
-                  helperText={errors.reportType?.message}
-                >
-                  {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                    <MenuItem key={key} value={key}>
-                      {value}
-                    </MenuItem>
-                  ))}
-                </TextField>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Controller
+                  name="reportType"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Report Type"
+                      error={!!errors.reportType}
+                      helperText={errors.reportType?.message}
+                    >
+                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                        <MenuItem key={key} value={key}>
+                          {value}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+                <Controller
+                  name="propertyId"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Property"
+                      disabled={isLoadingProperties}
+                      error={!!errors.propertyId}
+                      helperText={errors.propertyId?.message}
+                    >
+                      {propertiesData.map((prop) => (
+                        <MenuItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+                <Controller
+                  name="unitId"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Unit (Optional)"
+                      disabled={!selectedPropertyId || isLoadingUnits}
+                      error={!!errors.unitId}
+                      helperText={errors.unitId?.message}
+                    >
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {unitsData.map((unit) => (
+                        <MenuItem key={unit.id} value={unit.id}>
+                          {unit.unitNumber}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Controller
+                  name="fromDate"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="date"
+                      label="From"
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                      error={!!errors.fromDate}
+                      helperText={errors.fromDate?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="toDate"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="date"
+                      label="To"
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                      error={!!errors.toDate}
+                      helperText={errors.toDate?.message}
+                    />
+                  )}
+                />
+              </Stack>
+              {mutation.isError && (
+                <Alert severity="error">{mutation.error.message}</Alert>
               )}
-            />
-            <Controller
-              name="propertyId"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label="Property"
-                  disabled={isLoadingProperties}
-                  error={!!errors.propertyId}
-                  helperText={errors.propertyId?.message}
-                >
-                  {propertiesData.map((prop) => (
-                    <MenuItem key={prop.id} value={prop.id}>
-                      {prop.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+              {mutation.isSuccess && (
+                <Alert severity="success">Report generation has been queued.</Alert>
               )}
-            />
-            <Controller
-              name="unitId"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label="Unit (Optional)"
-                  disabled={!selectedPropertyId || isLoadingUnits}
-                  error={!!errors.unitId}
-                  helperText={errors.unitId?.message}
+              <Stack direction="row" justifyContent="flex-end">
+                <GradientButton
+                  type="submit"
+                  size="large"
+                  disabled={isSubmitting || mutation.isPending}
                 >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {unitsData.map((unit) => (
-                    <MenuItem key={unit.id} value={unit.id}>
-                      {unit.unitNumber}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <Controller
-                name="fromDate"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    type="date"
-                    label="From"
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    error={!!errors.fromDate}
-                    helperText={errors.fromDate?.message}
-                  />
-                )}
-              />
-              <Controller
-                name="toDate"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    type="date"
-                    label="To"
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    error={!!errors.toDate}
-                    helperText={errors.toDate?.message}
-                  />
-                )}
-              />
+                  {t('reports.submit')}
+                </GradientButton>
+              </Stack>
             </Stack>
-            {mutation.isError && (
-              <Alert severity="error">{mutation.error.message}</Alert>
-            )}
-            {mutation.isSuccess && (
-              <Alert severity="success">Report generation has been queued.</Alert>
-            )}
-            <Stack direction="row" justifyContent="flex-end">
-              <GradientButton
-                type="submit"
-                size="large"
-                disabled={isSubmitting || mutation.isPending}
+          </form>
+        </Paper>
+
+        {/* Filters */}
+        <Paper
+          sx={{
+            p: { xs: 2.5, md: 3.5 },
+            mb: 1,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" rowGap={2}>
+            <TextField
+              placeholder="Search reports by property, unit, type, or status..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchInput && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="clear search"
+                      onClick={() => setSearchInput('')}
+                      edge="end"
+                      size="small"
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+              sx={{ flexGrow: 1, minWidth: 260 }}
+            />
+
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Report Type</InputLabel>
+              <Select
+                value={typeFilter}
+                label="Report Type"
+                onChange={(e) => setTypeFilter(e.target.value)}
               >
-                {t('reports.submit')}
-              </GradientButton>
-            </Stack>
+                <MenuItem value="">All Types</MenuItem>
+                {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                  <MenuItem key={key} value={key}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <MenuItem key={option.value || 'all'} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Property</InputLabel>
+              <Select
+                value={filterPropertyId}
+                label="Property"
+                onChange={(e) => setFilterPropertyId(e.target.value)}
+              >
+                <MenuItem value="">All Properties</MenuItem>
+                {propertiesData.map((prop) => (
+                  <MenuItem key={prop.id} value={prop.id}>
+                    {prop.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="From Date"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160 }}
+            />
+
+            <TextField
+              label="To Date"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160 }}
+            />
+
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FilterListIcon />}
+              onClick={() => {
+                setSearchInput('');
+                setStatusFilter('');
+                setTypeFilter('');
+                setFilterPropertyId('');
+                setDateFrom('');
+                setDateTo('');
+              }}
+              sx={{ borderRadius: 2, textTransform: 'none' }}
+            >
+              Clear Filters
+            </Button>
           </Stack>
-        </form>
         </Paper>
 
         {/* Generated Reports Section */}
@@ -307,6 +505,7 @@ export default function ReportsPage() {
             borderRadius: 3,
             border: '1px solid',
             borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
           }}
         >
           <Box sx={{ mb: 3 }}>
@@ -321,82 +520,102 @@ export default function ReportsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : reportsData.length === 0 ? (
+        ) : filteredReports.length === 0 ? (
           <Alert severity="info">
-            No reports generated yet. Create your first report using the form above.
+            No reports match your filters. Try expanding the date range or clearing filters.
           </Alert>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: { xs: 800, md: 'auto' } }}>
+            <Table sx={{ minWidth: { xs: 900, md: 'auto' } }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Report Type</TableCell>
-                  <TableCell>Property</TableCell>
-                  <TableCell>Unit</TableCell>
+                  <TableCell>Scope</TableCell>
+                  <TableCell>Coverage</TableCell>
                   <TableCell>Date Range</TableCell>
+                  <TableCell>Created</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {reportsData.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                        {REPORT_TYPES[report.reportType] || report.reportType}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                        {report.property?.name || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                        {report.unit?.unitNumber || 'All Units'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                        {report.parameters?.fromDate && report.parameters?.toDate ? (
-                          <>
-                            {format(new Date(report.parameters.fromDate), 'PP')} -{' '}
-                            {format(new Date(report.parameters.toDate), 'PP')}
-                          </>
-                        ) : (
-                          'N/A'
-                        )}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{getStatusChip(report.status)}</TableCell>
-                    <TableCell>
-                      {report.status === 'COMPLETED' && report.fileUrl && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          href={resolveFileUrl(report.fileUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Download
-                        </Button>
-                      )}
-                      {report.status === 'PROCESSING' && (
-                        <CircularProgress size={20} />
-                      )}
-                      {report.status === 'FAILED' && (
-                        <Typography variant="caption" color="error">
-                          Failed
+                {filteredReports.map((report) => {
+                  const createdAt = report.createdAt || report.created_at || report.createdDate;
+                  const coverage = REPORT_SECTIONS[report.reportType] || ['Audit Trail'];
+                  return (
+                    <TableRow key={report.id}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
+                          {REPORT_TYPES[report.reportType] || report.reportType}
                         </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        <Typography variant="caption" color="text.secondary">
+                          Tracks updates for properties, units, payments, and upcoming work.
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                            {report.property?.name || 'All Properties'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {report.unit?.unitNumber ? `Unit ${report.unit.unitNumber}` : 'All Units'}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                          {coverage.map((section) => (
+                            <Chip key={section} label={section} size="small" color="default" />
+                          ))}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                          {report.parameters?.fromDate && report.parameters?.toDate ? (
+                            <>
+                              {format(new Date(report.parameters.fromDate), 'PP')} -{' '}
+                              {format(new Date(report.parameters.toDate), 'PP')}
+                            </>
+                          ) : (
+                            'N/A'
+                          )}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                          {createdAt ? format(new Date(createdAt), 'PP p') : 'Pending'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{getStatusChip(report.status)}</TableCell>
+                      <TableCell>
+                        {report.status === 'COMPLETED' && report.fileUrl && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            href={resolveFileUrl(report.fileUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{
+                              borderRadius: 2,
+                              textTransform: 'none',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Download
+                          </Button>
+                        )}
+                        {report.status === 'PROCESSING' && (
+                          <CircularProgress size={20} />
+                        )}
+                        {report.status === 'FAILED' && (
+                          <Typography variant="caption" color="error">
+                            Failed
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Box>
