@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Button,
   Paper,
   Grid,
   Card,
@@ -61,6 +60,8 @@ import PropertyForm from '../components/PropertyForm';
 import PropertyOnboardingWizard from '../components/PropertyOnboardingWizard';
 import PropertyOccupancyWidget from '../components/PropertyOccupancyWidget';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
+import GradientButton from '../components/GradientButton';
+import PageHeader from '../components/PageHeader';
 import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';

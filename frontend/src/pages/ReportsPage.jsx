@@ -39,6 +39,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
+import PageHeader from '../components/PageHeader';
 import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon } from '@mui/icons-material';
 import PageShell from '../components/PageShell';
 
