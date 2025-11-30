@@ -51,6 +51,38 @@ export function useInspectionConduct(inspection, onComplete) {
 
   const addRoomMutation = useMutation({
     mutationFn: (data) => apiClient.post(`/inspections/${inspection.id}/rooms`, data),
+    onMutate: async (newRoom) => {
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+
+      // Snapshot the previous value for rollback
+      const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspection.id));
+
+      // Create optimistic room with temporary ID
+      const optimisticRoom = {
+        id: `temp-${Date.now()}`,
+        ...newRoom,
+        checklistItems: [],
+        issues: [],
+        photos: [],
+        order: previousRooms?.rooms?.length || 0,
+      };
+
+      // Optimistically update the UI
+      queryClient.setQueryData(queryKeys.inspections.rooms(inspection.id), (old) => ({
+        ...old,
+        rooms: [...(old?.rooms || []), optimisticRoom],
+      }));
+
+      return { previousRooms };
+    },
+    onError: (_err, _newRoom, context) => {
+      // Rollback to previous state on error
+      if (context?.previousRooms) {
+        queryClient.setQueryData(queryKeys.inspections.rooms(inspection.id), context.previousRooms);
+      }
+      setSnackbar({ open: true, message: 'Failed to add room', severity: 'error' });
+    },
     onSuccess: () => {
       refetchRooms();
       setRoomDialog({ open: false, editingRoom: null });
@@ -60,6 +92,33 @@ export function useInspectionConduct(inspection, onComplete) {
 
   const updateRoomMutation = useMutation({
     mutationFn: ({ roomId, data }) => apiClient.patch(`/inspections/${inspection.id}/rooms/${roomId}`, data),
+    onMutate: async ({ roomId, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+
+      // Snapshot the previous value
+      const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspection.id));
+
+      // Optimistically update the room
+      queryClient.setQueryData(queryKeys.inspections.rooms(inspection.id), (old) => {
+        if (!old?.rooms) return old;
+        return {
+          ...old,
+          rooms: old.rooms.map(room =>
+            room.id === roomId ? { ...room, ...data } : room
+          ),
+        };
+      });
+
+      return { previousRooms };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousRooms) {
+        queryClient.setQueryData(queryKeys.inspections.rooms(inspection.id), context.previousRooms);
+      }
+      setSnackbar({ open: true, message: 'Failed to update room', severity: 'error' });
+    },
     onSuccess: () => {
       refetchRooms();
       setRoomDialog({ open: false, editingRoom: null });
