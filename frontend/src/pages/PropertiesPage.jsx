@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Button,
   Paper,
   Grid,
   Card,
@@ -59,6 +58,8 @@ import PropertyForm from '../components/PropertyForm';
 import PropertyOnboardingWizard from '../components/PropertyOnboardingWizard';
 import PropertyOccupancyWidget from '../components/PropertyOccupancyWidget';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
+import GradientButton from '../components/GradientButton';
+import PageHeader from '../components/PageHeader';
 import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -441,52 +442,24 @@ export default function PropertiesPage() {
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
       <Stack spacing={3}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={{ xs: 2, md: 0 }}
-          alignItems={{ xs: 'flex-start', md: 'center' }}
-          justifyContent="space-between"
-          sx={{ animation: 'fade-in-down 0.5s ease-out' }}
-        >
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 800,
-                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Properties
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1rem' }}>
-              Manage your property portfolio
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant="contained"
+        <PageHeader
+          title="Properties"
+          subtitle="Manage your property portfolio"
+          actionSlot={
+            <GradientButton
               startIcon={<AddIcon />}
               onClick={handleCreate}
               size="large"
               fullWidth
               sx={{
-                maxWidth: { xs: '100%', md: 'none' },
-                background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                boxShadow: '0 4px 14px 0 rgb(185 28 28 / 0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)',
-                  boxShadow: '0 6px 20px 0 rgb(185 28 28 / 0.4)',
-                },
+                width: { xs: '100%', md: 'auto' },
+                minWidth: { md: 180 },
               }}
             >
               Add Property
-            </Button>
-          </Box>
-        </Stack>
+            </GradientButton>
+          }
+        />
 
         {/* Search and Filter */}
         <Paper
