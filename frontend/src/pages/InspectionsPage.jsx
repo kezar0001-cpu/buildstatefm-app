@@ -71,6 +71,7 @@ import EmptyState from '../components/EmptyState';
 import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
+import { InspectionContextActions } from '../components/InspectionContextActions';
 import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -342,6 +343,29 @@ const InspectionsPage = () => {
     } catch (error) {
       console.error('Delete failed:', error);
     }
+  };
+
+  // Context action handlers
+  const handleStartInspection = (inspection) => {
+    updateStatus(inspection.id, 'IN_PROGRESS');
+  };
+
+  const handleCompleteInspection = (inspection) => {
+    // Navigate to detail page where completion happens
+    navigate(`/inspections/${inspection.id}`);
+  };
+
+  const handleApprove = (inspection) => {
+    updateStatus(inspection.id, 'COMPLETED');
+  };
+
+  const handleReject = (inspection) => {
+    // Navigate to detail page for rejection with reason
+    navigate(`/inspections/${inspection.id}`);
+  };
+
+  const handleCancelInspection = (inspection) => {
+    updateStatus(inspection.id, 'CANCELLED');
   };
 
   const handleViewModeChange = (_event, nextView) => {
@@ -740,7 +764,11 @@ const InspectionsPage = () => {
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              onStatusMenuOpen={handleStatusMenuOpen}
+              onStartInspection={handleStartInspection}
+              onCompleteInspection={handleCompleteInspection}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onCancel={handleCancelInspection}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               formatStatusText={formatStatusText}
@@ -1065,7 +1093,11 @@ const InspectionKanban = ({
   onView,
   onEdit,
   onDelete,
-  onStatusMenuOpen,
+  onStartInspection,
+  onCompleteInspection,
+  onApprove,
+  onReject,
+  onCancel,
   getStatusColor,
   getStatusIcon,
   formatStatusText,
@@ -1142,13 +1174,6 @@ const InspectionKanban = ({
                       <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
                         {inspection.title}
                       </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => onStatusMenuOpen(e, inspection)}
-                        aria-label={`Change status for ${inspection.title}`}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
                     </Box>
 
                     {/* Type Chip */}
@@ -1260,57 +1285,27 @@ const InspectionKanban = ({
                     {/* Progress Indicator */}
                     <InspectionProgressIndicator inspection={inspection} variant="full" />
 
-                    {/* Actions - with divider */}
+                    {/* Context-Aware Actions */}
                     <Box
                       sx={{
-                        display: 'flex',
-                        gap: 0.5,
                         pt: 1.5,
-                        justifyContent: 'flex-end',
                         borderTop: '1px solid',
                         borderColor: 'divider',
                       }}
-                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onView(inspection.id);
-                          }}
-                          aria-label={`View details for ${inspection.title}`}
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {inspection.status !== 'COMPLETED' && (
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEdit(inspection);
-                            }}
-                            aria-label={`Edit ${inspection.title}`}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(inspection);
-                          }}
-                          aria-label={`Delete ${inspection.title}`}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <InspectionContextActions
+                        inspection={inspection}
+                        onStartInspection={handleStartInspection}
+                        onCompleteInspection={handleCompleteInspection}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                        onCancel={handleCancelInspection}
+                        onView={onView}
+                        onEdit={onEdit}
+                        variant="button"
+                        size="small"
+                        showSecondaryActions={false}
+                      />
                     </Box>
                   </CardContent>
                 </Card>
