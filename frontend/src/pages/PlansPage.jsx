@@ -47,6 +47,8 @@ import PlanCard from '../components/PlanCard.jsx';
 import PlanDetailModal from '../components/PlanDetailModal.jsx';
 import MaintenancePlanForm from '../components/MaintenancePlanForm.jsx';
 import StatCard from '../components/StatCard.jsx';
+import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 import ensureArray from '../utils/ensureArray';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
@@ -217,45 +219,23 @@ export default function PlansPage() {
   const selectedPlan = selectedPlanId ? plans.find((p) => p.id === selectedPlanId) : null;
 
   return (
-    <Stack spacing={4} sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
-      {/* Header */}
-      <Box sx={{ animation: 'fade-in-down 0.5s ease-out' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontSize: { xs: '1.75rem', md: '2.125rem' },
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Maintenance Plans
-          </Typography>
-          <Button
-            variant="contained"
+    <Box sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
+      <PageShell
+        title="Maintenance Plans"
+        subtitle="Create and manage recurring maintenance schedules for your properties"
+        actions={(
+          <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreateClick}
-            sx={{ display: { xs: 'none', sm: 'flex' } }}
+            size="medium"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Create Plan
-          </Button>
-          <IconButton
-            color="primary"
-            onClick={handleCreateClick}
-            sx={{ display: { xs: 'flex', sm: 'none' } }}
-          >
-            <AddIcon />
-          </IconButton>
-        </Box>
-        <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
-          Create and manage recurring maintenance schedules for your properties
-        </Typography>
-      </Box>
-
-      {/* Stats Cards */}
+          </GradientButton>
+        )}
+        contentSpacing={{ xs: 4, md: 4 }}
+      >
+        {/* Stats Cards */}
       <Grid container spacing={3} sx={{ animation: 'fade-in 0.6s ease-out' }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
@@ -548,6 +528,8 @@ export default function PlansPage() {
         )}
       </DataState>
 
+      </PageShell>
+
       {/* Create Dialog */}
       <Dialog
         open={isCreateDialogOpen}
@@ -577,6 +559,6 @@ export default function PlansPage() {
 
       {/* Detail Modal */}
       <PlanDetailModal planId={detailPlanId} open={!!detailPlanId} onClose={handleDetailClose} />
-    </Stack>
+    </Box>
   );
 }
