@@ -63,6 +63,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 
 import MoveInWizard from '../components/MoveInWizard';
 import MoveOutWizard from '../components/MoveOutWizard';
+import InspectionForm from '../components/InspectionForm';
 
 const getStatusColor = (status) => {
   const colors = {
@@ -95,6 +96,7 @@ export default function UnitDetailPage() {
   const [moveOutWizardOpen, setMoveOutWizardOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [inspectionFormDialogOpen, setInspectionFormDialogOpen] = useState(false);
 
   // Fetch unit details
   const unitQuery = useQuery({
@@ -683,6 +685,16 @@ export default function UnitDetailPage() {
                             Move Out Tenant
                           </Button>
                         )}
+                        <Button
+                          variant="contained"
+                          size="large"
+                          fullWidth
+                          startIcon={<CalendarIcon />}
+                          onClick={() => setInspectionFormDialogOpen(true)}
+                          sx={{ fontWeight: 600 }}
+                        >
+                          Schedule Inspection
+                        </Button>
                         <Button
                           variant="outlined"
                           size="large"
@@ -1372,6 +1384,28 @@ export default function UnitDetailPage() {
               <DialogContent>
                 <MoveOutWizard unitId={id} onComplete={() => setMoveOutWizardOpen(false)} />
               </DialogContent>
+            </Dialog>
+
+            {/* Schedule Inspection Dialog */}
+            <Dialog
+              open={inspectionFormDialogOpen}
+              onClose={() => setInspectionFormDialogOpen(false)}
+              maxWidth="md"
+              fullWidth
+            >
+              <InspectionForm
+                onSuccess={() => {
+                  setInspectionFormDialogOpen(false);
+                  queryClient.invalidateQueries({ queryKey: queryKeys.inspections.list() });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.units.inspections(id) });
+                  queryClient.invalidateQueries({ queryKey: ['units', id, 'activity'] });
+                }}
+                onCancel={() => setInspectionFormDialogOpen(false)}
+                initialValues={{
+                  propertyId: unit?.propertyId,
+                  unitId: id,
+                }}
+              />
             </Dialog>
 
             {/* Image Lightbox Dialog */}

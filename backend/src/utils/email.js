@@ -636,3 +636,24 @@ function generateInviteEmailHTML(inviteUrl, inviterName, role, propertyName, uni
 </html>
   `.trim();
 }
+
+/**
+ * Send overdue inspection digest email to a property manager
+ * @param {object} manager - Manager object with id, email, firstName, lastName
+ * @param {array} inspections - Array of overdue inspection objects
+ */
+export async function sendOverdueInspectionDigest(manager, inspections) {
+  const emailTemplates = (await import('./emailTemplates.js')).default;
+
+  const emailContent = emailTemplates.overdueInspectionDigest({
+    managerName: `${manager.firstName} ${manager.lastName}`,
+    inspectionCount: inspections.length,
+    inspections: inspections,
+  });
+
+  return sendEmailWithRetry(manager.email, emailContent.subject, emailContent.html, {
+    emailType: 'overdue_inspection_digest',
+    managerId: manager.id,
+    inspectionCount: inspections.length,
+  });
+}

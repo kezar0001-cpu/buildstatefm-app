@@ -242,11 +242,42 @@ export async function notifyInspectionReminder(inspection, technician, property)
 }
 
 /**
+ * Send overdue inspection notification
+ */
+export async function notifyInspectionOverdue(inspection, technician, property) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const scheduledDate = new Date(inspection.scheduledDate);
+  const now = new Date();
+  const daysOverdue = Math.round((now - scheduledDate) / (1000 * 60 * 60 * 24));
+
+  return sendNotification(
+    technician.id,
+    'INSPECTION_OVERDUE',
+    'Inspection Overdue',
+    `Overdue inspection: ${inspection.title} at ${property.name}`,
+    {
+      entityType: 'inspection',
+      entityId: inspection.id,
+      emailData: {
+        technicianName: `${technician.firstName} ${technician.lastName}`,
+        inspectionTitle: inspection.title,
+        propertyName: property.name,
+        inspectionType: inspection.type,
+        scheduledDate: scheduledDate.toLocaleDateString(),
+        daysOverdue,
+        inspectionUrl: `${frontendUrl}/inspections/${inspection.id}`,
+        unitNumber: inspection.unit?.unitNumber,
+      },
+    }
+  );
+}
+
+/**
  * Send service request update notification
  */
 export async function notifyServiceRequestUpdate(serviceRequest, tenant, property) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  
+
   return sendNotification(
     tenant.id,
     'SERVICE_REQUEST_UPDATE',
