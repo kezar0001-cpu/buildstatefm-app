@@ -36,6 +36,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 
 const ServiceRequestsPage = () => {
   const navigate = useNavigate();
@@ -189,47 +190,26 @@ const ServiceRequestsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      {/* Header */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={{ xs: 2, md: 0 }}
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        justifyContent="space-between"
-        sx={{ mb: 3, animation: 'fade-in-down 0.5s ease-out' }}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            gutterBottom
-            sx={{
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}
+      <PageShell
+        title="Service Requests"
+        subtitle={
+          userRole === 'TENANT'
+            ? 'Submit and track your maintenance requests'
+            : 'Review and manage tenant service requests'
+        }
+        actions={(
+          <GradientButton
+            startIcon={<AddIcon />}
+            onClick={handleCreate}
+            size="medium"
+            sx={{ width: { xs: '100%', md: 'auto' } }}
           >
-            Service Requests
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {userRole === 'TENANT'
-              ? 'Submit and track your maintenance requests'
-              : 'Review and manage tenant service requests'}
-          </Typography>
-        </Box>
-        <GradientButton
-          startIcon={<AddIcon />}
-          onClick={handleCreate}
-          size="medium"
-          sx={{
-            maxWidth: { xs: '100%', md: 'auto' },
-          }}
-        >
-          {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
-        </GradientButton>
-      </Stack>
-
-      {/* Filters */}
+            {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
+          </GradientButton>
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
+        {/* Filters */}
       <Card
         sx={{
           mb: 3,
@@ -529,6 +509,8 @@ const ServiceRequestsPage = () => {
           )}
         </Stack>
       )}
+
+      </PageShell>
 
       {/* Create Dialog */}
       <Dialog

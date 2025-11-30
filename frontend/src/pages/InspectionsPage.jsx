@@ -68,6 +68,8 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
@@ -501,63 +503,34 @@ const InspectionsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, position: 'relative' }}>
-      {/* Header */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={{ xs: 2, md: 0 }}
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        justifyContent="space-between"
-        sx={{ mb: 3, animation: 'fade-in-down 0.5s ease-out' }}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            gutterBottom
-            sx={{
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}
+      <PageShell
+        title="Inspections"
+        subtitle="Schedule and manage property inspections"
+        actions={(
+          <GradientButton
+            startIcon={<AddIcon />}
+            onClick={handleCreate}
+            size="large"
+            sx={{ width: { xs: '100%', md: 'auto' } }}
           >
-            Inspections
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Schedule and manage property inspections
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreate}
-          size="large"
+            Schedule Inspection
+          </GradientButton>
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
+        {/* Filters */}
+        <Paper
           sx={{
-            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-            boxShadow: '0 4px 14px 0 rgb(185 28 28 / 0.3)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)',
-              boxShadow: '0 6px 20px 0 rgb(185 28 28 / 0.4)',
-            },
+            p: { xs: 2.5, md: 3.5 },
+            mb: 3,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+            animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          Schedule Inspection
-        </Button>
-      </Stack>
-
-      {/* Filters */}
-      <Paper
-        sx={{
-          p: { xs: 2.5, md: 3.5 },
-          mb: 3,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-          animation: 'fade-in-up 0.6s ease-out',
-        }}
-      >
-        <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} alignItems="center">
           {/* Search */}
           <TextField
             placeholder="Search inspections by unit, property, type, or notes..."
@@ -858,6 +831,8 @@ const InspectionsPage = () => {
           )}
         </Stack>
       )}
+
+      </PageShell>
 
       {/* Create/Edit Dialog */}
       <Dialog

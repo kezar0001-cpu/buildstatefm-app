@@ -40,6 +40,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
 import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon } from '@mui/icons-material';
+import PageShell from '../components/PageShell';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -270,34 +271,16 @@ export default function ReportsPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Stack spacing={3}>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={{ xs: 2, md: 0 }}
-          alignItems={{ xs: 'flex-start', md: 'center' }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography
-              variant="h4"
-              component="h1"
-              sx={{
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-              }}
-              gutterBottom
-            >
-              Reports
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Generate audit-ready outputs for inspections, jobs, payments, and service requests.
-            </Typography>
-          </Box>
+      <PageShell
+        title="Reports"
+        subtitle="Generate audit-ready outputs for inspections, jobs, payments, and service requests."
+        actions={(
           <GradientButton startIcon={<AddIcon />} size="medium" onClick={handleStartNewReport}>
             Generate Report
           </GradientButton>
-        </Stack>
-
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
         {/* Filters Section */}
         <Paper
           elevation={0}
@@ -552,7 +535,7 @@ export default function ReportsPage() {
           </Box>
         )}
         </Paper>
-      </Stack>
+      </PageShell>
 
       <Dialog open={isWizardOpen} onClose={handleCloseWizard} fullWidth maxWidth="md">
         <DialogTitle sx={{ pb: 1 }}>

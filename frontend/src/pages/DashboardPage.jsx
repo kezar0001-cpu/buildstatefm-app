@@ -33,6 +33,7 @@ import DataState from '../components/DataState';
 import GradientButton from '../components/GradientButton';
 import AnalyticsCharts from '../components/AnalyticsCharts';
 import UpgradePromptModal from '../components/UpgradePromptModal';
+import PageShell from '../components/PageShell';
 import { useCurrentUser } from '../context/UserContext.jsx'; // Hook to reactively read user data
 import { calculateDaysRemaining, formatDateTime } from '../utils/date.js';
 import { redirectToBillingPortal } from '../utils/billing.js';
@@ -158,73 +159,48 @@ const DashboardPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-      {/* Header */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={{ xs: 2, md: 0 }}
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        justifyContent="space-between"
-        sx={{
-          mb: { xs: 3, md: 4 },
-          gap: { xs: 2, md: 0 },
-          animation: 'fade-in-down 0.5s ease-out',
-        }}
+      <PageShell
+        title="Dashboard"
+        subtitle="Welcome back! Here's what's happening with your properties."
+        actions={(
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}
+          >
+            <IconButton
+              onClick={handleRefresh}
+              color="primary"
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  bgcolor: 'rgba(185, 28, 28, 0.08)',
+                  transform: 'rotate(180deg)',
+                },
+              }}
+            >
+              <RefreshIcon />
+            </IconButton>
+            <GradientButton
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/properties', { state: { openCreateDialog: true } })}
+              size="medium"
+              sx={{
+                maxWidth: { xs: '100%', md: 'auto' },
+                minWidth: { md: 150 },
+              }}
+            >
+              Add Property
+            </GradientButton>
+          </Stack>
+        )}
+        contentSpacing={{ xs: 3, md: 4 }}
       >
-        <Box>
-          <Typography
-            variant="h4"
-            gutterBottom
-            sx={{
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1rem' }}>
-            Welcome back! Here's what's happening with your properties.
-          </Typography>
-        </Box>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}
-        >
-          <IconButton
-            onClick={handleRefresh}
-            color="primary"
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': {
-                borderColor: 'primary.main',
-                bgcolor: 'rgba(185, 28, 28, 0.08)',
-                transform: 'rotate(180deg)',
-              },
-            }}
-          >
-            <RefreshIcon />
-          </IconButton>
-          <GradientButton
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/properties', { state: { openCreateDialog: true } })}
-            size="medium"
-            sx={{
-              maxWidth: { xs: '100%', md: 'auto' },
-              minWidth: { md: 150 },
-            }}
-          >
-            Add Property
-          </GradientButton>
-        </Stack>
-      </Stack>
-
-      {/* Overdue Inspections Alert */}
+        {/* Overdue Inspections Alert */}
       {overdueInspections.length > 0 && (
         <Alert
           severity="error"
@@ -516,6 +492,8 @@ const DashboardPage = () => {
           )}
         </Grid>
       </Grid>
+
+      </PageShell>
 
       {/* Upgrade Prompt Modal */}
       <UpgradePromptModal
