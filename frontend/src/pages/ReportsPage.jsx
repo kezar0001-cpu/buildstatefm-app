@@ -21,10 +21,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Stepper,
-  Step,
-  StepLabel,
-  Divider,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
@@ -45,19 +41,6 @@ const reportSchema = z.object({
   unitId: z.string().optional().nullable(),
   fromDate: z.string().min(1, 'forms.required'),
   toDate: z.string().min(1, 'forms.required'),
-}).superRefine((data, ctx) => {
-  if (data.fromDate && data.toDate) {
-    const from = new Date(data.fromDate);
-    const to = new Date(data.toDate);
-
-    if (from > to) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'End date must be after the start date',
-        path: ['toDate'],
-      });
-    }
-  }
 });
 
 const REPORT_TYPES = {
@@ -88,8 +71,6 @@ export default function ReportsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [activeStep, setActiveStep] = useState(0);
-  const [wizardMessage, setWizardMessage] = useState(null);
 
   // Data fetching
   const { data: propertiesData = [], isLoading: isLoadingProperties } = useQuery({
@@ -162,11 +143,6 @@ export default function ReportsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
       reset();
       setSelectedPropertyId('');
-      setActiveStep(0);
-      setWizardMessage({
-        type: 'success',
-        text: 'Report generation has been queued. You can start another below.',
-      });
     },
   });
 
@@ -175,7 +151,6 @@ export default function ReportsPage() {
     handleSubmit,
     reset,
     watch,
-    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(reportSchema),
@@ -189,10 +164,6 @@ export default function ReportsPage() {
   });
 
   const propertyIdValue = watch('propertyId');
-  const reportTypeValue = watch('reportType');
-  const unitIdValue = watch('unitId');
-  const fromDateValue = watch('fromDate');
-  const toDateValue = watch('toDate');
 
   useEffect(() => {
     if (propertyIdValue) {
@@ -255,15 +226,7 @@ export default function ReportsPage() {
                 Generate audit-ready outputs for inspections, jobs, payments, and service requests.
               </Typography>
             </Box>
-            <GradientButton
-              size="large"
-              onClick={() => {
-                setActiveStep(0);
-                document
-                  .getElementById('report-form')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-            >
+            <GradientButton size="large" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
               Start New Report
             </GradientButton>
           </Stack>
@@ -290,255 +253,119 @@ export default function ReportsPage() {
             </Typography>
           </Box>
           <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={3}>
-              <Stepper activeStep={activeStep} alternativeLabel>
-                {["Report Type", "Scope", "Date Range", "Review"].map((label) => (
-                  <Step key={label}>
-                    <StepLabel>{label}</StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: { xs: 2, md: 3 },
-                  borderRadius: 2,
-                  backgroundColor: '#fffaf5',
-                  borderColor: 'divider',
-                }}
-              >
-                {activeStep === 0 && (
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      Choose the type of report you need
-                    </Typography>
-                    <Controller
-                      name="reportType"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          select
-                          fullWidth
-                          label="Report Type"
-                          error={!!errors.reportType}
-                          helperText={errors.reportType?.message || 'Pick the workflow that matches your export'}
-                        >
-                          {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                            <MenuItem key={key} value={key}>
-                              {value}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Controller
+                  name="reportType"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Report Type"
+                      error={!!errors.reportType}
+                      helperText={errors.reportType?.message}
+                    >
+                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                        <MenuItem key={key} value={key}>
+                          {value}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+                <Controller
+                  name="propertyId"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Property"
+                      disabled={isLoadingProperties}
+                      error={!!errors.propertyId}
+                      helperText={errors.propertyId?.message}
+                    >
+                      {propertiesData.map((prop) => (
+                        <MenuItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+                <Controller
+                  name="unitId"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Unit (Optional)"
+                      disabled={!selectedPropertyId || isLoadingUnits}
+                      error={!!errors.unitId}
+                      helperText={errors.unitId?.message}
+                    >
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {unitsData.map((unit) => (
+                        <MenuItem key={unit.id} value={unit.id}>
+                          {unit.unitNumber}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Controller
+                  name="fromDate"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="date"
+                      label="From"
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                      error={!!errors.fromDate}
+                      helperText={errors.fromDate?.message}
                     />
-                  </Stack>
-                )}
-
-                {activeStep === 1 && (
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      Define the scope of your report
-                    </Typography>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                      <Controller
-                        name="propertyId"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            select
-                            fullWidth
-                            label="Property"
-                            disabled={isLoadingProperties}
-                            error={!!errors.propertyId}
-                            helperText={errors.propertyId?.message}
-                          >
-                            {propertiesData.map((prop) => (
-                              <MenuItem key={prop.id} value={prop.id}>
-                                {prop.name}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        )}
-                      />
-                      <Controller
-                        name="unitId"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            select
-                            fullWidth
-                            label="Unit (Optional)"
-                            disabled={!selectedPropertyId || isLoadingUnits}
-                            error={!!errors.unitId}
-                            helperText={errors.unitId?.message || 'Leave blank to include all units'}
-                          >
-                            <MenuItem value="">
-                              <em>None</em>
-                            </MenuItem>
-                            {unitsData.map((unit) => (
-                              <MenuItem key={unit.id} value={unit.id}>
-                                {unit.unitNumber}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        )}
-                      />
-                    </Stack>
-                  </Stack>
-                )}
-
-                {activeStep === 2 && (
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      Set the date range for your export
-                    </Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      <Controller
-                        name="fromDate"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            type="date"
-                            label="From"
-                            InputLabelProps={{ shrink: true }}
-                            fullWidth
-                            error={!!errors.fromDate}
-                            helperText={errors.fromDate?.message}
-                          />
-                        )}
-                      />
-                      <Controller
-                        name="toDate"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            type="date"
-                            label="To"
-                            InputLabelProps={{ shrink: true }}
-                            fullWidth
-                            error={!!errors.toDate}
-                            helperText={errors.toDate?.message}
-                          />
-                        )}
-                      />
-                    </Stack>
-                  </Stack>
-                )}
-
-                {activeStep === 3 && (
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      Review and confirm
-                    </Typography>
-                    <Stack spacing={1}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography color="text.secondary">Report</Typography>
-                        <Typography fontWeight={600}>{REPORT_TYPES[reportTypeValue] || 'Not selected'}</Typography>
-                      </Stack>
-                      <Divider />
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography color="text.secondary">Property</Typography>
-                        <Typography fontWeight={600}>
-                          {propertiesData.find((p) => p.id === propertyIdValue)?.name || 'Not selected'}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography color="text.secondary">Unit</Typography>
-                        <Typography fontWeight={600}>
-                          {unitsData.find((u) => u.id === unitIdValue)?.unitNumber || 'All units'}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography color="text.secondary">Date Range</Typography>
-                        <Typography fontWeight={600}>
-                          {fromDateValue && toDateValue
-                            ? `${format(new Date(fromDateValue), 'PP')} - ${format(new Date(toDateValue), 'PP')}`
-                            : 'Not set'}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </Stack>
-                )}
-              </Paper>
-
-              {wizardMessage && (
-                <Alert severity={wizardMessage.type} onClose={() => setWizardMessage(null)}>
-                  {wizardMessage.text}
-                </Alert>
-              )}
+                  )}
+                />
+                <Controller
+                  name="toDate"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="date"
+                      label="To"
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                      error={!!errors.toDate}
+                      helperText={errors.toDate?.message}
+                    />
+                  )}
+                />
+              </Stack>
               {mutation.isError && (
                 <Alert severity="error">{mutation.error.message}</Alert>
               )}
-
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="text"
-                    disabled={activeStep === 0}
-                    onClick={() => setActiveStep((prev) => Math.max(prev - 1, 0))}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    variant="text"
-                    onClick={() => {
-                      reset();
-                      setActiveStep(0);
-                      setWizardMessage(null);
-                    }}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Reset
-                  </Button>
-                </Stack>
+              {mutation.isSuccess && (
+                <Alert severity="success">Report generation has been queued.</Alert>
+              )}
+              <Stack direction="row" justifyContent="flex-end">
                 <GradientButton
-                  type={activeStep === 3 ? 'submit' : 'button'}
+                  type="submit"
                   size="large"
                   disabled={isSubmitting || mutation.isPending}
-                  onClick={async (e) => {
-                    if (activeStep === 3) {
-                      return;
-                    }
-
-                    const stepFields = [
-                      ['reportType'],
-                      ['propertyId'],
-                      ['fromDate', 'toDate'],
-                    ];
-
-                    const fieldsToValidate = stepFields[activeStep];
-
-                    if (
-                      fieldsToValidate &&
-                      !(await trigger(fieldsToValidate, { shouldFocus: true }))
-                    ) {
-                      return;
-                    }
-
-                    if (activeStep === 2 && fromDateValue && toDateValue) {
-                      const from = new Date(fromDateValue);
-                      const to = new Date(toDateValue);
-                      if (from > to) {
-                        setWizardMessage({
-                          type: 'error',
-                          text: 'Please ensure the end date is after the start date.',
-                        });
-                        return;
-                      }
-                    }
-
-                    setWizardMessage(null);
-                    setActiveStep((prev) => Math.min(prev + 1, 3));
-                  }}
                 >
-                  {activeStep === 3 ? t('reports.submit') : 'Next'}
+                  {t('reports.submit')}
                 </GradientButton>
               </Stack>
             </Stack>
