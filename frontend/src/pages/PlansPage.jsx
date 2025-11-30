@@ -48,6 +48,7 @@ import PlanDetailModal from '../components/PlanDetailModal.jsx';
 import MaintenancePlanForm from '../components/MaintenancePlanForm.jsx';
 import StatCard from '../components/StatCard.jsx';
 import ensureArray from '../utils/ensureArray';
+import PageHeader from '../components/PageHeader';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -218,42 +219,29 @@ export default function PlansPage() {
 
   return (
     <Stack spacing={4} sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
-      {/* Header */}
-      <Box sx={{ animation: 'fade-in-down 0.5s ease-out' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontSize: { xs: '1.75rem', md: '2.125rem' },
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Maintenance Plans
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateClick}
-            sx={{ display: { xs: 'none', sm: 'flex' } }}
-          >
-            Create Plan
-          </Button>
-          <IconButton
-            color="primary"
-            onClick={handleCreateClick}
-            sx={{ display: { xs: 'flex', sm: 'none' } }}
-          >
-            <AddIcon />
-          </IconButton>
-        </Box>
-        <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
-          Create and manage recurring maintenance schedules for your properties
-        </Typography>
-      </Box>
+      <PageHeader
+        title="Maintenance Plans"
+        description="Create and manage recurring maintenance schedules for your properties"
+        actionComponent={(
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateClick}
+              sx={{ display: { xs: 'none', sm: 'flex' } }}
+            >
+              Create Plan
+            </Button>
+            <IconButton
+              color="primary"
+              onClick={handleCreateClick}
+              sx={{ display: { xs: 'flex', sm: 'none' } }}
+            >
+              <AddIcon />
+            </IconButton>
+          </Stack>
+        )}
+      />
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ animation: 'fade-in 0.6s ease-out' }}>
