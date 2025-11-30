@@ -14,8 +14,8 @@ import {
   Typography,
   Alert,
 } from '@mui/material';
-import useApiMutation from '../hooks/useApiMutation';
-import useApiQuery from '../hooks/useApiQuery';
+import useApiMutation from '../hooks/useApiMutation.js';
+import useApiQuery from '../hooks/useApiQuery.js';
 import { queryKeys } from '../utils/queryKeys';
 
 export default function InspectionRejectionDialog({ open, onClose, inspection }) {
