@@ -1295,11 +1295,11 @@ const InspectionKanban = ({
                     >
                       <InspectionContextActions
                         inspection={inspection}
-                        onStartInspection={handleStartInspection}
-                        onCompleteInspection={handleCompleteInspection}
-                        onApprove={handleApprove}
-                        onReject={handleReject}
-                        onCancel={handleCancelInspection}
+                        onStartInspection={onStartInspection}
+                        onCompleteInspection={onCompleteInspection}
+                        onApprove={onApprove}
+                        onReject={onReject}
+                        onCancel={onCancel}
                         onView={onView}
                         onEdit={onEdit}
                         variant="button"
