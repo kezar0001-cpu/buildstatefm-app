@@ -68,6 +68,8 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
@@ -503,10 +505,10 @@ const InspectionsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, position: 'relative' }}>
-      <PageHeader
+      <PageShell
         title="Inspections"
         subtitle="Schedule and manage property inspections"
-        actionSlot={
+        actions={(
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreate}
@@ -515,22 +517,22 @@ const InspectionsPage = () => {
           >
             Schedule Inspection
           </GradientButton>
-        }
-      />
-
-      {/* Filters */}
-      <Paper
-        sx={{
-          p: { xs: 2.5, md: 3.5 },
-          mb: 3,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-          animation: 'fade-in-up 0.6s ease-out',
-        }}
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
       >
-        <Stack direction="row" spacing={2} alignItems="center">
+        {/* Filters */}
+        <Paper
+          sx={{
+            p: { xs: 2.5, md: 3.5 },
+            mb: 3,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+            animation: 'fade-in-up 0.6s ease-out',
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
           {/* Search */}
           <TextField
             placeholder="Search inspections by unit, property, type, or notes..."
@@ -831,6 +833,8 @@ const InspectionsPage = () => {
           )}
         </Stack>
       )}
+
+      </PageShell>
 
       {/* Create/Edit Dialog */}
       <Dialog

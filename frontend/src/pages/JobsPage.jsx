@@ -70,7 +70,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import toast from 'react-hot-toast';
 import { useJobStatusUpdate } from '../hooks/useJobStatusUpdate';
 import GradientButton from '../components/GradientButton';
-import PageHeader from '../components/PageHeader';
+import PageShell from '../components/PageShell';
 import {
   JOB_STATUS_LABELS,
   VALID_STATUS_TRANSITIONS,
@@ -596,22 +596,22 @@ const JobsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <PageHeader
+      <PageShell
         title="Jobs"
         subtitle="Manage and track maintenance jobs"
-        actionSlot={
+        actions={(
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreate}
             size="large"
-            sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+            sx={{ width: { xs: '100%', md: 'auto' } }}
           >
             Create Job
           </GradientButton>
-        }
-      />
-
-      {/* Filters */}
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
+        {/* Filters */}
       <Paper
         sx={{
           p: { xs: 2.5, md: 3.5 },
@@ -1339,6 +1339,8 @@ const JobsPage = () => {
           )}
         </>
       )}
+
+      </PageShell>
 
       <Dialog
         open={isConfirmBulkAssignOpen}

@@ -33,7 +33,7 @@ import DataState from '../components/DataState';
 import GradientButton from '../components/GradientButton';
 import AnalyticsCharts from '../components/AnalyticsCharts';
 import UpgradePromptModal from '../components/UpgradePromptModal';
-import PageHeader from '../components/PageHeader';
+import PageShell from '../components/PageShell';
 import { useCurrentUser } from '../context/UserContext.jsx'; // Hook to reactively read user data
 import { calculateDaysRemaining, formatDateTime } from '../utils/date.js';
 import { redirectToBillingPortal } from '../utils/billing.js';
@@ -159,12 +159,10 @@ const DashboardPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-      {/* Header */}
-      <PageHeader
+      <PageShell
         title="Dashboard"
         subtitle="Welcome back! Here's what's happening with your properties."
-        sx={{ mb: { xs: 3, md: 4 } }}
-        actionSlot={
+        actions={(
           <Stack
             direction="row"
             spacing={1}
@@ -199,10 +197,10 @@ const DashboardPage = () => {
               Add Property
             </GradientButton>
           </Stack>
-        }
-      />
-
-      {/* Overdue Inspections Alert */}
+        )}
+        contentSpacing={{ xs: 3, md: 4 }}
+      >
+        {/* Overdue Inspections Alert */}
       {overdueInspections.length > 0 && (
         <Alert
           severity="error"
@@ -494,6 +492,8 @@ const DashboardPage = () => {
           )}
         </Grid>
       </Grid>
+
+      </PageShell>
 
       {/* Upgrade Prompt Modal */}
       <UpgradePromptModal

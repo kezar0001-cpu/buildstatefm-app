@@ -19,7 +19,7 @@ import useApiQuery from '../hooks/useApiQuery.js';
 import useApiMutation from '../hooks/useApiMutation.js';
 import DataState from '../components/DataState.jsx';
 import GradientButton from '../components/GradientButton';
-import PageHeader from '../components/PageHeader';
+import PageShell from '../components/PageShell';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
 
@@ -44,13 +44,11 @@ export default function RecommendationsPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Stack spacing={4}>
-        <PageHeader
-          title={t('recommendations.title')}
-          subtitle="Review inspection follow-ups and convert them into jobs without leaving the workspace."
-          disableAnimation
-        />
-
+      <PageShell
+        title={t('recommendations.title', 'Recommendations')}
+        subtitle="Review inspection follow-ups and convert them into jobs without leaving the workspace."
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
         {/* Recommendations Section */}
         <Paper
           elevation={0}
@@ -125,7 +123,7 @@ export default function RecommendationsPage() {
           </TableContainer>
           </DataState>
         </Paper>
-      </Stack>
+      </PageShell>
     </Container>
   );
 }

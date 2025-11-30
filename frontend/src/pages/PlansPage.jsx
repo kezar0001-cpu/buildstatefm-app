@@ -47,6 +47,8 @@ import PlanCard from '../components/PlanCard.jsx';
 import PlanDetailModal from '../components/PlanDetailModal.jsx';
 import MaintenancePlanForm from '../components/MaintenancePlanForm.jsx';
 import StatCard from '../components/StatCard.jsx';
+import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 import ensureArray from '../utils/ensureArray';
 import GradientButton from '../components/GradientButton';
 import PageHeader from '../components/PageHeader';
@@ -219,23 +221,23 @@ export default function PlansPage() {
   const selectedPlan = selectedPlanId ? plans.find((p) => p.id === selectedPlanId) : null;
 
   return (
-    <Stack spacing={4} sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
-      <PageHeader
+    <Box sx={{ px: { xs: 2, sm: 3, md: 0 }, py: { xs: 2, md: 0 } }}>
+      <PageShell
         title="Maintenance Plans"
         subtitle="Create and manage recurring maintenance schedules for your properties"
-        actionSlot={
+        actions={(
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreateClick}
-            size="large"
-            sx={{ width: { xs: '100%', md: 'auto' } }}
+            size="medium"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Create Plan
           </GradientButton>
-        }
-      />
-
-      {/* Stats Cards */}
+        )}
+        contentSpacing={{ xs: 4, md: 4 }}
+      >
+        {/* Stats Cards */}
       <Grid container spacing={3} sx={{ animation: 'fade-in 0.6s ease-out' }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
@@ -528,6 +530,8 @@ export default function PlansPage() {
         )}
       </DataState>
 
+      </PageShell>
+
       {/* Create Dialog */}
       <Dialog
         open={isCreateDialogOpen}
@@ -557,6 +561,6 @@ export default function PlansPage() {
 
       {/* Detail Modal */}
       <PlanDetailModal planId={detailPlanId} open={!!detailPlanId} onClose={handleDetailClose} />
-    </Stack>
+    </Box>
   );
 }

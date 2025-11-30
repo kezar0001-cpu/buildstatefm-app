@@ -36,7 +36,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
-import PageHeader from '../components/PageHeader';
+import PageShell from '../components/PageShell';
 
 const ServiceRequestsPage = () => {
   const navigate = useNavigate();
@@ -190,26 +190,26 @@ const ServiceRequestsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <PageHeader
+      <PageShell
         title="Service Requests"
         subtitle={
           userRole === 'TENANT'
             ? 'Submit and track your maintenance requests'
             : 'Review and manage tenant service requests'
         }
-        actionSlot={
+        actions={(
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreate}
             size="medium"
-            sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+            sx={{ width: { xs: '100%', md: 'auto' } }}
           >
             {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
           </GradientButton>
-        }
-      />
-
-      {/* Filters */}
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
+        {/* Filters */}
       <Card
         sx={{
           mb: 3,
@@ -509,6 +509,8 @@ const ServiceRequestsPage = () => {
           )}
         </Stack>
       )}
+
+      </PageShell>
 
       {/* Create Dialog */}
       <Dialog

@@ -54,6 +54,8 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import apiClient from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import PageShell from '../components/PageShell';
 import PropertyForm from '../components/PropertyForm';
 import PropertyOnboardingWizard from '../components/PropertyOnboardingWizard';
 import PropertyOccupancyWidget from '../components/PropertyOccupancyWidget';
@@ -441,26 +443,21 @@ export default function PropertiesPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Stack spacing={3}>
-        <PageHeader
-          title="Properties"
-          subtitle="Manage your property portfolio"
-          actionSlot={
-            <GradientButton
-              startIcon={<AddIcon />}
-              onClick={handleCreate}
-              size="large"
-              fullWidth
-              sx={{
-                width: { xs: '100%', md: 'auto' },
-                minWidth: { md: 180 },
-              }}
-            >
-              Add Property
-            </GradientButton>
-          }
-        />
-
+      <PageShell
+        title="Properties"
+        subtitle="Manage your property portfolio"
+        actions={(
+          <GradientButton
+            startIcon={<AddIcon />}
+            onClick={handleCreate}
+            size="large"
+            sx={{ width: { xs: '100%', md: 'auto' } }}
+          >
+            Add Property
+          </GradientButton>
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
         {/* Search and Filter */}
         <Paper
           sx={{
@@ -994,7 +991,7 @@ export default function PropertiesPage() {
             </Stack>
           )}
         </DataState>
-      </Stack>
+      </PageShell>
 
       {/* Action Menu */}
       <Menu
