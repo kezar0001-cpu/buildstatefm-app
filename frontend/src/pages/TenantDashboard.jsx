@@ -18,12 +18,14 @@ import {
   TextField,
   MenuItem,
   Alert,
+  Paper,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Build as BuildIcon,
   Add as AddIcon,
   CheckCircle as CheckCircleIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -31,6 +33,9 @@ import DataState from '../components/DataState';
 import { format } from 'date-fns';
 import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
+import Breadcrumbs from '../components/Breadcrumbs';
+import PageShell from '../components/PageShell';
+import GradientButton from '../components/GradientButton';
 
 const SERVICE_CATEGORIES = [
   'PLUMBING',
@@ -59,21 +64,22 @@ export default function TenantDashboard() {
   });
   const [submitError, setSubmitError] = useState('');
 
-  // Fetch tenant's unit information
-  const { data: units = [], isLoading: unitsLoading } = useQuery({
+  // Fetch tenant's assigned unit information via tenant-specific endpoint
+  const { data: units = [], isLoading: unitsLoading, error: unitsError, refetch: refetchUnits } = useQuery({
     queryKey: queryKeys.dashboard.tenantUnits(),
     queryFn: async () => {
-      // This would need a specific endpoint for tenant's units
-      const response = await apiClient.get('/units');
-      return ensureArray(response.data, ['items', 'data.items', 'units']);
+      // Use the tenants endpoint which filters by current user's tenant assignments
+      const response = await apiClient.get('/tenants/my-units');
+      return ensureArray(response.data, ['items', 'data.items', 'units', 'data']);
     },
+    retry: 1,
   });
 
-  // Fetch tenant's service requests
-  const { data: serviceRequests = [], isLoading: requestsLoading, error: requestsError } = useQuery({
+  // Fetch tenant's service requests (API auto-filters by requestedById = current user)
+  const { data: serviceRequests = [], isLoading: requestsLoading, error: requestsError, refetch: refetchRequests } = useQuery({
     queryKey: queryKeys.serviceRequests.tenant(),
     queryFn: async () => {
-      const response = await apiClient.get('/service-requests');
+      const response = await apiClient.get('/service-requests?mine=true');
       return ensureArray(response.data, ['items', 'data.items', 'serviceRequests']);
     },
   });
@@ -133,24 +139,27 @@ export default function TenantDashboard() {
   ).length;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Tenant Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage your unit and service requests
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
-        >
-          New Service Request
-        </Button>
-      </Box>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+      <Breadcrumbs
+        labelOverrides={{
+          '/tenant/dashboard': 'Tenant Dashboard',
+        }}
+      />
+      <PageShell
+        title="Tenant Dashboard"
+        subtitle="Manage your unit and service requests"
+        actions={(
+          <GradientButton
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+            size="large"
+            sx={{ width: { xs: '100%', md: 'auto' } }}
+          >
+            New Service Request
+          </GradientButton>
+        )}
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -365,6 +374,7 @@ export default function TenantDashboard() {
           </Button>
         </DialogActions>
       </Dialog>
+      </PageShell>
     </Container>
   );
 }

@@ -32,6 +32,8 @@ import DataState from '../components/DataState';
 import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
+import Breadcrumbs from '../components/Breadcrumbs';
+import PageShell from '../components/PageShell';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -78,15 +80,17 @@ export default function OwnerDashboard() {
   const completedJobs = jobs.filter(j => j.status === 'COMPLETED').length;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Owner Dashboard
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          View your properties, jobs, and inspections
-        </Typography>
-      </Box>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+      <Breadcrumbs
+        labelOverrides={{
+          '/owner/dashboard': 'Owner Dashboard',
+        }}
+      />
+      <PageShell
+        title="Owner Dashboard"
+        subtitle="View your properties, jobs, and inspections"
+        contentSpacing={{ xs: 3, md: 3 }}
+      >
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -333,6 +337,7 @@ export default function OwnerDashboard() {
           </DataState>
         </TabPanel>
       </Card>
+      </PageShell>
     </Container>
   );
 }

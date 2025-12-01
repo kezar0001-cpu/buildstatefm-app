@@ -5,6 +5,7 @@ import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
 import apiClient from '../../../api/client';
+import logger from '../../../utils/logger';
 
 // LocalStorage keys
 const STORAGE_KEY_PREFIX = 'image_upload_state_';
@@ -39,9 +40,9 @@ const saveUploadState = (key, images, queue) => {
       timestamp: Date.now(),
     };
     localStorage.setItem(key, JSON.stringify(state));
-    console.log('[useImageUpload] Saved state to localStorage');
+    logger.log('[useImageUpload] Saved state to localStorage');
   } catch (error) {
-    console.error('[useImageUpload] Failed to save state:', error);
+    logger.error('[useImageUpload] Failed to save state:', error);
   }
 };
 
@@ -64,7 +65,7 @@ const loadUploadState = (key) => {
 
     return state;
   } catch (error) {
-    console.error('[useImageUpload] Failed to load state:', error);
+    logger.error('[useImageUpload] Failed to load state:', error);
     return null;
   }
 };
@@ -75,9 +76,9 @@ const loadUploadState = (key) => {
 const clearUploadState = (key) => {
   try {
     localStorage.removeItem(key);
-    console.log('[useImageUpload] Cleared state from localStorage');
+    logger.log('[useImageUpload] Cleared state from localStorage');
   } catch (error) {
-    console.error('[useImageUpload] Failed to clear state:', error);
+    logger.error('[useImageUpload] Failed to clear state:', error);
   }
 };
 
@@ -182,7 +183,7 @@ export function useImageUpload(options = {}) {
       if (image.remoteUrl) {
         if (seenUrls.has(image.remoteUrl)) {
           duplicateCount++;
-          console.warn('[useImageUpload] Duplicate image detected and removed:', {
+          logger.warn('[useImageUpload] Duplicate image detected and removed:', {
             id: image.id,
             url: image.remoteUrl.substring(0, 80) + '...',
           });
@@ -268,7 +269,7 @@ export function useImageUpload(options = {}) {
       ).join('\n');
 
       setError(`${invalid.length} file(s) failed validation:\n${errorMessages}`);
-      console.warn('[useImageUpload] Invalid files:', invalid);
+      logger.warn('[useImageUpload] Invalid files:', invalid);
 
       if (onError) {
         onError(new Error(errorMessages));
@@ -278,7 +279,7 @@ export function useImageUpload(options = {}) {
     if (valid.length === 0) return;
 
     // Compute hashes for all valid files
-    console.log('[useImageUpload] Computing file hashes...');
+    logger.log('[useImageUpload] Computing file hashes...');
     const fileHashMap = await computeFileHashes(valid);
 
     // Get existing hashes from current images
@@ -587,7 +588,7 @@ export function useImageUpload(options = {}) {
     if (isUploading) return;
 
     setIsUploading(true);
-    console.log('[useImageUpload] Starting queue processing');
+    logger.log('[useImageUpload] Starting queue processing');
 
     const imagesToUpload = images.filter(img =>
       queue.includes(img.id) && img.status === 'pending'
@@ -612,7 +613,7 @@ export function useImageUpload(options = {}) {
     await Promise.all(uploadPromises);
 
     setIsUploading(false);
-    console.log('[useImageUpload] Queue processing complete');
+    logger.log('[useImageUpload] Queue processing complete');
 
     // Clear localStorage when all uploads are complete
     if (persistenceKey) {
@@ -663,7 +664,7 @@ export function useImageUpload(options = {}) {
       );
 
       if (hasPendingImages) {
-        console.log('[useImageUpload] Auto-processing queue with', queue.length, 'items');
+        logger.log('[useImageUpload] Auto-processing queue with', queue.length, 'items');
         processQueue();
       }
     }
@@ -683,7 +684,7 @@ export function useImageUpload(options = {}) {
       // Clear progress tracking
       lastProgressRefs.current = {};
 
-      console.log('[useImageUpload] Cleanup complete');
+      logger.log('[useImageUpload] Cleanup complete');
     };
   }, []);
 
@@ -795,7 +796,7 @@ export function useImageUpload(options = {}) {
    * Clear all images
    */
   const clearAll = useCallback(() => {
-    console.log('[useImageUpload] Clearing all images');
+    logger.log('[useImageUpload] Clearing all images');
 
     // Cancel all pending uploads
     images.forEach(img => {
@@ -899,7 +900,7 @@ export function useImageUpload(options = {}) {
   const resumeInterruptedUploads = useCallback(() => {
     if (!interruptedUploads) return;
 
-    console.log('[useImageUpload] Resuming interrupted uploads');
+    logger.log('[useImageUpload] Resuming interrupted uploads');
 
     // Note: We can't restore File objects from localStorage
     // So we convert interrupted uploads to error state with a helpful message
@@ -939,7 +940,7 @@ export function useImageUpload(options = {}) {
    * Dismiss interrupted uploads dialog
    */
   const dismissInterruptedUploads = useCallback(() => {
-    console.log('[useImageUpload] Dismissing interrupted uploads');
+    logger.log('[useImageUpload] Dismissing interrupted uploads');
     setShowResumeDialog(false);
     setInterruptedUploads(null);
 
@@ -954,7 +955,7 @@ export function useImageUpload(options = {}) {
   const skipDuplicates = useCallback(async () => {
     if (!duplicateData) return;
 
-    console.log('[useImageUpload] Skipping duplicates, adding unique files only');
+    logger.log('[useImageUpload] Skipping duplicates, adding unique files only');
     setShowDuplicateDialog(false);
 
     // Add only unique files
@@ -969,7 +970,7 @@ export function useImageUpload(options = {}) {
   const replaceDuplicates = useCallback(async () => {
     if (!duplicateData) return;
 
-    console.log('[useImageUpload] Replacing duplicates with new files');
+    logger.log('[useImageUpload] Replacing duplicates with new files');
     setShowDuplicateDialog(false);
 
     // Remove existing images that have duplicate hashes
@@ -1010,7 +1011,7 @@ export function useImageUpload(options = {}) {
    * Handle duplicate dialog - Cancel
    */
   const cancelDuplicateDialog = useCallback(() => {
-    console.log('[useImageUpload] Cancelling duplicate dialog');
+    logger.log('[useImageUpload] Cancelling duplicate dialog');
     setShowDuplicateDialog(false);
     setDuplicateData(null);
   }, []);

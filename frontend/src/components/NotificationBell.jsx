@@ -24,6 +24,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import io from 'socket.io-client';
 import { getAuthToken } from '../lib/auth';
 import { useNavigate } from 'react-router-dom';
+import logger from '../utils/logger';
 
 const SOCKET_DISABLED = String(import.meta.env.VITE_NOTIFICATIONS_DISABLE_SOCKET || '').toLowerCase() === 'true';
 
@@ -56,7 +57,7 @@ function resolveSocketConfiguration() {
   try {
     resolvedUrl = new URL(apiBase, typeof window !== 'undefined' ? window.location.origin : undefined);
   } catch (error) {
-    console.warn('[NotificationBell] Failed to parse API base URL for WebSocket configuration:', error);
+    logger.warn('[NotificationBell] Failed to parse API base URL for WebSocket configuration:', error);
   }
 
   const protocol = resolvedUrl?.protocol === 'https:' ? 'wss:' : resolvedUrl?.protocol === 'http:' ? 'ws:' : null;
@@ -121,19 +122,19 @@ export default function NotificationBell() {
   // WebSocket connection setup
   useEffect(() => {
     if (SOCKET_DISABLED) {
-      console.info('[NotificationBell] WebSocket connection disabled via configuration');
+      logger.info('[NotificationBell] WebSocket connection disabled via configuration');
       setIsWebSocketConnected(false);
       return undefined;
     }
 
     if (disableSocketClient) {
-      console.info('[NotificationBell] WebSocket client disabled after repeated connection failures');
+      logger.info('[NotificationBell] WebSocket client disabled after repeated connection failures');
       setIsWebSocketConnected(false);
       return undefined;
     }
 
     if (!wsUrl) {
-      console.warn('[NotificationBell] Unable to resolve WebSocket URL; relying on HTTP polling for notifications');
+      logger.warn('[NotificationBell] Unable to resolve WebSocket URL; relying on HTTP polling for notifications');
       setIsWebSocketConnected(false);
       return undefined;
     }
@@ -141,14 +142,14 @@ export default function NotificationBell() {
     const token = getAuthToken();
 
     if (!token) {
-      console.warn('[NotificationBell] No auth token available for WebSocket connection');
+      logger.warn('[NotificationBell] No auth token available for WebSocket connection');
       return;
     }
 
     // Initialize Socket.IO client
     const transports = forcePollingTransport ? ['polling'] : ['polling', 'websocket'];
 
-    console.log('[NotificationBell] Connecting to WebSocket:', {
+    logger.log('[NotificationBell] Connecting to WebSocket:', {
       url: wsUrl,
       path: activeSocketPath,
       transports,
@@ -170,17 +171,17 @@ export default function NotificationBell() {
 
     // Connection event handlers
     socket.on('connect', () => {
-      console.log('[NotificationBell] WebSocket connected:', socket.id);
+      logger.log('[NotificationBell] WebSocket connected:', socket.id);
       setIsWebSocketConnected(true);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[NotificationBell] WebSocket disconnected:', reason);
+      logger.log('[NotificationBell] WebSocket disconnected:', reason);
       setIsWebSocketConnected(false);
     });
 
     socket.on('connect_error', (error) => {
-      console.error(
+      logger.error(
         `[NotificationBell] WebSocket connection error on path ${activeSocketPath}:`,
         error?.message || error
       );
@@ -189,13 +190,13 @@ export default function NotificationBell() {
       if (!forcePollingTransport) {
         if (socketPathIndex + 1 < socketPaths.length) {
           const nextPath = socketPaths[socketPathIndex + 1];
-          console.warn('[NotificationBell] Retrying WebSocket connection with alternate path:', nextPath);
+          logger.warn('[NotificationBell] Retrying WebSocket connection with alternate path:', nextPath);
           setSocketPathIndex((prev) => (prev + 1 < socketPaths.length ? prev + 1 : prev));
           return;
         }
 
         if (error?.message === 'websocket error' || error?.message === 'xhr poll error') {
-          console.warn('[NotificationBell] Falling back to HTTP polling transport for notifications');
+          logger.warn('[NotificationBell] Falling back to HTTP polling transport for notifications');
           setForcePollingTransport(true);
           return;
         }
@@ -219,7 +220,7 @@ export default function NotificationBell() {
 
     // Listen for new notifications
     socket.on('notification:new', (notification) => {
-      console.log('[NotificationBell] Received new notification:', notification);
+      logger.log('[NotificationBell] Received new notification:', notification);
 
       // Invalidate and refetch notification queries to update the UI
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.count() });
@@ -228,7 +229,7 @@ export default function NotificationBell() {
 
     // Listen for notification count updates
     socket.on('notification:count', ({ count }) => {
-      console.log('[NotificationBell] Received notification count update:', count);
+      logger.log('[NotificationBell] Received notification count update:', count);
 
       // Update the count in the query cache
       queryClient.setQueryData(queryKeys.notifications.count(), { count });
@@ -236,7 +237,7 @@ export default function NotificationBell() {
 
     // Cleanup on unmount
     return () => {
-      console.log('[NotificationBell] Cleaning up WebSocket connection');
+      logger.log('[NotificationBell] Cleaning up WebSocket connection');
       socket.off('connect');
       socket.off('disconnect');
       socket.off('connect_error');

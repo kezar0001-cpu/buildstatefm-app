@@ -37,10 +37,12 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
+import { useCurrentUser } from '../context/UserContext.jsx';
 
 const ServiceRequestsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useCurrentUser();
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -51,8 +53,8 @@ const ServiceRequestsPage = () => {
   const [convertDialog, setConvertDialog] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
-  // Get user role (you'd get this from auth context)
-  const userRole = 'PROPERTY_MANAGER'; // This should come from your auth context
+  // Get user role from auth context
+  const userRole = user?.role || 'TENANT';
 
   // Build query params
   const queryParams = new URLSearchParams();
@@ -561,6 +563,7 @@ const ServiceRequestsPage = () => {
 
 // Review Dialog Component
 const ReviewDialog = ({ request, onClose, onSuccess }) => {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     status: 'UNDER_REVIEW',
     reviewNotes: '',
@@ -571,7 +574,40 @@ const ReviewDialog = ({ request, onClose, onSuccess }) => {
       const response = await apiClient.patch(`/service-requests/${request.id}`, data);
       return response.data;
     },
-    onSuccess: () => onSuccess(),
+    // Optimistic update: immediately update the UI before server responds
+    onMutate: async (newData) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.serviceRequests.all() });
+      const previousData = queryClient.getQueriesData({ queryKey: queryKeys.serviceRequests.all() });
+      
+      queryClient.setQueriesData({ queryKey: queryKeys.serviceRequests.all() }, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items?.map(item => 
+              item.id === request.id 
+                ? { ...item, ...newData } 
+                : item
+            ) || [],
+          })),
+        };
+      });
+
+      return { previousData };
+    },
+    onError: (_err, _data, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+      onSuccess();
+    },
   });
 
   const handleSubmit = (e) => {

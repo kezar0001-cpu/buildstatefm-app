@@ -614,7 +614,7 @@ const JobsPage = () => {
         {/* Filters */}
       <Paper
         sx={{
-          p: { xs: 2.5, md: 3.5 },
+          p: { xs: 2, md: 3.5 },
           mb: 3,
           borderRadius: 3,
           border: '1px solid',
@@ -623,10 +623,15 @@ const JobsPage = () => {
           animation: 'fade-in-up 0.6s ease-out',
         }}
       >
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack 
+          direction={{ xs: 'column', lg: 'row' }} 
+          spacing={2} 
+          alignItems={{ xs: 'stretch', lg: 'center' }}
+          sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+        >
           {/* Search */}
           <TextField
-            placeholder="Search jobs by title, property, assignee, unit, or notes..."
+            placeholder="Search jobs..."
             value={searchTerm}
             onChange={handleSearchChange}
             InputProps={{
@@ -649,55 +654,66 @@ const JobsPage = () => {
               ),
             }}
             size="small"
-            sx={{ flexGrow: 1, minWidth: 250 }}
+            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
           />
 
-          {/* Status Filter */}
-          <TextField
-            select
-            label="Status"
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            size="small"
-            sx={{ minWidth: 150 }}
+          {/* Filter Row */}
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={1.5} 
+            sx={{ 
+              flexWrap: 'wrap', 
+              gap: 1.5,
+              width: { xs: '100%', lg: 'auto' },
+            }}
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="OPEN">Open</MenuItem>
-            <MenuItem value="ASSIGNED">Assigned</MenuItem>
-            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-            <MenuItem value="COMPLETED">Completed</MenuItem>
-            <MenuItem value="CANCELLED">Cancelled</MenuItem>
-          </TextField>
+            {/* Status Filter */}
+            <TextField
+              select
+              label="Status"
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="OPEN">Open</MenuItem>
+              <MenuItem value="ASSIGNED">Assigned</MenuItem>
+              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </TextField>
 
-          {/* Priority Filter */}
-          <TextField
-            select
-            label="Priority"
-            value={filters.priority}
-            onChange={(e) => handleFilterChange('priority', e.target.value)}
-            size="small"
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="LOW">Low</MenuItem>
-            <MenuItem value="MEDIUM">Medium</MenuItem>
-            <MenuItem value="HIGH">High</MenuItem>
-            <MenuItem value="URGENT">Urgent</MenuItem>
-          </TextField>
+            {/* Priority Filter */}
+            <TextField
+              select
+              label="Priority"
+              value={filters.priority}
+              onChange={(e) => handleFilterChange('priority', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 120 } }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="LOW">Low</MenuItem>
+              <MenuItem value="MEDIUM">Medium</MenuItem>
+              <MenuItem value="HIGH">High</MenuItem>
+              <MenuItem value="URGENT">Urgent</MenuItem>
+            </TextField>
 
-          {/* Quick Filter */}
-          <TextField
-            select
-            label="Quick Filter"
-            value={filters.filter}
-            onChange={(e) => handleFilterChange('filter', e.target.value)}
-            size="small"
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">None</MenuItem>
-            <MenuItem value="overdue">Overdue</MenuItem>
-            <MenuItem value="unassigned">Unassigned</MenuItem>
-          </TextField>
+            {/* Quick Filter */}
+            <TextField
+              select
+              label="Quick Filter"
+              value={filters.filter}
+              onChange={(e) => handleFilterChange('filter', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+            >
+              <MenuItem value="">None</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="unassigned">Unassigned</MenuItem>
+            </TextField>
+          </Stack>
 
           {/* View Toggle */}
           <ToggleButtonGroup

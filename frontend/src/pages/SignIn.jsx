@@ -8,6 +8,18 @@ import { Visibility, VisibilityOff, Google as GoogleIcon, ArrowBack } from '@mui
 import { saveTokenFromUrl, setCurrentUser } from '../lib/auth';
 import { apiClient } from '../api/client.js';
 
+// Helper function to get dashboard path based on user role
+const getDashboardPath = (role) => {
+  const dashboardPaths = {
+    TECHNICIAN: '/technician/dashboard',
+    OWNER: '/owner/dashboard',
+    TENANT: '/tenant/dashboard',
+    PROPERTY_MANAGER: '/dashboard',
+    ADMIN: '/dashboard',
+  };
+  return dashboardPaths[role] || '/dashboard';
+};
+
 export default function SignIn() {
   const navigate = useNavigate();
   // MINIMAL CHANGE: Add 'role' to the initial state with a default value
@@ -60,7 +72,10 @@ export default function SignIn() {
 
       localStorage.setItem('auth_token', payload.token);
       setCurrentUser(payload.user);
-      navigate('/dashboard');
+      
+      // Navigate to role-specific dashboard
+      const dashboardPath = getDashboardPath(payload.user?.role);
+      navigate(dashboardPath);
     } catch (err) {
       const msg =
         err?.response?.data?.message ||
