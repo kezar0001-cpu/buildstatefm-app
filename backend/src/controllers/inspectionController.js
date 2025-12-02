@@ -4,6 +4,7 @@ import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidInspectionTransition, getAllowedInspectionTransitions } from '../utils/statusTransitions.js';
 import * as inspectionService from '../services/inspectionService.js';
 import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
+import { sendNotification } from '../utils/notificationService.js';
 
 const ROLE_MANAGER = 'PROPERTY_MANAGER';
 const ROLE_OWNER = 'OWNER';
@@ -305,6 +306,33 @@ export const createInspection = async (req, res) => {
 
     await inspectionService.logAudit(inspection.id, req.user.id, 'CREATED', { after: inspection });
 
+    // Send notification if inspection is assigned to a technician
+    if (inspection.assignedToId && inspection.assignedTo && inspection.property) {
+      try {
+        await sendNotification(
+          inspection.assignedTo.id,
+          'INSPECTION_SCHEDULED',
+          'New Inspection Assigned',
+          `You have been assigned to inspection: ${inspection.title} at ${inspection.property.name}`,
+          {
+            entityType: 'inspection',
+            entityId: inspection.id,
+            emailData: {
+              technicianName: `${inspection.assignedTo.firstName} ${inspection.assignedTo.lastName}`,
+              inspectionTitle: inspection.title,
+              propertyName: inspection.property.name,
+              inspectionType: inspection.type,
+              scheduledDate: new Date(inspection.scheduledDate).toLocaleDateString(),
+              inspectionUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/inspections/${inspection.id}`,
+            },
+          }
+        );
+      } catch (notifError) {
+        console.error('Failed to send inspection assignment notification:', notifError);
+        // Don't fail the inspection creation if notification fails
+      }
+    }
+
     res.status(201).json(inspection);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -347,6 +375,34 @@ export const updateInspection = async (req, res) => {
       include: inspectionService.baseInspectionInclude,
     });
 
+    // Send notification if assignment changed
+    if (payload.assignedToId !== undefined && payload.assignedToId !== before.assignedToId) {
+      if (inspection.assignedTo && inspection.property) {
+        try {
+          await sendNotification(
+            inspection.assignedTo.id,
+            'INSPECTION_SCHEDULED',
+            'Inspection Assigned',
+            `You have been assigned to inspection: ${inspection.title} at ${inspection.property.name}`,
+            {
+              entityType: 'inspection',
+              entityId: inspection.id,
+              emailData: {
+                technicianName: `${inspection.assignedTo.firstName} ${inspection.assignedTo.lastName}`,
+                inspectionTitle: inspection.title,
+                propertyName: inspection.property.name,
+                inspectionType: inspection.type,
+                scheduledDate: new Date(inspection.scheduledDate).toLocaleDateString(),
+                inspectionUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/inspections/${inspection.id}`,
+              },
+            }
+          );
+        } catch (notifError) {
+          console.error('Failed to send inspection assignment notification:', notifError);
+        }
+      }
+    }
+
     await inspectionService.logAudit(inspection.id, req.user.id, 'UPDATED', { before, after: inspection });
     res.json(inspection);
   } catch (error) {
@@ -378,6 +434,7 @@ export const completeInspection = async (req, res) => {
       return res.json(result);
     }
     
+    // Notification is handled in inspectionService.completeInspection
     res.json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -391,6 +448,7 @@ export const completeInspection = async (req, res) => {
 export const approveInspection = async (req, res) => {
   try {
     const result = await inspectionService.approveInspection(req.params.id, req.user.id);
+    // Notification is handled in inspectionService.approveInspection
     res.json(result);
   } catch (error) {
     console.error('Failed to approve inspection', error);
@@ -402,6 +460,7 @@ export const rejectInspection = async (req, res) => {
   try {
     const { rejectionReason, reassignToId } = rejectSchema.parse(req.body);
     const result = await inspectionService.rejectInspection(req.params.id, req.user.id, rejectionReason, reassignToId);
+    // Notification is handled in inspectionService.rejectInspection
     res.json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
