@@ -4,8 +4,29 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getAuthToken, setCurrentUser } from '../lib/auth.js';
 import { apiClient } from '../api/client.js';
 
-const PUBLIC_PATHS = new Set(['/signin', '/signup']);
+// Public paths that don't require authentication
+const PUBLIC_PATHS = new Set([
+  '/signin',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/auth/callback',
+  '/',
+  '/pricing',
+  '/blog',
+  '/admin/setup',
+  '/admin/blog/login',
+]);
+
+// Paths that start with these prefixes are also public
+const PUBLIC_PATH_PREFIXES = ['/blog/'];
+
 const SUBS_PATH = '/subscriptions';
+
+function isPublicPath(path) {
+  if (PUBLIC_PATHS.has(path)) return true;
+  return PUBLIC_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
 
 export default function GlobalGuard() {
   const navigate = useNavigate();
@@ -15,7 +36,7 @@ export default function GlobalGuard() {
   useEffect(() => {
     const path = location.pathname;
     const token = getAuthToken();
-    if (PUBLIC_PATHS.has(path) || !token || inFlight.current) return;
+    if (isPublicPath(path) || !token || inFlight.current) return;
 
     inFlight.current = true;
 

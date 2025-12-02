@@ -52,6 +52,18 @@ export const queryKeys = {
     photos: (inspectionId) => ['inspections', inspectionId, 'photos'],
     templates: (filters) => ['inspections', 'templates', filters],
   },
+  recurringInspections: {
+    all: () => ['recurringInspections'],
+    list: (filters) => ['recurringInspections', 'list', filters],
+    detail: (id) => ['recurringInspections', id],
+    byProperty: (propertyId) => ['recurringInspections', 'property', propertyId],
+  },
+  inspectionTemplates: {
+    all: () => ['inspectionTemplates'],
+    list: (filters) => ['inspectionTemplates', 'list', filters],
+    detail: (id) => ['inspectionTemplates', id],
+    byProperty: (propertyId) => ['inspectionTemplates', 'property', propertyId],
+  },
   auth: {
     profile: (userId) => ['auth', 'profile', userId],
   },
