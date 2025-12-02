@@ -8,6 +8,7 @@ import GlobalGuard from './components/GlobalGuard.jsx';
 import AuthGate from './authGate';
 import ProtectedLayout from './components/ProtectedLayout';
 import SectionCard from './components/SectionCard.jsx';
+import logger from './utils/logger';
 
 // Simple fallback
 function RouteFallback() {
@@ -73,7 +74,7 @@ function NotFound() {
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error, errorInfo) { console.error('App Error:', error, errorInfo); }
+  componentDidCatch(error, errorInfo) { logger.error('App Error:', error, errorInfo); }
   render() {
     if (this.state.hasError) {
       return (
@@ -141,8 +142,8 @@ const TagEditorPage = lazy(() => import('./pages/admin/TagEditorPage.jsx'));
 
 export default function App() {
   useEffect(() => {
-    console.log('App mounted successfully');
-    const errorHandler = (event) => console.error('Global error:', event.error);
+    logger.log('App mounted successfully');
+    const errorHandler = (event) => logger.error('Global error:', event.error);
     window.addEventListener('error', errorHandler);
     return () => window.removeEventListener('error', errorHandler);
   }, []);

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -36,12 +37,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
+import Breadcrumbs from '../components/Breadcrumbs';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import GradientButton from '../components/GradientButton';
 import { formatDate } from '../utils/date';
+import { useCurrentUser } from '../context/UserContext';
+
+const ALLOWED_ROLES = ['PROPERTY_MANAGER', 'ADMIN'];
 
 export default function TeamManagementPage() {
+  const navigate = useNavigate();
+  const { user: currentUser } = useCurrentUser();
+
+  // Redirect unauthorized users
+  useEffect(() => {
+    if (currentUser && !ALLOWED_ROLES.includes(currentUser.role)) {
+      toast.error('You do not have permission to access Team Management');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
   const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -272,8 +287,18 @@ export default function TeamManagementPage() {
     </Box>
   );
 
+  // Don't render for unauthorized users
+  if (currentUser && !ALLOWED_ROLES.includes(currentUser.role)) {
+    return null;
+  }
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+      <Breadcrumbs
+        labelOverrides={{
+          '/team': 'Team Management',
+        }}
+      />
       <Box sx={{
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' },

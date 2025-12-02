@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-// Existing imports
+// Core route imports
 import authRouter from './auth.js';
 import jobsRouter from './jobs.js';
 import unitsRouter from './units.js';
@@ -8,10 +8,9 @@ import propertiesRouter from './properties.js';
 import dashboardRouter from './dashboard.js';
 import inspectionsRouter from './inspections.js';
 
-// Missing imports based on the image
+// Feature route imports
 import billingRouter from './billing.js';
 import invitesRouter from './invites.js';
-// import maintenanceRouter from './maintenance.js'; // DISABLED: Uses non-existent models, ServiceRequest should be used instead
 import plansRouter from './plans.js';
 import recommendationsRouter from './recommendations.js';
 import reportsRouter from './reports.js';
@@ -22,8 +21,12 @@ import tenantsRouter from './tenants.js';
 import uploadsRouter from './uploads.js';
 import usersRouter from './users.js';
 import blogRouter from './blog.js';
-// Note: 'routes.js' is likely an error or a duplicate and is not imported.
-// 'auth.js.backup' is ignored.
+
+// Previously missing route imports - now registered
+import notificationsRouter from './notifications.js';
+import searchRouter from './search.js';
+import recurringInspectionsRouter from './recurringInspections.js';
+import inspectionTemplatesRouter from './inspectionTemplates.js';
 
 const router = Router();
 
@@ -35,10 +38,9 @@ router.use('/properties', propertiesRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/inspections', inspectionsRouter);
 
-// Add missing routes
+// Feature routes
 router.use('/billing', billingRouter);
 router.use('/invites', invitesRouter);
-// router.use('/maintenance', maintenanceRouter); // DISABLED: Uses non-existent models, use /serviceRequests instead
 router.use('/plans', plansRouter);
 router.use('/recommendations', recommendationsRouter);
 router.use('/reports', reportsRouter);
@@ -49,6 +51,12 @@ router.use('/tenants', tenantsRouter);
 router.use('/uploads', uploadsRouter);
 router.use('/users', usersRouter);
 router.use('/blog', blogRouter);
+
+// Previously missing routes - now registered
+router.use('/notifications', notificationsRouter);
+router.use('/search', searchRouter);
+router.use('/recurring-inspections', recurringInspectionsRouter);
+router.use('/inspection-templates', inspectionTemplatesRouter);
 
 // Health check
 router.get('/health', (_req, res) => res.json({ ok: true }));
