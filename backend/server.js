@@ -329,6 +329,8 @@ import usersRouter from './src/routes/users.js';
 import invitesRoutes from './src/routes/invites.js';
 import notificationsRoutes from './src/routes/notifications.js';
 import searchRoutes from './src/routes/search.js';
+import jobTemplatesRoutes from './src/routes/jobTemplates.js';
+import notificationPreferencesRoutes from './src/routes/notificationPreferences.js';
 
 // ===================================================================
 //
@@ -374,6 +376,8 @@ app.use('/api/users', usersRouter);
 app.use('/api/invites', invitesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/job-templates', jobTemplatesRoutes);
+app.use('/api/notification-preferences', notificationPreferencesRoutes);
 
 
 // ---- Health, Root, 404, Error Handler, and Shutdown logic
