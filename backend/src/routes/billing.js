@@ -14,7 +14,7 @@ const stripe = createStripeClient();
 const stripeAvailable = isStripeClientConfigured(stripe);
 
 const PLAN_PRICE_MAP = {
-  STARTER: process.env.STRIPE_PRICE_ID_STARTER,
+  BASIC: process.env.STRIPE_PRICE_ID_BASIC || process.env.STRIPE_PRICE_ID_STARTER, // Support both names for backward compatibility
   PROFESSIONAL: process.env.STRIPE_PRICE_ID_PROFESSIONAL,
   ENTERPRISE: process.env.STRIPE_PRICE_ID_ENTERPRISE,
 };
@@ -90,8 +90,8 @@ router.post('/checkout', async (req, res) => {
       return sendError(res, 401, 'Invalid token', ErrorCodes.AUTH_INVALID_TOKEN);
     }
 
-    const { plan = 'STARTER', successUrl, cancelUrl } = req.body || {};
-    const normalisedPlan = normalisePlan(plan) || 'STARTER';
+    const { plan = 'BASIC', successUrl, cancelUrl } = req.body || {};
+    const normalisedPlan = normalisePlan(plan) || 'BASIC';
 
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
@@ -163,7 +163,7 @@ router.post('/confirm', async (req, res) => {
         : null;
 
     const priceId = subscription?.items?.data?.[0]?.price?.id;
-    const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'STARTER');
+    const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
     const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
 
     const data = { subscriptionStatus: status };
@@ -551,8 +551,8 @@ async function upsertSubscription({
 
       const subscriptionData = {
         userId: uid,
-        planId: plan || 'STARTER',
-        planName: plan || 'STARTER',
+        planId: plan || 'BASIC',
+        planName: plan || 'BASIC',
         status: status || 'PENDING',
         ...(stripeCustomerId && { stripeCustomerId }),
         ...(stripeSubscriptionId && { stripeSubscriptionId }),
@@ -662,7 +662,7 @@ export async function webhook(req, res) {
         }
 
         const priceId = subscription?.items?.data?.[0]?.price?.id;
-        const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'STARTER');
+        const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
         const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
 
         // Update User model
