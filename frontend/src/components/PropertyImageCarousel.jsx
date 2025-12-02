@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Box, IconButton, Typography, Dialog, DialogContent } from '@mui/material';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { Box, IconButton, Typography, Dialog, DialogContent, Skeleton } from '@mui/material';
 import {
   ArrowBackIos,
   ArrowForwardIos,
@@ -81,13 +81,45 @@ const PropertyImageCarousel = ({
   const [autoplayEnabled, setAutoplayEnabled] = useState(true);
   // Bug Fix: Track image loading errors to show fallback
   const [imageErrors, setImageErrors] = useState(new Set());
+  // Lazy loading state
+  const [isInView, setIsInView] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const containerRef = useRef(null);
 
   // Bug Fix: Reset currentIndex, autoplay, and error tracking when images change
   useEffect(() => {
     setCurrentIndex(0);
     setAutoplayEnabled(true);
     setImageErrors(new Set());
+    setIsImageLoaded(false);
   }, [items]);
+
+  // Lazy loading with Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: '100px', // Start loading 100px before entering viewport
+        threshold: 0.01,
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Reset image loaded state when changing images
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [currentIndex]);
 
   // Memoize handleStep to prevent recreating the function on every render
   // This fixes memory leak issues with keyboard event listeners
@@ -158,24 +190,54 @@ const PropertyImageCarousel = ({
     setImageErrors(prev => new Set(prev).add(index));
   }, []);
 
+  const handleImageLoad = useCallback(() => {
+    setIsImageLoaded(true);
+  }, []);
+
   return (
     <>
       <Box
+        ref={containerRef}
         sx={{
           position: 'relative',
           height,
           borderRadius,
           overflow: 'hidden',
+          backgroundColor: 'grey.100',
           ...containerSx,
         }}
       >
-        <Box
-          component="img"
-          src={currentImage}
-          alt={currentItem.caption || fallbackText || 'Property image'}
-          sx={{ ...defaultImageSx, ...imageSx }}
-          onError={() => handleImageError(currentIndex)}
-        />
+        {/* Skeleton placeholder while loading */}
+        {(!isInView || !isImageLoaded) && (
+          <Skeleton
+            variant="rectangular"
+            animation="wave"
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+            }}
+          />
+        )}
+        
+        {/* Only load image when in viewport */}
+        {isInView && (
+          <Box
+            component="img"
+            src={currentImage}
+            alt={currentItem.caption || fallbackText || 'Property image'}
+            onLoad={handleImageLoad}
+            onError={() => handleImageError(currentIndex)}
+            sx={{
+              ...defaultImageSx,
+              opacity: isImageLoaded ? 1 : 0,
+              transition: 'opacity 0.3s ease-in-out',
+              ...imageSx,
+            }}
+          />
+        )}
 
         {/* Image Counter */}
         {showCounter && items.length > 0 && (

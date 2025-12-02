@@ -1160,5 +1160,116 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
   }
 });
 
+// PATCH /:id/comments/:commentId - Edit a job comment (owner only)
+router.patch('/:id/comments/:commentId', requireAuth, validate(commentSchema), async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const { content } = req.body;
+
+    // Find the comment
+    const comment = await prisma.jobComment.findUnique({
+      where: { id: commentId },
+      include: {
+        job: {
+          include: {
+            property: {
+              select: {
+                managerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!comment) {
+      return sendError(res, 404, 'Comment not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify comment belongs to the specified job
+    if (comment.jobId !== id) {
+      return sendError(res, 400, 'Comment does not belong to this job', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Only the comment author can edit their own comment
+    if (comment.userId !== req.user.id) {
+      return sendError(res, 403, 'You can only edit your own comments', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Update the comment
+    const updatedComment = await prisma.jobComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    res.json({ success: true, comment: updatedComment });
+  } catch (error) {
+    console.error('Error updating job comment:', error);
+    return sendError(res, 500, 'Failed to update comment', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /:id/comments/:commentId - Delete a job comment (owner or property manager)
+router.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    // Find the comment with job and property info
+    const comment = await prisma.jobComment.findUnique({
+      where: { id: commentId },
+      include: {
+        job: {
+          include: {
+            property: {
+              select: {
+                managerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!comment) {
+      return sendError(res, 404, 'Comment not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify comment belongs to the specified job
+    if (comment.jobId !== id) {
+      return sendError(res, 400, 'Comment does not belong to this job', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Comment author can delete their own comment
+    // Property manager can delete any comment on jobs for their properties
+    const isAuthor = comment.userId === req.user.id;
+    const isPropertyManager = req.user.role === 'PROPERTY_MANAGER' && 
+      comment.job?.property?.managerId === req.user.id;
+
+    if (!isAuthor && !isPropertyManager) {
+      return sendError(res, 403, 'You can only delete your own comments', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Delete the comment
+    await prisma.jobComment.delete({
+      where: { id: commentId },
+    });
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting job comment:', error);
+    return sendError(res, 500, 'Failed to delete comment', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 export default router;
 export { jobListQuerySchema };

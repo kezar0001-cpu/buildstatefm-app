@@ -1,6 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useDebounce } from '../hooks/useDebounce';
 import {
   Box,
   Container,
@@ -103,6 +104,7 @@ const JobsPage = () => {
     return localStorage.getItem('jobsViewPreference') || 'card';
   }); // 'card', 'kanban', 'calendar'
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState([]);
   const [bulkTechnicianId, setBulkTechnicianId] = useState('');
@@ -145,7 +147,7 @@ const JobsPage = () => {
     }
   }, [navigate, user?.role]);
 
-  const searchQuery = useMemo(() => searchTerm.trim(), [searchTerm]);
+  const searchQuery = useMemo(() => debouncedSearchTerm.trim(), [debouncedSearchTerm]);
 
   const queryFilters = useMemo(
     () => ({
