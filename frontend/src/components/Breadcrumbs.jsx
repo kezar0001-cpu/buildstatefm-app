@@ -1,243 +1,121 @@
-import PropTypes from 'prop-types';
-import { useMemo } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { Breadcrumbs as MUIBreadcrumbs, Link as MuiLink, Typography, useMediaQuery, useTheme } from '@mui/material';
+import React from 'react';
+import { Breadcrumbs as MuiBreadcrumbs, Link, Typography, Box } from '@mui/material';
+import { NavigateNext as NavigateNextIcon, Home as HomeIcon } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const DEFAULT_LABELS = {
-  '': 'Dashboard',
-  dashboard: 'Dashboard',
-  properties: 'Properties',
-  units: 'Units',
-  inspections: 'Inspections',
-  jobs: 'Jobs',
-  plans: 'Plans',
-  reports: 'Reports',
-  recommendations: 'Recommendations',
-  'service-requests': 'Service Requests',
-  subscriptions: 'Subscriptions',
-  profile: 'Profile',
-  team: 'Team',
-  owner: 'Owner',
-  tenant: 'Tenant',
-  technician: 'Technician',
-  edit: 'Edit',
-  new: 'New',
-};
-
-const normalizeOverride = (value) => {
-  if (!value) return {};
-  if (typeof value === 'string') {
-    return { label: value };
-  }
-  return value;
-};
-
-const humanize = (segment) => {
-  if (!segment) return '';
-  const cleaned = decodeURIComponent(segment)
-    .replace(/-/g, ' ')
-    .replace(/_/g, ' ');
-  return cleaned
-    .split(' ')
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-const insertExtraCrumbs = (crumbs, extras = []) => {
-  if (!extras?.length) {
-    return crumbs;
-  }
-
-  const nextCrumbs = [...crumbs];
-
-  extras.forEach((extra, index) => {
-    if (!extra || !extra.label) {
-      return;
-    }
-
-    const normalized = {
-      ...extra,
-      key: extra.key || `extra-${index}`,
-    };
-
-    if (extra.before) {
-      const targetIndex = nextCrumbs.findIndex(
-        (crumb) => crumb.path === extra.before || crumb.to === extra.before || crumb.key === extra.before,
-      );
-      if (targetIndex !== -1) {
-        nextCrumbs.splice(targetIndex, 0, normalized);
-        return;
-      }
-    }
-
-    if (extra.after) {
-      const targetIndex = nextCrumbs.findIndex(
-        (crumb) => crumb.path === extra.after || crumb.to === extra.after || crumb.key === extra.after,
-      );
-      if (targetIndex !== -1) {
-        nextCrumbs.splice(targetIndex + 1, 0, normalized);
-        return;
-      }
-    }
-
-    nextCrumbs.push(normalized);
-  });
-
-  return nextCrumbs;
-};
-
-export default function Breadcrumbs({
-  labelOverrides = {},
-  includeDashboard = true,
-  extraCrumbs = [],
-  lastItemClickable = false,
-  separator = <NavigateNextIcon fontSize="small" />,
-  sx,
-  ...props
+/**
+ * Enhanced breadcrumb navigation component.
+ * Provides consistent navigation context across the application.
+ * 
+ * @param {array} items - Array of breadcrumb items [{ label, path, icon? }]
+ * @param {boolean} showHome - Whether to show home icon as first item
+ * @param {function} onNavigate - Optional custom navigation handler
+ */
+export default function Breadcrumbs({ 
+  items = [], 
+  showHome = true,
+  onNavigate,
 }) {
+  const navigate = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-
-  const crumbs = useMemo(() => {
-    const pathnames = location.pathname.split('/').filter(Boolean);
-    const baseCrumbs = [];
-
-    const resolveOverride = (key) => normalizeOverride(labelOverrides[key]);
-
-    if (includeDashboard) {
-      const dashboardOverride = resolveOverride('/dashboard') || resolveOverride('dashboard') || {};
-      baseCrumbs.push({
-        key: 'dashboard',
-        label: dashboardOverride.label || DEFAULT_LABELS.dashboard,
-        to: dashboardOverride.to || '/dashboard',
-        path: '/dashboard',
-      });
+  
+  const handleClick = (event, path) => {
+    event.preventDefault();
+    
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      navigate(path);
     }
-
-    pathnames.forEach((segment, index) => {
-      const path = `/${pathnames.slice(0, index + 1).join('/')}`;
-      const override =
-        resolveOverride(path) || resolveOverride(segment) || {};
-
-      if (override.hidden) {
-        return;
-      }
-
-      const label =
-        override.label ||
-        DEFAULT_LABELS[segment] ||
-        humanize(segment) ||
-        segment;
-
-      const crumb = {
-        key: path,
-        label,
-        to: override.to || path,
-        path,
-      };
-
-      baseCrumbs.push(crumb);
-    });
-
-    const withExtras = insertExtraCrumbs(baseCrumbs, extraCrumbs);
-
-    if (withExtras.length) {
-      withExtras[withExtras.length - 1] = {
-        ...withExtras[withExtras.length - 1],
-        isLast: true,
-      };
-      for (let i = 0; i < withExtras.length - 1; i += 1) {
-        withExtras[i] = { ...withExtras[i], isLast: false };
-      }
-    }
-
-    return withExtras;
-  }, [extraCrumbs, includeDashboard, labelOverrides, location.pathname]);
-
-  if (!crumbs.length) {
+  };
+  
+  const breadcrumbItems = showHome 
+    ? [
+        {
+          label: 'Home',
+          path: '/',
+          icon: <HomeIcon fontSize="small" />,
+        },
+        ...items,
+      ]
+    : items;
+  
+  if (breadcrumbItems.length === 0) {
     return null;
   }
-
-  const getMaxItems = () => {
-    if (props.maxItems !== undefined) return props.maxItems;
-    if (isMobile) return 2;
-    if (isTablet) return 3;
-    return undefined;
-  };
-
+  
   return (
-    <MUIBreadcrumbs
+    <MuiBreadcrumbs
+      separator={<NavigateNextIcon fontSize="small" />}
       aria-label="breadcrumb"
-      separator={separator}
-      maxItems={getMaxItems()}
-      sx={{
-        mb: 2,
-        '& .MuiBreadcrumbs-ol': {
-          flexWrap: { xs: 'nowrap', md: 'wrap' }
-        },
-        '& .MuiTypography-root, & .MuiLink-root': {
-          fontSize: { xs: '0.875rem', md: '1rem' },
-          maxWidth: { xs: 150, sm: 200, md: 'none' },
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        },
-        ...sx
-      }}
-      {...props}
+      sx={{ mb: 2 }}
     >
-      {crumbs.map((crumb, index) => {
-        const isLast = crumb.isLast ?? index === crumbs.length - 1;
-
-        if (isLast && !lastItemClickable) {
+      {breadcrumbItems.map((item, index) => {
+        const isLast = index === breadcrumbItems.length - 1;
+        
+        if (isLast) {
           return (
-            <Typography key={crumb.key || index} color="text.primary">
-              {crumb.label}
-            </Typography>
+            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {item.icon}
+              <Typography color="text.primary" fontWeight={500}>
+                {item.label}
+              </Typography>
+            </Box>
           );
         }
-
-        if (!crumb.to) {
-          return (
-            <Typography key={crumb.key || index} color={isLast ? 'text.primary' : 'text.secondary'}>
-              {crumb.label}
-            </Typography>
-          );
-        }
-
+        
         return (
-          <MuiLink
-            key={crumb.key || index}
-            component={RouterLink}
-            underline="hover"
-            color="inherit"
-            to={crumb.to}
+          <Link
+            key={index}
+            component="button"
+            variant="body1"
+            onClick={(e) => handleClick(e, item.path)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              color: 'text.secondary',
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
           >
-            {crumb.label}
-          </MuiLink>
+            {item.icon}
+            {item.label}
+          </Link>
         );
       })}
-    </MUIBreadcrumbs>
+    </MuiBreadcrumbs>
   );
 }
 
-Breadcrumbs.propTypes = {
-  labelOverrides: PropTypes.object,
-  includeDashboard: PropTypes.bool,
-  extraCrumbs: PropTypes.arrayOf(
-    PropTypes.shape({
-      key: PropTypes.string,
-      label: PropTypes.node.isRequired,
-      to: PropTypes.string,
-      before: PropTypes.string,
-      after: PropTypes.string,
-    }),
-  ),
-  lastItemClickable: PropTypes.bool,
-  separator: PropTypes.node,
-  sx: PropTypes.object,
-};
+/**
+ * Helper function to generate breadcrumbs from route path
+ * @param {string} pathname - Current route pathname
+ * @returns {array} Breadcrumb items
+ */
+export function generateBreadcrumbsFromPath(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  const items = [];
+  
+  let currentPath = '';
+  segments.forEach((segment, index) => {
+    currentPath += `/${segment}`;
+    const isLast = index === segments.length - 1;
+    
+    // Convert segment to readable label
+    const label = segment
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    items.push({
+      label,
+      path: currentPath,
+      isLast,
+    });
+  });
+  
+  return items;
+}

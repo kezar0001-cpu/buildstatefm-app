@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import NavBar from './NavBar';
 import TrialBanner from './TrialBanner';
+import MobileBottomNav from './MobileBottomNav';
 
 function Layout({ children }) {
   return (
@@ -21,10 +22,12 @@ function Layout({ children }) {
           width: '100%',
           py: { xs: 2, sm: 3 },
           px: { xs: 2, sm: 3, md: 4 },
+          pb: { xs: 10, md: 3 }, // Add bottom padding on mobile for bottom nav
         }}
       >
         <Box sx={{ maxWidth: 1240, mx: 'auto', width: '100%' }}>{children}</Box>
       </Box>
+      <MobileBottomNav />
     </Box>
   );
 }
