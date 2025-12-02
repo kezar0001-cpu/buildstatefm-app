@@ -8,6 +8,7 @@ import { Visibility, VisibilityOff, Google as GoogleIcon, ArrowBack } from '@mui
 import { saveTokenFromUrl, setCurrentUser } from '../lib/auth';
 import { apiClient } from '../api/client.js';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
+import logger from '../utils/logger';
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function SignUp() {
         }));
       } catch (err) {
         setError('Invalid or expired invitation link');
-        console.error('Invite fetch error:', err);
+        logger.error('Invite fetch error:', err);
       } finally {
         setInviteLoading(false);
       }
@@ -146,7 +147,7 @@ export default function SignUp() {
         err?.message ||
         'Registration failed. Please try again.';
       setError(msg);
-      console.error('Registration error:', err);
+      logger.error('Registration error:', err);
     } finally {
       setLoading(false);
     }

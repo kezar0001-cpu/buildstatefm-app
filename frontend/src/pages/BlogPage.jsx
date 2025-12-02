@@ -27,6 +27,7 @@ import { getBlogPosts, getBlogCategories, getBlogTags } from '../api/blog';
 import SEO from '../components/SEO';
 import BlogPublicNav from '../components/BlogPublicNav';
 import toast from 'react-hot-toast';
+import logger from '../utils/logger';
 
 const BlogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,7 +70,7 @@ const BlogPage = () => {
       setPosts(response.data.posts);
       setPagination(response.data.pagination);
     } catch (error) {
-      console.error('Error fetching blog posts:', error);
+      logger.error('Error fetching blog posts:', error);
       toast.error('Failed to load blog posts');
     } finally {
       setLoading(false);
@@ -81,7 +82,7 @@ const BlogPage = () => {
       const response = await getBlogCategories();
       setCategories(response.data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
     }
   };
 
@@ -90,7 +91,7 @@ const BlogPage = () => {
       const response = await getBlogTags();
       setTags(response.data);
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      logger.error('Error fetching tags:', error);
     }
   };
 

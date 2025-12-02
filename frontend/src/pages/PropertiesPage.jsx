@@ -65,6 +65,7 @@ import PageHeader from '../components/PageHeader';
 import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
+import logger from '../utils/logger';
 
 // Helper function to get status color - defined outside component to avoid recreation on every render
 const getStatusColor = (status) => {
@@ -383,7 +384,7 @@ export default function PropertiesPage() {
       try {
         localStorage.setItem('properties-view-mode', nextView);
       } catch (error) {
-        console.warn('Failed to save view mode preference:', error);
+        logger.warn('Failed to save view mode preference:', error);
       }
     }
   };
@@ -414,7 +415,7 @@ export default function PropertiesPage() {
   // Bug Fix: Validate property ID before navigation to prevent broken URLs
   const handleCardClick = (propertyId) => {
     if (!propertyId) {
-      console.error('Invalid property ID:', propertyId);
+      logger.error('Invalid property ID:', propertyId);
       return;
     }
     navigate(`/properties/${propertyId}`);

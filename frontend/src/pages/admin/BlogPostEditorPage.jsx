@@ -30,6 +30,7 @@ import {
 } from '../../api/blog';
 import RichTextEditor from '../../components/RichTextEditor';
 import toast from 'react-hot-toast';
+import logger from '../../utils/logger';
 
 function BlogPostEditorPage() {
   const navigate = useNavigate();
@@ -96,7 +97,7 @@ function BlogPostEditorPage() {
         setSelectedTags(postTags);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      logger.error('Error fetching data:', error);
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
@@ -148,7 +149,7 @@ function BlogPostEditorPage() {
               setCategories((prev) => [...prev, newCategory]);
               toast.success(`Category "${categoryName}" created`);
             } catch (error) {
-              console.error('Error creating category:', error);
+              logger.error('Error creating category:', error);
               toast.error(`Failed to create category "${categoryName}"`);
             }
           }
@@ -192,7 +193,7 @@ function BlogPostEditorPage() {
               setTags((prev) => [...prev, newTag]);
               toast.success(`Tag "${tagName}" created`);
             } catch (error) {
-              console.error('Error creating tag:', error);
+              logger.error('Error creating tag:', error);
               toast.error(`Failed to create tag "${tagName}"`);
             }
           }
@@ -226,7 +227,7 @@ function BlogPostEditorPage() {
       }
       navigate('/admin/blog');
     } catch (error) {
-      console.error('Error saving post:', error);
+      logger.error('Error saving post:', error);
       toast.error(error.response?.data?.message || 'Failed to save post');
     } finally {
       setSaving(false);

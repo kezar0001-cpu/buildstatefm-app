@@ -208,7 +208,7 @@ export default function NotificationBell() {
         error?.context?.response?.status ||
         error?.status;
 
-      console.warn(
+      logger.warn(
         `[NotificationBell] Disabling WebSocket after repeated connection failures${
           statusCode ? ` (status ${statusCode})` : ''
         }; relying on HTTP polling.`

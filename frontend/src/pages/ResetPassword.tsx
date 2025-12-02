@@ -15,6 +15,7 @@ import {
 import { Visibility, VisibilityOff, Lock, CheckCircle } from '@mui/icons-material';
 import { apiClient } from '../api/client.js';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
+import logger from '../utils/logger';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -61,7 +62,7 @@ export default function ResetPassword() {
           setError(payload.message || 'Invalid or expired reset link.');
         }
       } catch (err: any) {
-        console.error('Token validation error:', err);
+        logger.error('Token validation error:', err);
         setError(
           err.response?.data?.message ||
           'Invalid or expired reset link. Please request a new password reset.'
@@ -141,7 +142,7 @@ export default function ResetPassword() {
         setError(payload.message || 'Failed to reset password. Please try again.');
       }
     } catch (err: any) {
-      console.error('Reset password error:', err);
+      logger.error('Reset password error:', err);
 
       if (err.response?.data?.message) {
         setError(err.response.data.message);

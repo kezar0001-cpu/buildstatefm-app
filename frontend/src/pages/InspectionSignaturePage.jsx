@@ -24,6 +24,7 @@ import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import { formatDateTime } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys';
+import logger from '../utils/logger';
 
 const SIGNATURE_CANVAS_WIDTH = 600;
 const SIGNATURE_CANVAS_HEIGHT = 300;
@@ -146,7 +147,7 @@ export default function InspectionSignaturePage() {
       // Convert canvas to blob
       canvas.toBlob(async (blob) => {
         if (!blob) {
-          console.error('Failed to convert signature to blob');
+          logger.error('Failed to convert signature to blob');
           return;
         }
 
@@ -167,7 +168,7 @@ export default function InspectionSignaturePage() {
         navigate(`/inspections/${id}`);
       }, 'image/png');
     } catch (error) {
-      console.error('Failed to submit signature:', error);
+      logger.error('Failed to submit signature:', error);
     }
   };
 

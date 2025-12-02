@@ -7,6 +7,7 @@ import {
 import { Visibility, VisibilityOff, Google as GoogleIcon, ArrowBack } from '@mui/icons-material';
 import { saveTokenFromUrl, setCurrentUser } from '../lib/auth';
 import { apiClient } from '../api/client.js';
+import logger from '../utils/logger';
 
 // Helper function to get dashboard path based on user role
 const getDashboardPath = (role) => {
@@ -82,7 +83,7 @@ export default function SignIn() {
         err?.message ||
         'Login failed. Please try again.';
       setError(msg);
-      console.error('Login error:', err);
+      logger.error('Login error:', err);
     } finally {
       setLoading(false);
     }
