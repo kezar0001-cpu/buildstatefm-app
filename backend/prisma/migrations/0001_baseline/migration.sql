@@ -5,9 +5,6 @@ CREATE TYPE "Role" AS ENUM ('PROPERTY_MANAGER', 'OWNER', 'TENANT', 'TECHNICIAN')
 CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'PENDING', 'SUSPENDED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "SubscriptionPlan" AS ENUM ('FREE_TRIAL', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE');
-
--- CreateEnum
 CREATE TYPE "PropertyStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'UNDER_MAINTENANCE');
 
 -- CreateEnum
@@ -41,51 +38,6 @@ CREATE TYPE "RecommendationStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'UNDER_REVIEW'
 CREATE TYPE "NotificationType" AS ENUM ('INSPECTION_SCHEDULED', 'INSPECTION_REMINDER', 'JOB_ASSIGNED', 'JOB_COMPLETED', 'SERVICE_REQUEST_UPDATE', 'SUBSCRIPTION_EXPIRING', 'PAYMENT_DUE', 'SYSTEM');
 
 -- CreateTable
-CREATE TABLE "Org" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Org_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "PropertyManagerProfile" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "managedProperties" JSONB,
-    "permissions" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "PropertyManagerProfile_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "OwnerProfile" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "OwnerProfile_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "TechnicianProfile" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "TechnicianProfile_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "TenantProfile" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "TenantProfile_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -98,12 +50,6 @@ CREATE TABLE "User" (
     "lastLoginAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "orgId" TEXT,
-    "company" TEXT,
-    "subscriptionPlan" "SubscriptionPlan" NOT NULL DEFAULT 'FREE_TRIAL',
-    "subscriptionStatus" "SubscriptionStatus" NOT NULL DEFAULT 'TRIAL',
-    "trialEndDate" TIMESTAMP(3),
-    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -170,6 +116,21 @@ CREATE TABLE "Property" (
 );
 
 -- CreateTable
+CREATE TABLE "PropertyImage" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "imageUrl" TEXT NOT NULL,
+    "caption" TEXT,
+    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
+    "displayOrder" INTEGER NOT NULL DEFAULT 0,
+    "uploadedById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PropertyImage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PropertyOwner" (
     "id" TEXT NOT NULL,
     "propertyId" TEXT NOT NULL,
@@ -225,14 +186,14 @@ CREATE TABLE "Inspection" (
     "type" "InspectionType" NOT NULL,
     "scheduledDate" TIMESTAMP(3) NOT NULL,
     "completedDate" TIMESTAMP(3),
-    "propertyId" TEXT NOT NULL,
+    "propertyId" TEXT,
     "unitId" TEXT,
     "assignedToId" TEXT,
     "completedById" TEXT,
     "status" "InspectionStatus" NOT NULL DEFAULT 'SCHEDULED',
     "notes" TEXT,
     "findings" TEXT,
-    "photos" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "photos" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -251,7 +212,6 @@ CREATE TABLE "Job" (
     "assignedToId" TEXT,
     "serviceRequestId" TEXT,
     "maintenancePlanId" TEXT,
-    "inspectionId" TEXT,
     "scheduledDate" TIMESTAMP(3),
     "completedDate" TIMESTAMP(3),
     "estimatedCost" DOUBLE PRECISION,
@@ -262,42 +222,6 @@ CREATE TABLE "Job" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Job_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "InspectionAttachment" (
-    "id" TEXT NOT NULL,
-    "fileName" TEXT NOT NULL,
-    "fileType" TEXT NOT NULL,
-    "fileUrl" TEXT NOT NULL,
-    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "inspectionId" TEXT NOT NULL,
-
-    CONSTRAINT "InspectionAttachment_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "InspectionReminder" (
-    "id" TEXT NOT NULL,
-    "reminderDate" TIMESTAMP(3) NOT NULL,
-    "sentAt" TIMESTAMP(3),
-    "channel" TEXT NOT NULL,
-    "inspectionId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "InspectionReminder_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "InspectionAuditLog" (
-    "id" TEXT NOT NULL,
-    "action" TEXT NOT NULL,
-    "changes" JSONB,
-    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "inspectionId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "InspectionAuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -328,7 +252,7 @@ CREATE TABLE "ServiceRequest" (
     "propertyId" TEXT NOT NULL,
     "unitId" TEXT,
     "requestedById" TEXT NOT NULL,
-    "photos" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "photos" JSONB,
     "reviewNotes" TEXT,
     "reviewedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -390,18 +314,6 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PropertyManagerProfile_userId_key" ON "PropertyManagerProfile"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "OwnerProfile_userId_key" ON "OwnerProfile"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "TechnicianProfile_userId_key" ON "TechnicianProfile"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "TenantProfile_userId_key" ON "TenantProfile"("userId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
@@ -445,6 +357,12 @@ CREATE INDEX "Property_status_idx" ON "Property"("status");
 
 -- CreateIndex
 CREATE INDEX "Property_city_state_idx" ON "Property"("city", "state");
+
+-- CreateIndex
+CREATE INDEX "PropertyImage_propertyId_idx" ON "PropertyImage"("propertyId");
+
+-- CreateIndex
+CREATE INDEX "PropertyImage_displayOrder_idx" ON "PropertyImage"("displayOrder");
 
 -- CreateIndex
 CREATE INDEX "PropertyOwner_propertyId_idx" ON "PropertyOwner"("propertyId");
@@ -507,30 +425,6 @@ CREATE INDEX "Job_priority_idx" ON "Job"("priority");
 CREATE INDEX "Job_scheduledDate_idx" ON "Job"("scheduledDate");
 
 -- CreateIndex
-CREATE INDEX "Job_inspectionId_idx" ON "Job"("inspectionId");
-
--- CreateIndex
-CREATE INDEX "InspectionAttachment_inspectionId_idx" ON "InspectionAttachment"("inspectionId");
-
--- CreateIndex
-CREATE INDEX "InspectionReminder_inspectionId_idx" ON "InspectionReminder"("inspectionId");
-
--- CreateIndex
-CREATE INDEX "InspectionReminder_userId_idx" ON "InspectionReminder"("userId");
-
--- CreateIndex
-CREATE INDEX "InspectionReminder_reminderDate_idx" ON "InspectionReminder"("reminderDate");
-
--- CreateIndex
-CREATE INDEX "InspectionAuditLog_inspectionId_idx" ON "InspectionAuditLog"("inspectionId");
-
--- CreateIndex
-CREATE INDEX "InspectionAuditLog_userId_idx" ON "InspectionAuditLog"("userId");
-
--- CreateIndex
-CREATE INDEX "InspectionAuditLog_timestamp_idx" ON "InspectionAuditLog"("timestamp");
-
--- CreateIndex
 CREATE INDEX "MaintenancePlan_propertyId_idx" ON "MaintenancePlan"("propertyId");
 
 -- CreateIndex
@@ -582,21 +476,6 @@ CREATE INDEX "Notification_isRead_idx" ON "Notification"("isRead");
 CREATE INDEX "Notification_createdAt_idx" ON "Notification"("createdAt");
 
 -- AddForeignKey
-ALTER TABLE "PropertyManagerProfile" ADD CONSTRAINT "PropertyManagerProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "OwnerProfile" ADD CONSTRAINT "OwnerProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TechnicianProfile" ADD CONSTRAINT "TechnicianProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TenantProfile" ADD CONSTRAINT "TenantProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Invite" ADD CONSTRAINT "Invite_invitedById_fkey" FOREIGN KEY ("invitedById") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -613,6 +492,9 @@ ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "Property" ADD CONSTRAINT "Property_managerId_fkey" FOREIGN KEY ("managerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PropertyImage" ADD CONSTRAINT "PropertyImage_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PropertyOwner" ADD CONSTRAINT "PropertyOwner_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -657,24 +539,6 @@ ALTER TABLE "Job" ADD CONSTRAINT "Job_serviceRequestId_fkey" FOREIGN KEY ("servi
 ALTER TABLE "Job" ADD CONSTRAINT "Job_maintenancePlanId_fkey" FOREIGN KEY ("maintenancePlanId") REFERENCES "MaintenancePlan"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Job" ADD CONSTRAINT "Job_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InspectionAttachment" ADD CONSTRAINT "InspectionAttachment_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InspectionReminder" ADD CONSTRAINT "InspectionReminder_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InspectionReminder" ADD CONSTRAINT "InspectionReminder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InspectionAuditLog" ADD CONSTRAINT "InspectionAuditLog_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InspectionAuditLog" ADD CONSTRAINT "InspectionAuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "MaintenancePlan" ADD CONSTRAINT "MaintenancePlan_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -700,3 +564,4 @@ ALTER TABLE "Recommendation" ADD CONSTRAINT "Recommendation_approvedById_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

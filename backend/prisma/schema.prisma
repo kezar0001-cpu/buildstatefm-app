@@ -1,3 +1,6 @@
+// Complete Buildstate FM MVP Schema
+// This extends the previous schema with all remaining modules
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +10,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+<<<<<<< HEAD
 model User {
   id                      String                  @id @default(cuid())
   email                   String                  @unique
@@ -987,12 +991,13 @@ model TenantProfile {
   User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+=======
+>>>>>>> fce809a (12)
 enum Role {
   PROPERTY_MANAGER
   OWNER
   TENANT
   TECHNICIAN
-  ADMIN
 }
 
 enum SubscriptionStatus {
@@ -1014,8 +1019,6 @@ enum UnitStatus {
   OCCUPIED
   MAINTENANCE
   VACANT
-  PENDING_MOVE_IN
-  PENDING_MOVE_OUT
 }
 
 enum InviteStatus {
@@ -1027,7 +1030,6 @@ enum InviteStatus {
 enum InspectionStatus {
   SCHEDULED
   IN_PROGRESS
-  PENDING_APPROVAL
   COMPLETED
   CANCELLED
 }
@@ -1038,45 +1040,6 @@ enum InspectionType {
   MOVE_OUT
   EMERGENCY
   COMPLIANCE
-}
-
-enum RoomType {
-  BEDROOM
-  BATHROOM
-  KITCHEN
-  LIVING_ROOM
-  DINING_ROOM
-  HALLWAY
-  LAUNDRY_ROOM
-  GARAGE
-  BASEMENT
-  ATTIC
-  BALCONY
-  PATIO
-  STORAGE
-  OFFICE
-  OTHER
-}
-
-enum ChecklistItemStatus {
-  PENDING
-  PASSED
-  FAILED
-  NA
-}
-
-enum IssueSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum IssueStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
 }
 
 enum JobStatus {
@@ -1101,10 +1064,6 @@ enum ServiceRequestStatus {
   CONVERTED_TO_JOB
   REJECTED
   COMPLETED
-  PENDING_MANAGER_REVIEW
-  PENDING_OWNER_APPROVAL
-  APPROVED_BY_OWNER
-  REJECTED_BY_OWNER
 }
 
 enum ServiceRequestCategory {
@@ -1139,212 +1098,493 @@ enum NotificationType {
   SYSTEM
 }
 
-enum SubscriptionPlan {
-  FREE_TRIAL
-  STARTER
-  PROFESSIONAL
-  ENTERPRISE
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          Role
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships by role
+  managedProperties   Property[]       @relation("PropertyManager")
+  subscriptions       Subscription[]
+  ownedProperties     PropertyOwner[]
+  tenantUnits         UnitTenant[]
+  
+  // Work assignments
+  assignedInspections Inspection[]     @relation("AssignedTechnician")
+  completedInspections Inspection[]    @relation("CompletedBy")
+  assignedJobs        Job[]            @relation("AssignedTechnician")
+  
+  // Communications
+  sentInvites         Invite[]         @relation("InvitedBy")
+  receivedInvite      Invite?          @relation("InvitedUser")
+  notifications       Notification[]
+  serviceRequests     ServiceRequest[]
+  
+  // Activity
+  createdRecommendations Recommendation[] @relation("CreatedBy")
+  approvedRecommendations Recommendation[] @relation("ApprovedBy")
+
+  @@index([email])
+  @@index([role])
 }
 
-model JobComment {
-  id        String   @id @default(cuid())
-  jobId     String
-  userId    String
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Invite {
+  id            String       @id @default(cuid())
+  email         String
+  role          Role
+  token         String       @unique
+  status        InviteStatus @default(PENDING)
+  expiresAt     DateTime
+  createdAt     DateTime     @default(now())
+  
+  invitedById   String
+  invitedBy     User         @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  
+  invitedUserId String?      @unique
+  invitedUser   User?        @relation("InvitedUser", fields: [invitedUserId], references: [id])
+  
+  propertyId    String?
+  property      Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitId        String?
+  unit          Unit?        @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([jobId])
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  entityType String
-  entityId   String
-  action     String
-  userId     String
-  changes    Json?
-  metadata   Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([entityType, entityId])
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model BlogPost {
-  id              String              @id @default(cuid())
-  title           String
-  slug            String              @unique
-  excerpt         String?             @db.Text
-  content         String              @db.Text
-  htmlContent     String?             @db.Text
-  coverImage      String?
-  authorId        String
-  status          BlogPostStatus      @default(DRAFT)
-  featured        Boolean             @default(false)
-  viewCount       Int                 @default(0)
-
-  // SEO fields
-  metaTitle       String?
-  metaDescription String?             @db.Text
-  metaKeywords    String[]            @default([])
-  ogImage         String?
-
-  publishedAt     DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-
-  // Automation fields
-  isAutomated        Boolean             @default(false)
-  automationMetadata Json?
-
-  author          User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  categories      BlogPostCategory[]
-  tags            BlogPostTag[]
-  media           BlogMedia[]
-
-  @@index([slug])
-  @@index([authorId])
+  @@index([email])
+  @@index([token])
   @@index([status])
-  @@index([publishedAt])
-  @@index([featured])
-  @@index([isAutomated])
 }
 
-model BlogCategory {
-  id          String              @id @default(cuid())
-  name        String              @unique
-  slug        String              @unique
-  description String?             @db.Text
-  color       String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+// ============================================
+// SUBSCRIPTION & BILLING
+// ============================================
 
-  posts       BlogPostCategory[]
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  planId            String
+  planName          String
+  status            SubscriptionStatus @default(TRIAL)
+  
+  // Stripe data
+  stripeCustomerId      String?    @unique
+  stripeSubscriptionId  String?    @unique
+  stripeCurrentPeriodEnd DateTime?
+  
+  // Trial
+  trialStartDate    DateTime       @default(now())
+  trialEndDate      DateTime?
+  
+  startDate         DateTime       @default(now())
+  endDate           DateTime?
+  cancelledAt       DateTime?
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
-  @@index([slug])
+  @@index([userId])
+  @@index([status])
 }
 
-model BlogTag {
-  id          String              @id @default(cuid())
-  name        String              @unique
-  slug        String              @unique
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+// ============================================
+// PROPERTIES & UNITS
+// ============================================
 
-  posts       BlogPostTag[]
+model Property {
+  id              String         @id @default(cuid())
+  name            String
+  address         String
+  city            String
+  state           String?
+  zipCode         String?
+  country         String         @default("USA")
 
-  @@index([slug])
+  propertyType    String
+  yearBuilt       Int?
+  totalUnits      Int            @default(0)
+  totalArea       Float?
+
+  status          PropertyStatus @default(ACTIVE)
+
+  description     String?        @db.Text
+  imageUrl        String?
+  propertyImages  PropertyImage[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  managerId       String
+  manager         User           @relation("PropertyManager", fields: [managerId], references: [id], onDelete: Cascade)
+
+  units           Unit[]
+  owners          PropertyOwner[]
+  inspections     Inspection[]
+  jobs            Job[]
+  plans           MaintenancePlan[]
+  serviceRequests ServiceRequest[]
+  invites         Invite[]
+
+  @@index([managerId])
+  @@index([status])
+  @@index([city, state])
 }
 
-model BlogPostCategory {
-  id         String        @id @default(cuid())
-  postId     String
-  categoryId String
+model PropertyImage {
+  id           String   @id @default(cuid())
+  propertyId   String
+  imageUrl     String
+  caption      String?
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  post       BlogPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  category   BlogCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  @@unique([postId, categoryId])
-  @@index([postId])
-  @@index([categoryId])
+  @@index([propertyId])
+  @@index([displayOrder])
 }
 
-model BlogPostTag {
-  id     String   @id @default(cuid())
-  postId String
-  tagId  String
+model PropertyOwner {
+  id                  String   @id @default(cuid())
+  
+  propertyId          String
+  property            Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  ownerId             String
+  owner               User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  ownershipPercentage Float    @default(100.0)
+  startDate           DateTime @default(now())
+  endDate             DateTime?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([postId, tagId])
-  @@index([postId])
-  @@index([tagId])
+  @@unique([propertyId, ownerId])
+  @@index([propertyId])
+  @@index([ownerId])
 }
 
-model BlogMedia {
-  id        String      @id @default(cuid())
-  postId    String
-  url       String
-  type      MediaType
-  caption   String?
-  altText   String?
-  size      Int?
-  mimeType  String?
-  order     Int         @default(0)
-  createdAt DateTime    @default(now())
+model Unit {
+  id              String     @id @default(cuid())
+  unitNumber      String
+  
+  propertyId      String
+  property        Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  floor           Int?
+  bedrooms        Int?
+  bathrooms       Float?
+  area            Float?
+  
+  rentAmount      Float?
+  status          UnitStatus @default(AVAILABLE)
+  
+  description     String?    @db.Text
+  imageUrl        String?
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  tenants         UnitTenant[]
+  inspections     Inspection[]
+  jobs            Job[]
+  invites         Invite[]
+  serviceRequests ServiceRequest[]
 
-  post      BlogPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@index([postId])
-  @@index([order])
+  @@unique([propertyId, unitNumber])
+  @@index([propertyId])
+  @@index([status])
 }
 
-enum BlogPostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
+model UnitTenant {
+  id            String   @id @default(cuid())
+  
+  unitId        String
+  unit          Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  
+  tenantId      String
+  tenant        User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  leaseStart    DateTime
+  leaseEnd      DateTime
+  rentAmount    Float
+  depositAmount Float?
+  
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([isActive])
 }
 
-enum MediaType {
-  IMAGE
-  VIDEO
-  EMBED
+// ============================================
+// INSPECTIONS
+// ============================================
+
+model Inspection {
+  id              String           @id @default(cuid())
+  title           String
+  type            InspectionType
+  scheduledDate   DateTime
+  completedDate   DateTime?
+  
+  propertyId      String?
+  property        Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitId          String?
+  unit            Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  
+  assignedToId    String?
+  assignedTo      User?            @relation("AssignedTechnician", fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  completedById   String?
+  completedBy     User?            @relation("CompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  
+  status          InspectionStatus @default(SCHEDULED)
+  notes           String?          @db.Text
+  findings        String?          @db.Text
+  
+  // Photos as JSON array of URLs
+  photos          Json?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  report          Report?
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([scheduledDate])
 }
 
-enum PropertyDocumentCategory {
-  LEASE_AGREEMENT
-  INSURANCE
-  PERMIT
-  INSPECTION_REPORT
-  MAINTENANCE_RECORD
-  FINANCIAL
-  LEGAL
-  PHOTOS
-  OTHER
+// ============================================
+// JOBS
+// ============================================
+
+model Job {
+  id              String      @id @default(cuid())
+  title           String
+  description     String      @db.Text
+  priority        JobPriority @default(MEDIUM)
+  status          JobStatus   @default(OPEN)
+  
+  propertyId      String?
+  property        Property?   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitId          String?
+  unit            Unit?       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  
+  assignedToId    String?
+  assignedTo      User?       @relation("AssignedTechnician", fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  // Linked from service request
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  
+  // Linked from maintenance plan
+  maintenancePlanId String?
+  maintenancePlan   MaintenancePlan? @relation(fields: [maintenancePlanId], references: [id], onDelete: SetNull)
+  
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  estimatedCost   Float?
+  actualCost      Float?
+  
+  // Evidence/photos as JSON
+  evidence        Json?
+  notes           String?     @db.Text
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([scheduledDate])
 }
 
-enum PropertyDocumentAccessLevel {
-  PUBLIC
-  TENANT
-  OWNER
-  PROPERTY_MANAGER
+// ============================================
+// MAINTENANCE PLANS
+// ============================================
+
+model MaintenancePlan {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?  @db.Text
+  
+  propertyId        String
+  property          Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  frequency         String   // daily, weekly, monthly, quarterly, annually
+  nextDueDate       DateTime
+  lastCompletedDate DateTime?
+  
+  // Auto-create jobs
+  autoCreateJobs    Boolean  @default(false)
+  
+  isActive          Boolean  @default(true)
+  
+  jobs              Job[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([isActive])
+  @@index([nextDueDate])
 }
 
-enum RecurrenceFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  QUARTERLY
-  YEARLY
+// ============================================
+// SERVICE REQUESTS
+// ============================================
+
+model ServiceRequest {
+  id              String               @id @default(cuid())
+  title           String
+  description     String               @db.Text
+  category        ServiceRequestCategory
+  priority        JobPriority          @default(MEDIUM)
+  status          ServiceRequestStatus @default(SUBMITTED)
+  
+  propertyId      String
+  property        Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitId          String?
+  unit            Unit?                @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  
+  requestedById   String
+  requestedBy     User                 @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  
+  // Photos as JSON array
+  photos          Json?
+  
+  // Manager response
+  reviewNotes     String?              @db.Text
+  reviewedAt      DateTime?
+  
+  jobs            Job[]
+  
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([category])
 }
 
-enum PropertyImageCategory {
-  EXTERIOR
-  INTERIOR
-  KITCHEN
-  BATHROOM
-  BEDROOM
-  OTHER
+// ============================================
+// REPORTS
+// ============================================
+
+model Report {
+  id              String   @id @default(cuid())
+  title           String
+  
+  inspectionId    String   @unique
+  inspection      Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  summary         String   @db.Text
+  findings        String   @db.Text
+  
+  // PDF file URL
+  pdfUrl          String?
+  
+  // Report data as JSON
+  data            Json?
+  
+  recommendations Recommendation[]
+  
+  generatedDate   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([generatedDate])
 }
 
-enum FileScanStatus {
-  PENDING
-  SCANNING
-  CLEAN
-  INFECTED
-  ERROR
-  SKIPPED
+// ============================================
+// RECOMMENDATIONS
+// ============================================
+
+model Recommendation {
+  id              String               @id @default(cuid())
+  title           String
+  description     String               @db.Text
+  
+  reportId        String
+  report          Report               @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  
+  estimatedCost   Float?
+  priority        JobPriority          @default(MEDIUM)
+  status          RecommendationStatus @default(DRAFT)
+  
+  createdById     String
+  createdBy       User                 @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  approvedById    String?
+  approvedBy      User?                @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  
+  approvedAt      DateTime?
+  implementedAt   DateTime?
+  
+  rejectionReason String?              @db.Text
+  
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([reportId])
+  @@index([status])
+  @@index([createdById])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            NotificationType
+  title           String
+  message         String           @db.Text
+  
+  isRead          Boolean          @default(false)
+  readAt          DateTime?
+  
+  // Link to related entity
+  entityType      String?          // 'inspection', 'job', 'service_request', etc.
+  entityId        String?
+  
+  createdAt       DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
