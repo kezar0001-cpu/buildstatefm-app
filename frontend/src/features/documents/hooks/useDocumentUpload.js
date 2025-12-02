@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { validateFiles } from '../utils/documentValidation';
 import apiClient from '../../../api/client';
+import logger from '../../../utils/logger';
 
 /**
  * Document upload hook with queue management and optimistic UI
@@ -69,7 +70,7 @@ export function useDocumentUpload(options = {}) {
       return;
     }
 
-    console.log(
+    logger.log(
       '[useDocumentUpload] Syncing initialDocuments to state:',
       initialDocuments.length,
       'documents'
@@ -109,7 +110,7 @@ export function useDocumentUpload(options = {}) {
     async (files, metadata = {}) => {
       if (!files || files.length === 0) return;
 
-      console.log(`[useDocumentUpload] Adding ${files.length} files to queue`);
+      logger.log(`[useDocumentUpload] Adding ${files.length} files to queue`);
       setError(null);
 
       // Validate files
@@ -124,7 +125,7 @@ export function useDocumentUpload(options = {}) {
         setError(
           `${invalid.length} file(s) failed validation:\n${errorMessages}`
         );
-        console.warn('[useDocumentUpload] Invalid files:', invalid);
+        logger.warn('[useDocumentUpload] Invalid files:', invalid);
 
         if (onError) {
           onError(new Error(errorMessages));
@@ -160,7 +161,7 @@ export function useDocumentUpload(options = {}) {
       // Add to upload queue
       setQueue((prev) => [...prev, ...newDocuments.map((doc) => doc.id)]);
 
-      console.log(
+      logger.log(
         `[useDocumentUpload] Added ${newDocuments.length} documents to queue`
       );
     },
@@ -174,7 +175,7 @@ export function useDocumentUpload(options = {}) {
     if (isUploading) return;
 
     setIsUploading(true);
-    console.log('[useDocumentUpload] Starting queue processing');
+    logger.log('[useDocumentUpload] Starting queue processing');
 
     const documentsToUpload = documents.filter(
       (doc) => queue.includes(doc.id) && doc.status === 'pending'
@@ -231,7 +232,7 @@ export function useDocumentUpload(options = {}) {
           throw new Error('No URL returned from server');
         }
 
-        console.log(
+        logger.log(
           `[useDocumentUpload] Upload complete: ${uploadedUrl.substring(
             0,
             80
@@ -256,7 +257,7 @@ export function useDocumentUpload(options = {}) {
         // Remove from queue
         setQueue((prev) => prev.filter((id) => id !== document.id));
       } catch (err) {
-        console.error(
+        logger.error(
           `[useDocumentUpload] Upload failed for ${document.fileName}:`,
           err
         );
@@ -296,7 +297,7 @@ export function useDocumentUpload(options = {}) {
     }
 
     setIsUploading(false);
-    console.log('[useDocumentUpload] Queue processing complete');
+    logger.log('[useDocumentUpload] Queue processing complete');
 
     // Call onSuccess if all uploads completed
     const allComplete = documents.every(
@@ -321,7 +322,7 @@ export function useDocumentUpload(options = {}) {
       );
 
       if (hasPendingDocuments) {
-        console.log(
+        logger.log(
           '[useDocumentUpload] Auto-processing queue with',
           queue.length,
           'items'
@@ -345,7 +346,7 @@ export function useDocumentUpload(options = {}) {
    * Cancel upload
    */
   const cancelUpload = useCallback((documentId) => {
-    console.log(`[useDocumentUpload] Cancelling upload: ${documentId}`);
+    logger.log(`[useDocumentUpload] Cancelling upload: ${documentId}`);
 
     const controller = abortControllersRef.current.get(documentId);
     if (controller) {
@@ -361,7 +362,7 @@ export function useDocumentUpload(options = {}) {
    */
   const retryUpload = useCallback(
     (documentId) => {
-      console.log(`[useDocumentUpload] Retrying upload: ${documentId}`);
+      logger.log(`[useDocumentUpload] Retrying upload: ${documentId}`);
 
       setDocuments((prev) =>
         prev.map((doc) =>
@@ -382,7 +383,7 @@ export function useDocumentUpload(options = {}) {
    */
   const removeDocument = useCallback(
     (documentId) => {
-      console.log(`[useDocumentUpload] Removing document: ${documentId}`);
+      logger.log(`[useDocumentUpload] Removing document: ${documentId}`);
       cancelUpload(documentId);
       setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
     },
@@ -404,7 +405,7 @@ export function useDocumentUpload(options = {}) {
    * Clear all documents
    */
   const clearAll = useCallback(() => {
-    console.log('[useDocumentUpload] Clearing all documents');
+    logger.log('[useDocumentUpload] Clearing all documents');
 
     documents.forEach((doc) => {
       if (doc.status === 'uploading' || doc.status === 'pending') {

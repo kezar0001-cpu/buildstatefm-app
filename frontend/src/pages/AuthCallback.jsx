@@ -4,10 +4,22 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { saveAuthToken, setCurrentUser } from '../lib/auth.js';
 import { apiClient } from '../api/client.js';
 
+// Helper function to get dashboard path based on user role
+const getDashboardPath = (role) => {
+  const dashboardPaths = {
+    TECHNICIAN: '/technician/dashboard',
+    OWNER: '/owner/dashboard',
+    TENANT: '/tenant/dashboard',
+    PROPERTY_MANAGER: '/dashboard',
+    ADMIN: '/dashboard',
+  };
+  return dashboardPaths[role] || '/dashboard';
+};
+
 /**
  * OAuth Callback Handler
  * Receives token from OAuth providers (Google, etc.) and stores it
- * then redirects to the appropriate dashboard
+ * then redirects to the appropriate dashboard based on user role
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -31,6 +43,8 @@ export default function AuthCallback() {
         // Store the token in localStorage
         saveAuthToken(token);
 
+        let userRole = null;
+
         // Attempt to hydrate the SPA with the latest user context
         try {
           const response = await apiClient.get('/auth/me');
@@ -38,13 +52,15 @@ export default function AuthCallback() {
           const user = payload?.user ?? payload;
           if (user) {
             setCurrentUser(user);
+            userRole = user.role;
           }
         } catch (fetchError) {
           console.error('Failed to fetch current user after OAuth callback:', fetchError);
         }
 
-        // Redirect to the next page or dashboard
-        const redirectPath = next || '/dashboard';
+        // Redirect to the next page or role-specific dashboard
+        const defaultDashboard = getDashboardPath(userRole);
+        const redirectPath = next || defaultDashboard;
         navigate(redirectPath, { replace: true });
       } else {
         // No token provided

@@ -472,8 +472,9 @@ const InspectionsPage = () => {
   // Helper functions for status styling
   const getStatusColor = (displayStatus) => {
     const colors = {
-      SCHEDULED: 'success',
+      SCHEDULED: 'info',
       IN_PROGRESS: 'warning',
+      PENDING_APPROVAL: 'secondary',
       COMPLETED: 'success',
       CANCELLED: 'error',
       OVERDUE: 'error',
@@ -485,6 +486,7 @@ const InspectionsPage = () => {
     const icons = {
       SCHEDULED: <ScheduleIcon fontSize="small" />,
       IN_PROGRESS: <PlayArrowIcon fontSize="small" />,
+      PENDING_APPROVAL: <VisibilityIcon fontSize="small" />,
       COMPLETED: <CheckCircleIcon fontSize="small" />,
       CANCELLED: <CancelIcon fontSize="small" />,
       OVERDUE: <WarningIcon fontSize="small" />,
@@ -578,7 +580,7 @@ const InspectionsPage = () => {
         {/* Filters */}
         <Paper
           sx={{
-            p: { xs: 2.5, md: 3.5 },
+            p: { xs: 2, md: 3.5 },
             mb: 3,
             borderRadius: 3,
             border: '1px solid',
@@ -587,10 +589,15 @@ const InspectionsPage = () => {
             animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack 
+            direction={{ xs: 'column', lg: 'row' }} 
+            spacing={2} 
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+          >
           {/* Search */}
           <TextField
-            placeholder="Search inspections by unit, property, type, or notes..."
+            placeholder="Search inspections..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             InputProps={{
@@ -613,105 +620,111 @@ const InspectionsPage = () => {
               ),
             }}
             size="small"
-            sx={{ flexGrow: 1, minWidth: 250 }}
+            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
           />
 
-          {/* Status Filter */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
+          {/* Filter Row */}
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={1.5} 
+            sx={{ 
+              flexWrap: 'wrap', 
+              gap: 1.5,
+              width: { xs: '100%', lg: 'auto' },
+            }}
+          >
+            {/* Status Filter */}
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  updateSearchParam('status', e.target.value);
+                }}
+              >
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="SCHEDULED">Scheduled</MenuItem>
+                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
+                <MenuItem value="COMPLETED">Completed</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Property Filter */}
+            {viewMode === 'calendar' && (
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+                <InputLabel>Property</InputLabel>
+                <Select
+                  value={propertyFilter}
+                  label="Property"
+                  onChange={(e) => {
+                    setPropertyFilter(e.target.value);
+                    updateSearchParam('property', e.target.value);
+                  }}
+                >
+                  <MenuItem value="">All Properties</MenuItem>
+                  {properties.map((property) => (
+                    <MenuItem key={property.id} value={property.id}>
+                      {property.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Technician Filter */}
+            {viewMode === 'calendar' && (
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+                <InputLabel>Technician</InputLabel>
+                <Select
+                  value={technicianFilter}
+                  label="Technician"
+                  onChange={(e) => {
+                    setTechnicianFilter(e.target.value);
+                    updateSearchParam('technician', e.target.value);
+                  }}
+                >
+                  <MenuItem value="">All Technicians</MenuItem>
+                  {technicians.map((tech) => (
+                    <MenuItem key={tech.id} value={tech.id}>
+                      {tech.firstName} {tech.lastName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Date From */}
+            <TextField
+              label="From"
+              type="date"
+              value={dateFrom}
               onChange={(e) => {
-                setStatusFilter(e.target.value);
-                updateSearchParam('status', e.target.value);
+                setDateFrom(e.target.value);
+                updateSearchParam('dateFrom', e.target.value);
               }}
-            >
-              <MenuItem value="">All Statuses</MenuItem>
-              <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-              <MenuItem value="COMPLETED">Completed</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+            />
 
-          {/* Property Filter */}
-          {viewMode === 'calendar' && (
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Property</InputLabel>
-              <Select
-                value={propertyFilter}
-                label="Property"
-                onChange={(e) => {
-                  setPropertyFilter(e.target.value);
-                  updateSearchParam('property', e.target.value);
-                }}
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {properties.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {/* Technician Filter */}
-          {viewMode === 'calendar' && (
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Technician</InputLabel>
-              <Select
-                value={technicianFilter}
-                label="Technician"
-                onChange={(e) => {
-                  setTechnicianFilter(e.target.value);
-                  updateSearchParam('technician', e.target.value);
-                }}
-              >
-                <MenuItem value="">All Technicians</MenuItem>
-                {technicians.map((tech) => (
-                  <MenuItem key={tech.id} value={tech.id}>
-                    {tech.firstName} {tech.lastName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {/* Date From */}
-          <TextField
-            label="From Date"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
-              updateSearchParam('dateFrom', e.target.value);
-            }}
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{
-              placeholder: 'dd/mm/yyyy',
-            }}
-            sx={{ minWidth: 150 }}
-          />
-
-          {/* Date To */}
-          <TextField
-            label="To Date"
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
-              updateSearchParam('dateTo', e.target.value);
-            }}
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{
-              placeholder: 'dd/mm/yyyy',
-            }}
-            sx={{ minWidth: 150 }}
-          />
+            {/* Date To */}
+            <TextField
+              label="To"
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                updateSearchParam('dateTo', e.target.value);
+              }}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+            />
+          </Stack>
 
           {/* View Toggle */}
           <ToggleButtonGroup
@@ -1135,6 +1148,15 @@ const InspectionsPage = () => {
           <ListItemText>In Progress</ListItemText>
         </MenuItem>
         <MenuItem
+          onClick={() => handleStatusChange(statusMenuInspection, 'PENDING_APPROVAL')}
+          disabled={statusMenuInspection?.status === 'PENDING_APPROVAL' || isUpdatingStatus}
+        >
+          <ListItemIcon>
+            <VisibilityIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Pending Approval</ListItemText>
+        </MenuItem>
+        <MenuItem
           onClick={() => handleStatusChange(statusMenuInspection, 'COMPLETED')}
           disabled={statusMenuInspection?.status === 'COMPLETED' || isUpdatingStatus}
         >
@@ -1190,6 +1212,7 @@ const InspectionKanban = ({
     const grouped = {
       SCHEDULED: [],
       IN_PROGRESS: [],
+      PENDING_APPROVAL: [],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -1202,8 +1225,9 @@ const InspectionKanban = ({
     });
 
     return [
-      { id: 'SCHEDULED', title: 'Scheduled', inspections: grouped.SCHEDULED, color: 'success' },
+      { id: 'SCHEDULED', title: 'Scheduled', inspections: grouped.SCHEDULED, color: 'info' },
       { id: 'IN_PROGRESS', title: 'In Progress', inspections: grouped.IN_PROGRESS, color: 'warning' },
+      { id: 'PENDING_APPROVAL', title: 'Pending Approval', inspections: grouped.PENDING_APPROVAL, color: 'secondary' },
       { id: 'COMPLETED', title: 'Completed', inspections: grouped.COMPLETED, color: 'success' },
       { id: 'CANCELLED', title: 'Cancelled', inspections: grouped.CANCELLED, color: 'error' },
     ];
@@ -1212,7 +1236,7 @@ const InspectionKanban = ({
   return (
     <Grid container spacing={2}>
       {columns.map(column => (
-        <Grid item xs={12} md={6} lg={3} key={column.id}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4} key={column.id}>
           <Paper
             sx={{
               p: 2,

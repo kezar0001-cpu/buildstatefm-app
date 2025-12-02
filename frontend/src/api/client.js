@@ -207,26 +207,20 @@ apiClient.interceptors.request.use(
       const token = getAuthToken();
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
-
-        // Debug logging in development
-        if (import.meta.env.DEV) {
-          console.log('[API Client] Request:', {
-            url: config.url,
-            method: config.method,
-            hasToken: !!token,
-            tokenPreview: token ? `${token.substring(0, 20)}...` : null
-          });
-        }
-      } else {
-        console.warn('[API Client] No auth token found for request:', config.url);
       }
+      // Only log in development mode and avoid excessive logging
+      // Removed: debug logs that were polluting console in production
     } catch (error) {
-      console.error('[API Client] Error attaching auth token:', error);
+      if (import.meta.env.DEV) {
+        console.error('[API Client] Error attaching auth token:', error);
+      }
     }
     return config;
   },
   (error) => {
-    console.error('[API Client] Request interceptor error:', error);
+    if (import.meta.env.DEV) {
+      console.error('[API Client] Request interceptor error:', error);
+    }
     return Promise.reject(error);
   }
 );
