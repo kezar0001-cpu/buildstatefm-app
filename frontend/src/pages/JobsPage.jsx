@@ -638,9 +638,9 @@ const JobsPage = () => {
         {/* Filters */}
       <Paper
         sx={{
-          p: { xs: 2, md: 3.5 },
+          p: { xs: 2, sm: 2.5, md: 3.5 },
           mb: 3,
-          borderRadius: 3,
+          borderRadius: { xs: 2, md: 3 },
           border: '1px solid',
           borderColor: 'divider',
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
