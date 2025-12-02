@@ -75,6 +75,24 @@ function redirectToSignin() {
   }
 }
 
+/**
+ * Get CSRF token from cookie
+ * @returns {string|null} CSRF token or null
+ */
+function getCSRFTokenFromCookie() {
+  if (typeof document === 'undefined') return null;
+  
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'XSRF-TOKEN') {
+      return decodeURIComponent(value);
+    }
+  }
+  
+  return null;
+}
+
 function handleUnauthorized({ error, forceLogout = false }) {
   if (import.meta.env.DEV && error?.config) {
     console.error('[API Client] 401 Unauthorized:', {
@@ -215,6 +233,23 @@ apiClient.interceptors.request.use(
         console.error('[API Client] Error attaching auth token:', error);
       }
     }
+
+    // Attach CSRF token for state-changing requests
+    const stateChangingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (stateChangingMethods.includes(config.method?.toUpperCase())) {
+      try {
+        // Get CSRF token from cookie (set by backend)
+        const csrfToken = getCSRFTokenFromCookie();
+        if (csrfToken) {
+          headers.set('X-XSRF-TOKEN', csrfToken);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('[API Client] Error attaching CSRF token:', error);
+        }
+      }
+    }
+
     return config;
   },
   (error) => {

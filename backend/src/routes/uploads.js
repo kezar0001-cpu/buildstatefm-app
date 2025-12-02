@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { optimizeImage, isImage, getOptimizationSettings } from '../utils/imageOptimization.js';
 import {
   createUploadMiddleware,
   createDocumentUploadMiddleware,
@@ -41,10 +42,34 @@ const inspectionPhotoUpload = createUploadMiddleware({
  * Returns: { url: "/uploads/<filename>" }
  * Requires authentication
  */
-router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), (req, res) => {
+router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return sendError(res, 400, 'No file uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    // Optimize image if it's an image file
+    if (isImage(req.file.mimetype)) {
+      try {
+        const settings = getOptimizationSettings(req.file.mimetype);
+        if (settings) {
+          const optimized = await optimizeImage(req.file.buffer, settings);
+          if (optimized.buffer && !optimized.error) {
+            req.file.buffer = optimized.buffer;
+            req.file.size = optimized.buffer.length;
+            if (optimized.format && optimized.format !== 'original') {
+              const ext = optimized.format === 'webp' ? '.webp' : 
+                         optimized.format === 'jpeg' ? '.jpg' : 
+                         optimized.format === 'png' ? '.png' : '';
+              if (ext) {
+                req.file.originalname = req.file.originalname.replace(/\.[^.]+$/, ext);
+              }
+            }
+          }
+        }
+      } catch (optError) {
+        console.warn('Image optimization failed, using original:', optError.message);
+      }
     }
 
     const url = getUploadedFileUrl(req.file);
@@ -63,10 +88,36 @@ router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), (req
  * Returns: { urls: ["/uploads/<filename1>", "/uploads/<filename2>"] }
  * Requires authentication
  */
-router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50), (req, res) => {
+router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    // Optimize images before upload
+    for (const file of req.files) {
+      if (isImage(file.mimetype)) {
+        try {
+          const settings = getOptimizationSettings(file.mimetype);
+          if (settings) {
+            const optimized = await optimizeImage(file.buffer, settings);
+            if (optimized.buffer && !optimized.error) {
+              file.buffer = optimized.buffer;
+              file.size = optimized.buffer.length;
+              if (optimized.format && optimized.format !== 'original') {
+                const ext = optimized.format === 'webp' ? '.webp' : 
+                           optimized.format === 'jpeg' ? '.jpg' : 
+                           optimized.format === 'png' ? '.png' : '';
+                if (ext) {
+                  file.originalname = file.originalname.replace(/\.[^.]+$/, ext);
+                }
+              }
+            }
+          }
+        } catch (optError) {
+          console.warn(`Image optimization failed for ${file.originalname}:`, optError.message);
+        }
+      }
     }
 
     const urls = getUploadedFileUrls(req.files);
@@ -109,10 +160,36 @@ router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('fi
  * Supports: JPEG, PNG, WebP (up to 10MB each, max 20 files)
  * Requires authentication
  */
-router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoUpload.array('photos', 20), (req, res) => {
+router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoUpload.array('photos', 20), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No photos uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    // Optimize inspection photos before upload
+    for (const file of req.files) {
+      if (isImage(file.mimetype)) {
+        try {
+          const settings = getOptimizationSettings(file.mimetype);
+          if (settings) {
+            const optimized = await optimizeImage(file.buffer, settings);
+            if (optimized.buffer && !optimized.error) {
+              file.buffer = optimized.buffer;
+              file.size = optimized.buffer.length;
+              if (optimized.format && optimized.format !== 'original') {
+                const ext = optimized.format === 'webp' ? '.webp' : 
+                           optimized.format === 'jpeg' ? '.jpg' : 
+                           optimized.format === 'png' ? '.png' : '';
+                if (ext) {
+                  file.originalname = file.originalname.replace(/\.[^.]+$/, ext);
+                }
+              }
+            }
+          }
+        } catch (optError) {
+          console.warn(`Image optimization failed for ${file.originalname}:`, optError.message);
+        }
+      }
     }
 
     const urls = getUploadedFileUrls(req.files);

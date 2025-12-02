@@ -97,6 +97,53 @@ app.options('*', cors(corsOptions));
 // Helmet helps secure Express apps by setting various HTTP headers
 const connectSrc = new Set(["'self'", 'https:', 'wss:']);
 
+// Enhanced Content Security Policy
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: [
+    "'self'",
+    "'unsafe-inline'", // Required for some MUI components
+    "'unsafe-eval'", // Required for some development tools (consider removing in production)
+    'https://js.stripe.com', // Stripe.js
+    'https://checkout.stripe.com', // Stripe checkout
+  ],
+  styleSrc: [
+    "'self'",
+    "'unsafe-inline'", // Required for MUI and inline styles
+    'https://fonts.googleapis.com', // Google Fonts
+  ],
+  fontSrc: [
+    "'self'",
+    'https://fonts.gstatic.com', // Google Fonts
+    'data:', // Base64 encoded fonts
+  ],
+  imgSrc: [
+    "'self'",
+    'data:', // Base64 images
+    'blob:', // Blob URLs for image previews
+    'https:', // External images (S3, CDN, etc.)
+  ],
+  connectSrc: [
+    "'self'",
+    'https:', // API calls
+    'wss:', // WebSocket connections
+    'https://api.stripe.com', // Stripe API
+  ],
+  frameSrc: [
+    "'self'",
+    'https://js.stripe.com', // Stripe elements
+    'https://hooks.stripe.com', // Stripe webhooks
+  ],
+  objectSrc: ["'none'"],
+  mediaSrc: ["'self'", 'blob:', 'https:'],
+  workerSrc: ["'self'", 'blob:'],
+  manifestSrc: ["'self'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  frameAncestors: ["'none'"], // Prevent clickjacking
+  upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null, // Upgrade HTTP to HTTPS in production
+};
+
 function normaliseOrigin(origin) {
   if (!origin) return null;
   return origin.trim().replace(/\/$/, '') || null;
@@ -122,20 +169,68 @@ for (const origin of allowlist) {
   addOriginWithWebsocketVariants(origin);
 }
 
+// Enhanced Content Security Policy
 const contentSecurityPolicy = {
   directives: {
     defaultSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    scriptSrc: ["'self'"],
-    imgSrc: ["'self'", "data:", "https:"],
-    connectSrc: Array.from(connectSrc),
+    scriptSrc: [
+      "'self'",
+      "'unsafe-inline'", // Required for some MUI components
+      "'unsafe-eval'", // Required for some development tools (consider removing in production)
+      'https://js.stripe.com', // Stripe.js
+      'https://checkout.stripe.com', // Stripe checkout
+    ],
+    styleSrc: [
+      "'self'",
+      "'unsafe-inline'", // Required for MUI and inline styles
+      'https://fonts.googleapis.com', // Google Fonts
+    ],
+    fontSrc: [
+      "'self'",
+      'https://fonts.gstatic.com', // Google Fonts
+      'data:', // Base64 encoded fonts
+    ],
+    imgSrc: [
+      "'self'",
+      'data:', // Base64 images
+      'blob:', // Blob URLs for image previews
+      'https:', // External images (S3, CDN, etc.)
+    ],
+    connectSrc: Array.from(connectSrc).concat([
+      'https://api.stripe.com', // Stripe API
+    ]),
+    frameSrc: [
+      "'self'",
+      'https://js.stripe.com', // Stripe elements
+      'https://hooks.stripe.com', // Stripe webhooks
+    ],
+    objectSrc: ["'none'"],
+    mediaSrc: ["'self'", 'blob:', 'https:'],
+    workerSrc: ["'self'", 'blob:'],
+    manifestSrc: ["'self'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'none'"], // Prevent clickjacking
+    upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null, // Upgrade HTTP to HTTPS in production
   },
+  reportOnly: process.env.CSP_REPORT_ONLY === 'true', // Set to 'true' for testing
 };
 
 app.use(helmet({
-  contentSecurityPolicy,
+  contentSecurityPolicy: {
+    directives: cspDirectives,
+    reportOnly: process.env.CSP_REPORT_ONLY === 'true', // Set to 'true' for testing
+  },
   crossOriginEmbedderPolicy: false, // Allow embedding for OAuth
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  noSniff: true, // Prevent MIME type sniffing
+  xssFilter: true, // Enable XSS filter
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
 // Rate limiting to prevent brute force attacks
@@ -243,7 +338,17 @@ app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stri
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ---- Mount routes (MUST come AFTER body parsers)
+// ---- CSRF Protection
+// Generate CSRF token for GET requests
+app.use('/api/', generateCSRFToken);
+
+// CSRF token endpoint
+app.get('/api/csrf-token', getCSRFTokenHandler);
+
+// Apply CSRF protection to state-changing routes (MUST come AFTER body parsers, BEFORE routes)
+app.use('/api/', csrfProtection);
+
+// ---- Mount routes (MUST come AFTER body parsers and CSRF protection)
 app.use('/api/auth', authRoutes);
 app.use('/api/billing', billingRoutes); // This will now correctly ignore the webhook path
 app.use('/api/properties', propertiesRoutes);
