@@ -76,6 +76,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
 import { getCurrentUser } from '../lib/auth';
 import { resolvePropertyImageUrl } from '../utils/propertyImages.js';
+import logger from '../utils/logger';
 import InspectionForm from '../components/InspectionForm';
 
 const UNITS_PAGE_SIZE = 50;
@@ -271,8 +272,8 @@ export default function PropertyDetailPage() {
       : [];
 
   // Debug logging for image display
-  if (process.env.NODE_ENV !== 'production' && property) {
-    console.log('[PropertyDetail] Image display:', {
+  if (property) {
+    logger.debug('[PropertyDetail] Image display:', {
       propertyId: property.id,
       propertyImages: propertyImages.length,
       carouselImages: carouselImages.length,
@@ -393,7 +394,7 @@ export default function PropertyDetailPage() {
 
       return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
     } catch (error) {
-      console.error('Error formatting date:', error);
+      logger.error('Error formatting date:', error);
       return 'N/A';
     }
   };
@@ -430,19 +431,18 @@ export default function PropertyDetailPage() {
   // Handles both string URLs and image objects, resolves relative paths
   const getImageUrl = useCallback((image, index = 0) => {
     if (!image) {
-      console.warn('[PropertyDetail] getImageUrl: No image provided at index', index);
+      logger.warn('[PropertyDetail] getImageUrl: No image provided at index', index);
       return '';
     }
 
     const rawUrl = typeof image === 'string' ? image : image.imageUrl;
     if (!rawUrl) {
-      console.warn('[PropertyDetail] getImageUrl: No URL found for image at index', index, image);
+      logger.warn('[PropertyDetail] getImageUrl: No URL found for image at index', index, image);
       return '';
     }
 
     const resolved = resolvePropertyImageUrl(rawUrl, property?.name);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PropertyDetail] Resolved image ${index}:`, {
+    logger.debug(`[PropertyDetail] Resolved image ${index}:`, {
         raw: rawUrl.substring(0, 80),
         resolved: resolved.substring(0, 80),
       });
@@ -603,7 +603,7 @@ export default function PropertyDetailPage() {
     } catch (error) {
       // Keep dialog open on error so user can retry
       // Error message shown via mutation state
-      console.error('Failed to delete unit:', error);
+      logger.error('Failed to delete unit:', error);
     }
   };
 
@@ -766,7 +766,7 @@ export default function PropertyDetailPage() {
                       onError={(e) => {
                         // Bug Fix #3: Fallback for broken images
                         e.target.style.display = 'none';
-                        console.warn('Failed to load property image:', carouselImages[0]);
+                        logger.warn('Failed to load property image:', carouselImages[0]);
                       }}
                       sx={{
                         position: 'absolute',
@@ -2095,7 +2095,7 @@ export default function PropertyDetailPage() {
                 src={getImageUrl(carouselImages[lightboxIndex], lightboxIndex)}
                 alt={getImageCaption(carouselImages[lightboxIndex], lightboxIndex)}
                 onError={(e) => {
-                  console.error('Failed to load lightbox image:', carouselImages[lightboxIndex]);
+                  logger.error('Failed to load lightbox image:', carouselImages[lightboxIndex]);
                   e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3EImage unavailable%3C/text%3E%3C/svg%3E';
                 }}
                 sx={{

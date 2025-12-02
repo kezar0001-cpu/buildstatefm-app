@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { saveAuthToken, setCurrentUser } from '../lib/auth.js';
 import { apiClient } from '../api/client.js';
+import logger from '../utils/logger';
 
 // Helper function to get dashboard path based on user role
 const getDashboardPath = (role) => {
@@ -32,7 +33,7 @@ export default function AuthCallback() {
 
     // Handle error case
     if (error) {
-      console.error('OAuth error:', error);
+      logger.error('OAuth error:', error);
       navigate(`/signin?error=${error}`);
       return;
     }
@@ -55,7 +56,7 @@ export default function AuthCallback() {
             userRole = user.role;
           }
         } catch (fetchError) {
-          console.error('Failed to fetch current user after OAuth callback:', fetchError);
+          logger.error('Failed to fetch current user after OAuth callback:', fetchError);
         }
 
         // Redirect to the next page or role-specific dashboard
@@ -64,7 +65,7 @@ export default function AuthCallback() {
         navigate(redirectPath, { replace: true });
       } else {
         // No token provided
-        console.error('No token received from OAuth');
+        logger.error('No token received from OAuth');
         navigate('/signin?error=no_token');
       }
     };

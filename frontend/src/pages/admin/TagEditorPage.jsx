@@ -16,6 +16,7 @@ import {
   updateBlogTag,
 } from '../../api/blog';
 import toast from 'react-hot-toast';
+import logger from '../../utils/logger';
 
 function TagEditorPage() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ function TagEditorPage() {
         });
       }
     } catch (error) {
-      console.error('Error fetching tag:', error);
+      logger.error('Error fetching tag:', error);
       toast.error('Failed to load tag');
     } finally {
       setLoading(false);
@@ -80,7 +81,7 @@ function TagEditorPage() {
       }
       navigate('/admin/blog');
     } catch (error) {
-      console.error('Error saving tag:', error);
+      logger.error('Error saving tag:', error);
       toast.error(error.response?.data?.message || 'Failed to save tag');
     } finally {
       setSaving(false);

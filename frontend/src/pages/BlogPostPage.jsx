@@ -18,6 +18,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { format } from 'date-fns';
 import { getBlogPost } from '../api/blog';
+import logger from '../utils/logger';
 import SEO from '../components/SEO';
 import BlogPublicNav from '../components/BlogPublicNav';
 import toast from 'react-hot-toast';
@@ -38,7 +39,7 @@ const BlogPostPage = () => {
       const response = await getBlogPost(slug);
       setPost(response.data);
     } catch (error) {
-      console.error('Error fetching blog post:', error);
+      logger.error('Error fetching blog post:', error);
       if (error.response?.status === 404) {
         toast.error('Blog post not found');
         navigate('/blog');

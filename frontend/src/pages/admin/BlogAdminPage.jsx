@@ -39,6 +39,7 @@ import {
   getBlogTags,
 } from '../../api/blog';
 import toast from 'react-hot-toast';
+import logger from '../../utils/logger';
 import BlogAutomationTab from '../../components/BlogAutomationTab';
 
 function TabPanel({ children, value, index }) {
@@ -76,7 +77,7 @@ function BlogAdminPage() {
       setCategories(categoriesRes.data);
       setTags(tagsRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      logger.error('Error fetching data:', error);
       toast.error('Failed to load blog data');
     } finally {
       setLoading(false);
@@ -96,7 +97,7 @@ function BlogAdminPage() {
       setPostToDelete(null);
       fetchData();
     } catch (error) {
-      console.error('Error deleting post:', error);
+      logger.error('Error deleting post:', error);
       toast.error('Failed to delete post');
     }
   };

@@ -25,7 +25,7 @@ import {
   Cancel as CancelIcon,
   Build as BuildIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';

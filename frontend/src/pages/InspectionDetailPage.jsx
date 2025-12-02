@@ -54,6 +54,7 @@ import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
 import { useCurrentUser } from '../context/UserContext';
 import { queryKeys } from '../utils/queryKeys.js';
+import logger from '../utils/logger';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low' },
@@ -203,7 +204,7 @@ export default function InspectionDetailPage() {
         window.open(response.data.downloadUrl, '_blank');
       }
     } catch (error) {
-      console.error('Failed to generate PDF:', error);
+      logger.error('Failed to generate PDF:', error);
       alert('Failed to generate PDF report. Please try again.');
     } finally {
       setPdfGenerating(false);

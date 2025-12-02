@@ -78,6 +78,7 @@ import {
   getStatusHelperText,
 } from '../constants/jobStatuses.js';
 import { useCurrentUser } from '../context/UserContext';
+import logger from '../utils/logger';
 
 const KANBAN_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
@@ -348,7 +349,7 @@ const JobsPage = () => {
       setJobToDelete(null);
       setSelectedJobIds(prev => prev.filter(id => id !== jobToDelete.id));
     } catch (error) {
-      console.error('Delete failed:', error);
+      logger.error('Delete failed:', error);
     }
   };
 
@@ -1346,7 +1347,7 @@ const JobsPage = () => {
                   });
                   refetch();
                 } catch (error) {
-                  console.error('Failed to reschedule job:', error);
+                  logger.error('Failed to reschedule job:', error);
                   toast.error('Failed to reschedule job');
                 }
               }}

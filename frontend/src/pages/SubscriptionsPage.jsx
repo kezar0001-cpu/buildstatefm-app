@@ -30,6 +30,7 @@ import { calculateDaysRemaining, formatDate } from '../utils/date.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 import { redirectToBillingPortal } from '../utils/billing.js';
 import { queryKeys } from '../utils/queryKeys.js';
+import logger from '../utils/logger';
 
 const normaliseStatus = (status) =>
   typeof status === 'string' ? status.toUpperCase() : '';
@@ -309,7 +310,7 @@ export default function SubscriptionsPage() {
       }
     } catch (err) {
       // Error is displayed via checkoutMutation.isError and checkoutMutation.error
-      console.error("Checkout failed:", err);
+      logger.error("Checkout failed:", err);
     }
   };
 
@@ -324,7 +325,7 @@ export default function SubscriptionsPage() {
         window.location.href = res.data.url; // Redirect to Stripe billing portal
       }
     } catch (err) {
-      console.error('Update payment method failed:', err);
+      logger.error('Update payment method failed:', err);
     }
   };
 
@@ -335,7 +336,7 @@ export default function SubscriptionsPage() {
       });
       setCancelDialogOpen(false);
     } catch (err) {
-      console.error('Cancel subscription failed:', err);
+      logger.error('Cancel subscription failed:', err);
     }
   };
 

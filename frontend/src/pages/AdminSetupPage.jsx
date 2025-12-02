@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { saveAuthToken, setCurrentUser } from '../lib/auth';
+import logger from '../utils/logger';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LockIcon from '@mui/icons-material/Lock';
 
@@ -50,7 +51,7 @@ export default function AdminSetupPage() {
       }
     } catch (err) {
       setError('Failed to check setup status. Please try again.');
-      console.error('Setup check error:', err);
+      logger.error('Setup check error:', err);
     } finally {
       setChecking(false);
     }
@@ -108,7 +109,7 @@ export default function AdminSetupPage() {
     } catch (err) {
       const message = err.response?.data?.message || 'Setup failed. Please try again.';
       setError(message);
-      console.error('Setup error:', err);
+      logger.error('Setup error:', err);
     } finally {
       setLoading(false);
     }

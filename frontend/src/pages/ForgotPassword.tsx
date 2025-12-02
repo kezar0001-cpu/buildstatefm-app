@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, Email } from '@mui/icons-material';
 import { apiClient } from '../api/client.js';
+import logger from '../utils/logger';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -57,7 +58,7 @@ export default function ForgotPassword() {
         setError(payload.message || 'An error occurred. Please try again.');
       }
     } catch (err: any) {
-      console.error('Forgot password error:', err);
+      logger.error('Forgot password error:', err);
 
       // Handle different error responses
       if (err.response?.data?.message) {

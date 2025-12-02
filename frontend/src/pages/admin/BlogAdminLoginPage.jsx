@@ -14,6 +14,7 @@ import {
 import { Visibility, VisibilityOff, ArrowBack, AdminPanelSettings } from '@mui/icons-material';
 import { setCurrentUser } from '../../lib/auth';
 import { apiClient } from '../../api/client.js';
+import logger from '../../utils/logger';
 
 export default function BlogAdminLoginPage() {
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function BlogAdminLoginPage() {
         err?.message ||
         'Login failed. Please check your credentials.';
       setError(msg);
-      console.error('Blog admin login error:', err);
+      logger.error('Blog admin login error:', err);
     } finally {
       setLoading(false);
     }

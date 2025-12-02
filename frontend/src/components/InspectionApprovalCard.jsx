@@ -52,8 +52,8 @@ export default function InspectionApprovalCard({ inspection, currentUser }) {
     return null;
   }
 
-  // Only show to managers
-  if (currentUser?.role !== 'MANAGER') {
+  // Only show to property managers and admins
+  if (currentUser?.role !== 'PROPERTY_MANAGER' && currentUser?.role !== 'ADMIN') {
     return null;
   }
 

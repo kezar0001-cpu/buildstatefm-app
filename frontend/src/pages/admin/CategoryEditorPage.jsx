@@ -16,6 +16,7 @@ import {
   updateBlogCategory,
 } from '../../api/blog';
 import toast from 'react-hot-toast';
+import logger from '../../utils/logger';
 
 function CategoryEditorPage() {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ function CategoryEditorPage() {
         });
       }
     } catch (error) {
-      console.error('Error fetching category:', error);
+      logger.error('Error fetching category:', error);
       toast.error('Failed to load category');
     } finally {
       setLoading(false);
@@ -84,7 +85,7 @@ function CategoryEditorPage() {
       }
       navigate('/admin/blog');
     } catch (error) {
-      console.error('Error saving category:', error);
+      logger.error('Error saving category:', error);
       toast.error(error.response?.data?.message || 'Failed to save category');
     } finally {
       setSaving(false);

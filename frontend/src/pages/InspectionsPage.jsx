@@ -83,6 +83,7 @@ import { formatDateTime, formatDate } from '../utils/date';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 import { useInspectionStatusUpdate } from '../hooks/useInspectionStatusUpdate';
+import logger from '../utils/logger';
 
 /**
  * Enhanced Inspections Page Component
@@ -362,7 +363,7 @@ const InspectionsPage = () => {
       setSelectedInspection(null);
       setSelectedIds(prev => prev.filter(id => id !== selectedInspection.id));
     } catch (error) {
-      console.error('Delete failed:', error);
+      logger.error('Delete failed:', error);
     }
   };
 
@@ -395,7 +396,7 @@ const InspectionsPage = () => {
       try {
         localStorage.setItem('inspections-view-mode', nextView);
       } catch (error) {
-        console.warn('Failed to save view mode preference:', error);
+        logger.warn('Failed to save view mode preference:', error);
       }
     }
   };
@@ -911,7 +912,7 @@ const InspectionsPage = () => {
                   });
                   queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
                 } catch (error) {
-                  console.error('Failed to reschedule inspection:', error);
+                  logger.error('Failed to reschedule inspection:', error);
                 }
               }}
               canDrag={true}
