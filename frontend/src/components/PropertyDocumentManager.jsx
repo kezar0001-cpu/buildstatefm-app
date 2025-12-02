@@ -38,6 +38,8 @@ import {
   useAddPropertyDocument,
   useDeletePropertyDocument,
 } from '../hooks/usePropertyDocuments.js';
+import toast from 'react-hot-toast';
+import LoadingButton from './LoadingButton';
 import { useNotification } from '../hooks/useNotification.js';
 import { DOCUMENT_CATEGORIES, DOCUMENT_ACCESS_LEVELS } from '../schemas/propertySchema.js';
 import { downloadFile, buildDocumentDownloadUrl } from '../utils/fileUtils.js';
@@ -190,6 +192,8 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         },
       });
 
+      toast.success('Document uploaded successfully!');
+
       // Reset form and clear file input
       setUploadDialogOpen(false);
       setSelectedFile(null);
@@ -207,6 +211,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
     } catch (error) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to upload document';
       setUploadError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -217,10 +222,13 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       await deleteDocumentMutation.mutateAsync({
         url: `/properties/${propertyId}/documents/${selectedDocument.id}`,
       });
+      toast.success('Document deleted successfully!');
       setDeleteDialogOpen(false);
       setSelectedDocument(null);
     } catch (error) {
-      showError(error.response?.data?.message || 'Failed to delete document');
+      const errorMsg = error.response?.data?.message || 'Failed to delete document';
+      showError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -429,14 +437,15 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-          <Button
+          <LoadingButton
             onClick={handleUpload}
             variant="contained"
-            disabled={!selectedFile || addDocumentMutation.isPending}
-            startIcon={addDocumentMutation.isPending ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+            loading={addDocumentMutation.isPending}
+            disabled={!selectedFile}
+            startIcon={<CloudUploadIcon />}
           >
-            {addDocumentMutation.isPending ? 'Uploading...' : 'Upload'}
-          </Button>
+            Upload
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 
@@ -450,14 +459,14 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button
+          <LoadingButton
             onClick={handleDeleteDocument}
             color="error"
             variant="contained"
-            disabled={deleteDocumentMutation.isPending}
+            loading={deleteDocumentMutation.isPending}
           >
-            {deleteDocumentMutation.isPending ? 'Deleting...' : 'Delete'}
-          </Button>
+            Delete
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </Box>

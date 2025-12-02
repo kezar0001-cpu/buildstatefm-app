@@ -15,7 +15,9 @@ import {
   Cancel as RejectIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import useApiMutation from '../hooks/useApiMutation';
+import LoadingButton from './LoadingButton';
 import { queryKeys } from '../utils/queryKeys';
 import InspectionRejectionDialog from './InspectionRejectionDialog';
 
@@ -38,8 +40,11 @@ export default function InspectionApprovalCard({ inspection, currentUser }) {
         url: `/inspections/${inspection.id}/approve`,
         data: {},
       });
+      toast.success('Inspection approved successfully!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to approve inspection');
+      const errorMsg = err.response?.data?.error || 'Failed to approve inspection';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -127,15 +132,15 @@ export default function InspectionApprovalCard({ inspection, currentUser }) {
           >
             Reject
           </Button>
-          <Button
+          <LoadingButton
             startIcon={<ApproveIcon />}
             variant="contained"
             color="success"
             onClick={handleApprove}
-            disabled={approveMutation.isPending}
+            loading={approveMutation.isPending}
           >
-            {approveMutation.isPending ? 'Approving...' : 'Approve'}
-          </Button>
+            Approve
+          </LoadingButton>
         </CardActions>
       </Card>
 
