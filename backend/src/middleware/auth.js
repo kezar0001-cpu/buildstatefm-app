@@ -286,7 +286,10 @@ export const requirePropertyManagerSubscription = async (req, res, next) => {
 
 /**
  * Middleware to require a specific feature based on subscription plan
- * @param {string} feature - The feature name (e.g., 'customTemplates', 'apiAccess', 'auditTrails')
+ * NOTE: In the new usage-based model, all features are available to all plans.
+ * This middleware is kept for backward compatibility but always allows access.
+ * Use requireUsage instead to enforce usage limits.
+ * @param {string} feature - The feature name (kept for backward compatibility)
  * @returns {Function} Express middleware
  */
 export const requireFeature = (feature) => {
@@ -295,13 +298,76 @@ export const requireFeature = (feature) => {
       return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
     }
 
-    const userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
+    // All features are available in the usage-based model
+    return next();
+  };
+};
 
-    if (hasFeature(userPlan, feature)) {
-      return next();
+/**
+ * Middleware to check and enforce usage limits
+ * Prevents actions when usage limits are reached
+ * @param {string} limitType - The type of limit to check (e.g., 'properties', 'teamMembers', 'inspectionsPerMonth')
+ * @param {Function} getCurrentUsageFn - Async function that returns current usage count
+ * @returns {Function} Express middleware
+ */
+export const requireUsage = (limitType, getCurrentUsageFn) => {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
     }
 
-    const message = getLimitReachedMessage(feature, userPlan);
-    return sendError(res, 403, message, ErrorCodes.SUB_FEATURE_NOT_AVAILABLE);
+    try {
+      // Get the property manager's plan (for property managers, it's their own plan)
+      let userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
+      let userId = req.user.id;
+
+      // For non-property managers, check their property manager's subscription
+      if (req.user.role !== 'PROPERTY_MANAGER') {
+        const propertyId = req.body?.propertyId || req.params?.propertyId || req.query?.propertyId;
+
+        if (propertyId) {
+          const property = await prisma.property.findUnique({
+            where: { id: propertyId },
+            select: {
+              managerId: true,
+              manager: {
+                select: {
+                  subscriptionPlan: true,
+                },
+              },
+            },
+          });
+
+          if (property) {
+            userPlan = property.manager.subscriptionPlan;
+            userId = property.managerId;
+          }
+        }
+      }
+
+      // Get current usage
+      const currentUsage = await getCurrentUsageFn(userId, req);
+
+      // Import after function declaration to avoid circular dependency
+      const { hasReachedLimit, getLimitReachedMessage } = await import('../utils/subscriptionLimits.js');
+
+      // Check if limit is reached
+      if (hasReachedLimit(userPlan, limitType, currentUsage)) {
+        const message = getLimitReachedMessage(limitType, userPlan);
+        return sendError(res, 403, message, ErrorCodes.SUB_USAGE_LIMIT_REACHED);
+      }
+
+      // Store usage info in request for potential use in route handler
+      req.usageInfo = {
+        limitType,
+        currentUsage,
+        plan: userPlan,
+      };
+
+      return next();
+    } catch (error) {
+      console.error('Usage limit check error:', error);
+      return sendError(res, 500, 'Failed to verify usage limits', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
   };
 };
