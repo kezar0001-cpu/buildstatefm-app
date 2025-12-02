@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import prisma from '../config/prismaClient.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { isValidInspectionTransition, getAllowedInspectionTransitions } from '../utils/statusTransitions.js';
 import * as inspectionService from '../services/inspectionService.js';
 import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
 
@@ -318,6 +319,23 @@ export const updateInspection = async (req, res) => {
   try {
     const payload = inspectionUpdateSchema.parse(req.body);
     const before = await prisma.inspection.findUnique({ where: { id: req.params.id } });
+    
+    if (!before) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+    
+    // Validate status transition if status is being changed
+    if (payload.status !== undefined && payload.status !== before.status) {
+      if (!isValidInspectionTransition(before.status, payload.status)) {
+        const allowed = getAllowedInspectionTransitions(before.status);
+        return sendError(
+          res,
+          400,
+          `Invalid status transition from ${before.status} to ${payload.status}. Allowed transitions: ${allowed.join(', ') || 'none'}`,
+          ErrorCodes.BIZ_INVALID_STATUS_TRANSITION
+        );
+      }
+    }
     
     const inspection = await prisma.inspection.update({
       where: { id: req.params.id },

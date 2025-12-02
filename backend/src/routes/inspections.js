@@ -3,6 +3,7 @@ import multer from 'multer';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { isValidInspectionTransition } from '../utils/statusTransitions.js';
 import * as inspectionController from '../controllers/inspectionController.js';
 import * as inspectionDetailsController from '../controllers/inspectionDetailsController.js';
 
