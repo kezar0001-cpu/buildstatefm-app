@@ -22,6 +22,10 @@ dotenv.config();
 
 logger.info('>>> STARTING Buildstate FM Backend <<<');
 
+// ---- Validate Environment
+import { validateEnvironment } from './src/utils/validateEnv.js';
+validateEnvironment(true); // Fail fast if critical vars missing
+
 // ---- Prisma (re-exported for backwards compatibility)
 export { prismaInstance as prisma };
 

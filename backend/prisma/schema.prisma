@@ -57,6 +57,7 @@ model User {
   unitOwners              UnitOwner[]             @relation("UnitOwners")
   reportRequests          ReportRequest[]         @relation("ReportRequestsCreated")
   passwordResets          PasswordReset[]
+  emailVerificationTokens EmailVerificationToken[] @relation("EmailVerificationTokens")
   auditLogs               AuditLog[]
   Org                     Org?                    @relation(fields: [orgId], references: [id])
   blogPosts               BlogPost[]
@@ -65,6 +66,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([lastLoginAt])
 }
 
 model PasswordReset {
@@ -76,6 +78,20 @@ model PasswordReset {
   usedAt    DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([selector])
+}
+
+model EmailVerificationToken {
+  id             String   @id @default(cuid())
+  userId         String
+  selector       String   @unique
+  hashedVerifier String
+  expiresAt      DateTime
+  used           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  user           User     @relation("EmailVerificationTokens", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([selector])
@@ -123,6 +139,20 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
+}
+
+model StripeWebhookEvent {
+  id           String   @id @default(cuid())
+  eventId      String   @unique
+  eventType    String
+  processed    Boolean  @default(false)
+  processedAt  DateTime?
+  createdAt    DateTime @default(now())
+  data         Json?
+
+  @@index([eventId])
+  @@index([processed])
+  @@index([createdAt])
 }
 
 model Property {
@@ -431,6 +461,7 @@ model Inspection {
   @@index([recurringInspectionId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([completedDate])
 }
 
 model Job {
@@ -472,6 +503,7 @@ model Job {
   @@index([status])
   @@index([priority])
   @@index([scheduledDate])
+  @@index([assignedToId, status])
   @@index([inspectionId])
 }
 
@@ -540,6 +572,7 @@ model ServiceRequest {
   @@index([requestedById])
   @@index([approvedById])
   @@index([rejectedById])
+  @@index([lastReviewedById])
   @@index([status])
   @@index([category])
 }
