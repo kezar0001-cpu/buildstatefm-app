@@ -23,6 +23,7 @@ import SEO from '../components/SEO';
 import BlogPublicNav from '../components/BlogPublicNav';
 import toast from 'react-hot-toast';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
+import DataState from '../components/DataState';
 
 const BlogPostPage = () => {
   const { slug } = useParams();
@@ -55,7 +56,7 @@ const BlogPostPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress size={60} />
+        <DataState type="loading" message="Loading blog post..." />
       </Box>
     );
   }
