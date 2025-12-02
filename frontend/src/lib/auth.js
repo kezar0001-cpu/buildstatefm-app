@@ -74,10 +74,10 @@ export function removeAuthToken() {
 
 export function portalPathForRole(role) {
   switch (role) {
-    case 'ADMIN': return '/admin/dashboard';
+    case 'ADMIN': return '/dashboard';
     case 'PROPERTY_MANAGER': return '/dashboard';
     case 'OWNER': return '/owner/dashboard';
-    case 'TECHNICIAN': return '/tech/dashboard';
+    case 'TECHNICIAN': return '/technician/dashboard';
     case 'TENANT': return '/tenant/dashboard';
     default: return '/dashboard';
   }
