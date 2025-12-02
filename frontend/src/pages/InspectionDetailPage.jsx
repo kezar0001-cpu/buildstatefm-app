@@ -39,6 +39,7 @@ import {
   Photo as PhotoIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
@@ -205,7 +206,7 @@ export default function InspectionDetailPage() {
       }
     } catch (error) {
       logger.error('Failed to generate PDF:', error);
-      alert('Failed to generate PDF report. Please try again.');
+      toast.error('Failed to generate PDF report. Please try again.');
     } finally {
       setPdfGenerating(false);
     }
