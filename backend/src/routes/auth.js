@@ -429,15 +429,81 @@ router.post('/login', async (req, res) => {
       return sendError(res, 401, 'Invalid email or password', ErrorCodes.AUTH_INVALID_CREDENTIALS);
     }
 
-    // ❌ Removed: subscription checks (not on User in this schema)
+    // Security: Regenerate session to prevent session fixation attacks
+    if (req.session && typeof req.session.regenerate === 'function') {
+      return new Promise((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            console.error('Session regeneration error:', err);
+            // Continue with login even if regeneration fails
+          }
+          handleSuccessfulLogin(user, res).then(resolve).catch(reject);
+        });
+      });
+    }
 
-    const { accessToken, refreshToken } = issueAuthTokens(user, res);
+    // If no session middleware, proceed normally
+    return handleSuccessfulLogin(user, res);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.errors);
+    }
+    console.error('Login error:', error);
+    return sendError(res, 500, 'Login failed', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
 
-    // Combine trial state check and lastLoginAt update in single operation
-    const userWithTrial = await ensureTrialState(user, true);
+// Helper function to handle successful login
+async function handleSuccessfulLogin(user, res) {
+  // ❌ Removed: subscription checks (not on User in this schema)
 
-    const { passwordHash: _ph, ...userWithoutPassword } = userWithTrial;
-    res.json({ success: true, token: accessToken, accessToken, refreshToken, user: userWithoutPassword });
+  const { accessToken, refreshToken } = issueAuthTokens(user, res);
+
+  // Combine trial state check and lastLoginAt update in single operation
+  const userWithTrial = await ensureTrialState(user, true);
+
+  const { passwordHash: _ph, ...userWithoutPassword } = userWithTrial;
+  res.json({ success: true, token: accessToken, accessToken, refreshToken, user: userWithoutPassword });
+}
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password, role } = loginSchema.parse(req.body);
+    const whereClause = role ? { email, role } : { email };
+
+    const user = await prisma.user.findFirst({
+      where: whereClause,
+      // ❌ Removed: include: { org: true }
+    });
+
+    if (!user) {
+      return sendError(res, 401, 'Invalid email or password', ErrorCodes.AUTH_INVALID_CREDENTIALS);
+    }
+
+    if (!user.passwordHash) {
+      return sendError(res, 401, 'Please login with Google', ErrorCodes.AUTH_INVALID_CREDENTIALS);
+    }
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) {
+      return sendError(res, 401, 'Invalid email or password', ErrorCodes.AUTH_INVALID_CREDENTIALS);
+    }
+
+    // Security: Regenerate session to prevent session fixation attacks
+    if (req.session && typeof req.session.regenerate === 'function') {
+      return new Promise((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            console.error('Session regeneration error:', err);
+            // Continue with login even if regeneration fails
+          }
+          handleSuccessfulLogin(user, res).then(resolve).catch(reject);
+        });
+      });
+    }
+
+    // If no session middleware, proceed normally
+    return handleSuccessfulLogin(user, res);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.errors);
@@ -718,8 +784,16 @@ router.get('/reset-password/validate', async (req, res) => {
       include: { user: true },
     });
 
-    // Validate token
-    if (!passwordReset) {
+    // Security: Always perform bcrypt comparison to prevent timing attacks
+    // Use a dummy hash if record doesn't exist to maintain constant-time response
+    const dummyHash = '$2b$10$dummyhashforconstanttimecomparison1234567890123456789012';
+    const hashToCompare = passwordReset?.verifier || dummyHash;
+    
+    // Verify the token against stored hashed verifier (or dummy hash)
+    const isValidToken = await bcrypt.compare(String(token), hashToCompare);
+
+    // Validate token exists and is valid
+    if (!passwordReset || !isValidToken) {
       return sendError(res, 400, 'Invalid or expired reset link', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
@@ -731,13 +805,6 @@ router.get('/reset-password/validate', async (req, res) => {
     // Check if token has expired
     if (new Date() > new Date(passwordReset.expiresAt)) {
       return sendError(res, 400, 'This reset link has expired', ErrorCodes.VAL_INVALID_REQUEST);
-    }
-
-    // Verify the token against stored hashed verifier
-    const isValidToken = await bcrypt.compare(String(token), passwordReset.verifier);
-
-    if (!isValidToken) {
-      return sendError(res, 400, 'Invalid reset link', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
     // Token is valid
@@ -766,8 +833,16 @@ router.post('/reset-password', async (req, res) => {
       include: { user: true },
     });
 
-    // Validate token exists
-    if (!passwordReset) {
+    // Security: Always perform bcrypt comparison to prevent timing attacks
+    // Use a dummy hash if record doesn't exist to maintain constant-time response
+    const dummyHash = '$2b$10$dummyhashforconstanttimecomparison1234567890123456789012';
+    const hashToCompare = passwordReset?.verifier || dummyHash;
+    
+    // Verify the token against stored hashed verifier (or dummy hash)
+    const isValidToken = await bcrypt.compare(token, hashToCompare);
+
+    // Validate token exists and is valid
+    if (!passwordReset || !isValidToken) {
       return sendError(res, 400, 'Invalid or expired reset link', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
@@ -795,13 +870,6 @@ router.post('/reset-password', async (req, res) => {
     // Check if token has expired
     if (new Date() > new Date(passwordReset.expiresAt)) {
       return sendError(res, 400, 'This reset link has expired. Please request a new password reset.', ErrorCodes.VAL_INVALID_REQUEST);
-    }
-
-    // Verify the token against stored hashed verifier
-    const isValidToken = await bcrypt.compare(token, passwordReset.verifier);
-
-    if (!isValidToken) {
-      return sendError(res, 400, 'Invalid reset link', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
     // Hash the new password

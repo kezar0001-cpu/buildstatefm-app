@@ -156,6 +156,8 @@ const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 requests per windowMs
   message: 'Too many authentication attempts, please try again later.',
   skipSuccessfulRequests: true,
+  standardHeaders: true, // Add X-RateLimit-* headers
+  legacyHeaders: false,
 });
 
 const forgotPasswordLimiter = rateLimit({
