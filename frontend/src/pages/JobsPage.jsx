@@ -610,8 +610,8 @@ const JobsPage = () => {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
         <DataState
-          type="error"
-          message="Failed to load jobs"
+          isError={true}
+          error={error}
           onRetry={refetch}
         />
       </Container>

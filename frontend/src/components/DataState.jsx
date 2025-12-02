@@ -34,8 +34,14 @@ export default function DataState({
     isLoading = true;
   } else if (type === 'error') {
     isError = true;
-    if (message) {
+    // Only create a new error object if error is not already provided
+    // This preserves error properties like response.status, response.data.errorCode, etc.
+    if (!error && message) {
       error = { message };
+    } else if (error && message) {
+      // If error exists but message is provided, merge message into error
+      // This allows overriding the message while preserving other error properties
+      error = { ...error, message };
     }
   } else if (type === 'empty') {
     isEmpty = true;

@@ -597,8 +597,8 @@ export default function PropertiesPage() {
           </Box>
         ) : isError ? (
           <DataState
-            type="error"
-            message={error?.message || 'Failed to load properties'}
+            isError={true}
+            error={error}
             onRetry={refetch}
           />
         ) : properties.length === 0 ? (
