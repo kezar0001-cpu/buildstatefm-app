@@ -31,7 +31,6 @@ import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import ServiceRequestForm from '../components/ServiceRequestForm';
 import ServiceRequestDetailModal from '../components/ServiceRequestDetailModal';
-import { CircularProgress, Box } from '@mui/material';
 import ensureArray from '../utils/ensureArray';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { queryKeys } from '../utils/queryKeys.js';
