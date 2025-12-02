@@ -12,12 +12,14 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
+import { invalidateServiceRequestQueries, invalidateDashboardQueries } from '../utils/cacheInvalidation.js';
 
 const ServiceRequestForm = ({ onSuccess, onCancel }) => {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,7 +58,12 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       const response = await apiClient.post('/service-requests', data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate service request queries
+      const requestId = data?.id || data?.serviceRequest?.id;
+      invalidateServiceRequestQueries(queryClient, requestId);
+      invalidateDashboardQueries(queryClient);
+      
       onSuccess();
     },
     onError: (error) => {

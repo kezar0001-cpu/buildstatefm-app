@@ -41,9 +41,11 @@ export const getDashboardSummary = async (req, res) => {
       serviceRequestWhere = { property: { owners: { some: { ownerId: userId } } } };
     } else if (role === 'TENANT') {
       // Tenant: get properties via active unit tenancies
+      // Optimization: Use a single query with direct propertyId selection
       const tenantUnits = await prisma.unitTenant.findMany({
         where: { tenantId: userId, isActive: true },
         select: { unit: { select: { propertyId: true } } },
+        // Add index hint: ensure unitTenant has index on (tenantId, isActive)
       });
       const propertyIds = [...new Set(
         tenantUnits

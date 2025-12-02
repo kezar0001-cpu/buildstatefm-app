@@ -6,54 +6,14 @@ import { prisma } from '../config/prismaClient.js';
 import { notifyJobAssigned, notifyJobCompleted, notifyJobStarted, notifyJobReassigned } from '../utils/notificationService.js';
 import { invalidate } from '../utils/cache.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { isValidJobTransition, getAllowedJobTransitions } from '../utils/statusTransitions.js';
 
 const router = express.Router();
 
 const STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
-// State machine for job status transitions
-// Defines valid transitions from each status to ensure data integrity
-const VALID_TRANSITIONS = {
-  OPEN: ['ASSIGNED', 'CANCELLED'],
-  ASSIGNED: ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED', 'ASSIGNED', 'CANCELLED'],
-  COMPLETED: [], // Terminal state - no transitions allowed
-  CANCELLED: [], // Terminal state - no transitions allowed
-};
-
-/**
- * Validates if a status transition is allowed by the state machine
- * @param {string} currentStatus - The current job status
- * @param {string} newStatus - The desired new status
- * @returns {boolean} - True if transition is valid, false otherwise
- */
-const isValidStatusTransition = (currentStatus, newStatus) => {
-  // If status is not changing, it's always valid
-  if (currentStatus === newStatus) {
-    return true;
-  }
-
-  // Check if the transition is allowed
-  const allowedTransitions = VALID_TRANSITIONS[currentStatus];
-  return allowedTransitions && allowedTransitions.includes(newStatus);
-};
-
-/**
- * Gets a human-readable error message for invalid transitions
- * @param {string} currentStatus - The current job status
- * @param {string} newStatus - The attempted new status
- * @returns {string} - Error message explaining why the transition is invalid
- */
-const getTransitionErrorMessage = (currentStatus, newStatus) => {
-  const allowedTransitions = VALID_TRANSITIONS[currentStatus];
-
-  if (!allowedTransitions || allowedTransitions.length === 0) {
-    return `Cannot change status from ${currentStatus}. This is a terminal state.`;
-  }
-
-  return `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowedTransitions.join(', ')}`;
-};
+// Note: Status transition validation is now handled by statusTransitions.js utility
 
 // Helper to invalidate dashboard cache for a user
 const invalidateDashboardCache = async (userId) => {
@@ -815,8 +775,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /:id - Update job (PROPERTY_MANAGER and TECHNICIAN can update)
-router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), validate(jobUpdateSchema), async (req, res) => {
+// PATCH /:id - Update job (PROPERTY_MANAGER and TECHNICIAN can update, requires active subscription for managers)
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), requireActiveSubscription, validate(jobUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -856,14 +816,17 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'),
       }
     }
 
-    // Validate status transition using state machine if status is being changed
-    if (updates.status !== undefined && !isValidStatusTransition(existingJob.status, updates.status)) {
-      return sendError(
-        res,
-        400,
-        getTransitionErrorMessage(existingJob.status, updates.status),
-        ErrorCodes.BIZ_OPERATION_NOT_ALLOWED
-      );
+    // Validate status transition using centralized utility if status is being changed
+    if (updates.status !== undefined && updates.status !== existingJob.status) {
+      if (!isValidJobTransition(existingJob.status, updates.status)) {
+        const allowed = getAllowedJobTransitions(existingJob.status);
+        return sendError(
+          res,
+          400,
+          `Invalid status transition from ${existingJob.status} to ${updates.status}. Allowed transitions: ${allowed.join(', ') || 'none'}`,
+          ErrorCodes.BIZ_INVALID_STATUS_TRANSITION
+        );
+      }
     }
 
     // Prepare update data
@@ -990,8 +953,8 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'),
   }
 });
 
-// DELETE /:id - Delete job (PROPERTY_MANAGER only)
-router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+// DELETE /:id - Delete job (PROPERTY_MANAGER only, requires active subscription)
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
 

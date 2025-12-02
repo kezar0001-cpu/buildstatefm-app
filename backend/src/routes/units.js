@@ -4,7 +4,7 @@ import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import prisma from '../config/prismaClient.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { asyncHandler, sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = Router({ mergeParams: true });
@@ -597,6 +597,7 @@ router.post(
 router.patch(
   '/:unitId',
   requireRole('PROPERTY_MANAGER', 'ADMIN'),
+  requireActiveSubscription,
   asyncHandler(async (req, res) => {
     const { unitId } = req.params;
 
@@ -669,6 +670,7 @@ router.patch(
 router.delete(
   '/:unitId',
   requireRole('PROPERTY_MANAGER', 'ADMIN'),
+  requireActiveSubscription,
   asyncHandler(async (req, res) => {
     const { unitId } = req.params;
     const access = await ensureUnitAccess(unitId, req.user, { requireWrite: true });

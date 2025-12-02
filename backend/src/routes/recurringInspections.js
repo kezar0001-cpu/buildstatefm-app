@@ -1,7 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate } from '../middleware/auth.js';
-import { authorize } from '../middleware/rbac.js';
+import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -70,7 +70,7 @@ function generateInspectionPreview(recurringInspection, count = 5) {
 }
 
 // Get all recurring inspections
-router.get('/', authenticate, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { propertyId, unitId, isActive } = req.query;
 
@@ -126,7 +126,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // Get a single recurring inspection
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -187,7 +187,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // Preview upcoming inspections for a recurring schedule
-router.post('/preview', authenticate, async (req, res) => {
+router.post('/preview', requireAuth, async (req, res) => {
   try {
     const { frequency, interval, startDate, endDate, dayOfMonth, dayOfWeek, count = 10 } = req.body;
 
@@ -216,7 +216,7 @@ router.post('/preview', authenticate, async (req, res) => {
 });
 
 // Create a new recurring inspection
-router.post('/', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const {
       title,
@@ -303,7 +303,7 @@ router.post('/', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (
 });
 
 // Update a recurring inspection
-router.patch('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -408,7 +408,7 @@ router.patch('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), asy
 });
 
 // Delete a recurring inspection
-router.delete('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
 

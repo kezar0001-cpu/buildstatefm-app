@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import validate from '../middleware/validate.js';
 import { prisma } from '../config/prismaClient.js';
-import { requireAuth, requireRole, isSubscriptionActive } from '../middleware/auth.js';
+import { requireAuth, requireRole, requirePropertyManagerSubscription, isSubscriptionActive } from '../middleware/auth.js';
 import { redisDel } from '../config/redisClient.js';
 import { logAudit } from '../utils/auditLog.js';
 import {
@@ -10,8 +10,11 @@ import {
   notifyManagerOwnerApproved,
   notifyManagerOwnerRejected,
   notifyOwnerJobCreated,
+  notifyServiceRequestUpdate,
+  sendNotification,
 } from '../utils/notificationService.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { isValidServiceRequestTransition } from '../utils/statusTransitions.js';
 
 const router = express.Router();
 
@@ -339,6 +342,38 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
       req
     });
 
+    // Send notifications
+    try {
+      // Notify property manager when tenant/owner submits a request
+      if (req.user.role === 'TENANT' || req.user.role === 'OWNER') {
+        const manager = property.manager;
+        if (manager) {
+          await sendNotification(
+            manager.id,
+            'SERVICE_REQUEST_UPDATE',
+            'New Service Request',
+            `${req.user.role === 'OWNER' ? 'Owner' : 'Tenant'} submitted a new service request: "${title}"`,
+            {
+              entityType: 'serviceRequest',
+              entityId: request.id,
+              sendEmail: true,
+              emailData: {
+                managerName: `${manager.firstName || ''} ${manager.lastName || ''}`.trim(),
+                requestTitle: title,
+                requestCategory: category,
+                requestPriority: priority || 'MEDIUM',
+                requesterName: `${req.user.firstName} ${req.user.lastName}`,
+                requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/service-requests`,
+              },
+            }
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error('Failed to send service request creation notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+
     res.status(201).json(request);
   } catch (error) {
     console.error('Error creating service request:', error);
@@ -346,7 +381,7 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
   }
 });
 
-router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res) => {
+router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(requestUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -404,6 +439,18 @@ router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res
       return sendError(res, 403, `You can only update the following fields: ${allowedFields.join(', ')}`, ErrorCodes.ACC_ACCESS_DENIED);
     }
     
+    // Validate status transition if status is being changed
+    if (updates.status !== undefined && updates.status !== existing.status) {
+      if (!isValidServiceRequestTransition(existing.status, updates.status)) {
+        return sendError(
+          res,
+          400,
+          `Invalid status transition from ${existing.status} to ${updates.status}`,
+          ErrorCodes.BIZ_INVALID_STATUS_TRANSITION
+        );
+      }
+    }
+    
     // Prepare update data
     const updateData = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -413,6 +460,8 @@ router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res
     if (updates.reviewNotes !== undefined) {
       updateData.reviewNotes = updates.reviewNotes;
       updateData.reviewedAt = new Date();
+      updateData.lastReviewedById = req.user.id;
+      updateData.lastReviewedAt = new Date();
     }
     
     // Update service request
@@ -425,6 +474,7 @@ router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res
             id: true,
             name: true,
             address: true,
+            managerId: true,
           },
         },
         unit: {
@@ -433,8 +483,59 @@ router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res
             unitNumber: true,
           },
         },
+        requestedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
       },
     });
+    
+    // Send notifications for status changes
+    if (updates.status !== undefined && updates.status !== existing.status) {
+      try {
+        // Notify the requester (tenant or owner) of status changes
+        if (request.requestedBy && request.requestedBy.role === 'TENANT') {
+          await notifyServiceRequestUpdate(request, request.requestedBy, request.property);
+        }
+        
+        // Notify property manager when tenant submits a request
+        if (updates.status === 'UNDER_REVIEW' && existing.status === 'SUBMITTED') {
+          const manager = await prisma.user.findUnique({
+            where: { id: request.property.managerId },
+            select: { id: true, firstName: true, lastName: true, email: true },
+          });
+          
+          if (manager) {
+            await sendNotification(
+              manager.id,
+              'SERVICE_REQUEST_UPDATE',
+              'New Service Request to Review',
+              `A new service request "${request.title}" has been submitted and requires your review.`,
+              {
+                entityType: 'serviceRequest',
+                entityId: request.id,
+                sendEmail: true,
+                emailData: {
+                  managerName: `${manager.firstName} ${manager.lastName}`,
+                  requestTitle: request.title,
+                  requestCategory: request.category,
+                  requestPriority: request.priority,
+                  requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/service-requests`,
+                },
+              }
+            );
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send status change notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+    }
     
     res.json(request);
   } catch (error) {

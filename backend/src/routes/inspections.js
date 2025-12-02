@@ -3,6 +3,7 @@ import multer from 'multer';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { isValidInspectionTransition } from '../utils/statusTransitions.js';
 import * as inspectionController from '../controllers/inspectionController.js';
 import * as inspectionDetailsController from '../controllers/inspectionDetailsController.js';
 
@@ -120,8 +121,8 @@ router.post('/', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectio
 router.post('/bulk', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.bulkCreateInspections);
 router.get('/:id', ensureInspectionAccess, inspectionController.getInspection);
 router.get('/:id/batch', ensureInspectionAccess, inspectionDetailsController.getBatchedInspectionDetails);
-router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.updateInspection);
-router.delete('/:id', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.deleteInspection);
+router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), requireActiveSubscription, ensureInspectionAccess, inspectionController.updateInspection);
+router.delete('/:id', requireRole(ROLE_MANAGER), requireActiveSubscription, ensureInspectionAccess, inspectionController.deleteInspection);
 
 // --- Workflow Actions ---
 
