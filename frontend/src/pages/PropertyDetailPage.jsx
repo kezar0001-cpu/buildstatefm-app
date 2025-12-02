@@ -443,10 +443,9 @@ export default function PropertyDetailPage() {
 
     const resolved = resolvePropertyImageUrl(rawUrl, property?.name);
     logger.debug(`[PropertyDetail] Resolved image ${index}:`, {
-        raw: rawUrl.substring(0, 80),
-        resolved: resolved.substring(0, 80),
-      });
-    }
+      raw: rawUrl.substring(0, 80),
+      resolved: resolved.substring(0, 80),
+    });
     return resolved;
   }, [property?.name]);
 
