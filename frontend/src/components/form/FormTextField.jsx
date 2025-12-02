@@ -59,7 +59,7 @@ export default function FormTextField({
             helperText={
               error && isTouched
                 ? error.message
-                : helperText || (maxLength ? `${field.value?.length || 0} / ${maxLength}` : undefined)
+                : helperText
             }
             inputProps={{
               'aria-invalid': !!error && isTouched,
