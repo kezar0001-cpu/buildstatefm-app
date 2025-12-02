@@ -22,6 +22,7 @@ import logger from '../utils/logger';
 import SEO from '../components/SEO';
 import BlogPublicNav from '../components/BlogPublicNav';
 import toast from 'react-hot-toast';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 const BlogPostPage = () => {
   const { slug } = useParams();
@@ -311,7 +312,7 @@ const BlogPostPage = () => {
                   p: 3
                 }
               }}
-              dangerouslySetInnerHTML={{ __html: post.htmlContent || post.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.htmlContent || post.content) }}
             />
 
             {/* Media Gallery */}
@@ -361,7 +362,7 @@ const BlogPostPage = () => {
                       )}
                       {media.type === 'EMBED' && (
                         <Box
-                          dangerouslySetInnerHTML={{ __html: media.url }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(media.url) }}
                           sx={{ borderRadius: 2, overflow: 'hidden' }}
                         />
                       )}
