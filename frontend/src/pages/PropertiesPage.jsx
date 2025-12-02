@@ -62,6 +62,7 @@ import PropertyOnboardingWizard from '../components/PropertyOnboardingWizard';
 import PropertyOccupancyWidget from '../components/PropertyOccupancyWidget';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import PageHeader from '../components/PageHeader';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -582,14 +583,20 @@ export default function PropertiesPage() {
           </Alert>
         )}
 
-        {/* Properties Grid */}
-        <DataState
-          isLoading={isLoading}
-          isError={isError}
-          error={error}
-          isEmpty={false}
-        >
-          {properties.length === 0 ? (
+        {/* Loading State */}
+        {isLoading ? (
+          <Box sx={{ mt: 3 }}>
+            {viewMode === 'grid' && <LoadingSkeleton variant="card" count={6} height={300} />}
+            {viewMode === 'list' && <LoadingSkeleton variant="list" count={5} showAvatar={true} height={120} />}
+            {viewMode === 'table' && <LoadingSkeleton variant="table" count={5} />}
+          </Box>
+        ) : isError ? (
+          <DataState
+            type="error"
+            message={error?.message || 'Failed to load properties'}
+            onRetry={refetch}
+          />
+        ) : properties.length === 0 ? (
             <EmptyState
               icon={HomeIcon}
               title={debouncedSearchTerm || filterStatus !== 'all' ? 'No properties match your filters' : 'No properties yet'}
@@ -991,7 +998,6 @@ export default function PropertiesPage() {
               )}
             </Stack>
           )}
-        </DataState>
       </PageShell>
 
       {/* Action Menu */}

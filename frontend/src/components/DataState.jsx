@@ -1,6 +1,7 @@
 import { Box, CircularProgress, Alert, Button, Typography, Stack } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InboxIcon from '@mui/icons-material/Inbox';
+import { getUserFriendlyErrorMessage, getErrorTitle, getSuggestedAction } from '../utils/errorMessages';
 
 /**
  * DataState Component
@@ -25,7 +26,23 @@ export default function DataState({
   onRetry,
   children,
   skeleton,
+  type, // For backward compatibility with type prop
+  message, // For backward compatibility with message prop
 }) {
+  // Handle backward compatibility with type prop
+  if (type === 'loading') {
+    isLoading = true;
+  } else if (type === 'error') {
+    isError = true;
+    if (message) {
+      error = { message };
+    }
+  } else if (type === 'empty') {
+    isEmpty = true;
+    if (message) {
+      emptyMessage = message;
+    }
+  }
   // Loading State
   if (isLoading) {
     // Use skeleton loader if provided, otherwise fall back to CircularProgress
@@ -115,7 +132,7 @@ export default function DataState({
             <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
           </Box>
           <Typography variant="h5" fontWeight={700} color="text.primary">
-            Something went wrong
+            {getErrorTitle(error)}
           </Typography>
           <Alert
             severity="error"
@@ -127,7 +144,14 @@ export default function DataState({
               },
             }}
           >
-            {error?.message || 'An unexpected error occurred'}
+            <Typography variant="body1" sx={{ mb: 1 }}>
+              {getUserFriendlyErrorMessage(error)}
+            </Typography>
+            {getSuggestedAction(error) && (
+              <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
+                {getSuggestedAction(error)}
+              </Typography>
+            )}
           </Alert>
           {onRetry && (
             <Button
