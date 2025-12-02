@@ -86,7 +86,7 @@ export function getContentType(filename, mimetype) {
  * @param {string} key - S3 key
  * @returns {string} Public URL
  */
-function getS3Url(key) {
+export function getS3Url(key) {
   if (cloudFrontDomain) {
     return `https://${cloudFrontDomain}/${key}`;
   }
