@@ -1,6 +1,7 @@
 import prisma from '../config/prismaClient.js';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { hasFeature, getLimitReachedMessage } from '../utils/subscriptionLimits.js';
 
 /**
  * Middleware to require authentication
@@ -281,4 +282,26 @@ export const requirePropertyManagerSubscription = async (req, res, next) => {
     console.error('Property manager subscription check error:', error);
     return sendError(res, 500, 'Failed to verify subscription status', ErrorCodes.ERR_INTERNAL_SERVER);
   }
+};
+
+/**
+ * Middleware to require a specific feature based on subscription plan
+ * @param {string} feature - The feature name (e.g., 'customTemplates', 'apiAccess', 'auditTrails')
+ * @returns {Function} Express middleware
+ */
+export const requireFeature = (feature) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    }
+
+    const userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
+
+    if (hasFeature(userPlan, feature)) {
+      return next();
+    }
+
+    const message = getLimitReachedMessage(feature, userPlan);
+    return sendError(res, 403, message, ErrorCodes.SUB_FEATURE_NOT_AVAILABLE);
+  };
 };
