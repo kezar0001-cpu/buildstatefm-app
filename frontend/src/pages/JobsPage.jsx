@@ -596,8 +596,7 @@ const JobsPage = () => {
           )}
         >
           <Box sx={{ mt: 3 }}>
-            {view === 'grid' && <LoadingSkeleton variant="card" count={6} height={200} />}
-            {view === 'list' && <LoadingSkeleton variant="list" count={5} showAvatar={true} height={100} />}
+            {view === 'card' && <LoadingSkeleton variant="card" count={6} height={200} />}
             {view === 'kanban' && <LoadingSkeleton variant="card" count={9} height={150} />}
             {view === 'calendar' && <LoadingSkeleton variant="table" count={5} />}
           </Box>
