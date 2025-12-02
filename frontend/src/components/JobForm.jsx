@@ -17,6 +17,7 @@ import {
 import { apiClient } from '../api/client';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
+import { invalidateJobQueries, invalidateDashboardQueries } from '../utils/cacheInvalidation.js';
 import { jobSchema, jobDefaultValues } from '../schemas/jobSchema';
 import { FormTextField, FormSelect } from './form';
 import JobSchedule from './forms/JobSchedule';
@@ -59,25 +60,6 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
   });
 
   const propertyId = watch('propertyId');
-
-  const invalidateJobQueries = async ({ jobId, propertyId: property, unitId }) => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
-
-    if (jobId) {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(jobId) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.comments(jobId) });
-    }
-
-    if (property) {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.properties.detail(property) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.properties.units(property) });
-    }
-
-    if (unitId) {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.units.detail(unitId) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.units.jobs(unitId) });
-    }
-  };
 
   // Fetch properties
   const { data: properties = [], isLoading: loadingProperties } = useQuery({
@@ -150,11 +132,9 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
       return response.data;
     },
     onSuccess: async (createdJob, variables) => {
-      await invalidateJobQueries({
-        jobId: createdJob?.job?.id ?? createdJob?.id,
-        propertyId: variables.propertyId,
-        unitId: variables.unitId,
-      });
+      const jobId = createdJob?.job?.id ?? createdJob?.id;
+      invalidateJobQueries(queryClient, jobId, variables.propertyId, variables.unitId);
+      invalidateDashboardQueries(queryClient);
       onSuccess();
     },
   });
@@ -166,11 +146,8 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
       return response.data;
     },
     onSuccess: async (_data, variables) => {
-      await invalidateJobQueries({
-        jobId: job.id,
-        propertyId: variables.propertyId || job.propertyId,
-        unitId: variables.unitId || job.unitId,
-      });
+      invalidateJobQueries(queryClient, job.id, variables.propertyId || job.propertyId, variables.unitId || job.unitId);
+      invalidateDashboardQueries(queryClient);
       onSuccess();
     },
   });
