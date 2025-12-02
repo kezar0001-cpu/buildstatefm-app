@@ -15,9 +15,14 @@ const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 // Note: Status transition validation is now handled by statusTransitions.js utility
 
-// Helper to invalidate dashboard cache for a user
+// Helper to invalidate dashboard cache for a user (with role pattern matching)
 const invalidateDashboardCache = async (userId) => {
-  await invalidate(`cache:/api/dashboard/summary:user:${userId}`);
+  // Invalidate all role variations of the dashboard cache
+  // Note: Redis pattern matching requires redisDelPattern, but for now we'll invalidate common patterns
+  const roles = ['PROPERTY_MANAGER', 'OWNER', 'TENANT', 'TECHNICIAN', 'ADMIN'];
+  await Promise.all(
+    roles.map(role => invalidate(`cache:/api/dashboard/summary:user:${userId}:role:${role}`))
+  );
 };
 
 const jobCreateSchema = z.object({

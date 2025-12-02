@@ -1,4 +1,5 @@
 import prisma from '../src/config/prismaClient.js';
+import { get, set, invalidate } from '../src/utils/cache.js';
 
 // ============================================
 // DASHBOARD CONTROLLER
@@ -7,11 +8,21 @@ import prisma from '../src/config/prismaClient.js';
 /**
  * GET /api/dashboard/summary
  * Role-aware, aggregated snapshot for the signed-in user.
+ * Cached for 5 minutes to improve performance.
  */
 export const getDashboardSummary = async (req, res) => {
   try {
     const userId = req.user.id;
     const role = req.user.role;
+    
+    // Generate cache key
+    const cacheKey = `cache:/api/dashboard/summary:user:${userId}:role:${role}`;
+    
+    // Try to get from cache
+    const cached = await get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, summary: cached, cached: true });
+    }
 
     const summary = {
       properties: { total: 0, active: 0, inactive: 0, underMaintenance: 0 },
@@ -281,7 +292,10 @@ export const getDashboardSummary = async (req, res) => {
 
     summary.alerts = alerts;
 
-    return res.json({ success: true, summary });
+    // Cache the result for 5 minutes (300 seconds)
+    await set(cacheKey, summary, 300);
+
+    return res.json({ success: true, summary, cached: false });
   } catch (error) {
     console.error('Error fetching dashboard summary:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch dashboard summary' });
