@@ -34,6 +34,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from './DataState';
+import LoadingButton from './LoadingButton';
 import { formatDateTime } from '../utils/date';
 import toast from 'react-hot-toast';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -750,14 +751,14 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
             {/* Convert to job for APPROVED or APPROVED_BY_OWNER status */}
             {(data.status === 'APPROVED' || data.status === 'APPROVED_BY_OWNER') && userRole === 'PROPERTY_MANAGER' && (
-              <Button
+              <LoadingButton
                 onClick={handleConvert}
                 variant="contained"
                 startIcon={<BuildIcon />}
-                disabled={isPendingMutation}
+                loading={convertMutation.isPending}
               >
-                {convertMutation.isPending ? 'Converting...' : 'Convert to Job'}
-              </Button>
+                Convert to Job
+              </LoadingButton>
             )}
           </>
         )}

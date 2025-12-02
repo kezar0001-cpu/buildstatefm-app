@@ -14,8 +14,10 @@ import {
   Typography,
   Alert,
 } from '@mui/material';
+import toast from 'react-hot-toast';
 import useApiMutation from '../hooks/useApiMutation.js';
 import useApiQuery from '../hooks/useApiQuery.js';
+import LoadingButton from './LoadingButton';
 import { queryKeys } from '../utils/queryKeys';
 
 export default function InspectionRejectionDialog({ open, onClose, inspection }) {
@@ -54,12 +56,15 @@ export default function InspectionRejectionDialog({ open, onClose, inspection })
           reassignToId: reassignToId || undefined,
         },
       });
+      toast.success('Inspection rejected successfully');
       onClose();
       setRejectionReason('');
       setReassignToId('');
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to reject inspection');
+      const errorMsg = err.response?.data?.error || 'Failed to reject inspection';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -131,14 +136,15 @@ export default function InspectionRejectionDialog({ open, onClose, inspection })
         <Button onClick={handleClose} disabled={rejectMutation.isPending}>
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           onClick={handleReject}
           color="error"
           variant="contained"
-          disabled={rejectMutation.isPending || !rejectionReason.trim()}
+          loading={rejectMutation.isPending}
+          disabled={!rejectionReason.trim()}
         >
-          {rejectMutation.isPending ? 'Rejecting...' : 'Reject Inspection'}
-        </Button>
+          Reject Inspection
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );
