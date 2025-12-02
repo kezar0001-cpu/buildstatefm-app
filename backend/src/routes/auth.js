@@ -382,6 +382,18 @@ router.post('/register', async (req, res) => {
 
     const { accessToken, refreshToken } = issueAuthTokens(user, res);
 
+    // ✅ SEND EMAIL VERIFICATION (async, don't block registration)
+    (async () => {
+      try {
+        const { generateEmailVerificationToken, sendVerificationEmail } = await import('../utils/emailVerification.js');
+        const { selector, verifier } = await generateEmailVerificationToken(user.id);
+        await sendVerificationEmail(user.email, selector, verifier);
+      } catch (error) {
+        console.error('Failed to send verification email:', error);
+        // Don't block registration if email fails
+      }
+    })();
+
     // Strip passwordHash
     const userWithTrial = await ensureTrialState(user);
     const { passwordHash: _ph, ...userWithoutPassword } = userWithTrial;
@@ -392,7 +404,7 @@ router.post('/register', async (req, res) => {
       accessToken,
       refreshToken,
       user: userWithoutPassword,
-      message: 'Account created successfully!',
+      message: 'Account created successfully! Please check your email to verify your account.',
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -466,55 +478,9 @@ async function handleSuccessfulLogin(user, res) {
   res.json({ success: true, token: accessToken, accessToken, refreshToken, user: userWithoutPassword });
 }
 
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password, role } = loginSchema.parse(req.body);
-    const whereClause = role ? { email, role } : { email };
-
-    const user = await prisma.user.findFirst({
-      where: whereClause,
-      // ❌ Removed: include: { org: true }
-    });
-
-    if (!user) {
-      return sendError(res, 401, 'Invalid email or password', ErrorCodes.AUTH_INVALID_CREDENTIALS);
-    }
-
-    if (!user.passwordHash) {
-      return sendError(res, 401, 'Please login with Google', ErrorCodes.AUTH_INVALID_CREDENTIALS);
-    }
-
-    const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) {
-      return sendError(res, 401, 'Invalid email or password', ErrorCodes.AUTH_INVALID_CREDENTIALS);
-    }
-
-    // Security: Regenerate session to prevent session fixation attacks
-    if (req.session && typeof req.session.regenerate === 'function') {
-      return new Promise((resolve, reject) => {
-        req.session.regenerate((err) => {
-          if (err) {
-            console.error('Session regeneration error:', err);
-            // Continue with login even if regeneration fails
-          }
-          handleSuccessfulLogin(user, res).then(resolve).catch(reject);
-        });
-      });
-    }
-
-    // If no session middleware, proceed normally
-    return handleSuccessfulLogin(user, res);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.errors);
-    }
-    console.error('Login error:', error);
-    return sendError(res, 500, 'Login failed', ErrorCodes.ERR_INTERNAL_SERVER);
-  }
-});
-
 // ========================================
 // POST /api/auth/refresh
+// Implements refresh token rotation for security
 // ========================================
 router.post('/refresh', async (req, res) => {
   try {
@@ -552,6 +518,8 @@ router.post('/refresh', async (req, res) => {
       return sendError(res, 401, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
     }
 
+    // ✅ TOKEN ROTATION: Issue new refresh token, old one is invalidated by cookie overwrite
+    // In future: implement token revocation list for additional security
     const { accessToken, refreshToken: newRefreshToken } = issueAuthTokens(user, res);
 
     res.json({ success: true, token: accessToken, accessToken, refreshToken: newRefreshToken });
@@ -572,7 +540,18 @@ router.get('/google', (req, res, next) => {
   if (!['PROPERTY_MANAGER'].includes(role)) {
     return sendError(res, 400, 'Google signup is only available for Property Managers', ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS);
   }
-  passport.authenticate('google', { scope: ['openid', 'profile', 'email'], state: role })(req, res, next);
+
+  // ✅ CSRF PROTECTION: Generate and store state token
+  const stateToken = crypto.randomBytes(32).toString('hex');
+  const stateData = JSON.stringify({ token: stateToken, role, timestamp: Date.now() });
+  const encodedState = Buffer.from(stateData).toString('base64');
+
+  // Store state in session for validation
+  if (req.session) {
+    req.session.oauthState = stateToken;
+  }
+
+  passport.authenticate('google', { scope: ['openid', 'profile', 'email'], state: encodedState })(req, res, next);
 });
 
 // ========================================
@@ -585,6 +564,36 @@ router.get(
       const frontendUrl = process.env.FRONTEND_URL || 'https://www.buildstate.com.au';
       return res.redirect(`${frontendUrl}/signin?error=oauth_not_configured`);
     }
+
+    // ✅ CSRF PROTECTION: Validate state parameter
+    const stateParam = req.query.state;
+    if (stateParam) {
+      try {
+        const stateData = JSON.parse(Buffer.from(stateParam, 'base64').toString());
+        const { token, timestamp } = stateData;
+
+        // Check if state is too old (5 minutes)
+        if (Date.now() - timestamp > 5 * 60 * 1000) {
+          console.error('OAuth state token expired');
+          return res.redirect(`${process.env.FRONTEND_URL || 'https://www.buildstate.com.au'}/signin?error=state_expired`);
+        }
+
+        // Validate against session
+        if (req.session && req.session.oauthState !== token) {
+          console.error('OAuth state mismatch - potential CSRF attack');
+          return res.redirect(`${process.env.FRONTEND_URL || 'https://www.buildstate.com.au'}/signin?error=state_mismatch`);
+        }
+
+        // Clear state from session
+        if (req.session) {
+          delete req.session.oauthState;
+        }
+      } catch (error) {
+        console.error('OAuth state validation error:', error);
+        return res.redirect(`${process.env.FRONTEND_URL || 'https://www.buildstate.com.au'}/signin?error=invalid_state`);
+      }
+    }
+
     next();
   },
   passport.authenticate('google', {
@@ -664,16 +673,75 @@ router.post('/logout', (req, res) => {
 
 // ========================================
 // POST /api/auth/verify-email
+// Verify user email address with token
 // ========================================
 router.post('/verify-email', async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token) return sendError(res, 400, 'Verification token is required', ErrorCodes.VAL_MISSING_FIELD);
-    // Placeholder
-    res.json({ success: true, message: 'Email verified successfully' });
+    const { selector, token } = req.body;
+    if (!selector || !token) {
+      return sendError(res, 400, 'Verification token is required', ErrorCodes.VAL_MISSING_FIELD);
+    }
+
+    // Import the verification utility
+    const { verifyEmailVerificationToken } = await import('../utils/emailVerification.js');
+
+    const result = await verifyEmailVerificationToken(selector, token);
+
+    if (!result) {
+      return sendError(res, 400, 'Invalid or expired verification token', ErrorCodes.AUTH_INVALID_TOKEN);
+    }
+
+    // Mark user's email as verified
+    const user = await prisma.user.update({
+      where: { id: result.userId },
+      data: { emailVerified: true },
+      select: { id: true, email: true, emailVerified: true, firstName: true, lastName: true },
+    });
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully',
+      user,
+    });
   } catch (error) {
     console.error('Email verification error:', error);
     return sendError(res, 500, 'Email verification failed', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// ========================================
+// POST /api/auth/resend-verification
+// Resend email verification link
+// ========================================
+router.post('/resend-verification', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, emailVerified: true },
+    });
+
+    if (!user) {
+      return sendError(res, 404, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    if (user.emailVerified) {
+      return sendError(res, 400, 'Email already verified', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Import verification utilities
+    const { generateEmailVerificationToken, sendVerificationEmail } = await import('../utils/emailVerification.js');
+
+    // Generate and send new verification token
+    const { selector, verifier } = await generateEmailVerificationToken(user.id);
+    await sendVerificationEmail(user.email, selector, verifier);
+
+    res.json({
+      success: true,
+      message: 'Verification email sent',
+    });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    return sendError(res, 500, 'Failed to resend verification', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

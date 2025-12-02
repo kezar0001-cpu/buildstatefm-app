@@ -610,6 +610,36 @@ export async function webhook(req, res) {
     return sendError(res, 400, `Webhook Error: ${err.message}`, ErrorCodes.EXT_STRIPE_ERROR);
   }
 
+  // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing
+  try {
+    const existingEvent = await prisma.stripeWebhookEvent.findUnique({
+      where: { eventId: event.id },
+    });
+
+    if (existingEvent && existingEvent.processed) {
+      console.log(`Webhook ${event.id} already processed, skipping`);
+      return res.json({ received: true, status: 'duplicate' });
+    }
+
+    // Record webhook event (or update if exists but not processed)
+    await prisma.stripeWebhookEvent.upsert({
+      where: { eventId: event.id },
+      create: {
+        eventId: event.id,
+        eventType: event.type,
+        processed: false,
+        data: event.data,
+      },
+      update: {
+        eventType: event.type,
+        data: event.data,
+      },
+    });
+  } catch (error) {
+    console.error('Error checking webhook idempotency:', error);
+    // Continue processing - don't block on idempotency check failure
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -932,6 +962,21 @@ export async function webhook(req, res) {
         // console.log(`Unhandled event type ${event.type}`);
         break;
     }
+
+    // ✅ Mark webhook as processed
+    try {
+      await prisma.stripeWebhookEvent.update({
+        where: { eventId: event.id },
+        data: {
+          processed: true,
+          processedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('Error marking webhook as processed:', error);
+      // Continue - don't block response
+    }
+
     res.json({ received: true });
   } catch (err) {
     console.error('⚠️ Webhook handler error:', err);
