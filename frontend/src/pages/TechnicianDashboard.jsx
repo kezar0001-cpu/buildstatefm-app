@@ -29,6 +29,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import RejectedInspectionsBanner from '../components/RejectedInspectionsBanner';
+import Breadcrumbs from '../components/Breadcrumbs';
 import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -168,15 +169,20 @@ export default function TechnicianDashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Breadcrumbs
+        labelOverrides={{
+          '/technician/dashboard': 'My Jobs',
+        }}
+      />
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h4" gutterBottom fontWeight={700}>
           My Jobs
         </Typography>
         <Typography variant="body1" color="text.secondary">
           View and manage your assigned jobs
         </Typography>
         {actionError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
+          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setActionError('')}>
             {actionError}
           </Alert>
         )}
