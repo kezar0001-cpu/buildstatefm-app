@@ -62,6 +62,7 @@ import PropertyOnboardingWizard from '../components/PropertyOnboardingWizard';
 import PropertyOccupancyWidget from '../components/PropertyOccupancyWidget';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import PageHeader from '../components/PageHeader';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -462,15 +463,19 @@ export default function PropertiesPage() {
         {/* Search and Filter */}
         <Paper
           sx={{
-            p: { xs: 2.5, md: 3.5 },
-            borderRadius: 3,
+            p: { xs: 2, sm: 2.5, md: 3.5 },
+            borderRadius: { xs: 2, md: 3 },
             border: '1px solid',
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
             animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={{ xs: 2, sm: 2 }} 
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             {/* Search */}
             <TextField
               placeholder="Search properties by name, address, or city..."
@@ -489,6 +494,7 @@ export default function PropertiesPage() {
                       onClick={() => setLocalSearchInput('')}
                       edge="end"
                       size="small"
+                      sx={{ minWidth: 44, minHeight: 44 }} // Better touch target
                     >
                       <CloseIcon fontSize="small" />
                     </IconButton>
@@ -496,11 +502,11 @@ export default function PropertiesPage() {
                 ),
               }}
               size="small"
-              sx={{ flexGrow: 1, minWidth: 250 }}
+              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 250 } }}
             />
 
             {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={filterStatus}
@@ -582,14 +588,20 @@ export default function PropertiesPage() {
           </Alert>
         )}
 
-        {/* Properties Grid */}
-        <DataState
-          isLoading={isLoading}
-          isError={isError}
-          error={error}
-          isEmpty={false}
-        >
-          {properties.length === 0 ? (
+        {/* Loading State */}
+        {isLoading ? (
+          <Box sx={{ mt: 3 }}>
+            {viewMode === 'grid' && <LoadingSkeleton variant="card" count={6} height={300} />}
+            {viewMode === 'list' && <LoadingSkeleton variant="list" count={5} showAvatar={true} height={120} />}
+            {viewMode === 'table' && <LoadingSkeleton variant="table" count={5} />}
+          </Box>
+        ) : isError ? (
+          <DataState
+            isError={true}
+            error={error}
+            onRetry={refetch}
+          />
+        ) : properties.length === 0 ? (
             <EmptyState
               icon={HomeIcon}
               title={debouncedSearchTerm || filterStatus !== 'all' ? 'No properties match your filters' : 'No properties yet'}
@@ -991,7 +1003,6 @@ export default function PropertiesPage() {
               )}
             </Stack>
           )}
-        </DataState>
       </PageShell>
 
       {/* Action Menu */}

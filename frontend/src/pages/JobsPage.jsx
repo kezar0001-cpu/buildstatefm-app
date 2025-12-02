@@ -72,6 +72,7 @@ import toast from 'react-hot-toast';
 import { useJobStatusUpdate } from '../hooks/useJobStatusUpdate';
 import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import {
   JOB_STATUS_LABELS,
   VALID_STATUS_TRANSITIONS,
@@ -580,7 +581,26 @@ const JobsPage = () => {
   if (isLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-        <DataState type="loading" message="Loading jobs..." />
+        <PageShell
+          title="Jobs"
+          subtitle="Manage maintenance jobs and assignments"
+          actions={(
+            <GradientButton
+              startIcon={<AddIcon />}
+              disabled
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              Create Job
+            </GradientButton>
+          )}
+        >
+          <Box sx={{ mt: 3 }}>
+            {view === 'card' && <LoadingSkeleton variant="card" count={6} height={200} />}
+            {view === 'kanban' && <LoadingSkeleton variant="card" count={9} height={150} />}
+            {view === 'calendar' && <LoadingSkeleton variant="table" count={5} />}
+          </Box>
+        </PageShell>
       </Container>
     );
   }
@@ -589,8 +609,8 @@ const JobsPage = () => {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
         <DataState
-          type="error"
-          message="Failed to load jobs"
+          isError={true}
+          error={error}
           onRetry={refetch}
         />
       </Container>
@@ -617,9 +637,9 @@ const JobsPage = () => {
         {/* Filters */}
       <Paper
         sx={{
-          p: { xs: 2, md: 3.5 },
+          p: { xs: 2, sm: 2.5, md: 3.5 },
           mb: 3,
-          borderRadius: 3,
+          borderRadius: { xs: 2, md: 3 },
           border: '1px solid',
           borderColor: 'divider',
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',

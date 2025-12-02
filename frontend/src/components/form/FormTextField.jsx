@@ -1,8 +1,10 @@
 import { Controller } from 'react-hook-form';
-import { TextField } from '@mui/material';
+import { TextField, Box } from '@mui/material';
+import { FieldValidationIndicator, CharacterCounter, RequiredIndicator } from './FormValidationHelper';
 
 /**
  * FormTextField - A reusable text field component integrated with React Hook Form
+ * Enhanced with real-time validation feedback and better UX
  *
  * @param {object} props
  * @param {string} props.name - Field name for form registration
@@ -14,6 +16,9 @@ import { TextField } from '@mui/material';
  * @param {string} [props.type] - Input type (text, number, email, etc.)
  * @param {string} [props.helperText] - Additional helper text
  * @param {object} [props.inputProps] - Additional input props
+ * @param {number} [props.maxLength] - Maximum character length
+ * @param {number} [props.minLength] - Minimum character length
+ * @param {boolean} [props.showValidationIndicator] - Show validation indicator (default: true)
  */
 export default function FormTextField({
   name,
@@ -25,35 +30,74 @@ export default function FormTextField({
   type = 'text',
   helperText,
   inputProps,
+  maxLength,
+  minLength,
+  showValidationIndicator = true,
   ...rest
 }) {
   return (
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState: { error } }) => (
-        <TextField
-          {...field}
-          {...rest}
-          fullWidth
-          label={label}
-          required={required}
-          multiline={multiline}
-          rows={rows}
-          type={type}
-          error={!!error}
-          helperText={error?.message || helperText}
-          inputProps={{
-            'aria-invalid': !!error,
-            'aria-describedby': error ? `${name}-error` : undefined,
-            ...inputProps,
-          }}
-          FormHelperTextProps={{
-            id: error ? `${name}-error` : undefined,
-            role: error ? 'alert' : undefined,
-            'aria-live': error ? 'polite' : undefined,
-          }}
-        />
+      render={({ field, fieldState: { error, isTouched } }) => (
+        <Box>
+          <TextField
+            {...field}
+            {...rest}
+            fullWidth
+            label={
+              <>
+                {label}
+                {required && <RequiredIndicator required={required} />}
+              </>
+            }
+            required={required}
+            multiline={multiline}
+            rows={rows}
+            type={type}
+            error={!!error && isTouched}
+            helperText={
+              error && isTouched
+                ? error.message
+                : helperText
+            }
+            inputProps={{
+              'aria-invalid': !!error && isTouched,
+              'aria-describedby': error && isTouched ? `${name}-error` : undefined,
+              maxLength,
+              ...inputProps,
+            }}
+            FormHelperTextProps={{
+              id: error && isTouched ? `${name}-error` : undefined,
+              role: error && isTouched ? 'alert' : undefined,
+              'aria-live': error && isTouched ? 'polite' : undefined,
+            }}
+            sx={{
+              ...rest.sx,
+              '& .MuiOutlinedInput-root': {
+                '&.Mui-error': {
+                  animation: 'shake 0.3s ease-in-out',
+                },
+              },
+              '@keyframes shake': {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '25%': { transform: 'translateX(-4px)' },
+                '75%': { transform: 'translateX(4px)' },
+              },
+            }}
+          />
+          {showValidationIndicator && (
+            <FieldValidationIndicator
+              error={error?.message}
+              touched={isTouched}
+              value={field.value}
+              required={required}
+            />
+          )}
+          {(maxLength || minLength) && (
+            <CharacterCounter value={field.value} maxLength={maxLength} minLength={minLength} />
+          )}
+        </Box>
       )}
     />
   );

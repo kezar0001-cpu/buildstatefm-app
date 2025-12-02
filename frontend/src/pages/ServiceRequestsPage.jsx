@@ -31,8 +31,9 @@ import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import ServiceRequestForm from '../components/ServiceRequestForm';
 import ServiceRequestDetailModal from '../components/ServiceRequestDetailModal';
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, Box } from '@mui/material';
 import ensureArray from '../utils/ensureArray';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
@@ -177,7 +178,28 @@ const ServiceRequestsPage = () => {
   if (isLoading) {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-        <DataState type="loading" message="Loading service requests..." />
+        <PageShell
+          title="Service Requests"
+          subtitle={
+            userRole === 'TENANT'
+              ? 'Submit and track your maintenance requests'
+              : 'Review and manage tenant service requests'
+          }
+          actions={(
+            <GradientButton
+              startIcon={<AddIcon />}
+              disabled
+              size="medium"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
+            </GradientButton>
+          )}
+        >
+          <Box sx={{ mt: 3 }}>
+            <LoadingSkeleton variant="list" count={5} showAvatar={true} height={120} />
+          </Box>
+        </PageShell>
       </Container>
     );
   }
@@ -186,8 +208,8 @@ const ServiceRequestsPage = () => {
     return (
       <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
         <DataState
-          type="error"
-          message="Failed to load service requests"
+          isError={true}
+          error={error}
           onRetry={refetch}
         />
       </Container>
