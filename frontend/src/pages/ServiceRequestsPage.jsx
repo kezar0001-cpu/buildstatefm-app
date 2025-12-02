@@ -162,9 +162,13 @@ const ServiceRequestsPage = () => {
     const colors = {
       SUBMITTED: 'warning',
       UNDER_REVIEW: 'info',
+      PENDING_MANAGER_REVIEW: 'info',
+      PENDING_OWNER_APPROVAL: 'warning',
       APPROVED: 'success',
-      CONVERTED_TO_JOB: 'primary',
+      APPROVED_BY_OWNER: 'success',
       REJECTED: 'error',
+      REJECTED_BY_OWNER: 'error',
+      CONVERTED_TO_JOB: 'primary',
       COMPLETED: 'success',
     };
     return colors[status] || 'default';
@@ -265,9 +269,13 @@ const ServiceRequestsPage = () => {
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="SUBMITTED">Submitted</MenuItem>
                   <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
+                  <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
+                  <MenuItem value="PENDING_OWNER_APPROVAL">Pending Owner Approval</MenuItem>
                   <MenuItem value="APPROVED">Approved</MenuItem>
-                  <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
+                  <MenuItem value="APPROVED_BY_OWNER">Approved by Owner</MenuItem>
                   <MenuItem value="REJECTED">Rejected</MenuItem>
+                  <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
+                  <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
                   <MenuItem value="COMPLETED">Completed</MenuItem>
                 </TextField>
               </Grid>
