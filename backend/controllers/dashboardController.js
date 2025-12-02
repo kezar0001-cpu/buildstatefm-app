@@ -90,24 +90,20 @@ export const getDashboardSummary = async (req, res) => {
     }
 
     // ---------- Units (also scoped by properties)
+    // Optimization: Use a single query with property relation filter instead of fetching property IDs first
     if (role !== 'TECHNICIAN' && (role !== 'TENANT' || tenantHasAccessibleProperties)) {
-      const props = await prisma.property.findMany({
-        where: propertyFilter,
-        select: { id: true },
+      const byStatus = await prisma.unit.groupBy({
+        by: ['status'],
+        where: {
+          property: propertyFilter, // Direct relation filter - more efficient than fetching IDs first
+        },
+        _count: { _all: true },
       });
-      const scopedPropertyIds = props.map(p => p.id);
-      if (scopedPropertyIds.length > 0) {
-        const byStatus = await prisma.unit.groupBy({
-          by: ['status'],
-          where: { propertyId: { in: scopedPropertyIds } },
-          _count: { _all: true },
-        });
-        summary.units.total = byStatus.reduce((n, r) => n + r._count._all, 0);
-        for (const r of byStatus) {
-          if (r.status === 'OCCUPIED') summary.units.occupied = r._count._all;
-          if (r.status === 'AVAILABLE') summary.units.available = r._count._all;
-          if (r.status === 'MAINTENANCE') summary.units.maintenance = r._count._all;
-        }
+      summary.units.total = byStatus.reduce((n, r) => n + r._count._all, 0);
+      for (const r of byStatus) {
+        if (r.status === 'OCCUPIED') summary.units.occupied = r._count._all;
+        if (r.status === 'AVAILABLE') summary.units.available = r._count._all;
+        if (r.status === 'MAINTENANCE') summary.units.maintenance = r._count._all;
       }
     }
 
@@ -182,10 +178,32 @@ export const getDashboardSummary = async (req, res) => {
     // ---------- Alerts
     const alerts = [];
     if (role === 'PROPERTY_MANAGER') {
-      const subscription = await prisma.subscription.findFirst({
-        where: { userId, status: { in: ['TRIAL', 'ACTIVE'] } },
-        orderBy: { createdAt: 'desc' },
-      });
+      // Optimization: Use user's subscriptionStatus and trialEndDate from req.user instead of querying
+      // This assumes the user object is populated with subscription data in the auth middleware
+      const subscriptionStatus = req.user?.subscriptionStatus;
+      const trialEndDate = req.user?.trialEndDate;
+      const stripeCurrentPeriodEnd = req.user?.stripeCurrentPeriodEnd;
+      
+      // Fallback to database query if user object doesn't have subscription data
+      let subscription = null;
+      if (!subscriptionStatus) {
+        subscription = await prisma.subscription.findFirst({
+          where: { userId, status: { in: ['TRIAL', 'ACTIVE'] } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            status: true,
+            trialEndDate: true,
+            stripeCurrentPeriodEnd: true,
+          },
+        });
+      } else {
+        // Use data from req.user
+        subscription = {
+          status: subscriptionStatus,
+          trialEndDate,
+          stripeCurrentPeriodEnd,
+        };
+      }
       if (subscription) {
         if (subscription.status === 'TRIAL' && subscription.trialEndDate) {
           const daysLeft = Math.ceil((new Date(subscription.trialEndDate) - new Date()) / 86400000);
