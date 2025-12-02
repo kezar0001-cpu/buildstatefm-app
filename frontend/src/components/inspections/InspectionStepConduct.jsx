@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
 import { InspectionPhotoUpload } from './InspectionPhotoUpload';
@@ -62,7 +63,7 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
       if (context?.previousIssues) {
         queryClient.setQueryData(queryKeys.inspections.issues(inspection.id), context.previousIssues);
       }
-      alert('Failed to add issue. Please try again.');
+      toast.error('Failed to add issue. Please try again.');
     },
     onSuccess: () => {
       // Trigger refresh to get the real data from server

@@ -24,6 +24,7 @@ import {
   Apartment as ApartmentIcon,
 } from '@mui/icons-material';
 import useApiMutation from '../hooks/useApiMutation';
+import LoadingButton from './LoadingButton';
 import PropertyBasicInfo from './forms/PropertyBasicInfo';
 import PropertyLocation from './forms/PropertyLocation';
 import PropertyManagement from './forms/PropertyManagement';
@@ -425,19 +426,16 @@ export default function PropertyForm({ open, onClose, property, onSuccess }) {
         >
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={handleSubmit(onSubmit)}
-          disabled={isSubmitting || mutation.isPending}
+          loading={mutation.isPending}
+          disabled={isSubmitting}
           fullWidth={isMobile}
           sx={{ minHeight: { xs: 48, md: 36 } }}
         >
-          {mutation.isPending
-            ? 'Saving...'
-            : isEdit
-            ? 'Update Property'
-            : 'Create Property'}
-        </Button>
+          {isEdit ? 'Update Property' : 'Create Property'}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );
