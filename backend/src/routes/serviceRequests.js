@@ -1010,4 +1010,76 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
   }
 });
 
+// DELETE /service-requests/:id - Delete a service request
+// Only property managers can delete service requests, and only if they haven't been converted to jobs
+router.delete('/:id', requireAuth, requirePropertyManagerSubscription, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const serviceRequest = await prisma.serviceRequest.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: { select: { id: true } },
+            owners: { select: { ownerId: true } },
+          },
+        },
+        requestedBy: { select: { id: true, role: true } },
+        jobs: { select: { id: true } },
+      },
+    });
+
+    if (!serviceRequest) {
+      return sendError(res, 404, 'Service request not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Check access: Property managers can delete requests for their properties
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      if (serviceRequest.property.managerId !== req.user.id) {
+        return sendError(res, 403, 'Access denied to this service request', ErrorCodes.ACC_ACCESS_DENIED);
+      }
+    } else {
+      return sendError(res, 403, 'Only property managers can delete service requests', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+
+    // Cannot delete if already converted to job
+    if (serviceRequest.status === 'CONVERTED_TO_JOB' || serviceRequest.jobs.length > 0) {
+      return sendError(
+        res,
+        400,
+        'Cannot delete service request that has been converted to a job',
+        ErrorCodes.ERR_BAD_REQUEST
+      );
+    }
+
+    // Delete the service request
+    await prisma.serviceRequest.delete({
+      where: { id },
+    });
+
+    // Invalidate cached property activity snapshots
+    if (serviceRequest.propertyId) {
+      await Promise.all([
+        redisDel(`property:${serviceRequest.propertyId}:activity:20`),
+        redisDel(`property:${serviceRequest.propertyId}:activity:50`),
+      ]);
+    }
+
+    // Log audit
+    await logAudit({
+      entityType: 'ServiceRequest',
+      entityId: id,
+      action: 'DELETE',
+      userId: req.user.id,
+      changes: { deleted: true },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting service request:', error);
+    return sendError(res, 500, 'Failed to delete service request', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 export default router;
