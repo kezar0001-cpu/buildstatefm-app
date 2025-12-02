@@ -2125,7 +2125,7 @@ propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload,
   }
 });
 
-propertyImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const propertyId = req.params.id;
   const imageId = req.params.imageId;
 
@@ -2202,7 +2202,7 @@ propertyImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), async (
   }
 });
 
-propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const propertyId = req.params.id;
   const imageId = req.params.imageId;
 
@@ -3182,7 +3182,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, r
 });
 
 // DELETE /properties/:id/documents/:documentId - Delete a document
-propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const propertyId = req.params.id;
   const documentId = req.params.documentId;
 
@@ -3411,7 +3411,7 @@ propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) 
 });
 
 // PATCH /properties/:id/notes/:noteId - Update an existing note
-propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const { id: propertyId, noteId } = req.params;
 
   try {
@@ -3481,7 +3481,7 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), async (re
 });
 
 // DELETE /properties/:id/notes/:noteId - Remove a note
-propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const { id: propertyId, noteId } = req.params;
 
   try {

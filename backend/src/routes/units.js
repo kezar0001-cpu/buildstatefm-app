@@ -1193,7 +1193,7 @@ unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUplo
 });
 
 // PATCH /units/:id/images/:imageId - Update a unit image
-unitImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+unitImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const unitId = req.params.id;
   const imageId = req.params.imageId;
 
@@ -1255,7 +1255,7 @@ unitImagesRouter.patch('/:imageId', requireRole('PROPERTY_MANAGER'), async (req,
 });
 
 // DELETE /units/:id/images/:imageId - Delete a unit image
-unitImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+unitImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const unitId = req.params.id;
   const imageId = req.params.imageId;
 
