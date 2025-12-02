@@ -815,8 +815,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /:id - Update job (PROPERTY_MANAGER and TECHNICIAN can update)
-router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), validate(jobUpdateSchema), async (req, res) => {
+// PATCH /:id - Update job (PROPERTY_MANAGER and TECHNICIAN can update, requires active subscription for managers)
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), requireActiveSubscription, validate(jobUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -990,8 +990,8 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'),
   }
 });
 
-// DELETE /:id - Delete job (PROPERTY_MANAGER only)
-router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+// DELETE /:id - Delete job (PROPERTY_MANAGER only, requires active subscription)
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
 

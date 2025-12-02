@@ -120,8 +120,8 @@ router.post('/', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectio
 router.post('/bulk', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.bulkCreateInspections);
 router.get('/:id', ensureInspectionAccess, inspectionController.getInspection);
 router.get('/:id/batch', ensureInspectionAccess, inspectionDetailsController.getBatchedInspectionDetails);
-router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.updateInspection);
-router.delete('/:id', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.deleteInspection);
+router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), requireActiveSubscription, ensureInspectionAccess, inspectionController.updateInspection);
+router.delete('/:id', requireRole(ROLE_MANAGER), requireActiveSubscription, ensureInspectionAccess, inspectionController.deleteInspection);
 
 // --- Workflow Actions ---
 

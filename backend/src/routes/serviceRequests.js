@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import validate from '../middleware/validate.js';
 import { prisma } from '../config/prismaClient.js';
-import { requireAuth, requireRole, isSubscriptionActive } from '../middleware/auth.js';
+import { requireAuth, requireRole, requirePropertyManagerSubscription, isSubscriptionActive } from '../middleware/auth.js';
 import { redisDel } from '../config/redisClient.js';
 import { logAudit } from '../utils/auditLog.js';
 import {
@@ -346,7 +346,7 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
   }
 });
 
-router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res) => {
+router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(requestUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;

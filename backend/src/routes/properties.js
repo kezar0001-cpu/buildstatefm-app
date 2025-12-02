@@ -1615,8 +1615,8 @@ router.get('/:id', cacheMiddleware({ ttl: 60 }), async (req, res) => {
   }
 });
 
-// PATCH /:id - Update property (PROPERTY_MANAGER only, must be property manager)
-router.patch('/:id', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+// PATCH /:id - Update property (PROPERTY_MANAGER only, must be property manager, requires active subscription)
+router.patch('/:id', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   try {
     const property = await prisma.property.findUnique({
       where: { id: req.params.id },
@@ -1842,8 +1842,8 @@ router.patch('/:id', requireRole('PROPERTY_MANAGER'), async (req, res) => {
   }
 });
 
-// DELETE /:id - Delete property (PROPERTY_MANAGER only, must be property manager)
-router.delete('/:id', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+// DELETE /:id - Delete property (PROPERTY_MANAGER only, must be property manager, requires active subscription)
+router.delete('/:id', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   try {
     const property = await prisma.property.findUnique({
       where: { id: req.params.id },

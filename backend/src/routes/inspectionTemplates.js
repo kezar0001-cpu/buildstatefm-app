@@ -1,13 +1,13 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate } from '../middleware/auth.js';
-import { authorize } from '../middleware/rbac.js';
+import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get all inspection templates
-router.get('/', authenticate, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { type, propertyId, isActive } = req.query;
 
@@ -56,12 +56,12 @@ router.get('/', authenticate, async (req, res) => {
     res.json(templates);
   } catch (error) {
     console.error('Error fetching inspection templates:', error);
-    res.status(500).json({ error: 'Failed to fetch inspection templates' });
+    return sendError(res, 500, 'Failed to fetch inspection templates', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // Get a single inspection template
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -86,23 +86,23 @@ router.get('/:id', authenticate, async (req, res) => {
     });
 
     if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
+      return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
     }
 
     res.json(template);
   } catch (error) {
     console.error('Error fetching inspection template:', error);
-    res.status(500).json({ error: 'Failed to fetch inspection template' });
+    return sendError(res, 500, 'Failed to fetch inspection template', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // Create a new inspection template
-router.post('/', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { name, description, type, propertyId, rooms, isDefault } = req.body;
 
     if (!name || !type) {
-      return res.status(400).json({ error: 'Name and type are required' });
+      return sendError(res, 400, 'Name and type are required', ErrorCodes.VAL_MISSING_FIELD);
     }
 
     // Only admins can create default templates
@@ -151,12 +151,12 @@ router.post('/', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (
     res.status(201).json(template);
   } catch (error) {
     console.error('Error creating inspection template:', error);
-    res.status(500).json({ error: 'Failed to create inspection template' });
+    return sendError(res, 500, 'Failed to create inspection template', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // Update an inspection template
-router.patch('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, isActive, isDefault, rooms } = req.body;
@@ -167,7 +167,7 @@ router.patch('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), asy
     });
 
     if (!existingTemplate) {
-      return res.status(404).json({ error: 'Template not found' });
+      return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
     }
 
     // Build update data
@@ -227,12 +227,12 @@ router.patch('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), asy
     res.json(template);
   } catch (error) {
     console.error('Error updating inspection template:', error);
-    res.status(500).json({ error: 'Failed to update inspection template' });
+    return sendError(res, 500, 'Failed to update inspection template', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // Delete an inspection template
-router.delete('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -250,7 +250,7 @@ router.delete('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), as
     });
 
     if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
+      return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
     }
 
     // Prevent deletion if template is used in inspections or recurring schedules
@@ -271,12 +271,12 @@ router.delete('/:id', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), as
     res.json({ message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Error deleting inspection template:', error);
-    res.status(500).json({ error: 'Failed to delete inspection template' });
+    return sendError(res, 500, 'Failed to delete inspection template', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
 // Duplicate an inspection template
-router.post('/:id/duplicate', authenticate, authorize(['PROPERTY_MANAGER', 'ADMIN']), async (req, res) => {
+router.post('/:id/duplicate', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, propertyId } = req.body;
@@ -294,7 +294,7 @@ router.post('/:id/duplicate', authenticate, authorize(['PROPERTY_MANAGER', 'ADMI
     });
 
     if (!originalTemplate) {
-      return res.status(404).json({ error: 'Template not found' });
+      return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
     }
 
     // Create a duplicate
@@ -341,7 +341,7 @@ router.post('/:id/duplicate', authenticate, authorize(['PROPERTY_MANAGER', 'ADMI
     res.status(201).json(duplicateTemplate);
   } catch (error) {
     console.error('Error duplicating inspection template:', error);
-    res.status(500).json({ error: 'Failed to duplicate inspection template' });
+    return sendError(res, 500, 'Failed to duplicate inspection template', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
