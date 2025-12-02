@@ -41,6 +41,7 @@ import {
   ArrowBack as ArrowBackIcon,
   OpenInNew as OpenInNewIcon,
   Close as CloseIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -80,8 +81,12 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
   const [scheduledDateInput, setScheduledDateInput] = useState(
     formatDateTimeForInput(job?.scheduledDate)
   );
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [deleteCommentId, setDeleteCommentId] = useState(null);
   const { user } = useCurrentUser();
   const isTechnician = user?.role === 'TECHNICIAN';
+  const isPropertyManager = user?.role === 'PROPERTY_MANAGER';
 
   const commentsQueryKey = queryKeys.jobs.comments(job?.id);
 
@@ -135,6 +140,31 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentsQueryKey });
       setCommentText('');
+    },
+  });
+
+  // Mutation to edit a comment
+  const editCommentMutation = useMutation({
+    mutationFn: async ({ commentId, content }) => {
+      const response = await apiClient.patch(`/jobs/${job.id}/comments/${commentId}`, { content });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: commentsQueryKey });
+      setEditingCommentId(null);
+      setEditCommentText('');
+    },
+  });
+
+  // Mutation to delete a comment
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId) => {
+      const response = await apiClient.delete(`/jobs/${job.id}/comments/${commentId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: commentsQueryKey });
+      setDeleteCommentId(null);
     },
   });
 
@@ -361,6 +391,39 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
       postCommentMutation.mutate(commentText.trim());
     }
   };
+
+  const handleStartEditComment = (comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentText(comment.content);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentText('');
+  };
+
+  const handleSaveEditComment = () => {
+    if (editCommentText.trim() && editingCommentId) {
+      editCommentMutation.mutate({ commentId: editingCommentId, content: editCommentText.trim() });
+    }
+  };
+
+  const handleDeleteComment = (commentId) => {
+    setDeleteCommentId(commentId);
+  };
+
+  const handleConfirmDeleteComment = () => {
+    if (deleteCommentId) {
+      deleteCommentMutation.mutate(deleteCommentId);
+    }
+  };
+
+  const handleCancelDeleteComment = () => {
+    setDeleteCommentId(null);
+  };
+
+  const canEditComment = (comment) => comment.userId === user?.id;
+  const canDeleteComment = (comment) => comment.userId === user?.id || isPropertyManager;
 
   const createClientId = () => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -873,10 +936,62 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
                               {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                             </Typography>
                           </Box>
+                          <Stack direction="row" spacing={0.5}>
+                            {canEditComment(comment) && (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStartEditComment(comment)}
+                                disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            {canDeleteComment(comment) && (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Stack>
                         </Box>
-                        <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>
-                          {comment.content}
-                        </Typography>
+                        {editingCommentId === comment.id ? (
+                          <Box>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              multiline
+                              maxRows={4}
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              disabled={editCommentMutation.isPending}
+                              sx={{ mb: 1 }}
+                            />
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                onClick={handleCancelEditComment}
+                                disabled={editCommentMutation.isPending}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={handleSaveEditComment}
+                                disabled={!editCommentText.trim() || editCommentMutation.isPending}
+                              >
+                                {editCommentMutation.isPending ? 'Saving...' : 'Save'}
+                              </Button>
+                            </Stack>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>
+                            {comment.content}
+                          </Typography>
+                        )}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                           <Typography variant="caption" color="text.secondary">
                             {comment.user?.email}
@@ -976,6 +1091,33 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
             startIcon={assignmentMutation.isPending ? <CircularProgress size={20} /> : null}
           >
             {assignmentMutation.isPending ? 'Saving...' : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <Dialog
+        open={!!deleteCommentId}
+        onClose={deleteCommentMutation.isPending ? undefined : handleCancelDeleteComment}
+      >
+        <DialogTitle>Delete Comment</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this comment? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDeleteComment} disabled={deleteCommentMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDeleteComment}
+            variant="contained"
+            color="error"
+            disabled={deleteCommentMutation.isPending}
+            startIcon={deleteCommentMutation.isPending ? <CircularProgress size={20} /> : null}
+          >
+            {deleteCommentMutation.isPending ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
