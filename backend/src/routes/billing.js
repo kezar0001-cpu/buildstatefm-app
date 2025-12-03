@@ -163,7 +163,10 @@ router.post('/checkout', async (req, res) => {
       client_reference_id: dbUser.orgId || dbUser.id,
       metadata,
       subscription_data: {
-        metadata,
+        metadata: {
+          ...metadata,
+          addOns: JSON.stringify(addOns),
+        },
       },
       allow_promotion_codes: true,
     });
@@ -248,6 +251,21 @@ router.get('/invoices', async (req, res) => {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
 
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can view invoices. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
@@ -308,6 +326,21 @@ router.post('/payment-method', async (req, res) => {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
 
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can update payment methods. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
@@ -353,6 +386,21 @@ router.post('/cancel', async (req, res) => {
   try {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can cancel subscriptions. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
 
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);

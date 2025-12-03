@@ -43,10 +43,50 @@ function issueAuthTokens(user, res) {
   return { accessToken, refreshToken };
 }
 
-function calculateTrialEndDate(baseDate = new Date()) {
+/**
+ * Calculate trial end date with A/B testing support
+ * @param {Date} baseDate - Base date to calculate from
+ * @param {string} variant - A/B testing variant (A, B, C) or null
+ * @returns {object} { trialEndDate, variant }
+ */
+function calculateTrialEndDate(baseDate = new Date(), variant = null) {
+  let trialDays = TRIAL_PERIOD_DAYS; // Default 14 days
+  
+  // A/B testing for trial lengths (only if enabled)
+  if (process.env.ENABLE_TRIAL_AB_TESTING === 'true' && !variant) {
+    // Randomly assign variant for property managers
+    const random = Math.random();
+    if (random < 0.33) {
+      variant = 'A'; // 14 days (default)
+      trialDays = 14;
+    } else if (random < 0.66) {
+      variant = 'B'; // 7 days
+      trialDays = 7;
+    } else {
+      variant = 'C'; // 21 days
+      trialDays = 21;
+    }
+  } else if (variant) {
+    // Use provided variant
+    switch (variant) {
+      case 'A':
+        trialDays = 14;
+        break;
+      case 'B':
+        trialDays = 7;
+        break;
+      case 'C':
+        trialDays = 21;
+        break;
+      default:
+        trialDays = TRIAL_PERIOD_DAYS;
+    }
+  }
+
   const endDate = new Date(baseDate);
-  endDate.setDate(endDate.getDate() + TRIAL_PERIOD_DAYS);
-  return endDate;
+  endDate.setDate(endDate.getDate() + trialDays);
+  
+  return { trialEndDate: endDate, variant: variant || 'A' };
 }
 
 async function ensureTrialState(user, updateLoginTime = false) {
@@ -60,7 +100,8 @@ async function ensureTrialState(user, updateLoginTime = false) {
     const baseDate = user.createdAt ? new Date(user.createdAt) : now;
 
     if (!trialEndDate) {
-      trialEndDate = calculateTrialEndDate(baseDate);
+      const trialData = calculateTrialEndDate(baseDate);
+      trialEndDate = trialData.trialEndDate;
       updates.trialEndDate = trialEndDate;
     }
 
