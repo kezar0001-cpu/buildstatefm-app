@@ -25,10 +25,6 @@ model User {
   subscriptionStatus                                   SubscriptionStatus      @default(TRIAL)
   trialEndDate                                         DateTime?
   emailVerified                                        Boolean                 @default(false)
-  trialVariant                                         String?
-  gdprConsentGiven                                     Boolean                 @default(false)
-  gdprConsentDate                                      DateTime?
-  marketingConsentGiven                                Boolean                 @default(false)
   AuditLog                                             AuditLog[]
   BlogPost                                             BlogPost[]
   Inspection_Inspection_approvedByIdToUser             Inspection[]            @relation("Inspection_approvedByIdToUser")
@@ -107,8 +103,6 @@ model Subscription {
   startDate              DateTime           @default(now())
   endDate                DateTime?
   cancelledAt            DateTime?
-  enabledFeatureFlags    String[]           @default([])
-  customLimits           Json?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -117,44 +111,6 @@ model Subscription {
   @@index([status])
 }
 
-<<<<<<< HEAD
-=======
-model StripeWebhookEvent {
-  id          String    @id @default(cuid())
-  eventId     String    @unique
-  eventType   String
-  processed   Boolean   @default(false)
-  processedAt DateTime?
-  data        Json?
-  createdAt   DateTime  @default(now())
-
-  @@index([eventId])
-  @@index([processed])
-  @@index([eventType])
-}
-
-model PromoCode {
-  id                 String    @id @default(cuid())
-  code               String    @unique
-  description        String?
-  discountType       String
-  discountAmount     Float?
-  discountPercentage Float?
-  maxUses            Int?
-  currentUses        Int       @default(0)
-  expiresAt          DateTime?
-  isActive           Boolean   @default(true)
-  applicablePlans    String[]  @default([])
-  createdBy          String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  @@index([code])
-  @@index([isActive])
-  @@index([expiresAt])
-}
-
->>>>>>> b73841178959a005f5114985f355ddfe6b563e36
 model Property {
   id                  String                @id @default(cuid())
   name                String
@@ -824,15 +780,10 @@ model JobComment {
 }
 
 model Org {
-  id         String   @id
-  name       String
-  ownerId    String?
-  settings   Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  User       User[]
-
-  @@index([ownerId])
+  id        String   @id
+  name      String
+  createdAt DateTime @default(now())
+  User      User[]
 }
 
 model OwnerProfile {
