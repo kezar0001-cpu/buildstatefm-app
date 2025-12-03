@@ -251,10 +251,19 @@ router.get('/invoices', async (req, res) => {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
 
-    // Verify user is a property manager or admin
+    // Verify user is a property manager or admin and load latest subscription with a Stripe customer ID
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { role: true },
+      select: {
+        role: true,
+        subscriptions: {
+          where: {
+            stripeCustomerId: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
     });
 
     if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
@@ -270,21 +279,7 @@ router.get('/invoices', async (req, res) => {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
 
-    // Find user's Stripe customer ID
-    const userWithSubscriptions = await prisma.user.findUnique({
-      where: { id: user.id },
-      include: {
-        subscriptions: {
-          where: {
-            stripeCustomerId: { not: null },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
-
-    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeCustomerId) {
+    if (!dbUser || !dbUser.subscriptions[0]?.stripeCustomerId) {
       return res.json({ invoices: [] });
     }
 
