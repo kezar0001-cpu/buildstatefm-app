@@ -59,20 +59,43 @@ function mapStripeStatusToAppStatus(status, fallback = 'PENDING') {
 }
 
 async function applySubscriptionUpdate({ userId, orgId, data }) {
-  if (!data) return;
-
-  const cleanedEntries = Object.entries(data).filter(([, value]) => value !== undefined);
-  if (cleanedEntries.length === 0) return;
-
-  const cleaned = Object.fromEntries(cleanedEntries);
-
-  if (userId) {
-    await prisma.user.update({ where: { id: userId }, data: cleaned });
+  if (!data) {
+    console.warn('applySubscriptionUpdate called with no data');
     return;
   }
 
-  if (orgId) {
-    await prisma.user.updateMany({ where: { orgId }, data: cleaned });
+  const cleanedEntries = Object.entries(data).filter(([, value]) => value !== undefined);
+  if (cleanedEntries.length === 0) {
+    console.warn('applySubscriptionUpdate: no valid data entries after cleaning');
+    return;
+  }
+
+  const cleaned = Object.fromEntries(cleanedEntries);
+
+  try {
+    if (userId) {
+      const updated = await prisma.user.update({ 
+        where: { id: userId }, 
+        data: cleaned,
+        select: { id: true, subscriptionStatus: true, subscriptionPlan: true }
+      });
+      console.log(`Updated user ${userId}:`, updated);
+      return;
+    }
+
+    if (orgId) {
+      const result = await prisma.user.updateMany({ 
+        where: { orgId }, 
+        data: cleaned 
+      });
+      console.log(`Updated ${result.count} users for orgId ${orgId}`);
+      return;
+    }
+
+    console.warn('applySubscriptionUpdate: no userId or orgId provided');
+  } catch (error) {
+    console.error('Error in applySubscriptionUpdate:', error);
+    throw error;
   }
 }
 
@@ -289,7 +312,7 @@ router.post('/confirm', async (req, res) => {
     if (!sessionId) return sendError(res, 400, 'sessionId required', ErrorCodes.VAL_MISSING_FIELD);
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['subscription.items.data.price'],
+      expand: ['subscription', 'subscription.items.data.price'],
     });
 
     if (session.mode !== 'subscription') {
@@ -300,14 +323,34 @@ router.post('/confirm', async (req, res) => {
 
     const userId = session.metadata?.userId;
     const orgId = session.metadata?.orgId || session.client_reference_id;
-    const subscription =
-      session.subscription && typeof session.subscription === 'object'
-        ? session.subscription
-        : null;
+    
+    if (!userId && !orgId) {
+      console.error('No userId or orgId found in session metadata');
+      return sendError(res, 400, 'User information not found in session', ErrorCodes.VAL_INVALID_REQUEST);
+    }
+
+    // Get subscription - it might be a string ID or an object
+    let subscription = null;
+    const subscriptionId = typeof session.subscription === 'string' 
+      ? session.subscription 
+      : session.subscription?.id || session.subscription;
+
+    if (subscriptionId) {
+      try {
+        subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+          expand: ['items.data.price'],
+        });
+      } catch (error) {
+        console.error('Failed to retrieve subscription:', error);
+        // If subscription retrieval fails, use metadata plan as fallback
+      }
+    }
 
     const priceId = subscription?.items?.data?.[0]?.price?.id;
     const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
-    const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
+    const status = mapStripeStatusToAppStatus(subscription?.status || 'active', 'ACTIVE');
+
+    console.log(`Confirming subscription: userId=${userId}, orgId=${orgId}, plan=${plan}, status=${status}`);
 
     const data = { subscriptionStatus: status };
     if (plan) data.subscriptionPlan = plan;
@@ -319,7 +362,27 @@ router.post('/confirm', async (req, res) => {
       data,
     });
 
-    return res.json({ ok: true });
+    console.log(`Subscription confirmed and updated for user ${userId || orgId}`);
+
+    // Also create/update Subscription record if we have subscription data
+    if (subscription && session.customer) {
+      try {
+        await upsertSubscription({
+          userId,
+          orgId,
+          stripeCustomerId: session.customer,
+          stripeSubscriptionId: subscriptionId,
+          status,
+          plan,
+          currentPeriodEnd: subscription.current_period_end,
+        });
+      } catch (error) {
+        console.error('Error upserting subscription record:', error);
+        // Don't fail the request if subscription record update fails
+      }
+    }
+
+    return res.json({ ok: true, plan, status });
   } catch (err) {
     if (err instanceof StripeNotConfiguredError) {
       return sendError(res, 503, err.message, ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
@@ -830,9 +893,18 @@ export async function webhook(req, res) {
         const session = event.data.object;
         const userId = session.metadata?.userId;
         const orgId  = session.metadata?.orgId || session.client_reference_id;
-        const subscriptionId = session.subscription;
-        const customerId = session.customer;
+        const subscriptionId = typeof session.subscription === 'string' 
+          ? session.subscription 
+          : session.subscription?.id || session.subscription;
+        const customerId = typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id || session.customer;
         let subscription;
+
+        if (!userId && !orgId) {
+          console.error('No userId or orgId found in checkout.session.completed webhook');
+          break;
+        }
 
         if (session.mode === 'subscription' && subscriptionId) {
           try {
@@ -840,13 +912,16 @@ export async function webhook(req, res) {
               expand: ['items.data.price'],
             });
           } catch (error) {
-            console.warn('Failed to retrieve subscription for checkout.session.completed', error);
+            console.error('Failed to retrieve subscription for checkout.session.completed', error);
+            // Continue with metadata plan as fallback
           }
         }
 
         const priceId = subscription?.items?.data?.[0]?.price?.id;
         const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
-        const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
+        const status = mapStripeStatusToAppStatus(subscription?.status || 'active', 'ACTIVE');
+
+        console.log(`Updating subscription: userId=${userId}, orgId=${orgId}, plan=${plan}, status=${status}`);
 
         // Update User model
         const update = {
@@ -861,22 +936,34 @@ export async function webhook(req, res) {
           update.trialEndDate = null;
         }
 
-        await applySubscriptionUpdate({ userId, orgId, data: update });
+        try {
+          await applySubscriptionUpdate({ userId, orgId, data: update });
+          console.log(`User subscription updated successfully for ${userId || orgId}`);
+        } catch (error) {
+          console.error('Error updating user subscription:', error);
+          throw error; // Re-throw to trigger error handling
+        }
 
         // Create/Update Subscription record
         if (subscription && customerId) {
-          await upsertSubscription({
-            userId,
-            orgId,
-            stripeCustomerId: customerId,
-            stripeSubscriptionId: subscriptionId,
-            status,
-            plan,
-            currentPeriodEnd: subscription.current_period_end,
-          });
+          try {
+            await upsertSubscription({
+              userId,
+              orgId,
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+              status,
+              plan,
+              currentPeriodEnd: subscription.current_period_end,
+            });
+            console.log(`Subscription record upserted for ${userId || orgId}`);
+          } catch (error) {
+            console.error('Error upserting subscription record:', error);
+            // Don't fail the webhook if subscription record update fails
+          }
         }
 
-        console.log(`Checkout completed: ${subscriptionId} for user ${userId || orgId}`);
+        console.log(`Checkout completed: ${subscriptionId} for user ${userId || orgId}, status=${status}`);
         break;
       }
       case 'customer.subscription.updated': {
