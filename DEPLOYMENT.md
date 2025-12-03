@@ -70,6 +70,11 @@ STRIPE_PRICE_ID_PROFESSIONAL=price_...
 STRIPE_PRICE_ID_ENTERPRISE=price_...
 STRIPE_SUCCESS_URL=https://www.buildstate.com.au/subscriptions?success=1
 STRIPE_CANCEL_URL=https://www.buildstate.com.au/subscriptions?canceled=1
+
+# Email Service (Resend) - REQUIRED for notifications, password resets, trial expiration reminders
+# Note: The application uses Resend API, NOT Gmail SMTP. Do NOT configure EMAIL_HOST, EMAIL_USER, or EMAIL_PASS.
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+EMAIL_FROM="Buildstate <no-reply@buildtstate.com.au>"
 ```
 
 ## Vercel Configuration

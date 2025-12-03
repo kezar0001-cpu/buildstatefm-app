@@ -1,6 +1,8 @@
 import prisma from '../config/prismaClient.js';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { hasReachedLimit, getRemainingUsage, getUsagePercentage } from '../utils/subscriptionLimits.js';
+import { getUsageStats } from '../utils/usageTracking.js';
 
 /**
  * Middleware to require authentication
@@ -281,4 +283,76 @@ export const requirePropertyManagerSubscription = async (req, res, next) => {
     console.error('Property manager subscription check error:', error);
     return sendError(res, 500, 'Failed to verify subscription status', ErrorCodes.ERR_INTERNAL_SERVER);
   }
+};
+
+/**
+ * Middleware to enforce usage limits instead of feature blocks
+ * All features are available, but usage is limited by subscription plan
+ * 
+ * @param {string} limitType - Type of limit to check (e.g., 'properties', 'teamMembers')
+ * @param {function} getCurrentUsageFn - Async function that returns current usage count
+ * @returns {function} Express middleware
+ * 
+ * @example
+ * requireUsage('properties', async (userId) => await getPropertyCount(userId))
+ */
+export const requireUsage = (limitType, getCurrentUsageFn) => {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+      }
+
+      // Get usage stats to determine property manager and plan
+      const usageStats = await getUsageStats(req.user.id, req.user.role);
+      const plan = usageStats.plan || 'FREE_TRIAL';
+      const customLimits = usageStats.customLimits;
+
+      // Get current usage for the specific limit type
+      let currentUsage;
+      if (typeof getCurrentUsageFn === 'function') {
+        // Use provided function to get current usage
+        currentUsage = await getCurrentUsageFn(usageStats.propertyManagerId || req.user.id);
+      } else {
+        // Fallback to usage stats object
+        currentUsage = usageStats[limitType] || 0;
+      }
+
+      // Check if limit has been reached
+      if (hasReachedLimit(plan, limitType, currentUsage, customLimits)) {
+        const remaining = getRemainingUsage(plan, limitType, currentUsage, customLimits);
+        const percentage = getUsagePercentage(plan, limitType, currentUsage, customLimits);
+
+        return sendError(
+          res,
+          402, // Payment Required
+          `You have reached your ${limitType} limit. Please upgrade your plan to continue.`,
+          ErrorCodes.SUB_USAGE_LIMIT_REACHED,
+          {
+            limitType,
+            currentUsage,
+            limit: remaining === Infinity ? 'Unlimited' : currentUsage + remaining,
+            remaining,
+            percentage: percentage !== null ? Math.round(percentage) : null,
+            plan,
+            upgradeRequired: true,
+          }
+        );
+      }
+
+      // Store usage info in request for route handlers
+      req.usageInfo = {
+        limitType,
+        currentUsage,
+        plan,
+        customLimits,
+        propertyManagerId: usageStats.propertyManagerId || req.user.id,
+      };
+
+      return next();
+    } catch (error) {
+      console.error('Usage limit check error:', error);
+      return sendError(res, 500, 'Failed to verify usage limits', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  };
 };
