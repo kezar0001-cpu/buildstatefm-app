@@ -217,6 +217,7 @@ import unitsRoutes from './routes/units.js';
 import jobsRoutes from './routes/jobs.js';
 import inspectionsRoutes from './routes/inspections.js';
 import subscriptionsRoutes from './routes/subscriptions.js';
+import promoCodesRoutes from './routes/promoCodes.js';
 import uploadsRoutes from './routes/uploads.js';
 import reportsRoutes from './routes/reports.js';
 import recommendationsRoutes from './routes/recommendations.js';
@@ -254,6 +255,7 @@ app.use('/api/units', unitsRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/inspections', inspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/promo-codes', promoCodesRoutes);
 app.use('/api/upload', uploadsRoutes); // Changed to /upload (singular) to avoid conflict with static /api/uploads
 app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
