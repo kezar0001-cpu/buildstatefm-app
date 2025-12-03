@@ -137,8 +137,8 @@ const Navbar = () => {
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
       }}
     >
-      <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 } }}>
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 }, px: { xs: 2, md: 0 } }}>
           <Typography
             variant="h6"
             component={RouterLink}
@@ -272,7 +272,7 @@ const Hero = () => (
       }}
     />
 
-    <Container maxWidth="lg" sx={{ position: 'relative' }}>
+    <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative' }}>
       <Grid container spacing={6} alignItems="center">
         <Grid item xs={12} md={6}>
           <FadeIn>
@@ -434,7 +434,7 @@ const HowItWorks = () => {
 
   return (
     <Box id="how-it-works" sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}>
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
         <Box textAlign="center" mb={8}>
           <Typography
             variant="overline"
@@ -646,7 +646,7 @@ const Features = () => {
 
   return (
     <Box id="features" sx={{ py: { xs: 8, md: 12 }, background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)' }}>
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
         <Box textAlign="center" mb={8}>
           <Typography
             variant="overline"
@@ -731,7 +731,7 @@ const Features = () => {
 
 const ImageShowcase = () => (
   <Box sx={{ py: 12, bgcolor: 'background.default' }}>
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
       <Grid container spacing={8} alignItems="center">
         <Grid item xs={12} md={6}>
           <FadeIn>
@@ -797,7 +797,7 @@ const Testimonials = () => {
 
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}>
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
         <Box textAlign="center" mb={8}>
           <Typography
             variant="overline"
@@ -1012,7 +1012,7 @@ const CTA = () => (
 
 const Footer = () => (
   <Box sx={{ py: 8, bgcolor: '#1a1a1a', color: 'grey.400' }}>
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
       <Grid container spacing={4}>
         <Grid item xs={12} md={4}>
           <Typography

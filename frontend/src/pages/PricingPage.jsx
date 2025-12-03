@@ -289,8 +289,8 @@ export default function PricingPage() {
           py: 8,
         }}
       >
-        <Container maxWidth="lg">
-        <Stack spacing={6}>
+        <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 } }}>
+        <Stack spacing={{ xs: 4, sm: 5, md: 6 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
             <Typography
@@ -346,9 +346,9 @@ export default function PricingPage() {
           </Box>
 
           {/* Pricing Cards */}
-          <Grid container spacing={4} alignItems="stretch">
+          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch">
             {PRICING_TIERS.map((tier) => (
-              <Grid item xs={12} md={4} key={tier.id}>
+              <Grid item xs={12} sm={12} md={4} key={tier.id}>
                 <PricingCard
                   tier={tier}
                   billingCycle={billingCycle}
@@ -360,7 +360,7 @@ export default function PricingPage() {
           </Grid>
 
           {/* FAQ Section */}
-          <Paper sx={{ p: 4, bgcolor: 'grey.50', borderRadius: 3, mt: 6 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'grey.50', borderRadius: 3, mt: { xs: 4, md: 6 } }}>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
               Frequently Asked Questions
             </Typography>
@@ -431,17 +431,17 @@ export default function PricingPage() {
           {/* CTA Section */}
           <Paper
             sx={{
-              p: 5,
+              p: { xs: 3, sm: 4, md: 5 },
               textAlign: 'center',
               background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
               color: 'white',
               borderRadius: 3,
             }}
           >
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
               Ready to get started?
             </Typography>
-            <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ mb: 3, opacity: 0.9, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
               Join 500+ property managers managing 10,000+ units worldwide
             </Typography>
             <Button

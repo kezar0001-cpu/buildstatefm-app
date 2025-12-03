@@ -810,15 +810,15 @@ export default function SubscriptionsPage() {
   const usageWarnings = usageQuery.data?.warnings || [];
 
   return (
-    <Box sx={{ py: 4, minHeight: '100vh' }}>
-      <Container maxWidth="xl">
-        <Stack spacing={4}>
+    <Box sx={{ py: { xs: 2, sm: 3, md: 4 }, minHeight: '100vh' }}>
+      <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 } }}>
+        <Stack spacing={{ xs: 3, sm: 3.5, md: 4 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' } }}>
               {hasActiveSubscription ? 'Manage Your Subscription' : 'Choose Your Plan'}
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto', fontSize: { xs: '0.95rem', sm: '1.15rem', md: '1.25rem' }, px: { xs: 1, sm: 0 } }}>
               {hasActiveSubscription
                 ? 'Manage your subscription, view usage, and update billing information'
                 : 'Start with a free trial. All plans include every feature - only usage limits differ.'}
@@ -881,7 +881,7 @@ export default function SubscriptionsPage() {
 
           {/* Usage Statistics Section */}
           {hasActiveSubscription && usageQuery.data && (
-            <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
               <Stack spacing={3}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box>
@@ -1076,7 +1076,7 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Promo Code Section */}
-              <Paper sx={{ p: 3, mt: 4, borderRadius: 3, bgcolor: 'background.paper' }}>
+              <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mt: { xs: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper' }}>
                 <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems="center">
                   <LocalOfferIcon color="primary" sx={{ fontSize: 32 }} />
                   <Box sx={{ flexGrow: 1 }}>
@@ -1124,7 +1124,7 @@ export default function SubscriptionsPage() {
 
           {/* Plan Comparison for Active Subscribers */}
           {hasActiveSubscription && (
-            <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
               <Stack spacing={3}>
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
@@ -1243,7 +1243,7 @@ export default function SubscriptionsPage() {
             <Grid container spacing={3}>
               {/* Subscription Info */}
               <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2, height: '100%' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
@@ -1286,7 +1286,7 @@ export default function SubscriptionsPage() {
 
               {/* Billing Actions */}
               <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2, height: '100%' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
@@ -1296,7 +1296,8 @@ export default function SubscriptionsPage() {
                         Update payment method or manage your subscription
                       </Typography>
                     </Box>
-                    <Stack spacing={2}>
+                    {/* Desktop: Vertical Stack */}
+                    <Stack spacing={2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
                       <Button
                         variant="outlined"
                         startIcon={<CreditCardIcon />}
@@ -1328,13 +1329,82 @@ export default function SubscriptionsPage() {
                         Cancel Subscription
                       </Button>
                     </Stack>
+                    {/* Mobile: Horizontal Scrollable Carousel */}
+                    <Box
+                      sx={{
+                        display: { xs: 'flex', sm: 'none' },
+                        overflowX: 'auto',
+                        scrollSnapType: 'x mandatory',
+                        scrollBehavior: 'smooth',
+                        gap: 2,
+                        pb: 1,
+                        mx: -2,
+                        px: 2,
+                        '&::-webkit-scrollbar': {
+                          height: '6px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          background: 'transparent',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          background: '#cbd5e1',
+                          borderRadius: '3px',
+                        },
+                      }}
+                    >
+                      <Button
+                        variant="outlined"
+                        startIcon={<CreditCardIcon />}
+                        onClick={handleManageBilling}
+                        size="large"
+                        sx={{
+                          flex: '0 0 auto',
+                          minWidth: '280px',
+                          scrollSnapAlign: 'start',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Manage Billing
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<CreditCardIcon />}
+                        onClick={handleUpdatePaymentMethod}
+                        disabled={updatePaymentMutation.isPending}
+                        size="large"
+                        sx={{
+                          flex: '0 0 auto',
+                          minWidth: '280px',
+                          scrollSnapAlign: 'start',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment'}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<CancelIcon />}
+                        onClick={() => openCancelDialog(false)}
+                        disabled={cancelMutation.isPending}
+                        size="large"
+                        sx={{
+                          flex: '0 0 auto',
+                          minWidth: '280px',
+                          scrollSnapAlign: 'start',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Cancel Subscription
+                      </Button>
+                    </Box>
                   </Stack>
                 </Paper>
               </Grid>
 
               {/* Invoice History */}
               <Grid item xs={12}>
-                <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2 }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
@@ -1411,7 +1481,7 @@ export default function SubscriptionsPage() {
 
           {/* Why Subscribe Section */}
           {!hasActiveSubscription && (
-            <Paper sx={{ p: 4, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 2 }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
                 Why Subscribe to BuildState FM?
               </Typography>
