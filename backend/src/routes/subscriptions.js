@@ -286,6 +286,7 @@ router.get('/churn-analysis', requireAuth, requireRole('ADMIN'), async (req, res
     // Basic = $29, Professional = $79, Enterprise = $149
     const planPrices = {
       BASIC: 29,
+      STARTER: 29, // STARTER is an alias for BASIC
       PROFESSIONAL: 79,
       ENTERPRISE: 149,
     };

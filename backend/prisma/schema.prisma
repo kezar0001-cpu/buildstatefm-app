@@ -1168,6 +1168,7 @@ enum RoomType {
 enum SubscriptionPlan {
   FREE_TRIAL
   STARTER
+  BASIC
   PROFESSIONAL
   ENTERPRISE
 }

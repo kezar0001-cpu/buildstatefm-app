@@ -189,12 +189,14 @@ export const PLAN_LIMITS = {
 
 /**
  * Get plan limits for a given subscription plan
- * @param {string} plan - The subscription plan (BASIC, PROFESSIONAL, ENTERPRISE, FREE_TRIAL)
+ * @param {string} plan - The subscription plan (BASIC, STARTER, PROFESSIONAL, ENTERPRISE, FREE_TRIAL)
  * @returns {object} Plan limits and features
  */
 export function getPlanLimits(plan) {
   const normalizedPlan = typeof plan === 'string' ? plan.toUpperCase() : 'FREE_TRIAL';
-  return PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS.FREE_TRIAL;
+  // Map STARTER to BASIC (they are the same plan)
+  const mappedPlan = normalizedPlan === 'STARTER' ? 'BASIC' : normalizedPlan;
+  return PLAN_LIMITS[mappedPlan] || PLAN_LIMITS.FREE_TRIAL;
 }
 
 /**

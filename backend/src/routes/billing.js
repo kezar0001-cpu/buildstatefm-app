@@ -28,6 +28,8 @@ function normalisePlan(plan) {
   if (!plan) return undefined;
   const upper = String(plan).trim().toUpperCase();
   if (upper === 'FREE_TRIAL') return upper;
+  // Map STARTER to BASIC for consistency (both refer to the same plan)
+  if (upper === 'STARTER') return 'BASIC';
   return PLAN_PRICE_MAP[upper] ? upper : undefined;
 }
 
