@@ -111,20 +111,6 @@ model Subscription {
   @@index([status])
 }
 
-model StripeWebhookEvent {
-  id          String    @id @default(cuid())
-  eventId     String    @unique
-  eventType   String
-  processed   Boolean   @default(false)
-  processedAt DateTime?
-  data        Json?
-  createdAt   DateTime  @default(now())
-
-  @@index([eventId])
-  @@index([processed])
-  @@index([eventType])
-}
-
 model Property {
   id                  String                @id @default(cuid())
   name                String
@@ -1170,7 +1156,7 @@ enum RoomType {
 
 enum SubscriptionPlan {
   FREE_TRIAL
-  BASIC
+  STARTER
   PROFESSIONAL
   ENTERPRISE
 }
