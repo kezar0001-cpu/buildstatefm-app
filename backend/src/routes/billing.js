@@ -175,61 +175,90 @@ router.post('/checkout', async (req, res) => {
     // If promo code is provided, try to apply it
     if (promoCode) {
       try {
-        // Look up promo code in database
-        const promo = await prisma.promoCode.findUnique({
-          where: { code: promoCode.toUpperCase() },
-        });
+        const promoCodeUpper = promoCode.toUpperCase();
+        
+        // First, try to find it as a Stripe promotion code (works with codes created in Stripe dashboard)
+        try {
+          const promotionCodes = await stripe.promotionCodes.list({
+            code: promoCodeUpper,
+            limit: 1,
+            active: true,
+          });
 
-        if (promo && promo.isActive) {
-          // Check if expired
-          if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
-            // Promo expired, but continue without it
-          } else if (promo.maxUses && promo.currentUses >= promo.maxUses) {
-            // Max uses reached, but continue without it
+          if (promotionCodes.data.length > 0) {
+            const promotionCode = promotionCodes.data[0];
+            // Use the promotion code directly
+            sessionConfig.discounts = [{ promotion_code: promotionCode.id }];
+            metadata.promoCode = promoCodeUpper;
+            console.log(`Applied Stripe promotion code: ${promoCodeUpper}`);
           } else {
-            // Check if applicable to this plan
-            if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
-              // Create or retrieve Stripe coupon
-              let couponId;
-              try {
-                // Try to find existing coupon in Stripe
-                const coupons = await stripe.coupons.list({ limit: 100 });
-                const existingCoupon = coupons.data.find(c => c.id === promoCode.toUpperCase() || c.name === promoCode.toUpperCase());
-                
-                if (existingCoupon) {
-                  couponId = existingCoupon.id;
+            // Fallback: Try to find coupon by ID or name
+            const coupons = await stripe.coupons.list({ limit: 100 });
+            const existingCoupon = coupons.data.find(
+              c => c.id === promoCodeUpper || c.name?.toUpperCase() === promoCodeUpper
+            );
+            
+            if (existingCoupon) {
+              sessionConfig.discounts = [{ coupon: existingCoupon.id }];
+              metadata.promoCode = promoCodeUpper;
+              console.log(`Applied Stripe coupon: ${existingCoupon.id}`);
+            } else {
+              // Last resort: Check database and create if needed
+              const promo = await prisma.promoCode.findUnique({
+                where: { code: promoCodeUpper },
+              });
+
+              if (promo && promo.isActive) {
+                // Check if expired
+                if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+                  console.log(`Promo code ${promoCodeUpper} has expired`);
+                } else if (promo.maxUses && promo.currentUses >= promo.maxUses) {
+                  console.log(`Promo code ${promoCodeUpper} has reached max uses`);
                 } else {
-                  // Create new Stripe coupon
-                  const couponData = {
-                    id: promoCode.toUpperCase(),
-                    name: promo.description || `${promoCode} Discount`,
-                  };
+                  // Check if applicable to this plan
+                  if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
+                    // Create Stripe coupon from database promo
+                    const couponData = {
+                      id: promoCodeUpper,
+                      name: promo.description || `${promoCodeUpper} Discount`,
+                    };
 
-                  if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
-                    couponData.percent_off = promo.discountPercentage;
-                  } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
-                    couponData.amount_off = Math.round(promo.discountAmount * 100); // Convert to cents
-                    couponData.currency = 'usd';
+                    if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
+                      couponData.percent_off = promo.discountPercentage;
+                    } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
+                      couponData.amount_off = Math.round(promo.discountAmount * 100);
+                      couponData.currency = 'usd';
+                    }
+
+                    // For first month only discount, use duration: 'once'
+                    if (promoCodeUpper === 'FIRST20') {
+                      couponData.duration = 'once';
+                    }
+
+                    try {
+                      const coupon = await stripe.coupons.create(couponData);
+                      sessionConfig.discounts = [{ coupon: coupon.id }];
+                      metadata.promoCode = promoCodeUpper;
+                      console.log(`Created and applied coupon from database: ${promoCodeUpper}`);
+                    } catch (stripeError) {
+                      // Coupon might already exist, try to use it
+                      if (stripeError.code === 'resource_already_exists') {
+                        sessionConfig.discounts = [{ coupon: promoCodeUpper }];
+                        metadata.promoCode = promoCodeUpper;
+                        console.log(`Using existing coupon: ${promoCodeUpper}`);
+                      } else {
+                        console.error('Error creating Stripe coupon:', stripeError);
+                      }
+                    }
                   }
-
-                  // For first month only discount, use duration: 'once'
-                  if (promoCode.toUpperCase() === 'FIRST20') {
-                    couponData.duration = 'once';
-                  }
-
-                  const coupon = await stripe.coupons.create(couponData);
-                  couponId = coupon.id;
                 }
-
-                // Apply coupon to checkout session
-                sessionConfig.discounts = [{ coupon: couponId }];
-                metadata.promoCode = promoCode.toUpperCase();
-              } catch (stripeError) {
-                console.error('Error creating/applying Stripe coupon:', stripeError);
-                // Continue without coupon if Stripe error
+              } else {
+                console.log(`Promo code ${promoCodeUpper} not found in database or inactive`);
               }
             }
           }
+        } catch (stripeError) {
+          console.error('Error looking up Stripe promotion code:', stripeError);
         }
       } catch (error) {
         console.error('Error processing promo code:', error);
