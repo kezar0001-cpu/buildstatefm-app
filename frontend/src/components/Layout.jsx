@@ -8,6 +8,8 @@ function Layout({ children }) {
     <Box
       sx={{
         minHeight: '100vh',
+        maxWidth: '100vw',
+        overflowX: 'hidden',
         backgroundColor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
@@ -20,6 +22,7 @@ function Layout({ children }) {
         sx={{
           flex: 1,
           width: '100%',
+          maxWidth: '100vw',
           py: { xs: 2, sm: 3 },
           px: { xs: 2, sm: 3, md: 4 },
           pb: { xs: 10, md: 3 }, // Add bottom padding on mobile for bottom nav

@@ -18,12 +18,15 @@ function PageShell({
   const hasBreadcrumbs = Array.isArray(breadcrumbs) && breadcrumbs.length > 0;
 
   return (
-    <Box sx={{ width: '100%', py: { xs: 2, md: 3 } }}>
+    <Box sx={{ width: '100%', py: { xs: 1.5, sm: 2, md: 3 } }}>
       <Stack spacing={{ xs: 2, md: 3 }} sx={{ width: '100%' }}>
         {hasBreadcrumbs && (
           <Breadcrumbs
             separator={<NavigateNextIcon fontSize="small" sx={{ color: 'text.disabled' }} />}
-            sx={{ color: 'text.secondary' }}
+            sx={{
+              color: 'text.secondary',
+              fontSize: { xs: '0.75rem', sm: '0.875rem' }
+            }}
           >
             {breadcrumbs.map((crumb, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
@@ -67,6 +70,7 @@ function PageShell({
               sx={{
                 fontWeight: 800,
                 letterSpacing: '-0.02em',
+                fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
                 background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -75,7 +79,14 @@ function PageShell({
               {title}
             </Typography>
             {subtitle && (
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 720 }}>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{
+                  maxWidth: 720,
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              >
                 {subtitle}
               </Typography>
             )}

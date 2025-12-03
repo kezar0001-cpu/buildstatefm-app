@@ -122,6 +122,10 @@ function NavBar() {
       <Toolbar
         sx={{
           minHeight: { xs: 64, sm: 72 },
+          maxWidth: 1280,
+          width: '100%',
+          mx: 'auto',
+          px: { xs: 2, sm: 3, md: 4 },
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
