@@ -14,6 +14,7 @@ import prisma, { prisma as prismaInstance } from './config/prismaClient.js';
 import logger from './utils/logger.js';
 import scheduleMaintenancePlanCron from './cron/maintenancePlans.js';
 import scheduleBlogAutomationCron from './cron/blogAutomation.js';
+import { startTrialCronJobs } from './cron/trialReminders.js';
 
 // ---- Load env
 dotenv.config();
@@ -30,6 +31,7 @@ const PORT = process.env.PORT || 3000;
 // ---- Cron Jobs
 const maintenancePlanCronTask = scheduleMaintenancePlanCron();
 const blogAutomationCronTask = scheduleBlogAutomationCron();
+const trialCronJobs = startTrialCronJobs();
 
 // Trust proxy so secure cookies & redirects work behind Render/CF
 app.set('trust proxy', 1);
@@ -351,6 +353,13 @@ async function startServer() {
           maintenancePlanCronTask.stop();
         } catch (cronError) {
           logger.error('Error stopping maintenance plan cron task:', cronError);
+        }
+      }
+      if (trialCronJobs) {
+        try {
+          trialCronJobs.stop();
+        } catch (cronError) {
+          logger.error('Error stopping trial cron jobs:', cronError);
         }
       }
       try {

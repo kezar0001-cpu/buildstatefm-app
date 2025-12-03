@@ -8,8 +8,9 @@ import { randomUUID } from 'crypto';
 import axios from 'axios';
 import prisma from '../config/prismaClient.js';
 import { redisGet, redisSet } from '../config/redisClient.js';
-import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireActiveSubscription, requireUsage } from '../middleware/auth.js';
 import { canCreateProperty, getPropertyLimit, getLimitReachedMessage } from '../utils/subscriptionLimits.js';
+import { getPropertyCount } from '../utils/usageTracking.js';
 import unitsRouter from './units.js';
 import { cacheMiddleware, invalidate, invalidatePattern } from '../utils/cache.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
@@ -1378,7 +1379,12 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
 });
 
 // POST / - Create property (PROPERTY_MANAGER only, requires active subscription)
-router.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
+router.post(
+  '/',
+  requireRole('PROPERTY_MANAGER'),
+  requireActiveSubscription,
+  requireUsage('properties', async (userId) => await getPropertyCount(userId)),
+  async (req, res) => {
   try {
     const parsed = applyLegacyAliases(propertySchema.parse(req.body ?? {}));
     // Remove legacy alias fields (they've been converted to standard fields)
@@ -1395,18 +1401,7 @@ router.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, asy
 
     // Property managers can only create properties for themselves
     const managerId = req.user.id;
-
-    // Check property limit based on subscription plan
-    const currentPropertyCount = await prisma.property.count({
-      where: { managerId },
-    });
-
-    const userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
-    if (!canCreateProperty(userPlan, currentPropertyCount)) {
-      const limit = getPropertyLimit(userPlan);
-      const message = getLimitReachedMessage('properties', userPlan);
-      return sendError(res, 403, message, ErrorCodes.SUB_LIMIT_REACHED);
-    }
+    // Usage limit check is handled by requireUsage middleware
 
     const rawImages = legacyImages;
 

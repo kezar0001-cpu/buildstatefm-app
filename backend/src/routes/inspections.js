@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import prisma from '../config/prismaClient.js';
-import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireActiveSubscription, requireUsage } from '../middleware/auth.js';
+import { getInspectionsThisMonth } from '../utils/usageTracking.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidInspectionTransition } from '../utils/statusTransitions.js';
 import * as inspectionController from '../controllers/inspectionController.js';
@@ -117,8 +118,20 @@ router.get('/calendar', inspectionController.getCalendar);
 router.get('/overdue', hydrateInspectionUser, inspectionController.getOverdueInspections);
 
 router.get('/', inspectionController.listInspections);
-router.post('/', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.createInspection);
-router.post('/bulk', requireRole(ROLE_MANAGER), requireActiveSubscription, inspectionController.bulkCreateInspections);
+router.post(
+  '/',
+  requireRole(ROLE_MANAGER),
+  requireActiveSubscription,
+  requireUsage('inspectionsPerMonth', async (userId) => await getInspectionsThisMonth(userId)),
+  inspectionController.createInspection
+);
+router.post(
+  '/bulk',
+  requireRole(ROLE_MANAGER),
+  requireActiveSubscription,
+  requireUsage('inspectionsPerMonth', async (userId) => await getInspectionsThisMonth(userId)),
+  inspectionController.bulkCreateInspections
+);
 router.get('/:id', ensureInspectionAccess, inspectionController.getInspection);
 router.get('/:id/batch', ensureInspectionAccess, inspectionDetailsController.getBatchedInspectionDetails);
 router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), requireActiveSubscription, ensureInspectionAccess, inspectionController.updateInspection);

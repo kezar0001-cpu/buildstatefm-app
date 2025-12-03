@@ -2,7 +2,8 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireUsage } from '../middleware/auth.js';
+import { getTeamMemberCount } from '../utils/usageTracking.js';
 import { sendInviteEmail } from '../utils/email.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
@@ -32,7 +33,12 @@ const createInviteSchema = z.object({
  * POST /api/invites
  * Property Manager creates an invite for Owner, Technician, or Tenant
  */
-router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+router.post(
+  '/',
+  requireAuth,
+  requireRole('PROPERTY_MANAGER'),
+  requireUsage('teamMembers', async (userId) => await getTeamMemberCount(userId)),
+  async (req, res) => {
   try {
     const { email, role, propertyId, unitId } = createInviteSchema.parse(req.body);
 
