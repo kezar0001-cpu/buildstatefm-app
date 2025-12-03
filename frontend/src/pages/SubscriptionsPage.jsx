@@ -737,8 +737,12 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const handleManageBilling = () => {
-    redirectToBillingPortal();
+  const handleManageBilling = async () => {
+    try {
+      await redirectToBillingPortal();
+    } catch (err) {
+      logger.error('Failed to open billing portal:', err);
+    }
   };
 
   const handleUpdatePaymentMethod = async () => {
