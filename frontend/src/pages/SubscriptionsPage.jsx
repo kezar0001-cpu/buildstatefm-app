@@ -507,11 +507,23 @@ export default function SubscriptionsPage() {
   const navigate = useNavigate();
   const { user: currentUser, refreshUser } = useCurrentUser();
 
+  // Redirect non-property-managers (backend will also reject, but better UX to redirect early)
+  React.useEffect(() => {
+    if (currentUser && currentUser.role !== 'PROPERTY_MANAGER' && currentUser.role !== 'ADMIN') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
+
   // Determine if user has active subscription first
   const subscriptionStatus = currentUser?.subscriptionStatus;
   const hasActiveSubscription = subscriptionStatus === 'ACTIVE';
   const isTrialActive = subscriptionStatus === 'TRIAL';
   const trialDaysRemaining = calculateDaysRemaining(currentUser?.trialEndDate);
+
+  // Don't render if user is not a property manager
+  if (!currentUser || (currentUser.role !== 'PROPERTY_MANAGER' && currentUser.role !== 'ADMIN')) {
+    return null;
+  }
 
   // Fetch subscriptions
   const query = useApiQuery({
