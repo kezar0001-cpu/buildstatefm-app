@@ -561,6 +561,12 @@ export default function SubscriptionsPage() {
     method: 'post',
   });
 
+  // Confirm subscription mutation
+  const confirmMutation = useApiMutation({
+    url: '/billing/confirm',
+    method: 'post',
+  });
+
   // State
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelImmediate, setCancelImmediate] = useState(false);
@@ -579,7 +585,40 @@ export default function SubscriptionsPage() {
     let isMounted = true;
     (async () => {
       try {
+        // Get session ID from URL if available
+        const sessionId = params.get('session_id');
+        
+        // If we have a session ID, confirm the subscription first
+        if (sessionId) {
+          try {
+            await confirmMutation.mutateAsync({
+              data: { sessionId },
+            });
+          } catch (err) {
+            logger.error('Failed to confirm subscription:', err);
+            // Continue anyway - webhook should handle it
+          }
+        }
+        
+        // Refresh user data immediately
         await refreshUser();
+        query.refetch();
+        
+        // Wait a bit and refresh again in case webhook is still processing
+        setTimeout(async () => {
+          if (isMounted) {
+            await refreshUser();
+            query.refetch();
+          }
+        }, 2000);
+        
+        // One more refresh after 5 seconds to be sure
+        setTimeout(async () => {
+          if (isMounted) {
+            await refreshUser();
+            query.refetch();
+          }
+        }, 5000);
       } finally {
         if (isMounted) {
           navigate(location.pathname, { replace: true });
@@ -590,7 +629,7 @@ export default function SubscriptionsPage() {
     return () => {
       isMounted = false;
     };
-  }, [showSuccess, refreshUser, navigate, location.pathname]);
+  }, [showSuccess, refreshUser, navigate, location.pathname, params, query, confirmMutation]);
 
   // Effect to auto-start checkout if plan is in URL
   useEffect(() => {
@@ -618,14 +657,15 @@ export default function SubscriptionsPage() {
     try {
       // Apply 20% discount for Basic plan when trial is ending (first month only)
       const shouldApplyDiscount = plan === 'BASIC' && (trialDaysRemaining <= 3 || !isTrialActive);
-      const promoCode = shouldApplyDiscount ? 'FIRST20' : validatedPromo?.code || null;
+      // Use validated promo code, manual promo code input, or auto discount
+      const finalPromoCode = validatedPromo?.code || (promoCode.trim() ? promoCode.trim().toUpperCase() : null) || (shouldApplyDiscount ? 'FIRST20' : null);
 
       const res = await checkoutMutation.mutateAsync({
         data: {
           plan,
-          successUrl: `${window.location.origin}/subscriptions?success=1`,
+          successUrl: `${window.location.origin}/subscriptions?success=1&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
-          promoCode,
+          promoCode: finalPromoCode,
         },
       });
       if (res?.data?.url) {
@@ -647,11 +687,15 @@ export default function SubscriptionsPage() {
       if (res?.data?.valid) {
         setValidatedPromo(res.data.promoCode);
       } else {
-        setValidatedPromo(null);
+        // Even if validation fails in database, the code might exist in Stripe
+        // So we'll still allow it to be used (backend will check Stripe)
+        setValidatedPromo({ code: promoCode.trim().toUpperCase() });
       }
     } catch (err) {
-      setValidatedPromo(null);
-      logger.error('Promo code validation failed:', err);
+      // Even if validation fails, allow the code to be used
+      // Backend will check Stripe directly
+      setValidatedPromo({ code: promoCode.trim().toUpperCase() });
+      logger.error('Promo code validation failed (will check Stripe during checkout):', err);
     }
   };
 
