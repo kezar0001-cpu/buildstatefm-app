@@ -583,51 +583,89 @@ export default function SubscriptionsPage() {
   useEffect(() => {
     if (!showSuccess) return;
     let isMounted = true;
+    let refreshInterval;
+    
     (async () => {
       try {
-        // Get session ID from URL if available
-        const sessionId = params.get('session_id');
+        // Get session ID from URL if available (Stripe replaces {CHECKOUT_SESSION_ID} in the URL)
+        const sessionId = params.get('session_id') || 
+                         new URLSearchParams(window.location.search).get('session_id') ||
+                         window.location.pathname.split('/').pop(); // Sometimes Stripe puts it in the path
+        
+        console.log('Subscription success - sessionId:', sessionId);
         
         // If we have a session ID, confirm the subscription first
-        if (sessionId) {
+        if (sessionId && sessionId !== 'subscriptions') {
           try {
-            await confirmMutation.mutateAsync({
+            console.log('Calling confirm endpoint with sessionId:', sessionId);
+            const confirmResult = await confirmMutation.mutateAsync({
               data: { sessionId },
             });
+            console.log('Confirm result:', confirmResult);
           } catch (err) {
             logger.error('Failed to confirm subscription:', err);
             // Continue anyway - webhook should handle it
           }
+        } else {
+          console.log('No session ID found in URL, relying on webhook');
         }
         
         // Refresh user data immediately
+        console.log('Refreshing user data...');
         await refreshUser();
         query.refetch();
         
-        // Wait a bit and refresh again in case webhook is still processing
-        setTimeout(async () => {
-          if (isMounted) {
-            await refreshUser();
-            query.refetch();
-          }
-        }, 2000);
+        // Set up polling to check subscription status
+        let attempts = 0;
+        const maxAttempts = 10; // Check for up to 20 seconds
         
-        // One more refresh after 5 seconds to be sure
+        refreshInterval = setInterval(async () => {
+          if (!isMounted || attempts >= maxAttempts) {
+            if (refreshInterval) clearInterval(refreshInterval);
+            return;
+          }
+          
+          attempts++;
+          console.log(`Refreshing user data (attempt ${attempts}/${maxAttempts})...`);
+          
+          try {
+            const updatedUser = await refreshUser();
+            query.refetch();
+            
+            // If subscription is now active, stop polling
+            if (updatedUser?.subscriptionStatus === 'ACTIVE') {
+              console.log('Subscription is now ACTIVE, stopping refresh polling');
+              if (refreshInterval) clearInterval(refreshInterval);
+            }
+          } catch (err) {
+            logger.error('Error refreshing user data:', err);
+          }
+        }, 2000); // Check every 2 seconds
+        
+        // Also do a final check after 15 seconds
         setTimeout(async () => {
-          if (isMounted) {
+          if (isMounted && refreshInterval) {
+            clearInterval(refreshInterval);
             await refreshUser();
             query.refetch();
           }
-        }, 5000);
+        }, 15000);
+        
+      } catch (err) {
+        logger.error('Error in subscription success handler:', err);
       } finally {
-        if (isMounted) {
-          navigate(location.pathname, { replace: true });
-        }
+        // Don't navigate immediately - let the polling complete
+        setTimeout(() => {
+          if (isMounted) {
+            navigate(location.pathname, { replace: true });
+          }
+        }, 1000);
       }
     })();
 
     return () => {
       isMounted = false;
+      if (refreshInterval) clearInterval(refreshInterval);
     };
   }, [showSuccess, refreshUser, navigate, location.pathname, params, query, confirmMutation]);
 

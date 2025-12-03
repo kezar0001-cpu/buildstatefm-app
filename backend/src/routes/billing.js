@@ -321,11 +321,46 @@ router.post('/confirm', async (req, res) => {
     const isComplete = session.status === 'complete' || session.payment_status === 'paid';
     if (!isComplete) return sendError(res, 400, 'Session not complete', ErrorCodes.ERR_BAD_REQUEST);
 
-    const userId = session.metadata?.userId;
-    const orgId = session.metadata?.orgId || session.client_reference_id;
+    let userId = session.metadata?.userId;
+    let orgId = session.metadata?.orgId || session.client_reference_id;
+    
+    // If userId/orgId missing, try to find user by customer ID
+    if (!userId && !orgId && session.customer) {
+      const customerId = typeof session.customer === 'string' 
+        ? session.customer 
+        : session.customer?.id || session.customer;
+      
+      console.log(`No userId/orgId in metadata, searching by customer ID: ${customerId}`);
+      try {
+        const subscriptionRecord = await prisma.subscription.findFirst({
+          where: { stripeCustomerId: customerId },
+          include: { user: true },
+        });
+        if (subscriptionRecord?.user) {
+          userId = subscriptionRecord.user.id;
+          orgId = subscriptionRecord.user.orgId;
+          console.log(`Found user by customer ID: userId=${userId}, orgId=${orgId}`);
+        } else {
+          // Try to find user by email from session
+          const userEmail = session.customer_email || session.customer_details?.email;
+          if (userEmail) {
+            const user = await prisma.user.findUnique({
+              where: { email: userEmail },
+            });
+            if (user) {
+              userId = user.id;
+              orgId = user.orgId;
+              console.log(`Found user by email: userId=${userId}, orgId=${orgId}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error finding user by customer ID:', error);
+      }
+    }
     
     if (!userId && !orgId) {
-      console.error('No userId or orgId found in session metadata');
+      console.error('No userId or orgId found in session metadata and could not find user by customer ID');
       return sendError(res, 400, 'User information not found in session', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
@@ -891,8 +926,8 @@ export async function webhook(req, res) {
       case 'checkout.session.completed': {
         console.log('Processing checkout.session.completed');
         const session = event.data.object;
-        const userId = session.metadata?.userId;
-        const orgId  = session.metadata?.orgId || session.client_reference_id;
+        let userId = session.metadata?.userId;
+        let orgId  = session.metadata?.orgId || session.client_reference_id;
         const subscriptionId = typeof session.subscription === 'string' 
           ? session.subscription 
           : session.subscription?.id || session.subscription;
@@ -901,9 +936,43 @@ export async function webhook(req, res) {
           : session.customer?.id || session.customer;
         let subscription;
 
+        // If userId/orgId missing, try to find user by customer ID
+        if (!userId && !orgId && customerId) {
+          console.log(`No userId/orgId in metadata, searching by customer ID: ${customerId}`);
+          try {
+            const subscriptionRecord = await prisma.subscription.findFirst({
+              where: { stripeCustomerId: customerId },
+              include: { user: true },
+            });
+            if (subscriptionRecord?.user) {
+              userId = subscriptionRecord.user.id;
+              orgId = subscriptionRecord.user.orgId;
+              console.log(`Found user by customer ID: userId=${userId}, orgId=${orgId}`);
+            } else {
+              // Try to find user by email from session
+              const userEmail = session.customer_email || session.customer_details?.email;
+              if (userEmail) {
+                const user = await prisma.user.findUnique({
+                  where: { email: userEmail },
+                });
+                if (user) {
+                  userId = user.id;
+                  orgId = user.orgId;
+                  console.log(`Found user by email: userId=${userId}, orgId=${orgId}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error finding user by customer ID:', error);
+          }
+        }
+
         if (!userId && !orgId) {
-          console.error('No userId or orgId found in checkout.session.completed webhook');
-          break;
+          console.error('No userId or orgId found in checkout.session.completed webhook and could not find user by customer ID');
+          // Still try to process if we have subscription ID
+          if (!subscriptionId) {
+            break;
+          }
         }
 
         if (session.mode === 'subscription' && subscriptionId) {
