@@ -90,7 +90,23 @@ router.post('/checkout', async (req, res) => {
       return sendError(res, 401, 'Invalid token', ErrorCodes.AUTH_INVALID_TOKEN);
     }
 
-    const { plan = 'BASIC', successUrl, cancelUrl } = req.body || {};
+    // Get full user data to check role
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser) {
+      return sendError(res, 401, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    // Only property managers (and admins) can access subscription checkout
+    if (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN') {
+      return sendError(
+        res,
+        403,
+        'Only property managers can manage subscriptions. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
+    const { plan = 'BASIC', successUrl, cancelUrl, addOns = [] } = req.body || {};
     const normalisedPlan = normalisePlan(plan) || 'BASIC';
 
     if (!stripeAvailable) {
@@ -111,16 +127,46 @@ router.post('/checkout', async (req, res) => {
       plan: normalisedPlan,
     };
 
+    // Build line items with main plan and any add-ons
+    const lineItems = [{ price: priceId, quantity: 1 }];
+
+    // Add-ons support (e.g., extra properties, extra team members, extra storage)
+    // Add-ons should have their own Stripe price IDs configured in environment variables
+    const ADD_ON_PRICE_IDS = {
+      extraProperties: process.env.STRIPE_ADDON_EXTRA_PROPERTIES,
+      extraTeamMembers: process.env.STRIPE_ADDON_EXTRA_TEAM_MEMBERS,
+      extraStorage: process.env.STRIPE_ADDON_EXTRA_STORAGE,
+      extraAutomation: process.env.STRIPE_ADDON_EXTRA_AUTOMATION,
+    };
+
+    if (Array.isArray(addOns)) {
+      for (const addOn of addOns) {
+        const priceId = ADD_ON_PRICE_IDS[addOn.type];
+        if (priceId) {
+          lineItems.push({
+            price: priceId,
+            quantity: addOn.quantity || 1,
+          });
+
+          // Store add-on in metadata
+          metadata[`addOn_${addOn.type}`] = `${addOn.quantity || 1}`;
+        }
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: lineItems,
       success_url: success,
       cancel_url: cancel,
-      customer_email: user.email,
-      client_reference_id: user.orgId || user.id,
+      customer_email: dbUser.email,
+      client_reference_id: dbUser.orgId || dbUser.id,
       metadata,
       subscription_data: {
-        metadata,
+        metadata: {
+          ...metadata,
+          addOns: JSON.stringify(addOns),
+        },
       },
       allow_promotion_codes: true,
     });
@@ -205,6 +251,21 @@ router.get('/invoices', async (req, res) => {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
 
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can view invoices. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
@@ -265,6 +326,21 @@ router.post('/payment-method', async (req, res) => {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
 
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can update payment methods. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
@@ -310,6 +386,21 @@ router.post('/cancel', async (req, res) => {
   try {
     const user = await authenticateRequest(req);
     if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can cancel subscriptions. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
 
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);

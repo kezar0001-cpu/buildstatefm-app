@@ -43,10 +43,50 @@ function issueAuthTokens(user, res) {
   return { accessToken, refreshToken };
 }
 
-function calculateTrialEndDate(baseDate = new Date()) {
+/**
+ * Calculate trial end date with A/B testing support
+ * @param {Date} baseDate - Base date to calculate from
+ * @param {string} variant - A/B testing variant (A, B, C) or null
+ * @returns {object} { trialEndDate, variant }
+ */
+function calculateTrialEndDate(baseDate = new Date(), variant = null) {
+  let trialDays = TRIAL_PERIOD_DAYS; // Default 14 days
+  
+  // A/B testing for trial lengths (only if enabled)
+  if (process.env.ENABLE_TRIAL_AB_TESTING === 'true' && !variant) {
+    // Randomly assign variant for property managers
+    const random = Math.random();
+    if (random < 0.33) {
+      variant = 'A'; // 14 days (default)
+      trialDays = 14;
+    } else if (random < 0.66) {
+      variant = 'B'; // 7 days
+      trialDays = 7;
+    } else {
+      variant = 'C'; // 21 days
+      trialDays = 21;
+    }
+  } else if (variant) {
+    // Use provided variant
+    switch (variant) {
+      case 'A':
+        trialDays = 14;
+        break;
+      case 'B':
+        trialDays = 7;
+        break;
+      case 'C':
+        trialDays = 21;
+        break;
+      default:
+        trialDays = TRIAL_PERIOD_DAYS;
+    }
+  }
+
   const endDate = new Date(baseDate);
-  endDate.setDate(endDate.getDate() + TRIAL_PERIOD_DAYS);
-  return endDate;
+  endDate.setDate(endDate.getDate() + trialDays);
+  
+  return { trialEndDate: endDate, variant: variant || 'A' };
 }
 
 async function ensureTrialState(user, updateLoginTime = false) {
@@ -60,7 +100,8 @@ async function ensureTrialState(user, updateLoginTime = false) {
     const baseDate = user.createdAt ? new Date(user.createdAt) : now;
 
     if (!trialEndDate) {
-      trialEndDate = calculateTrialEndDate(baseDate);
+      const trialData = calculateTrialEndDate(baseDate);
+      trialEndDate = trialData.trialEndDate;
       updates.trialEndDate = trialEndDate;
     }
 
@@ -145,6 +186,8 @@ const registerSchema = z.object({
   }),
   role: z.enum(['PROPERTY_MANAGER', 'OWNER', 'TECHNICIAN', 'TENANT']).optional(),
   inviteToken: z.string().optional(), // Support for invite-based registration
+  gdprConsentGiven: z.boolean().optional().default(false),
+  marketingConsentGiven: z.boolean().optional().default(false),
 });
 
 const adminSetupSchema = z.object({
@@ -259,7 +302,7 @@ router.post('/setup', async (req, res) => {
 // ========================================
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, role, inviteToken } = registerSchema.parse(req.body);
+    const { firstName, lastName, email, password, phone, role, inviteToken, gdprConsentGiven, marketingConsentGiven } = registerSchema.parse(req.body);
 
     // Validate password strength and requirements
     const passwordValidation = validatePassword(password, [email, firstName, lastName]);
@@ -327,7 +370,28 @@ router.post('/register', async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const trialEndDate = calculateTrialEndDate();
+
+    // A/B testing for trial lengths (only for property managers)
+    // Randomly assign trial variant: 'A' (14 days), 'B' (7 days), 'C' (21 days)
+    let trialVariant = null;
+    let trialDays = TRIAL_PERIOD_DAYS;
+
+    if (userRole === 'PROPERTY_MANAGER' && process.env.ENABLE_TRIAL_AB_TESTING === 'true') {
+      const variants = ['A', 'B', 'C'];
+      trialVariant = variants[Math.floor(Math.random() * variants.length)];
+
+      // Variant A: 14 days (default)
+      // Variant B: 7 days
+      // Variant C: 21 days
+      if (trialVariant === 'B') {
+        trialDays = 7;
+      } else if (trialVariant === 'C') {
+        trialDays = 21;
+      }
+    }
+
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
     const user = await prisma.user.create({
       data: {
@@ -340,6 +404,10 @@ router.post('/register', async (req, res) => {
         subscriptionPlan: 'FREE_TRIAL',
         subscriptionStatus: 'TRIAL',
         trialEndDate,
+        trialVariant,
+        gdprConsentGiven,
+        gdprConsentDate: gdprConsentGiven ? new Date() : null,
+        marketingConsentGiven,
       },
     });
 

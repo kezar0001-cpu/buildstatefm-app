@@ -286,7 +286,8 @@ Buildstate FM is a full-stack property management platform with role-based acces
 - `AWS_S3_BUCKET` - S3 bucket name (for S3)
 - `STRIPE_SECRET_KEY` - Stripe API key (for payments)
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook secret (for payments)
-- `RESEND_API_KEY` - Email service API key (for notifications)
+- `RESEND_API_KEY` - Resend email service API key (for notifications, password resets, trial expiration reminders)
+- `EMAIL_FROM` - Sender email address (e.g., `Buildstate <no-reply@buildtstate.com.au>`)
 - `CSRF_COOKIE_SECURE` - Set to `true` in production (requires HTTPS)
 - `CSRF_COOKIE_SAMESITE` - Set to `strict` in production
 - `CSP_REPORT_ONLY` - Set to `false` in production
@@ -319,12 +320,19 @@ Buildstate FM is a full-stack property management platform with role-based acces
    - **When**: Before first deployment
    - **Impact if not done**: Application will not start
 
-4. **Email Service (Resend)**
-   - Create Resend account
-   - Verify domain
-   - Configure sending domain
-   - **When**: Before enabling email notifications
-   - **Impact if not done**: Email notifications will fail
+4. **Email Service (Resend)** ⚠️ REQUIRED
+   - **Note**: The application uses Resend API, NOT Gmail SMTP. Do NOT configure `EMAIL_HOST`, `EMAIL_USER`, or `EMAIL_PASS`.
+   - Create Resend account at https://resend.com
+   - Verify your domain (e.g., `buildtstate.com.au`)
+   - Add DNS records (SPF, DKIM, DMARC) provided by Resend
+   - Create API key with "Send emails" permission
+   - Add to environment variables:
+     ```bash
+     RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+     EMAIL_FROM="Buildstate <no-reply@buildtstate.com.au>"
+     ```
+   - **When**: Before enabling email notifications, password resets, and trial expiration reminders
+   - **Impact if not done**: Email notifications will fail, password reset will not work, trial expiration reminders will not be sent
 
 ### 3.3 Deployment Configuration
 
