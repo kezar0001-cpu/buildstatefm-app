@@ -304,6 +304,10 @@ router.post('/checkout', async (req, res) => {
 // POST /api/billing/confirm  { sessionId }
 router.post('/confirm', async (req, res) => {
   try {
+    // Require authentication
+    const user = await authenticateRequest(req);
+    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
@@ -364,6 +368,16 @@ router.post('/confirm', async (req, res) => {
       return sendError(res, 400, 'User information not found in session', ErrorCodes.VAL_INVALID_REQUEST);
     }
 
+    // Security: Verify the session belongs to the authenticated user
+    if (userId && userId !== user.id) {
+      console.error(`Session userId ${userId} does not match authenticated user ${user.id}`);
+      return sendError(res, 403, 'Session does not belong to authenticated user', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+    if (orgId && user.orgId !== orgId) {
+      console.error(`Session orgId ${orgId} does not match authenticated user orgId ${user.orgId}`);
+      return sendError(res, 403, 'Session does not belong to authenticated user', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+
     // Get subscription - it might be a string ID or an object
     let subscription = null;
     const subscriptionId = typeof session.subscription === 'string' 
@@ -402,10 +416,15 @@ router.post('/confirm', async (req, res) => {
     // Also create/update Subscription record if we have subscription data
     if (subscription && session.customer) {
       try {
+        // Normalize customer ID to string
+        const customerId = typeof session.customer === 'string' 
+          ? session.customer 
+          : session.customer?.id || session.customer;
+        
         await upsertSubscription({
           userId,
           orgId,
-          stripeCustomerId: session.customer,
+          stripeCustomerId: customerId,
           stripeSubscriptionId: subscriptionId,
           status,
           plan,
@@ -681,25 +700,53 @@ router.post('/cancel', async (req, res) => {
     const subscription = userWithSubscriptions.subscriptions[0];
 
     // Cancel subscription in Stripe
-    const canceledSubscription = await stripe.subscriptions.update(
-      subscription.stripeSubscriptionId,
-      {
-        cancel_at_period_end: !immediate,
-        ...(immediate && { cancel_at: 'now' }),
-      }
-    );
+    let canceledSubscription;
+    try {
+      canceledSubscription = await stripe.subscriptions.update(
+        subscription.stripeSubscriptionId,
+        {
+          cancel_at_period_end: !immediate,
+          ...(immediate && { cancel_at: 'now' }),
+        }
+      );
+    } catch (stripeError) {
+      console.error('Stripe subscription cancellation failed:', stripeError);
+      return sendError(
+        res,
+        500,
+        `Failed to cancel subscription in Stripe: ${stripeError.message || 'Unknown error'}`,
+        ErrorCodes.EXT_STRIPE_ERROR
+      );
+    }
 
     // Update subscription in database if immediate cancellation
     if (immediate) {
-      await applySubscriptionUpdate({
-        userId: user.id,
-        orgId: user.orgId,
-        data: {
-          subscriptionStatus: 'CANCELLED',
-          subscriptionPlan: 'FREE_TRIAL',
-          trialEndDate: null,
-        },
-      });
+      try {
+        // Update User model
+        await applySubscriptionUpdate({
+          userId: user.id,
+          orgId: user.orgId,
+          data: {
+            subscriptionStatus: 'CANCELLED',
+            subscriptionPlan: 'FREE_TRIAL',
+            trialEndDate: null,
+          },
+        });
+
+        // Also update Subscription record synchronously to avoid race condition with webhook
+        await upsertSubscription({
+          userId: user.id,
+          orgId: user.orgId,
+          stripeCustomerId: subscription.stripeCustomerId,
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          status: 'CANCELLED',
+          plan: 'FREE_TRIAL',
+          cancelledAt: canceledSubscription.canceled_at || Date.now() / 1000,
+        });
+      } catch (updateError) {
+        console.error('Error updating subscription in database after cancellation:', updateError);
+        // Log but don't fail - webhook will handle it
+      }
     }
 
     return res.json({
@@ -912,10 +959,30 @@ async function upsertSubscription({
         console.log(`Updated subscription ${existingSubscription.id} for user ${uid}`);
       } else if (stripeSubscriptionId || stripeCustomerId) {
         // Only create new subscription if we have Stripe IDs
-        await prisma.subscription.create({
-          data: subscriptionData,
+        // Double-check that we don't have a duplicate by checking again with more specific criteria
+        const duplicateCheck = await prisma.subscription.findFirst({
+          where: {
+            userId: uid,
+            OR: [
+              ...(stripeSubscriptionId ? [{ stripeSubscriptionId }] : []),
+              ...(stripeCustomerId ? [{ stripeCustomerId }] : []),
+            ],
+          },
         });
-        console.log(`Created new subscription for user ${uid}`);
+
+        if (!duplicateCheck) {
+          await prisma.subscription.create({
+            data: subscriptionData,
+          });
+          console.log(`Created new subscription for user ${uid}`);
+        } else {
+          // Update the duplicate instead
+          await prisma.subscription.update({
+            where: { id: duplicateCheck.id },
+            data: subscriptionData,
+          });
+          console.log(`Updated duplicate subscription ${duplicateCheck.id} for user ${uid}`);
+        }
       }
     }
   } catch (error) {
