@@ -478,7 +478,7 @@ router.get('/invoices', async (req, res) => {
       return res.json({ invoices: [] });
     }
 
-    const stripeCustomerId = userWithSubscriptions.subscriptions[0].stripeCustomerId;
+    const stripeCustomerId = dbUser.subscriptions[0].stripeCustomerId;
 
     // Fetch invoices from Stripe
     const invoices = await stripe.invoices.list({
@@ -568,6 +568,67 @@ router.post('/payment-method', async (req, res) => {
     }
     console.error('Stripe payment method error:', err);
     return sendError(res, 500, 'Failed to update payment method', ErrorCodes.EXT_STRIPE_ERROR);
+  }
+});
+
+// GET /api/billing/portal - Create billing portal session
+router.get('/portal', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req);
+    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can access the billing portal. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
+    if (!stripeAvailable) {
+      return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
+    }
+
+    // Find user's Stripe customer ID
+    const userWithSubscriptions = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        subscriptions: {
+          where: {
+            stripeCustomerId: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeCustomerId) {
+      return sendError(res, 404, 'No active subscription found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    const stripeCustomerId = userWithSubscriptions.subscriptions[0].stripeCustomerId;
+
+    // Create a billing portal session
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: `${process.env.FRONTEND_URL}/subscriptions`,
+    });
+
+    return res.json({ url: portalSession.url });
+  } catch (err) {
+    if (err instanceof StripeNotConfiguredError) {
+      return sendError(res, 503, err.message, ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
+    }
+    console.error('Stripe billing portal error:', err);
+    return sendError(res, 500, 'Failed to create billing portal session', ErrorCodes.EXT_STRIPE_ERROR);
   }
 });
 
@@ -1042,20 +1103,46 @@ export async function webhook(req, res) {
       case 'customer.subscription.updated': {
         console.log('Processing customer.subscription.updated');
         const subscription = event.data.object;
-        const userId = subscription.metadata?.userId;
-        const orgId = subscription.metadata?.orgId;
+        let userId = subscription.metadata?.userId;
+        let orgId = subscription.metadata?.orgId;
         const customerId = subscription.customer;
         const subscriptionId = subscription.id;
         const priceId = subscription.items?.data?.[0]?.price?.id;
         const plan = resolvePlanFromPriceId(priceId, subscription.metadata?.plan);
         const newStatus = mapStripeStatusToAppStatus(subscription.status);
 
+        // If userId/orgId missing, try to find user by customer ID or subscription ID
+        if (!userId && !orgId) {
+          try {
+            const subscriptionRecord = await prisma.subscription.findFirst({
+              where: {
+                OR: [
+                  { stripeCustomerId: customerId },
+                  { stripeSubscriptionId: subscriptionId },
+                ],
+              },
+              include: { user: true },
+            });
+            if (subscriptionRecord?.user) {
+              userId = subscriptionRecord.user.id;
+              orgId = subscriptionRecord.user.orgId;
+              console.log(`Found user by customer/subscription ID: userId=${userId}, orgId=${orgId}`);
+            }
+          } catch (error) {
+            console.error('Error finding user by customer/subscription ID:', error);
+          }
+        }
+
         // Update User model
         const data = { subscriptionStatus: newStatus };
         if (plan) data.subscriptionPlan = plan;
         if (newStatus === 'ACTIVE') data.trialEndDate = null;
 
-        await applySubscriptionUpdate({ userId, orgId, data });
+        if (userId || orgId) {
+          await applySubscriptionUpdate({ userId, orgId, data });
+        } else {
+          console.warn('Skipping user update - no userId or orgId available for subscription update');
+        }
 
         // Update Subscription record
         await upsertSubscription({
@@ -1075,21 +1162,47 @@ export async function webhook(req, res) {
       case 'customer.subscription.deleted': {
         console.log('Processing customer.subscription.deleted');
         const subscription = event.data.object;
-        const userId = subscription.metadata?.userId;
-        const orgId = subscription.metadata?.orgId;
+        let userId = subscription.metadata?.userId;
+        let orgId = subscription.metadata?.orgId;
         const customerId = subscription.customer;
         const subscriptionId = subscription.id;
 
+        // If userId/orgId missing, try to find user by customer ID or subscription ID
+        if (!userId && !orgId) {
+          try {
+            const subscriptionRecord = await prisma.subscription.findFirst({
+              where: {
+                OR: [
+                  { stripeCustomerId: customerId },
+                  { stripeSubscriptionId: subscriptionId },
+                ],
+              },
+              include: { user: true },
+            });
+            if (subscriptionRecord?.user) {
+              userId = subscriptionRecord.user.id;
+              orgId = subscriptionRecord.user.orgId;
+              console.log(`Found user by customer/subscription ID: userId=${userId}, orgId=${orgId}`);
+            }
+          } catch (error) {
+            console.error('Error finding user by customer/subscription ID:', error);
+          }
+        }
+
         // Update User model
-        await applySubscriptionUpdate({
-          userId,
-          orgId,
-          data: {
-            subscriptionStatus: 'CANCELLED',
-            subscriptionPlan: 'FREE_TRIAL',
-            trialEndDate: null,
-          },
-        });
+        if (userId || orgId) {
+          await applySubscriptionUpdate({
+            userId,
+            orgId,
+            data: {
+              subscriptionStatus: 'CANCELLED',
+              subscriptionPlan: 'FREE_TRIAL',
+              trialEndDate: null,
+            },
+          });
+        } else {
+          console.warn('Skipping user update - no userId or orgId available for subscription deletion');
+        }
 
         // Update Subscription record
         await upsertSubscription({
