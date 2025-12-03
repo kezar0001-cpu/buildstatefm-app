@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Typography, Alert, Grid, Paper, List, ListItem, ListItemText, Chip, Divider, Button, CircularProgress } from '@mui/material';
+import toast from 'react-hot-toast';
 import SignatureCapture from '../SignatureCapture';
 import { apiClient } from '../../api/client';
 
@@ -25,7 +26,7 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
         });
       } catch (e) {
         console.error('Failed to upload signature', e);
-        alert('Failed to save signature. Please try again.');
+        toast.error('Failed to save signature. Please try again.');
         return;
       }
     }

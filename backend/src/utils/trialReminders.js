@@ -1,19 +1,20 @@
 /**
- * Trial Expiration Reminders
- * 
- * Sends automated email reminders to property managers at 7, 3, and 1 days before trial expiration.
+ * Trial Expiration Email Reminders
+ *
+ * Sends automated emails to property managers when their trial is approaching expiration
  */
 
-import prisma from '../config/prismaClient.js';
+import { prisma } from '../config/prismaClient.js';
 import { sendEmail } from './email.js';
-import logger from './logger.js';
 
 /**
- * Generate HTML email template for trial expiration reminder
+ * Get trial expiration email HTML
+ * @param {object} user - User object
+ * @param {number} daysRemaining - Days until trial expires
+ * @returns {string} HTML email content
  */
-function generateTrialExpirationEmailHTML(user, daysRemaining, planOptions) {
-  const firstName = user.firstName || 'there';
-  const plan = user.subscriptionPlan || 'FREE_TRIAL';
+function getTrialExpirationEmailHTML(user, daysRemaining) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
   return `
 <!DOCTYPE html>
@@ -49,50 +50,13 @@ function generateTrialExpirationEmailHTML(user, daysRemaining, planOptions) {
       margin-bottom: 10px;
     }
     h1 {
-      color: #333;
+      color: #d32f2f;
       font-size: 24px;
       margin-bottom: 20px;
     }
     p {
       margin-bottom: 15px;
       color: #555;
-    }
-    .warning {
-      background-color: #fff3cd;
-      border-left: 4px solid #ffc107;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .plans {
-      margin: 30px 0;
-    }
-    .plan-card {
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 15px;
-    }
-    .plan-name {
-      font-size: 20px;
-      font-weight: bold;
-      color: #1976d2;
-      margin-bottom: 10px;
-    }
-    .plan-price {
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 10px;
-    }
-    .plan-features {
-      list-style: none;
-      padding: 0;
-      margin: 10px 0;
-    }
-    .plan-features li {
-      padding: 5px 0;
-      color: #666;
     }
     .button {
       display: inline-block;
@@ -120,73 +84,67 @@ function generateTrialExpirationEmailHTML(user, daysRemaining, planOptions) {
       color: #999;
       text-align: center;
     }
+    .warning {
+      background-color: #fff3cd;
+      border-left: 4px solid #ff9800;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .features {
+      background-color: #f5f5f5;
+      padding: 20px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .features ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .features li {
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">Buildstate</div>
+      <div class="logo">Buildstate FM</div>
     </div>
 
-    <h1>Your Trial Expires in ${daysRemaining} ${daysRemaining === 1 ? 'Day' : 'Days'}</h1>
+    <h1>Your Trial is Expiring in ${daysRemaining} Day${daysRemaining === 1 ? '' : 's'}</h1>
 
-    <p>Hi ${firstName},</p>
+    <p>Hi ${user.firstName},</p>
 
-    <p>Your free trial period is ending soon. To continue using Buildstate and access all features, please choose a subscription plan that fits your needs.</p>
+    <p>This is a friendly reminder that your Buildstate FM trial period will expire in <strong>${daysRemaining} day${daysRemaining === 1 ? '' : 's'}</strong>.</p>
 
     <div class="warning">
-      <strong>Important:</strong> After your trial expires, you'll still be able to view your existing data, but you won't be able to create new properties, jobs, or inspections until you subscribe.
+      <strong>Important:</strong> After your trial expires, you'll need an active subscription to continue managing your properties and accessing your data.
     </div>
 
-    <div class="plans">
-      <div class="plan-card">
-        <div class="plan-name">Basic Plan</div>
-        <div class="plan-price">$29/month</div>
-        <ul class="plan-features">
-          <li>✓ Up to 10 properties</li>
-          <li>✓ 1 team member</li>
-          <li>✓ 25 inspections per month</li>
-          <li>✓ All core features</li>
-        </ul>
-      </div>
-
-      <div class="plan-card">
-        <div class="plan-name">Professional Plan</div>
-        <div class="plan-price">$79/month</div>
-        <ul class="plan-features">
-          <li>✓ Up to 50 properties</li>
-          <li>✓ 5 team members</li>
-          <li>✓ 100 inspections per month</li>
-          <li>✓ Advanced analytics</li>
-          <li>✓ All core features</li>
-        </ul>
-      </div>
-
-      <div class="plan-card">
-        <div class="plan-name">Enterprise Plan</div>
-        <div class="plan-price">$149/month</div>
-        <ul class="plan-features">
-          <li>✓ Unlimited properties</li>
-          <li>✓ Unlimited team members</li>
-          <li>✓ Unlimited inspections</li>
-          <li>✓ Priority support</li>
-          <li>✓ Custom integrations</li>
-          <li>✓ All features</li>
-        </ul>
-      </div>
+    <div class="features">
+      <p><strong>Choose the plan that fits your needs:</strong></p>
+      <ul>
+        <li><strong>Basic ($29/month)</strong> - Up to 10 properties, 25 inspections/month</li>
+        <li><strong>Professional ($79/month)</strong> - Up to 50 properties, 100 inspections/month, advanced features</li>
+        <li><strong>Enterprise ($149/month)</strong> - Unlimited properties, inspections, and team members</li>
+      </ul>
+      <p><em>All plans include access to every feature - only usage limits differ.</em></p>
     </div>
 
-    <p>All plans include access to every feature - the only difference is usage limits. Choose the plan that matches your scale.</p>
+    <p>Upgrade now to ensure uninterrupted access to your property management tools:</p>
 
     <div class="button-container">
-      <a href="${process.env.FRONTEND_URL || 'https://buildtstate.com.au'}/subscriptions" class="button">Choose Your Plan</a>
+      <a href="${frontendUrl}/subscriptions" class="button">Upgrade Now</a>
     </div>
 
-    <p>If you have any questions, please don't hesitate to contact our support team.</p>
+    <p>Have questions about which plan is right for you? Our team is here to help!</p>
+
+    <p>Thank you for choosing Buildstate FM!</p>
 
     <div class="footer">
-      <p>This is an automated email from Buildstate. Please do not reply to this message.</p>
-      <p>&copy; ${new Date().getFullYear()} Buildstate. All rights reserved.</p>
+      <p>This is an automated email from Buildstate FM. Please do not reply to this message.</p>
+      <p>&copy; ${new Date().getFullYear()} Buildstate FM. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -195,166 +153,126 @@ function generateTrialExpirationEmailHTML(user, daysRemaining, planOptions) {
 }
 
 /**
- * Send trial expiration reminder email
- * @param {object} user - User object with email, firstName, lastName
- * @param {number} daysRemaining - Days remaining until trial expiration
+ * Send trial expiration reminder to a user
+ * @param {object} user - User object
+ * @param {number} daysRemaining - Days until trial expires
+ * @returns {Promise<void>}
  */
 export async function sendTrialExpirationReminder(user, daysRemaining) {
+  const subject = `Your Buildstate FM Trial Expires in ${daysRemaining} Day${daysRemaining === 1 ? '' : 's'}`;
+  const html = getTrialExpirationEmailHTML(user, daysRemaining);
+
   try {
-    const subject = `Your Buildstate Trial Expires in ${daysRemaining} ${daysRemaining === 1 ? 'Day' : 'Days'}`;
-    const html = generateTrialExpirationEmailHTML(user, daysRemaining);
-
-    await sendEmail(user.email, subject, html, {
-      emailType: 'trial_expiration_reminder',
-      userId: user.id,
-      daysRemaining,
-    });
-
-    logger.info('[TrialReminder] Sent trial expiration reminder', {
-      userId: user.id,
-      email: user.email,
-      daysRemaining,
-    });
-
-    return true;
+    await sendEmail(user.email, subject, html);
+    console.log(`Trial expiration reminder sent to ${user.email} (${daysRemaining} days remaining)`);
   } catch (error) {
-    logger.error('[TrialReminder] Failed to send trial expiration reminder', {
-      userId: user.id,
-      email: user.email,
-      daysRemaining,
-      error: error.message,
-    });
+    console.error(`Failed to send trial expiration reminder to ${user.email}:`, error);
     throw error;
   }
 }
 
 /**
- * Check and send trial expiration reminders
- * @param {array} reminderDays - Array of days before expiration to send reminders (e.g., [7, 3, 1])
+ * Check for trials expiring soon and send reminders
+ * Should be called daily via cron job
+ * @param {number[]} reminderDays - Days before expiration to send reminders (default: [7, 3, 1])
+ * @returns {Promise<object>} Summary of sent reminders
  */
 export async function checkAndSendTrialReminders(reminderDays = [7, 3, 1]) {
+  console.log('Checking for trial expirations...');
+
+  const results = {
+    checked: 0,
+    sent: 0,
+    failed: 0,
+    errors: [],
+  };
+
   try {
-    const now = new Date();
-    const remindersSent = [];
-
-    for (const days of reminderDays) {
-      // Calculate the target date (days before expiration)
-      const targetDate = new Date(now);
-      targetDate.setDate(targetDate.getDate() + days);
-      targetDate.setHours(0, 0, 0, 0);
-
-      const nextDay = new Date(targetDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-
-      // Find users whose trial expires on the target date
-      const users = await prisma.user.findMany({
-        where: {
-          role: 'PROPERTY_MANAGER',
-          subscriptionStatus: 'TRIAL',
-          trialEndDate: {
-            gte: targetDate,
-            lt: nextDay,
-          },
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          subscriptionPlan: true,
-          trialEndDate: true,
-        },
-      });
-
-      // Send reminders to each user
-      for (const user of users) {
-        try {
-          await sendTrialExpirationReminder(user, days);
-          remindersSent.push({
-            userId: user.id,
-            email: user.email,
-            daysRemaining: days,
-          });
-        } catch (error) {
-          logger.error('[TrialReminder] Failed to send reminder to user', {
-            userId: user.id,
-            error: error.message,
-          });
-        }
-      }
-    }
-
-    logger.info('[TrialReminder] Completed trial reminder check', {
-      remindersSent: remindersSent.length,
-      details: remindersSent,
-    });
-
-    return remindersSent;
-  } catch (error) {
-    logger.error('[TrialReminder] Error checking trial reminders', {
-      error: error.message,
-      stack: error.stack,
-    });
-    throw error;
-  }
-}
-
-/**
- * Expire trials that have passed their end date
- * Automatically suspends users whose trial has expired
- */
-export async function expireTrials() {
-  try {
-    const now = new Date();
-
-    // Find users with expired trials
-    const expiredTrials = await prisma.user.findMany({
+    // Find all users on trial (property managers only)
+    const trialUsers = await prisma.user.findMany({
       where: {
         role: 'PROPERTY_MANAGER',
         subscriptionStatus: 'TRIAL',
         trialEndDate: {
-          lte: now,
+          not: null,
         },
+        isActive: true,
       },
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
+        trialEndDate: true,
       },
     });
 
-    // Update subscription status to SUSPENDED
-    const userIds = expiredTrials.map(u => u.id);
-    
-    if (userIds.length > 0) {
-      await prisma.user.updateMany({
-        where: {
-          id: {
-            in: userIds,
-          },
-        },
-        data: {
-          subscriptionStatus: 'SUSPENDED',
-        },
-      });
+    results.checked = trialUsers.length;
 
-      logger.info('[TrialReminder] Expired trials', {
-        count: expiredTrials.length,
-        userIds,
-      });
+    for (const user of trialUsers) {
+      const now = new Date();
+      const trialEnd = new Date(user.trialEndDate);
+      const daysRemaining = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24));
+
+      // Skip if already expired
+      if (daysRemaining <= 0) {
+        continue;
+      }
+
+      // Check if this is a reminder day
+      if (reminderDays.includes(daysRemaining)) {
+        try {
+          await sendTrialExpirationReminder(user, daysRemaining);
+          results.sent++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            userId: user.id,
+            email: user.email,
+            error: error.message,
+          });
+        }
+      }
     }
 
-    return {
-      expired: expiredTrials.length,
-      userIds,
-    };
+    console.log(`Trial reminder check complete: ${results.sent} sent, ${results.failed} failed out of ${results.checked} trial users`);
+
+    return results;
   } catch (error) {
-    logger.error('[TrialReminder] Error expiring trials', {
-      error: error.message,
-      stack: error.stack,
-    });
+    console.error('Error checking trial expirations:', error);
     throw error;
   }
 }
 
+/**
+ * Expire trials that have passed their end date
+ * Should be called daily via cron job
+ * @returns {Promise<number>} Number of trials expired
+ */
+export async function expireTrials() {
+  console.log('Checking for expired trials...');
+
+  try {
+    const now = new Date();
+
+    // Find and update expired trials
+    const result = await prisma.user.updateMany({
+      where: {
+        subscriptionStatus: 'TRIAL',
+        trialEndDate: {
+          lt: now,
+        },
+      },
+      data: {
+        subscriptionStatus: 'SUSPENDED',
+      },
+    });
+
+    console.log(`Expired ${result.count} trial subscriptions`);
+
+    return result.count;
+  } catch (error) {
+    console.error('Error expiring trials:', error);
+    throw error;
+  }
+}

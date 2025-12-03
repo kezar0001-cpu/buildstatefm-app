@@ -1,384 +1,256 @@
 /**
- * Usage Tracking - Real-time usage calculation
- * 
- * Tracks usage against subscription limits for property manager-scoped subscriptions.
- * For owners/tenants/technicians, usage is tracked against their property manager's subscription.
+ * Usage Tracking Utilities
+ *
+ * Calculates current usage for a user/organization across all usage dimensions
+ * in the subscription system.
  */
 
-import prisma from '../config/prismaClient.js';
+import { prisma } from '../config/prismaClient.js';
 
 /**
- * Get property manager ID for a user
- * For property managers, returns their own ID
- * For team members, finds their property manager
+ * Get current property count for a property manager
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of active properties
  */
-async function getPropertyManagerId(userId, userRole) {
-  if (userRole === 'PROPERTY_MANAGER') {
-    return userId;
-  }
+export async function getPropertyCount(userId) {
+  return await prisma.property.count({
+    where: {
+      managerId: userId,
+      status: 'ACTIVE',
+    },
+  });
+}
 
-  // For team members, find their property manager
-  // This assumes team members are linked via properties or invites
+/**
+ * Get current team member count for a property manager's organization
+ * Counts all users (except the manager) who belong to the same org or are invited
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of team members
+ */
+export async function getTeamMemberCount(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
-      receivedInvite: {
-        include: {
-          invitedBy: true,
-        },
-      },
-      tenantUnits: {
-        include: {
-          unit: {
-            include: {
-              property: {
-                include: {
-                  manager: true,
-                },
-              },
-            },
-          },
-        },
-      },
-      ownedProperties: {
-        include: {
-          property: {
-            include: {
-              manager: true,
-            },
-          },
-        },
-      },
-      assignedJobs: {
-        include: {
-          property: {
-            include: {
-              manager: true,
-            },
-          },
-        },
-      },
-    },
+    select: { orgId: true },
   });
 
-  if (!user) {
-    return null;
-  }
-
-  // Try to find property manager from various relationships
-  if (user.receivedInvite?.invitedBy?.role === 'PROPERTY_MANAGER') {
-    return user.receivedInvite.invitedBy.id;
-  }
-
-  // From tenant units
-  const tenantUnit = user.tenantUnits?.[0];
-  if (tenantUnit?.unit?.property?.manager?.id) {
-    return tenantUnit.unit.property.manager.id;
-  }
-
-  // From owned properties
-  const ownedProperty = user.ownedProperties?.[0];
-  if (ownedProperty?.property?.manager?.id) {
-    return ownedProperty.property.manager.id;
-  }
-
-  // From assigned jobs
-  const assignedJob = user.assignedJobs?.[0];
-  if (assignedJob?.property?.manager?.id) {
-    return assignedJob.property.manager.id;
-  }
-
-  return null;
-}
-
-/**
- * Get property count for a property manager
- */
-export async function getPropertyCount(propertyManagerId) {
-  const count = await prisma.property.count({
-    where: {
-      managerId: propertyManagerId,
-    },
-  });
-
-  return count;
-}
-
-/**
- * Get team member count for a property manager
- * Includes all users linked via invites, properties, etc.
- */
-export async function getTeamMemberCount(propertyManagerId) {
-  // Count all users who are linked to this property manager
-  // via invites, properties, or other relationships
-  const manager = await prisma.user.findUnique({
-    where: { id: propertyManagerId },
-    include: {
-      sentInvites: {
-        where: {
-          status: 'ACCEPTED',
-        },
-      },
-      managedProperties: {
-        include: {
-          owners: {
-            include: {
-              owner: true,
-            },
-          },
-          units: {
-            include: {
-              tenants: {
-                include: {
-                  tenant: true,
-                },
-              },
-            },
-          },
-          jobs: {
-            include: {
-              assignedTechnician: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!manager) {
+  if (!user?.orgId) {
+    // No org yet, count is 0
     return 0;
   }
 
-  // Collect unique user IDs
-  const userIds = new Set();
-
-  // From invites
-  manager.sentInvites.forEach(invite => {
-    if (invite.invitedUserId) {
-      userIds.add(invite.invitedUserId);
-    }
+  // Count all users in the org except the owner
+  const count = await prisma.user.count({
+    where: {
+      orgId: user.orgId,
+      id: { not: userId },
+      isActive: true,
+    },
   });
 
-  // From property owners
-  manager.managedProperties.forEach(property => {
-    property.owners.forEach(po => {
-      userIds.add(po.ownerId);
-    });
-  });
-
-  // From unit tenants
-  manager.managedProperties.forEach(property => {
-    property.units.forEach(unit => {
-      unit.tenants.forEach(ut => {
-        if (ut.isActive) {
-          userIds.add(ut.tenantId);
-        }
-      });
-    });
-  });
-
-  // From assigned technicians
-  manager.managedProperties.forEach(property => {
-    property.jobs.forEach(job => {
-      if (job.assignedTechnicianId) {
-        userIds.add(job.assignedTechnicianId);
-      }
-    });
-  });
-
-  // Exclude the property manager themselves
-  userIds.delete(propertyManagerId);
-
-  return userIds.size;
+  return count;
 }
 
 /**
- * Get inspections count for current month
+ * Get inspection count for current month
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of inspections this month
  */
-export async function getInspectionsThisMonth(propertyManagerId) {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+export async function getInspectionsThisMonth(userId) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
-  const count = await prisma.inspection.count({
+  const endOfMonth = new Date(startOfMonth);
+  endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
+  return await prisma.inspection.count({
     where: {
       property: {
-        managerId: propertyManagerId,
+        managerId: userId,
       },
       createdAt: {
         gte: startOfMonth,
-        lte: endOfMonth,
+        lt: endOfMonth,
       },
     },
   });
-
-  return count;
 }
 
 /**
- * Get recurring inspections count
+ * Get active recurring inspection count
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of active recurring inspections
  */
-export async function getRecurringInspectionsCount(propertyManagerId) {
-  const count = await prisma.recurringInspection.count({
+export async function getRecurringInspectionCount(userId) {
+  return await prisma.recurringInspection.count({
     where: {
       property: {
-        managerId: propertyManagerId,
+        managerId: userId,
       },
+      isActive: true,
     },
   });
-
-  return count;
 }
 
 /**
- * Get custom templates count
+ * Get custom template count
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of custom templates
  */
-export async function getCustomTemplatesCount(propertyManagerId) {
-  const count = await prisma.inspectionTemplate.count({
+export async function getCustomTemplateCount(userId) {
+  return await prisma.inspectionTemplate.count({
     where: {
-      property: {
-        managerId: propertyManagerId,
-      },
+      createdById: userId,
+      isActive: true,
     },
   });
-
-  return count;
 }
 
 /**
- * Get maintenance plans count
+ * Get active maintenance plan count
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of active maintenance plans
  */
-export async function getMaintenancePlansCount(propertyManagerId) {
-  const count = await prisma.maintenancePlan.count({
+export async function getMaintenancePlanCount(userId) {
+  return await prisma.maintenancePlan.count({
     where: {
       property: {
-        managerId: propertyManagerId,
+        managerId: userId,
       },
+      isActive: true,
     },
   });
-
-  return count;
 }
 
 /**
- * Get jobs count for current month
+ * Get job count for current month
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of jobs this month
  */
-export async function getJobsThisMonth(propertyManagerId) {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+export async function getJobsThisMonth(userId) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
-  const count = await prisma.job.count({
+  const endOfMonth = new Date(startOfMonth);
+  endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
+  return await prisma.job.count({
     where: {
       property: {
-        managerId: propertyManagerId,
+        managerId: userId,
       },
       createdAt: {
         gte: startOfMonth,
-        lte: endOfMonth,
+        lt: endOfMonth,
       },
     },
   });
-
-  return count;
 }
 
 /**
- * Get document uploads count for current month
+ * Get document upload count for current month
+ * @param {string} userId - Property manager user ID
+ * @returns {Promise<number>} Number of documents uploaded this month
  */
-export async function getDocumentUploadsThisMonth(propertyManagerId) {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+export async function getDocumentUploadsThisMonth(userId) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
-  const count = await prisma.propertyDocument.count({
+  const endOfMonth = new Date(startOfMonth);
+  endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
+  return await prisma.propertyDocument.count({
     where: {
-      property: {
-        managerId: propertyManagerId,
-      },
-      createdAt: {
+      uploaderId: userId,
+      uploadedAt: {
         gte: startOfMonth,
-        lte: endOfMonth,
+        lt: endOfMonth,
       },
     },
   });
-
-  return count;
 }
 
 /**
  * Get comprehensive usage stats for a user
- * Automatically resolves property manager for team members
+ * @param {string} userId - User ID
+ * @param {string} subscriptionPlan - User's subscription plan
+ * @returns {Promise<object>} Complete usage statistics
  */
-export async function getUsageStats(userId, userRole) {
-  const propertyManagerId = await getPropertyManagerId(userId, userRole);
-
-  if (!propertyManagerId) {
-    // Return zero usage if no property manager found
-    return {
-      properties: 0,
-      teamMembers: 0,
-      inspectionsThisMonth: 0,
-      recurringInspections: 0,
-      customTemplates: 0,
-      maintenancePlans: 0,
-      jobsThisMonth: 0,
-      documentUploadsThisMonth: 0,
-    };
-  }
-
-  // Get property manager's subscription
-  const propertyManager = await prisma.user.findUnique({
-    where: { id: propertyManagerId },
-    include: {
-      subscriptions: {
-        where: {
-          status: 'ACTIVE',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: 1,
-      },
-    },
-  });
-
-  const plan = propertyManager?.subscriptionPlan || 'FREE_TRIAL';
-  const customLimits = propertyManager?.subscriptions?.[0]?.customLimits || null;
-
-  // Calculate all usage metrics
+export async function getUserUsageStats(userId, subscriptionPlan) {
   const [
     properties,
     teamMembers,
-    inspectionsThisMonth,
+    inspectionsPerMonth,
     recurringInspections,
     customTemplates,
-    maintenancePlans,
-    jobsThisMonth,
-    documentUploadsThisMonth,
+    maintenancePlansActive,
+    jobsPerMonth,
+    documentUploadsPerMonth,
   ] = await Promise.all([
-    getPropertyCount(propertyManagerId),
-    getTeamMemberCount(propertyManagerId),
-    getInspectionsThisMonth(propertyManagerId),
-    getRecurringInspectionsCount(propertyManagerId),
-    getCustomTemplatesCount(propertyManagerId),
-    getMaintenancePlansCount(propertyManagerId),
-    getJobsThisMonth(propertyManagerId),
-    getDocumentUploadsThisMonth(propertyManagerId),
+    getPropertyCount(userId),
+    getTeamMemberCount(userId),
+    getInspectionsThisMonth(userId),
+    getRecurringInspectionCount(userId),
+    getCustomTemplateCount(userId),
+    getMaintenancePlanCount(userId),
+    getJobsThisMonth(userId),
+    getDocumentUploadsThisMonth(userId),
   ]);
 
   return {
-    properties,
-    teamMembers,
-    inspectionsThisMonth,
-    recurringInspections,
-    customTemplates,
-    maintenancePlans,
-    jobsThisMonth,
-    documentUploadsThisMonth,
-    plan,
-    customLimits,
-    propertyManagerId,
+    plan: subscriptionPlan,
+    usage: {
+      properties,
+      teamMembers,
+      inspectionsPerMonth,
+      recurringInspections,
+      customTemplates,
+      maintenancePlansActive,
+      jobsPerMonth,
+      documentUploadsPerMonth,
+    },
+    timestamp: new Date().toISOString(),
   };
 }
 
+/**
+ * Get usage stats for the property manager associated with a user
+ * (For non-property managers, this gets their property manager's usage)
+ * @param {object} user - User object with role and id
+ * @param {string} propertyId - Optional property ID to determine the manager
+ * @returns {Promise<object>} Usage statistics for the property manager
+ */
+export async function getPropertyManagerUsageStats(user, propertyId = null) {
+  let propertyManagerId = user.id;
+  let subscriptionPlan = user.subscriptionPlan;
+
+  // If user is not a property manager, find their property manager
+  if (user.role !== 'PROPERTY_MANAGER') {
+    if (!propertyId) {
+      throw new Error('Property ID required for non-property manager users');
+    }
+
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        managerId: true,
+        manager: {
+          select: {
+            subscriptionPlan: true,
+          },
+        },
+      },
+    });
+
+    if (!property) {
+      throw new Error('Property not found');
+    }
+
+    propertyManagerId = property.managerId;
+    subscriptionPlan = property.manager.subscriptionPlan;
+  }
+
+  return await getUserUsageStats(propertyManagerId, subscriptionPlan);
+}

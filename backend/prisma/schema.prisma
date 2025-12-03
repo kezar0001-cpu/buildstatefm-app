@@ -8,81 +8,67 @@ datasource db {
 }
 
 model User {
-  id                      String                  @id @default(cuid())
-  email                   String                  @unique
-  passwordHash            String
-  firstName               String
-  lastName                String
-  phone                   String?
-  role                    Role
-  isActive                Boolean                 @default(true)
-  lastLoginAt             DateTime?
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  orgId                   String?
-  company                 String?
-  subscriptionPlan        SubscriptionPlan        @default(FREE_TRIAL)
-  subscriptionStatus      SubscriptionStatus      @default(TRIAL)
-  trialEndDate            DateTime?
-  trialVariant            String?                 // A/B testing variant (A, B, C)
-  emailVerified           Boolean                 @default(false)
-  gdprConsentGiven        Boolean                 @default(false)
-  gdprConsentDate         DateTime?
-  marketingConsentGiven   Boolean                 @default(false)
-  assignedInspections     Inspection[]            @relation("AssignedTechnician")
-  completedInspections    Inspection[]            @relation("CompletedBy")
-  rejectedInspections     Inspection[]            @relation("RejectedInspections")
-  approvedInspections     Inspection[]            @relation("ApprovedInspections")
-  recurringInspections    RecurringInspection[]   @relation("RecurringInspectionAssignee")
-  inspectionAuditLogs     InspectionAuditLog[]
-  inspectionReminders     InspectionReminder[]
-  uploadedAttachments     InspectionAttachment[] @relation("InspectionAttachmentUploadedBy")
-  uploadedInspectionPhotos InspectionPhoto[]      @relation("InspectionPhotoUploadedBy")
-  sentInvites             Invite[]                @relation("InvitedBy")
-  receivedInvite          Invite?                 @relation("InvitedUser")
-  assignedJobs            Job[]                   @relation("AssignedTechnician")
-  createdJobs             Job[]                   @relation("CreatedJobs")
-  jobComments             JobComment[]
-  notifications           Notification[]
-  OwnerProfile            OwnerProfile?
-  managedProperties       Property[]              @relation("PropertyManager")
-  PropertyManagerProfile  PropertyManagerProfile?
-  ownedProperties         PropertyOwner[]
-  approvedRecommendations Recommendation[]        @relation("ApprovedBy")
-  createdRecommendations  Recommendation[]        @relation("CreatedBy")
-  requestedServiceRequests ServiceRequest[]       @relation("RequestedBy")
-  approvedServiceRequests  ServiceRequest[]       @relation("ApprovedRequests")
-  rejectedServiceRequests  ServiceRequest[]       @relation("RejectedRequests")
-  reviewedServiceRequests  ServiceRequest[]       @relation("ReviewedRequests")
-  subscriptions           Subscription[]
-  TechnicianProfile       TechnicianProfile?
-  TenantProfile           TenantProfile?
-  tenantUnits             UnitTenant[]
-  unitOwners              UnitOwner[]             @relation("UnitOwners")
-  reportRequests          ReportRequest[]         @relation("ReportRequestsCreated")
-  passwordResets          PasswordReset[]
-  auditLogs               AuditLog[]
-  Org                     Org?                    @relation(fields: [orgId], references: [id])
-  blogPosts               BlogPost[]
-  uploadedPropertyDocuments PropertyDocument[]  @relation("PropertyDocumentUploader")
-  propertyNotes           PropertyNote[]         @relation("PropertyNoteAuthor")
+  id                                                   String                  @id @default(cuid())
+  email                                                String                  @unique
+  passwordHash                                         String
+  firstName                                            String
+  lastName                                             String
+  phone                                                String?
+  role                                                 Role
+  isActive                                             Boolean                 @default(true)
+  lastLoginAt                                          DateTime?
+  createdAt                                            DateTime                @default(now())
+  updatedAt                                            DateTime                @updatedAt
+  orgId                                                String?
+  company                                              String?
+  subscriptionPlan                                     SubscriptionPlan        @default(FREE_TRIAL)
+  subscriptionStatus                                   SubscriptionStatus      @default(TRIAL)
+  trialEndDate                                         DateTime?
+  emailVerified                                        Boolean                 @default(false)
+  trialVariant                                         String?
+  gdprConsentGiven                                     Boolean                 @default(false)
+  gdprConsentDate                                      DateTime?
+  marketingConsentGiven                                Boolean                 @default(false)
+  AuditLog                                             AuditLog[]
+  BlogPost                                             BlogPost[]
+  Inspection_Inspection_approvedByIdToUser             Inspection[]            @relation("Inspection_approvedByIdToUser")
+  assignedInspections                                  Inspection[]            @relation("AssignedTechnician")
+  completedInspections                                 Inspection[]            @relation("CompletedBy")
+  Inspection_Inspection_rejectedByIdToUser             Inspection[]            @relation("Inspection_rejectedByIdToUser")
+  InspectionAttachment                                 InspectionAttachment[]
+  InspectionAuditLog                                   InspectionAuditLog[]
+  InspectionPhoto                                      InspectionPhoto[]
+  InspectionReminder                                   InspectionReminder[]
+  sentInvites                                          Invite[]                @relation("InvitedBy")
+  receivedInvite                                       Invite?                 @relation("InvitedUser")
+  assignedJobs                                         Job[]                   @relation("AssignedTechnician")
+  Job_Job_createdByIdToUser                            Job[]                   @relation("Job_createdByIdToUser")
+  JobComment                                           JobComment[]
+  notifications                                        Notification[]
+  OwnerProfile                                         OwnerProfile?
+  PasswordReset                                        PasswordReset[]
+  managedProperties                                    Property[]              @relation("PropertyManager")
+  PropertyDocument                                     PropertyDocument[]
+  PropertyManagerProfile                               PropertyManagerProfile?
+  PropertyNote                                         PropertyNote[]
+  ownedProperties                                      PropertyOwner[]
+  approvedRecommendations                              Recommendation[]        @relation("ApprovedBy")
+  createdRecommendations                               Recommendation[]        @relation("CreatedBy")
+  RecurringInspection                                  RecurringInspection[]
+  ReportRequest                                        ReportRequest[]
+  ServiceRequest_ServiceRequest_approvedByIdToUser     ServiceRequest[]        @relation("ServiceRequest_approvedByIdToUser")
+  ServiceRequest_ServiceRequest_lastReviewedByIdToUser ServiceRequest[]        @relation("ServiceRequest_lastReviewedByIdToUser")
+  ServiceRequest_ServiceRequest_rejectedByIdToUser     ServiceRequest[]        @relation("ServiceRequest_rejectedByIdToUser")
+  serviceRequests                                      ServiceRequest[]
+  subscriptions                                        Subscription[]
+  TechnicianProfile                                    TechnicianProfile?
+  TenantProfile                                        TenantProfile?
+  UnitOwner                                            UnitOwner[]
+  tenantUnits                                          UnitTenant[]
+  Org                                                  Org?                    @relation(fields: [orgId], references: [id])
 
   @@index([email])
   @@index([role])
-}
-
-model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  selector  String   @unique
-  verifier  String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([selector])
 }
 
 model Invite {
@@ -121,8 +107,8 @@ model Subscription {
   startDate              DateTime           @default(now())
   endDate                DateTime?
   cancelledAt            DateTime?
-  enabledFeatureFlags    String[]           @default([])  // Enterprise feature flags
-  customLimits           Json?                              // Custom usage limits for enterprise
+  enabledFeatureFlags    String[]           @default([])
+  customLimits           Json?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -131,186 +117,110 @@ model Subscription {
   @@index([status])
 }
 
+model StripeWebhookEvent {
+  id          String    @id @default(cuid())
+  eventId     String    @unique
+  eventType   String
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  data        Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([eventId])
+  @@index([processed])
+  @@index([eventType])
+}
+
 model PromoCode {
-  id              String          @id @default(cuid())
-  code            String          @unique
-  description     String?
-  discountType    String          // FIXED or PERCENTAGE
-  discountValue   Float           // Amount or percentage
-  applicablePlans String[]        @default([])  // Which plans this applies to
-  maxUses         Int?            // Maximum number of uses (null = unlimited)
-  currentUses     Int             @default(0)
-  expiresAt       DateTime?
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                 String    @id @default(cuid())
+  code               String    @unique
+  description        String?
+  discountType       String
+  discountAmount     Float?
+  discountPercentage Float?
+  maxUses            Int?
+  currentUses        Int       @default(0)
+  expiresAt          DateTime?
+  isActive           Boolean   @default(true)
+  applicablePlans    String[]  @default([])
+  createdBy          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([code])
   @@index([isActive])
+  @@index([expiresAt])
 }
 
 model Property {
-  id              String            @id @default(cuid())
-  name            String
-  address         String
-  city            String
-  state           String?
-  zipCode         String?
-  country         String            @default("USA")
-  propertyType    String
-  yearBuilt       Int?
-  totalUnits      Int               @default(0)
-  totalArea       Float?
-  status          PropertyStatus    @default(ACTIVE)
-  description     String?
-  imageUrl        String?
-
-  // Enhanced property details
-  lotSize              Float?
-  buildingSize         Float?
-  numberOfFloors       Int?
-  constructionType     String?
-  heatingSystem        String?
-  coolingSystem        String?
-  amenities            Json?
-
-  // Financial information
-  purchasePrice        Float?
-  purchaseDate         DateTime?
-  currentMarketValue   Float?
-  annualPropertyTax    Float?
-  annualInsurance      Float?
-  monthlyHOA           Float?
-
-  propertyImages        PropertyImage[]
-  propertyDocuments     PropertyDocument[]
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  managerId             String
-  inspections           Inspection[]
-  invites               Invite[]
-  jobs                  Job[]
-  plans                 MaintenancePlan[]
-  manager               User              @relation("PropertyManager", fields: [managerId], references: [id], onDelete: Cascade)
-  owners                PropertyOwner[]
-  reportRequests        ReportRequest[]
-  serviceRequests       ServiceRequest[]
-  units                 Unit[]
-  propertyNotes         PropertyNote[]
-  inspectionTemplates   InspectionTemplate[]
-  recurringInspections  RecurringInspection[]
+  id                  String                @id @default(cuid())
+  name                String
+  address             String
+  city                String
+  state               String?
+  zipCode             String?
+  country             String                @default("USA")
+  propertyType        String
+  yearBuilt           Int?
+  totalUnits          Int                   @default(0)
+  totalArea           Float?
+  status              PropertyStatus        @default(ACTIVE)
+  description         String?
+  imageUrl            String?
+  lotSize             Float?
+  buildingSize        Float?
+  numberOfFloors      Int?
+  constructionType    String?
+  heatingSystem       String?
+  coolingSystem       String?
+  amenities           Json?
+  purchasePrice       Float?
+  purchaseDate        DateTime?
+  currentMarketValue  Float?
+  annualPropertyTax   Float?
+  annualInsurance     Float?
+  monthlyHOA          Float?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  managerId           String
+  inspections         Inspection[]
+  InspectionTemplate  InspectionTemplate[]
+  invites             Invite[]
+  jobs                Job[]
+  plans               MaintenancePlan[]
+  manager             User                  @relation("PropertyManager", fields: [managerId], references: [id], onDelete: Cascade)
+  PropertyDocument    PropertyDocument[]
+  propertyImages      PropertyImage[]
+  PropertyNote        PropertyNote[]
+  owners              PropertyOwner[]
+  RecurringInspection RecurringInspection[]
+  ReportRequest       ReportRequest[]
+  serviceRequests     ServiceRequest[]
+  units               Unit[]
 
   @@index([managerId])
   @@index([status])
   @@index([city, state])
+  @@index([managerId, status])
+  @@index([status], map: "idx_property_status")
 }
 
 model PropertyImage {
-  id           String                 @id @default(cuid())
+  id           String                @id @default(cuid())
   propertyId   String
   imageUrl     String
   caption      String?
-  category     PropertyImageCategory  @default(OTHER)
-  isPrimary    Boolean                @default(false)
-  displayOrder Int                    @default(0)
+  isPrimary    Boolean               @default(false)
+  displayOrder Int                   @default(0)
   uploadedById String?
-
-  // Malware scanning
-  scanStatus   FileScanStatus         @default(PENDING)
-  scannedAt    DateTime?
-  scanResult   Json?                  // Stores scan details, threats found, etc.
-
-  // EXIF metadata tracking
-  exifStripped Boolean                @default(false)
-  exifData     Json?                  // Original EXIF data (if preserved)
-  preserveExif Boolean                @default(false)
-
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  category     PropertyImageCategory @default(OTHER)
+  property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
   @@index([displayOrder])
   @@index([category])
-  @@index([scanStatus])
-}
-
-model PropertyDocument {
-  id          String                      @id @default(cuid())
-  propertyId  String
-  unitId      String?                     // Optional: if null, belongs to property
-  fileName    String
-  fileUrl     String
-  fileSize    Int
-  mimeType    String
-  category    PropertyDocumentCategory
-  description String?
-  accessLevel PropertyDocumentAccessLevel
-  uploaderId  String
-
-  // Malware scanning
-  scanStatus   FileScanStatus             @default(PENDING)
-  scannedAt    DateTime?
-  scanResult   Json?
-
-  uploadedAt  DateTime                    @default(now())
-  updatedAt   DateTime                    @updatedAt
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit     Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  uploader User     @relation("PropertyDocumentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([unitId])
-  @@index([uploaderId])
-  @@index([category])
-  @@index([accessLevel])
-  @@index([scanStatus])
-}
-
-model PropertyNote {
-  id          String   @id @default(cuid())
-  propertyId  String
-  authorId    String
-  content     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  author   User     @relation("PropertyNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([authorId])
-}
-
-model UnitImage {
-  id           String   @id @default(cuid())
-  unitId       String
-  imageUrl     String
-  caption      String?
-  isPrimary    Boolean  @default(false)
-  displayOrder Int      @default(0)
-  uploadedById String?
-
-  // Malware scanning
-  scanStatus   FileScanStatus @default(PENDING)
-  scannedAt    DateTime?
-  scanResult   Json?
-
-  // EXIF metadata tracking
-  exifStripped Boolean   @default(false)
-  exifData     Json?
-  preserveExif Boolean   @default(false)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
-
-  @@index([unitId])
-  @@index([displayOrder])
-  @@index([scanStatus])
 }
 
 model PropertyOwner {
@@ -331,7 +241,7 @@ model PropertyOwner {
 }
 
 model Unit {
-  id                  String             @id @default(cuid())
+  id                  String                @id @default(cuid())
   unitNumber          String
   propertyId          String
   floor               Int?
@@ -339,26 +249,28 @@ model Unit {
   bathrooms           Float?
   area                Float?
   rentAmount          Float?
-  status              UnitStatus         @default(AVAILABLE)
+  status              UnitStatus            @default(AVAILABLE)
   description         String?
   imageUrl            String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   inspections         Inspection[]
   invites             Invite[]
   jobs                Job[]
-  reportRequests      ReportRequest[]
+  PropertyDocument    PropertyDocument[]
+  RecurringInspection RecurringInspection[]
+  ReportRequest       ReportRequest[]
   serviceRequests     ServiceRequest[]
-  property            Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property            Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  UnitImage           UnitImage[]
+  UnitOwner           UnitOwner[]
   tenants             UnitTenant[]
-  owners              UnitOwner[]
-  unitImages          UnitImage[]
-  documents           PropertyDocument[]
-  recurringInspections RecurringInspection[]
 
   @@unique([propertyId, unitNumber])
   @@index([propertyId])
   @@index([status])
+  @@index([propertyId, status])
+  @@index([propertyId, status], map: "idx_unit_property_status")
 }
 
 model UnitTenant {
@@ -378,125 +290,107 @@ model UnitTenant {
   @@index([unitId])
   @@index([tenantId])
   @@index([isActive])
-}
-
-model UnitOwner {
-  id                  String    @id @default(cuid())
-  unitId              String
-  ownerId             String
-  ownershipPercentage Float     @default(100.0)
-  startDate           DateTime  @default(now())
-  endDate             DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  owner               User      @relation("UnitOwners", fields: [ownerId], references: [id], onDelete: Cascade)
-  unit                Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-
-  @@unique([unitId, ownerId])
-  @@index([unitId])
-  @@index([ownerId])
+  @@index([tenantId, isActive])
+  @@index([unitId], map: "idx_unit_tenant_unit")
 }
 
 model Inspection {
-  id                  String            @id @default(cuid())
-  title               String
-  type                InspectionType
-  scheduledDate       DateTime
-  completedDate       DateTime?
-  propertyId          String
-  unitId              String?
-  assignedToId        String?
-  completedById       String?
-  status              InspectionStatus  @default(SCHEDULED)
-  notes               String?
-  findings            String?
-  tenantSignature     String?
-  tags                String[]          @default([])
-  photos              String[]          @default([])
-
-  // Approval workflow fields
-  rejectionReason     String?
-  rejectedById        String?
-  rejectedAt          DateTime?
-  approvedById        String?
-  approvedAt          DateTime?
-
-  // Template support
-  templateId          String?
-
-  // Recurring inspection support
-  recurringInspectionId String?
-
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  assignedTo          User?             @relation("AssignedTechnician", fields: [assignedToId], references: [id])
-  completedBy         User?             @relation("CompletedBy", fields: [completedById], references: [id])
-  rejectedBy          User?             @relation("RejectedInspections", fields: [rejectedById], references: [id])
-  approvedBy          User?             @relation("ApprovedInspections", fields: [approvedById], references: [id])
-  property            Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit                Unit?             @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  template            InspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  recurringInspection RecurringInspection? @relation(fields: [recurringInspectionId], references: [id], onDelete: SetNull)
-  attachments         InspectionAttachment[]
-  auditLogs           InspectionAuditLog[]
-  reminders           InspectionReminder[]
-  jobs                Job[]
-  report              Report?
-  rooms               InspectionRoom[]
-  inspectionIssues    InspectionIssue[]
-  inspectionPhotos    InspectionPhoto[]
+  id                                 String                 @id @default(cuid())
+  title                              String
+  type                               InspectionType
+  scheduledDate                      DateTime
+  completedDate                      DateTime?
+  propertyId                         String
+  unitId                             String?
+  assignedToId                       String?
+  completedById                      String?
+  status                             InspectionStatus       @default(SCHEDULED)
+  notes                              String?
+  findings                           String?
+  tags                               String[]               @default([])
+  photos                             String[]               @default([])
+  createdAt                          DateTime               @default(now())
+  updatedAt                          DateTime               @updatedAt
+  rejectionReason                    String?
+  rejectedById                       String?
+  rejectedAt                         DateTime?
+  approvedById                       String?
+  approvedAt                         DateTime?
+  templateId                         String?
+  recurringInspectionId              String?
+  tenantSignature                    String?
+  User_Inspection_approvedByIdToUser User?                  @relation("Inspection_approvedByIdToUser", fields: [approvedById], references: [id])
+  assignedTo                         User?                  @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+  completedBy                        User?                  @relation("CompletedBy", fields: [completedById], references: [id])
+  property                           Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  RecurringInspection                RecurringInspection?   @relation(fields: [recurringInspectionId], references: [id])
+  User_Inspection_rejectedByIdToUser User?                  @relation("Inspection_rejectedByIdToUser", fields: [rejectedById], references: [id])
+  InspectionTemplate                 InspectionTemplate?    @relation(fields: [templateId], references: [id])
+  unit                               Unit?                  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  InspectionAttachment               InspectionAttachment[]
+  InspectionAuditLog                 InspectionAuditLog[]
+  InspectionIssue                    InspectionIssue[]
+  InspectionPhoto                    InspectionPhoto[]
+  InspectionReminder                 InspectionReminder[]
+  InspectionRoom                     InspectionRoom[]
+  Job                                Job[]
+  report                             Report?
 
   @@index([propertyId])
   @@index([unitId])
   @@index([assignedToId])
-  @@index([rejectedById])
-  @@index([approvedById])
-  @@index([templateId])
-  @@index([recurringInspectionId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([approvedById])
+  @@index([propertyId, status, scheduledDate])
+  @@index([recurringInspectionId])
+  @@index([rejectedById])
+  @@index([templateId])
+  @@index([propertyId, status], map: "idx_inspection_property_status")
 }
 
 model Job {
-  id                String           @id @default(cuid())
-  title             String
-  description       String
-  priority          JobPriority      @default(MEDIUM)
-  status            JobStatus        @default(OPEN)
-  propertyId        String?
-  unitId            String?
-  assignedToId      String?
-  createdById       String
-  serviceRequestId  String?
-  maintenancePlanId String?
-  inspectionId      String?
-  scheduledDate     DateTime?
-  startedAt         DateTime?
-  completedDate     DateTime?
-  estimatedCost     Float?
-  actualCost        Float?
-  evidence          Json?
-  notes             String?
-  technicianNotes   String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         User             @relation("CreatedJobs", fields: [createdById], references: [id])
-  assignedTo        User?            @relation("AssignedTechnician", fields: [assignedToId], references: [id])
-  Inspection        Inspection?      @relation(fields: [inspectionId], references: [id])
-  maintenancePlan   MaintenancePlan? @relation(fields: [maintenancePlanId], references: [id])
-  property          Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  serviceRequest    ServiceRequest?  @relation(fields: [serviceRequestId], references: [id])
-  unit              Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  comments          JobComment[]
+  id                         String           @id @default(cuid())
+  title                      String
+  description                String
+  priority                   JobPriority      @default(MEDIUM)
+  status                     JobStatus        @default(OPEN)
+  propertyId                 String?
+  unitId                     String?
+  assignedToId               String?
+  createdById                String
+  serviceRequestId           String?
+  maintenancePlanId          String?
+  inspectionId               String?
+  scheduledDate              DateTime?
+  startedAt                  DateTime?
+  completedDate              DateTime?
+  estimatedCost              Float?
+  actualCost                 Float?
+  evidence                   Json?
+  notes                      String?
+  technicianNotes            String?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+  assignedTo                 User?            @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+  User_Job_createdByIdToUser User             @relation("Job_createdByIdToUser", fields: [createdById], references: [id])
+  Inspection                 Inspection?      @relation(fields: [inspectionId], references: [id])
+  maintenancePlan            MaintenancePlan? @relation(fields: [maintenancePlanId], references: [id])
+  property                   Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  serviceRequest             ServiceRequest?  @relation(fields: [serviceRequestId], references: [id])
+  unit                       Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  JobComment                 JobComment[]
 
   @@index([propertyId])
   @@index([unitId])
   @@index([assignedToId])
-  @@index([createdById])
   @@index([status])
   @@index([priority])
   @@index([scheduledDate])
+  @@index([createdById])
   @@index([inspectionId])
+  @@index([propertyId, status])
+  @@index([propertyId, status], map: "idx_job_property_status")
 }
 
 model MaintenancePlan {
@@ -520,52 +414,48 @@ model MaintenancePlan {
 }
 
 model ServiceRequest {
-  id                     String                 @id @default(cuid())
-  title                  String
-  description            String
-  category               ServiceRequestCategory
-  priority               JobPriority            @default(MEDIUM)
-  status                 ServiceRequestStatus   @default(SUBMITTED)
-  propertyId             String
-  unitId                 String?
-  requestedById          String
-  photos                 String[]               @default([])
-  reviewNotes            String?
-  reviewedAt             DateTime?
-
-  // New fields for budget and approval workflow
-  ownerEstimatedBudget   Float?
-  managerEstimatedCost   Float?
-  approvedBudget         Float?
-  costBreakdownNotes     String?
-
-  approvedById           String?
-  approvedAt             DateTime?
-  rejectedById           String?
-  rejectedAt             DateTime?
-  rejectionReason        String?
-
-  lastReviewedById       String?
-  lastReviewedAt         DateTime?
-
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-
-  jobs                   Job[]
-  property               Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  requestedBy            User                   @relation("RequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
-  approvedBy             User?                  @relation("ApprovedRequests", fields: [approvedById], references: [id])
-  rejectedBy             User?                  @relation("RejectedRequests", fields: [rejectedById], references: [id])
-  lastReviewedBy         User?                  @relation("ReviewedRequests", fields: [lastReviewedById], references: [id])
-  unit                   Unit?                  @relation(fields: [unitId], references: [id])
+  id                                         String                 @id @default(cuid())
+  title                                      String
+  description                                String
+  category                                   ServiceRequestCategory
+  priority                                   JobPriority            @default(MEDIUM)
+  status                                     ServiceRequestStatus   @default(SUBMITTED)
+  propertyId                                 String
+  unitId                                     String?
+  requestedById                              String
+  photos                                     String[]               @default([])
+  reviewNotes                                String?
+  reviewedAt                                 DateTime?
+  ownerEstimatedBudget                       Float?
+  managerEstimatedCost                       Float?
+  approvedBudget                             Float?
+  costBreakdownNotes                         String?
+  approvedById                               String?
+  approvedAt                                 DateTime?
+  rejectedById                               String?
+  rejectedAt                                 DateTime?
+  rejectionReason                            String?
+  lastReviewedById                           String?
+  lastReviewedAt                             DateTime?
+  createdAt                                  DateTime               @default(now())
+  updatedAt                                  DateTime               @updatedAt
+  jobs                                       Job[]
+  User_ServiceRequest_approvedByIdToUser     User?                  @relation("ServiceRequest_approvedByIdToUser", fields: [approvedById], references: [id])
+  User_ServiceRequest_lastReviewedByIdToUser User?                  @relation("ServiceRequest_lastReviewedByIdToUser", fields: [lastReviewedById], references: [id])
+  property                                   Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  User_ServiceRequest_rejectedByIdToUser     User?                  @relation("ServiceRequest_rejectedByIdToUser", fields: [rejectedById], references: [id])
+  requestedBy                                User                   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  unit                                       Unit?                  @relation(fields: [unitId], references: [id])
 
   @@index([propertyId])
   @@index([unitId])
   @@index([requestedById])
-  @@index([approvedById])
-  @@index([rejectedById])
   @@index([status])
   @@index([category])
+  @@index([approvedById])
+  @@index([propertyId, status])
+  @@index([rejectedById])
+  @@index([propertyId, status], map: "idx_service_request_property_status")
 }
 
 model Report {
@@ -584,28 +474,6 @@ model Report {
 
   @@index([inspectionId])
   @@index([generatedDate])
-}
-
-model ReportRequest {
-  id              String   @id @default(cuid())
-  reportType      String
-  parameters      Json?
-  propertyId      String
-  unitId          String?
-  requestedById   String
-  status          String   @default("PENDING")
-  fileUrl         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit            Unit?    @relation(fields: [unitId], references: [id])
-  requestedBy     User     @relation("ReportRequestsCreated", fields: [requestedById], references: [id])
-  
-  @@index([propertyId])
-  @@index([unitId])
-  @@index([requestedById])
-  @@index([status])
 }
 
 model Recommendation {
@@ -648,247 +516,365 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([entityType, entityId], map: "idx_notification_entity")
 }
 
-model InspectionAttachment {
-  id            String      @id @default(cuid())
-  inspectionId  String
-  name          String      @map("fileName")
-  mimeType      String      @map("fileType")
-  url           String      @map("fileUrl")
-  size          Int?
-  annotations   Json?
-  uploadedById  String?
+model AuditLog {
+  id         String   @id
+  entityType String
+  entityId   String
+  action     String
+  userId     String
+  changes    Json?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  User       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Malware scanning
-  scanStatus    FileScanStatus @default(PENDING)
-  scannedAt     DateTime?
-  scanResult    Json?
-
-  createdAt     DateTime    @default(now()) @map("uploadedAt")
-  inspection    Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  uploadedBy    User?       @relation("InspectionAttachmentUploadedBy", fields: [uploadedById], references: [id])
-
-  @@index([inspectionId])
-  @@index([scanStatus])
-}
-
-model InspectionAuditLog {
-  id           String     @id @default(cuid())
-  action       String
-  changes      Json?
-  createdAt    DateTime   @default(now()) @map("timestamp")
-  inspectionId String
-  userId       String?
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([inspectionId])
+  @@index([action])
   @@index([createdAt])
+  @@index([entityType, entityId])
   @@index([userId])
 }
 
-model InspectionReminder {
-  id           String     @id @default(cuid())
-  inspectionId String
-  remindAt     DateTime   @map("reminderDate")
-  sentAt       DateTime?
-  channel      String
-  recipients   String[]   @default([])
-  metadata     Json?
-  createdById  String     @map("userId")
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  createdBy    User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+model BlogCategory {
+  id               String             @id
+  name             String             @unique
+  slug             String             @unique
+  description      String?
+  color            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  BlogPostCategory BlogPostCategory[]
 
-  @@index([inspectionId])
-  @@index([remindAt])
-  @@index([createdById])
+  @@index([slug])
 }
 
-model InspectionRoom {
-  id              String                    @id @default(cuid())
-  inspectionId    String
-  name            String
-  roomType        RoomType?
-  notes           String?
-  order           Int                       @default(0)
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  inspection      Inspection                @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  checklistItems  InspectionChecklistItem[]
-  issues          InspectionIssue[]
-  photos          InspectionPhoto[]
+model BlogMedia {
+  id        String    @id
+  postId    String
+  url       String
+  type      MediaType
+  caption   String?
+  altText   String?
+  size      Int?
+  mimeType  String?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  BlogPost  BlogPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([order])
+  @@index([postId])
+}
+
+model BlogPost {
+  id                 String             @id
+  title              String
+  slug               String             @unique
+  excerpt            String?
+  content            String
+  htmlContent        String?
+  coverImage         String?
+  authorId           String
+  status             BlogPostStatus     @default(DRAFT)
+  featured           Boolean            @default(false)
+  viewCount          Int                @default(0)
+  metaTitle          String?
+  metaDescription    String?
+  metaKeywords       String[]           @default([])
+  ogImage            String?
+  publishedAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime
+  isAutomated        Boolean            @default(false)
+  automationMetadata Json?
+  BlogMedia          BlogMedia[]
+  User               User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  BlogPostCategory   BlogPostCategory[]
+  BlogPostTag        BlogPostTag[]
+
+  @@index([authorId])
+  @@index([featured])
+  @@index([isAutomated])
+  @@index([publishedAt])
+  @@index([slug])
+  @@index([status])
+}
+
+model BlogPostCategory {
+  id           String       @id
+  postId       String
+  categoryId   String
+  BlogCategory BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  BlogPost     BlogPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, categoryId])
+  @@index([categoryId])
+  @@index([postId])
+}
+
+model BlogPostTag {
+  id       String   @id
+  postId   String
+  tagId    String
+  BlogPost BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  BlogTag  BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+}
+
+model BlogTag {
+  id          String        @id
+  name        String        @unique
+  slug        String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  BlogPostTag BlogPostTag[]
+
+  @@index([slug])
+}
+
+model InspectionAttachment {
+  id           String     @id
+  inspectionId String
+  fileName     String
+  fileType     String
+  fileUrl      String
+  size         Int?
+  annotations  Json?
+  uploadedById String?
+  uploadedAt   DateTime   @default(now())
+  Inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  User         User?      @relation(fields: [uploadedById], references: [id])
 
   @@index([inspectionId])
+}
+
+model InspectionAuditLog {
+  id           String     @id
+  action       String
+  changes      Json?
+  timestamp    DateTime   @default(now())
+  inspectionId String
+  userId       String?
+  Inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  User         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([timestamp])
+  @@index([userId])
 }
 
 model InspectionChecklistItem {
-  id          String               @id @default(cuid())
-  roomId      String
-  description String
-  status      ChecklistItemStatus  @default(PENDING)
-  notes       String?
-  order       Int                  @default(0)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  room        InspectionRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  issues      InspectionIssue[]
+  id              String              @id
+  roomId          String
+  description     String
+  status          ChecklistItemStatus @default(PENDING)
+  notes           String?
+  order           Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime
+  InspectionRoom  InspectionRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  InspectionIssue InspectionIssue[]
 
   @@index([roomId])
 }
 
 model InspectionIssue {
-  id              String                   @id @default(cuid())
-  inspectionId    String
-  roomId          String?
-  checklistItemId String?
-  title           String
-  description     String?
-  severity        IssueSeverity            @default(MEDIUM)
-  status          IssueStatus              @default(OPEN)
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  inspection      Inspection               @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  room            InspectionRoom?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  checklistItem   InspectionChecklistItem? @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
-  photos          InspectionPhoto[]
+  id                      String                   @id
+  inspectionId            String
+  roomId                  String?
+  checklistItemId         String?
+  title                   String
+  description             String?
+  severity                IssueSeverity            @default(MEDIUM)
+  status                  IssueStatus              @default(OPEN)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  InspectionChecklistItem InspectionChecklistItem? @relation(fields: [checklistItemId], references: [id])
+  Inspection              Inspection               @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  InspectionRoom          InspectionRoom?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  InspectionPhoto         InspectionPhoto[]
 
+  @@index([checklistItemId])
   @@index([inspectionId])
   @@index([roomId])
-  @@index([checklistItemId])
 }
 
 model InspectionPhoto {
-  id           String           @id @default(cuid())
-  inspectionId String
-  roomId       String?
-  issueId      String?
-  url          String
-  caption      String?
-  order        Int              @default(0)
-  uploadedById String?
-
-  // Malware scanning
-  scanStatus   FileScanStatus   @default(PENDING)
-  scannedAt    DateTime?
-  scanResult   Json?
-
-  // EXIF metadata tracking
-  exifStripped Boolean          @default(false)
-  exifData     Json?
-  preserveExif Boolean          @default(false)
-
-  createdAt    DateTime         @default(now())
-  inspection   Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  room         InspectionRoom?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  issue        InspectionIssue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  uploadedBy   User?            @relation("InspectionPhotoUploadedBy", fields: [uploadedById], references: [id])
+  id              String           @id
+  inspectionId    String
+  roomId          String?
+  issueId         String?
+  url             String
+  caption         String?
+  order           Int              @default(0)
+  uploadedById    String?
+  createdAt       DateTime         @default(now())
+  Inspection      Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  InspectionIssue InspectionIssue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  InspectionRoom  InspectionRoom?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  User            User?            @relation(fields: [uploadedById], references: [id])
 
   @@index([inspectionId])
-  @@index([roomId])
   @@index([issueId])
-  @@index([scanStatus])
+  @@index([roomId])
+}
+
+model InspectionReminder {
+  id           String     @id
+  inspectionId String
+  reminderDate DateTime
+  sentAt       DateTime?
+  channel      String
+  recipients   String[]   @default([])
+  metadata     Json?
+  userId       String
+  Inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  User         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([reminderDate])
+  @@index([userId])
+}
+
+model InspectionRoom {
+  id                      String                    @id
+  inspectionId            String
+  name                    String
+  roomType                RoomType?
+  notes                   String?
+  order                   Int                       @default(0)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  InspectionChecklistItem InspectionChecklistItem[]
+  InspectionIssue         InspectionIssue[]
+  InspectionPhoto         InspectionPhoto[]
+  Inspection              Inspection                @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
 }
 
 model InspectionTemplate {
-  id                  String                            @id @default(cuid())
-  name                String
-  description         String?
-  type                InspectionType
-  isDefault           Boolean                           @default(false)
-  isActive            Boolean                           @default(true)
-  createdById         String
-  propertyId          String?                           // Optional: template specific to a property
-  createdAt           DateTime                          @default(now())
-  updatedAt           DateTime                          @updatedAt
-  property            Property?                         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  rooms               InspectionTemplateRoom[]
-  inspections         Inspection[]
-  recurringInspections RecurringInspection[]
+  id                     String                   @id
+  name                   String
+  description            String?
+  type                   InspectionType
+  isDefault              Boolean                  @default(false)
+  isActive               Boolean                  @default(true)
+  createdById            String
+  propertyId             String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  Inspection             Inspection[]
+  Property               Property?                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  InspectionTemplateRoom InspectionTemplateRoom[]
+  RecurringInspection    RecurringInspection[]
 
-  @@index([type])
-  @@index([propertyId])
   @@index([isActive])
-}
-
-model InspectionTemplateRoom {
-  id              String                            @id @default(cuid())
-  templateId      String
-  name            String
-  roomType        RoomType?
-  order           Int                               @default(0)
-  createdAt       DateTime                          @default(now())
-  updatedAt       DateTime                          @updatedAt
-  template        InspectionTemplate                @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  checklistItems  InspectionTemplateChecklistItem[]
-
-  @@index([templateId])
+  @@index([propertyId])
+  @@index([type])
 }
 
 model InspectionTemplateChecklistItem {
-  id          String                  @id @default(cuid())
-  roomId      String
-  description String
-  order       Int                     @default(0)
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  room        InspectionTemplateRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  id                     String                 @id
+  roomId                 String
+  description            String
+  order                  Int                    @default(0)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime
+  InspectionTemplateRoom InspectionTemplateRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@index([roomId])
 }
 
-model RecurringInspection {
-  id              String              @id @default(cuid())
-  title           String
-  type            InspectionType
-  propertyId      String
-  unitId          String?
-  assignedToId    String?
+model InspectionTemplateRoom {
+  id                              String                            @id
+  templateId                      String
+  name                            String
+  roomType                        RoomType?
+  order                           Int                               @default(0)
+  createdAt                       DateTime                          @default(now())
+  updatedAt                       DateTime
+  InspectionTemplateChecklistItem InspectionTemplateChecklistItem[]
+  InspectionTemplate              InspectionTemplate                @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  // Recurrence configuration
-  frequency       RecurrenceFrequency
-  interval        Int                 @default(1)  // e.g., every 1 month, every 2 weeks
-  dayOfMonth      Int?                             // For monthly: which day (1-31)
-  dayOfWeek       Int?                             // For weekly: which day (0=Sunday, 6=Saturday)
-  startDate       DateTime
-  endDate         DateTime?                        // Optional end date
-  nextDueDate     DateTime
-  lastGeneratedDate DateTime?
-
-  isActive        Boolean             @default(true)
-  templateId      String?
-
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-
-  property        Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit            Unit?               @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  assignedTo      User?               @relation("RecurringInspectionAssignee", fields: [assignedToId], references: [id])
-  template        InspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  inspections     Inspection[]
-
-  @@index([propertyId])
-  @@index([unitId])
-  @@index([assignedToId])
   @@index([templateId])
-  @@index([nextDueDate])
-  @@index([isActive])
+}
+
+model JobComment {
+  id        String   @id
+  jobId     String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([jobId])
+  @@index([userId])
 }
 
 model Org {
-  id        String   @id
-  name      String
-  ownerId   String?  // Property manager who owns the organization
-  settings  Json?    // Organization-level settings
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  User      User[]
+  id         String   @id
+  name       String
+  ownerId    String?
+  settings   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  User       User[]
+
+  @@index([ownerId])
 }
 
 model OwnerProfile {
   id     String @id
   userId String @unique
   User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordReset {
+  id        String    @id
+  userId    String
+  selector  String    @unique
+  verifier  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([selector])
+  @@index([userId])
+}
+
+model PropertyDocument {
+  id          String                      @id
+  propertyId  String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  category    PropertyDocumentCategory
+  description String?
+  accessLevel PropertyDocumentAccessLevel
+  uploaderId  String
+  uploadedAt  DateTime                    @default(now())
+  updatedAt   DateTime
+  unitId      String?
+  Property    Property                    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  Unit        Unit?                       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  User        User                        @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([accessLevel])
+  @@index([category])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([uploaderId])
 }
 
 model PropertyManagerProfile {
@@ -901,6 +887,74 @@ model PropertyManagerProfile {
   User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model PropertyNote {
+  id         String   @id
+  propertyId String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  User       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([propertyId])
+}
+
+model RecurringInspection {
+  id                 String              @id
+  title              String
+  type               InspectionType
+  propertyId         String
+  unitId             String?
+  assignedToId       String?
+  frequency          RecurrenceFrequency
+  interval           Int                 @default(1)
+  dayOfMonth         Int?
+  dayOfWeek          Int?
+  startDate          DateTime
+  endDate            DateTime?
+  nextDueDate        DateTime
+  lastGeneratedDate  DateTime?
+  isActive           Boolean             @default(true)
+  templateId         String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime
+  Inspection         Inspection[]
+  User               User?               @relation(fields: [assignedToId], references: [id])
+  Property           Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  InspectionTemplate InspectionTemplate? @relation(fields: [templateId], references: [id])
+  Unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([assignedToId])
+  @@index([isActive])
+  @@index([nextDueDate])
+  @@index([propertyId])
+  @@index([templateId])
+  @@index([unitId])
+}
+
+model ReportRequest {
+  id            String   @id
+  reportType    String
+  parameters    Json?
+  propertyId    String
+  unitId        String?
+  requestedById String
+  status        String   @default("PENDING")
+  fileUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  Property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  User          User     @relation(fields: [requestedById], references: [id])
+  Unit          Unit?    @relation(fields: [unitId], references: [id])
+
+  @@index([propertyId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([unitId])
+}
+
 model TechnicianProfile {
   id     String @id
   userId String @unique
@@ -911,6 +965,39 @@ model TenantProfile {
   id     String @id
   userId String @unique
   User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UnitImage {
+  id           String   @id
+  unitId       String
+  imageUrl     String
+  caption      String?
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  Unit         Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([displayOrder])
+  @@index([unitId])
+}
+
+model UnitOwner {
+  id                  String    @id
+  unitId              String
+  ownerId             String
+  ownershipPercentage Float     @default(100.0)
+  startDate           DateTime  @default(now())
+  endDate             DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+  User                User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  Unit                Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, ownerId])
+  @@index([ownerId])
+  @@index([unitId])
 }
 
 enum Role {
@@ -953,9 +1040,9 @@ enum InviteStatus {
 enum InspectionStatus {
   SCHEDULED
   IN_PROGRESS
-  PENDING_APPROVAL
   COMPLETED
   CANCELLED
+  PENDING_APPROVAL
 }
 
 enum InspectionType {
@@ -964,45 +1051,6 @@ enum InspectionType {
   MOVE_OUT
   EMERGENCY
   COMPLIANCE
-}
-
-enum RoomType {
-  BEDROOM
-  BATHROOM
-  KITCHEN
-  LIVING_ROOM
-  DINING_ROOM
-  HALLWAY
-  LAUNDRY_ROOM
-  GARAGE
-  BASEMENT
-  ATTIC
-  BALCONY
-  PATIO
-  STORAGE
-  OFFICE
-  OTHER
-}
-
-enum ChecklistItemStatus {
-  PENDING
-  PASSED
-  FAILED
-  NA
-}
-
-enum IssueSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum IssueStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
 }
 
 enum JobStatus {
@@ -1065,169 +1113,44 @@ enum NotificationType {
   SYSTEM
 }
 
-enum SubscriptionPlan {
-  FREE_TRIAL
-  STARTER
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-model JobComment {
-  id        String   @id @default(cuid())
-  jobId     String
-  userId    String
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([jobId])
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  entityType String
-  entityId   String
-  action     String
-  userId     String
-  changes    Json?
-  metadata   Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([entityType, entityId])
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model BlogPost {
-  id              String              @id @default(cuid())
-  title           String
-  slug            String              @unique
-  excerpt         String?             @db.Text
-  content         String              @db.Text
-  htmlContent     String?             @db.Text
-  coverImage      String?
-  authorId        String
-  status          BlogPostStatus      @default(DRAFT)
-  featured        Boolean             @default(false)
-  viewCount       Int                 @default(0)
-
-  // SEO fields
-  metaTitle       String?
-  metaDescription String?             @db.Text
-  metaKeywords    String[]            @default([])
-  ogImage         String?
-
-  publishedAt     DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-
-  // Automation fields
-  isAutomated        Boolean             @default(false)
-  automationMetadata Json?
-
-  author          User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  categories      BlogPostCategory[]
-  tags            BlogPostTag[]
-  media           BlogMedia[]
-
-  @@index([slug])
-  @@index([authorId])
-  @@index([status])
-  @@index([publishedAt])
-  @@index([featured])
-  @@index([isAutomated])
-}
-
-model BlogCategory {
-  id          String              @id @default(cuid())
-  name        String              @unique
-  slug        String              @unique
-  description String?             @db.Text
-  color       String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  posts       BlogPostCategory[]
-
-  @@index([slug])
-}
-
-model BlogTag {
-  id          String              @id @default(cuid())
-  name        String              @unique
-  slug        String              @unique
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  posts       BlogPostTag[]
-
-  @@index([slug])
-}
-
-model BlogPostCategory {
-  id         String        @id @default(cuid())
-  postId     String
-  categoryId String
-
-  post       BlogPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  category   BlogCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@unique([postId, categoryId])
-  @@index([postId])
-  @@index([categoryId])
-}
-
-model BlogPostTag {
-  id     String   @id @default(cuid())
-  postId String
-  tagId  String
-
-  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([postId, tagId])
-  @@index([postId])
-  @@index([tagId])
-}
-
-model BlogMedia {
-  id        String      @id @default(cuid())
-  postId    String
-  url       String
-  type      MediaType
-  caption   String?
-  altText   String?
-  size      Int?
-  mimeType  String?
-  order     Int         @default(0)
-  createdAt DateTime    @default(now())
-
-  post      BlogPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@index([postId])
-  @@index([order])
-}
-
 enum BlogPostStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
 }
 
+enum ChecklistItemStatus {
+  PENDING
+  PASSED
+  FAILED
+  NA
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 enum MediaType {
   IMAGE
   VIDEO
   EMBED
+}
+
+enum PropertyDocumentAccessLevel {
+  PUBLIC
+  TENANT
+  OWNER
+  PROPERTY_MANAGER
 }
 
 enum PropertyDocumentCategory {
@@ -1242,11 +1165,13 @@ enum PropertyDocumentCategory {
   OTHER
 }
 
-enum PropertyDocumentAccessLevel {
-  PUBLIC
-  TENANT
-  OWNER
-  PROPERTY_MANAGER
+enum PropertyImageCategory {
+  EXTERIOR
+  INTERIOR
+  KITCHEN
+  BATHROOM
+  BEDROOM
+  OTHER
 }
 
 enum RecurrenceFrequency {
@@ -1257,20 +1182,27 @@ enum RecurrenceFrequency {
   YEARLY
 }
 
-enum PropertyImageCategory {
-  EXTERIOR
-  INTERIOR
-  KITCHEN
-  BATHROOM
+enum RoomType {
   BEDROOM
+  BATHROOM
+  KITCHEN
+  LIVING_ROOM
+  DINING_ROOM
+  HALLWAY
+  LAUNDRY_ROOM
+  GARAGE
+  BASEMENT
+  ATTIC
+  BALCONY
+  PATIO
+  STORAGE
+  OFFICE
   OTHER
 }
 
-enum FileScanStatus {
-  PENDING
-  SCANNING
-  CLEAN
-  INFECTED
-  ERROR
-  SKIPPED
+enum SubscriptionPlan {
+  FREE_TRIAL
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
 }

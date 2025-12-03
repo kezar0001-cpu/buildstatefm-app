@@ -17,6 +17,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { apiClient } from '../api/client';
+import LoadingButton from './LoadingButton';
 
 export default function AssignOwnerDialog({ open, onClose, propertyId }) {
   const [selectedOwnerId, setSelectedOwnerId] = useState('');
@@ -131,15 +132,14 @@ export default function AssignOwnerDialog({ open, onClose, propertyId }) {
           <Button onClick={handleClose} disabled={assignOwnerMutation.isPending}>
             Cancel
           </Button>
-          <Button
+          <LoadingButton
             type="submit"
             variant="contained"
-            disabled={
-              assignOwnerMutation.isPending || !selectedOwnerId || availableOwners.length === 0
-            }
+            loading={assignOwnerMutation.isPending}
+            disabled={!selectedOwnerId || availableOwners.length === 0}
           >
-            {assignOwnerMutation.isPending ? 'Assigning...' : 'Assign Owner'}
-          </Button>
+            Assign Owner
+          </LoadingButton>
         </DialogActions>
       </form>
     </Dialog>

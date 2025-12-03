@@ -704,6 +704,210 @@ router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNI
   }
 });
 
+// ========================================
+// POST /api/jobs/:id/accept
+// Technician accepts a job assignment
+// ========================================
+router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const job = await prisma.job.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            managerId: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      return sendError(res, 404, 'Job not found', ErrorCodes.RES_JOB_NOT_FOUND);
+    }
+
+    // Verify job is assigned to the technician
+    if (job.assignedToId !== req.user.id) {
+      return sendError(res, 403, 'You can only accept jobs assigned to you', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify job is in ASSIGNED status
+    if (job.status !== 'ASSIGNED') {
+      return sendError(res, 400, 'Job must be in ASSIGNED status to accept', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
+    // Update job status to IN_PROGRESS and set startedAt
+    const updatedJob = await prisma.job.update({
+      where: { id },
+      data: {
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Notify property manager that technician accepted
+    try {
+      if (job.property.managerId) {
+        const manager = await prisma.user.findUnique({
+          where: { id: job.property.managerId },
+        });
+        if (manager) {
+          await notifyJobStarted(updatedJob, updatedJob.property, manager);
+        }
+      }
+    } catch (notifError) {
+      console.error('Failed to send job acceptance notification:', notifError);
+    }
+
+    // Invalidate caches
+    if (job.property.managerId) {
+      await invalidateDashboardCache(job.property.managerId);
+    }
+    await invalidateDashboardCache(req.user.id);
+
+    res.json({ success: true, job: updatedJob });
+  } catch (error) {
+    console.error('Error accepting job:', error);
+    return sendError(res, 500, 'Failed to accept job', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// ========================================
+// POST /api/jobs/:id/reject
+// Technician rejects a job assignment
+// ========================================
+router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim().length === 0) {
+      return sendError(res, 400, 'Rejection reason is required', ErrorCodes.VAL_MISSING_FIELD);
+    }
+
+    const job = await prisma.job.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            managerId: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      return sendError(res, 404, 'Job not found', ErrorCodes.RES_JOB_NOT_FOUND);
+    }
+
+    // Verify job is assigned to the technician
+    if (job.assignedToId !== req.user.id) {
+      return sendError(res, 403, 'You can only reject jobs assigned to you', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify job is in ASSIGNED status
+    if (job.status !== 'ASSIGNED') {
+      return sendError(res, 400, 'Job must be in ASSIGNED status to reject', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
+    // Update job: remove assignment and reset to OPEN
+    const updatedJob = await prisma.job.update({
+      where: { id },
+      data: {
+        status: 'OPEN',
+        assignedToId: null,
+        notes: job.notes
+          ? `${job.notes}\n\n[REJECTED by ${req.user.firstName} ${req.user.lastName}]: ${reason}`
+          : `[REJECTED by ${req.user.firstName} ${req.user.lastName}]: ${reason}`,
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+      },
+    });
+
+    // Notify property manager about rejection
+    try {
+      if (job.property.managerId) {
+        const manager = await prisma.user.findUnique({
+          where: { id: job.property.managerId },
+        });
+        if (manager) {
+          // Create notification for job rejection
+          await prisma.notification.create({
+            data: {
+              userId: manager.id,
+              type: 'JOB_REJECTED',
+              title: 'Job Rejected by Technician',
+              message: `${req.user.firstName} ${req.user.lastName} rejected job "${job.title}" at ${job.property.name}. Reason: ${reason}`,
+              link: `/jobs/${job.id}`,
+              data: {
+                jobId: job.id,
+                technicianId: req.user.id,
+                reason,
+              },
+            },
+          });
+        }
+      }
+    } catch (notifError) {
+      console.error('Failed to send job rejection notification:', notifError);
+    }
+
+    // Invalidate caches
+    if (job.property.managerId) {
+      await invalidateDashboardCache(job.property.managerId);
+    }
+    await invalidateDashboardCache(req.user.id);
+
+    res.json({ success: true, job: updatedJob });
+  } catch (error) {
+    console.error('Error rejecting job:', error);
+    return sendError(res, 500, 'Failed to reject job', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;

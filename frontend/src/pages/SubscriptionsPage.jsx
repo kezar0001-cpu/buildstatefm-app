@@ -36,54 +36,71 @@ const normaliseStatus = (status) =>
   typeof status === 'string' ? status.toUpperCase() : '';
 
 const PLAN_DETAILS = {
-  STARTER: {
-    name: 'Starter Plan',
+  BASIC: {
+    name: 'Basic Plan',
     price: 29,
     currency: 'USD',
     interval: 'month',
     billingIntervalLabel: 'Monthly',
     billingIntervalSuffix: '/month',
-    description: 'Everything you need to organise your portfolio, track jobs, and keep stakeholders aligned.',
+    description: 'Perfect for individual property managers getting started.',
     features: [
-      'Unlimited properties & units',
-      'Assign owners, tenants & technicians',
-      'Inspection & job management',
-      'Maintenance plans & scheduling',
-      'Reports & analytics dashboard',
-      'Service requests & recommendations',
+      'Up to 10 properties',
+      'Unlimited units',
+      'Basic inspections',
+      'Job management',
+      'Service requests',
+      '1 property manager',
       'Email support',
+      'Mobile access',
     ],
   },
-  GROWTH: {
-    name: 'Growth Plan',
+  PROFESSIONAL: {
+    name: 'Professional Plan',
     price: 79,
     currency: 'USD',
     interval: 'month',
     billingIntervalLabel: 'Monthly',
     billingIntervalSuffix: '/month',
-    description: 'Advanced automation and analytics for scaling facility teams.',
+    description: 'For growing teams managing multiple properties.',
     features: [
-      'Everything in Starter',
-      'Advanced automation workflows',
-      'Unlimited technician accounts',
-      'Custom dashboards & reporting',
-      'Priority live chat support',
+      'Up to 50 properties',
+      'Unlimited units',
+      'Advanced inspections with templates',
+      'Job management',
+      'Service requests',
+      'Up to 5 team members',
+      'Priority email support',
+      'Mobile access',
+      'Maintenance plans & scheduling',
+      'Analytics dashboard',
+      'Recurring inspections',
+      'Technician & owner invites',
     ],
   },
-  SCALE: {
-    name: 'Scale Plan',
+  ENTERPRISE: {
+    name: 'Enterprise Plan',
     price: 149,
     currency: 'USD',
     interval: 'month',
     billingIntervalLabel: 'Monthly',
     billingIntervalSuffix: '/month',
-    description: 'Enterprise controls and insights for complex portfolios.',
+    description: 'For large organizations with complex needs.',
     features: [
-      'Everything in Growth',
-      'Portfolio analytics & forecasting',
-      'Single sign-on (SSO)',
-      'Dedicated customer success manager',
-      'Quarterly optimisation reviews',
+      'Unlimited properties',
+      'Unlimited units',
+      'Advanced inspections with templates',
+      'Job management',
+      'Service requests',
+      'Unlimited team members',
+      'Dedicated support',
+      'Mobile access',
+      'Maintenance plans & scheduling',
+      'Advanced analytics & reporting',
+      'Custom inspection templates',
+      'Audit trails & compliance',
+      'API access',
+      'Custom integrations',
     ],
   },
 };
@@ -275,7 +292,7 @@ export default function SubscriptionsPage() {
     }
 
     // Validate plan
-    const validPlans = ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+    const validPlans = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'];
     const normalizedPlan = planFromUrl.toUpperCase();
     if (validPlans.includes(normalizedPlan)) {
       sessionStorage.setItem('autoCheckoutTriggered', 'true');
@@ -288,13 +305,13 @@ export default function SubscriptionsPage() {
   const isTrialActive = subscriptionStatus === 'TRIAL';
   const userHasActiveSubscription = hasActiveSubscription; // Keep for consistency with existing code
   const trialDaysRemaining = calculateDaysRemaining(currentUser?.trialEndDate);
-  // Default to STARTER if no plan or if plan is FREE_TRIAL (which isn't a paid plan)
-  const planForCheckout = (subscriptionPlan && subscriptionPlan !== 'FREE_TRIAL') ? subscriptionPlan : 'STARTER';
+  // Default to BASIC if no plan or if plan is FREE_TRIAL (which isn't a paid plan)
+  const planForCheckout = (subscriptionPlan && subscriptionPlan !== 'FREE_TRIAL') ? subscriptionPlan : 'BASIC';
 
   // Existing data fetching and processing logic
   const subscriptions = normaliseArray(query.data);
 
-  const startCheckout = async (plan = 'STARTER') => {
+  const startCheckout = async (plan = 'BASIC') => {
     try {
       const res = await checkoutMutation.mutateAsync({
         data: {
@@ -380,8 +397,8 @@ export default function SubscriptionsPage() {
   }
 
   const trialLabel = trialStatusLabel();
-  const planCode = (planForCheckout || 'STARTER').toUpperCase();
-  const planDetails = PLAN_DETAILS[planCode] || PLAN_DETAILS.STARTER;
+  const planCode = (planForCheckout || 'BASIC').toUpperCase();
+  const planDetails = PLAN_DETAILS[planCode] || PLAN_DETAILS.BASIC;
   const planNameDisplay = planDetails?.name || formatEnumValue(subscriptionPlan, 'No active plan');
   const planPriceValue =
     typeof planDetails?.price === 'number'
@@ -714,7 +731,7 @@ export default function SubscriptionsPage() {
                     </List>
                     <Button
                       variant="contained" size="large" fullWidth
-                      onClick={() => startCheckout('STARTER')}
+                      onClick={() => startCheckout('BASIC')}
                       disabled={checkoutMutation.isPending}
                       sx={{ py: 1.5, fontSize: '1.1rem', fontWeight: 600, textTransform: 'none' }}
                     >
@@ -730,6 +747,126 @@ export default function SubscriptionsPage() {
                 </CardContent>
               </Card>
             </Box>
+          )}
+
+          {/* Plan Comparison for Active Subscribers (Upgrade/Downgrade) */}
+          {hasActiveSubscription && (
+            <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 1, mb: 3 }}>
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+                    Change Your Plan
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Upgrade or downgrade your subscription at any time. Changes will be prorated.
+                  </Typography>
+                </Box>
+                <Grid container spacing={2}>
+                  {['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].map((plan) => {
+                    const planInfo = PLAN_DETAILS[plan];
+                    const isCurrentPlan = subscriptionPlan === plan;
+                    const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
+                    const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(plan);
+                    const isUpgrade = thisPlanIndex > currentPlanIndex;
+                    const isDowngrade = thisPlanIndex < currentPlanIndex;
+
+                    return (
+                      <Grid item xs={12} md={4} key={plan}>
+                        <Card
+                          sx={{
+                            height: '100%',
+                            border: isCurrentPlan ? '2px solid' : '1px solid',
+                            borderColor: isCurrentPlan ? 'primary.main' : 'divider',
+                            position: 'relative',
+                          }}
+                        >
+                          {isCurrentPlan && (
+                            <Chip
+                              label="CURRENT PLAN"
+                              color="primary"
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: 12,
+                                right: 12,
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
+                          <CardContent>
+                            <Stack spacing={2}>
+                              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                {planInfo.name}
+                              </Typography>
+                              <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                                  {formatCurrency(planInfo.price, planInfo.currency)}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  per month
+                                </Typography>
+                              </Box>
+                              <Divider />
+                              <List dense sx={{ py: 0 }}>
+                                {planInfo.features.slice(0, 5).map((feature) => (
+                                  <ListItem key={feature} sx={{ px: 0, py: 0.5 }}>
+                                    <ListItemIcon sx={{ minWidth: 32 }}>
+                                      <CheckCircleIcon color="success" fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                      primary={feature}
+                                      primaryTypographyProps={{ variant: 'body2' }}
+                                    />
+                                  </ListItem>
+                                ))}
+                                {planInfo.features.length > 5 && (
+                                  <ListItem sx={{ px: 0, py: 0.5 }}>
+                                    <ListItemText
+                                      primary={`+${planInfo.features.length - 5} more features`}
+                                      primaryTypographyProps={{
+                                        variant: 'body2',
+                                        color: 'text.secondary',
+                                        fontStyle: 'italic',
+                                      }}
+                                    />
+                                  </ListItem>
+                                )}
+                              </List>
+                              {!isCurrentPlan && (
+                                <Button
+                                  variant={isUpgrade ? 'contained' : 'outlined'}
+                                  color={isUpgrade ? 'primary' : 'inherit'}
+                                  fullWidth
+                                  onClick={() => startCheckout(plan)}
+                                  disabled={checkoutMutation.isPending}
+                                  sx={{ mt: 2 }}
+                                >
+                                  {checkoutMutation.isPending
+                                    ? 'Processing...'
+                                    : isUpgrade
+                                      ? 'Upgrade Now'
+                                      : 'Downgrade'}
+                                </Button>
+                              )}
+                              {isCurrentPlan && (
+                                <Button
+                                  variant="outlined"
+                                  fullWidth
+                                  disabled
+                                  sx={{ mt: 2 }}
+                                >
+                                  Current Plan
+                                </Button>
+                              )}
+                            </Stack>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Stack>
+            </Paper>
           )}
 
           {/* Subscription Details for active customers */}

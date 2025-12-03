@@ -4,13 +4,8 @@ import validate from '../middleware/validate.js';
 import { prisma } from '../config/prismaClient.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
-import { getUsageStats } from '../utils/usageTracking.js';
-import {
-  getUsageLimits,
-  getRemainingUsage,
-  getUsagePercentage,
-  getApproachingLimits,
-} from '../utils/subscriptionLimits.js';
+import { getUserUsageStats } from '../utils/usageTracking.js';
+import { getPlanLimits, getUsagePercentage, getRemainingUsage, getApproachingLimits } from '../utils/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -46,11 +41,11 @@ router.get('/current', requireAuth, async (req, res) => {
         createdAt: 'desc',
       },
     });
-    
+
     if (!subscription) {
       return sendError(res, 404, 'No active subscription found', ErrorCodes.RES_NOT_FOUND);
     }
-    
+
     res.json(subscription);
   } catch (error) {
     console.error('Error fetching current subscription:', error);
@@ -58,224 +53,308 @@ router.get('/current', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/subscriptions/usage - Get comprehensive usage stats
+// Get usage stats for current user
+// Returns current consumption vs plan quotas
 router.get('/usage', requireAuth, async (req, res) => {
   try {
-    // Get usage stats (automatically resolves property manager for team members)
-    const usageStats = await getUsageStats(req.user.id, req.user.role);
-    const plan = usageStats.plan || 'FREE_TRIAL';
-    const customLimits = usageStats.customLimits;
+    let userId = req.user.id;
+    let subscriptionPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
 
-    // Get limits for the plan
-    const limits = getUsageLimits(plan, customLimits);
+    // For non-property managers, get their property manager's usage stats
+    // This is because the subscription is at the property manager level
+    if (req.user.role !== 'PROPERTY_MANAGER' && req.user.role !== 'ADMIN') {
+      // Find a property this user is associated with to get the manager
+      let property = null;
 
-    // Build usage response with detailed stats
-    const usage = {
-      properties: {
-        current: usageStats.properties,
-        limit: limits.properties === Infinity ? 'Unlimited' : limits.properties,
-        remaining: getRemainingUsage(plan, 'properties', usageStats.properties, customLimits),
-        percentage: getUsagePercentage(plan, 'properties', usageStats.properties, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      teamMembers: {
-        current: usageStats.teamMembers,
-        limit: limits.teamMembers === Infinity ? 'Unlimited' : limits.teamMembers,
-        remaining: getRemainingUsage(plan, 'teamMembers', usageStats.teamMembers, customLimits),
-        percentage: getUsagePercentage(plan, 'teamMembers', usageStats.teamMembers, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      inspectionsPerMonth: {
-        current: usageStats.inspectionsThisMonth,
-        limit: limits.inspectionsPerMonth === Infinity ? 'Unlimited' : limits.inspectionsPerMonth,
-        remaining: getRemainingUsage(plan, 'inspectionsPerMonth', usageStats.inspectionsThisMonth, customLimits),
-        percentage: getUsagePercentage(plan, 'inspectionsPerMonth', usageStats.inspectionsThisMonth, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      recurringInspections: {
-        current: usageStats.recurringInspections,
-        limit: limits.recurringInspections === Infinity ? 'Unlimited' : limits.recurringInspections,
-        remaining: getRemainingUsage(plan, 'recurringInspections', usageStats.recurringInspections, customLimits),
-        percentage: getUsagePercentage(plan, 'recurringInspections', usageStats.recurringInspections, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      customTemplates: {
-        current: usageStats.customTemplates,
-        limit: limits.customTemplates === Infinity ? 'Unlimited' : limits.customTemplates,
-        remaining: getRemainingUsage(plan, 'customTemplates', usageStats.customTemplates, customLimits),
-        percentage: getUsagePercentage(plan, 'customTemplates', usageStats.customTemplates, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      maintenancePlans: {
-        current: usageStats.maintenancePlans,
-        limit: limits.maintenancePlans === Infinity ? 'Unlimited' : limits.maintenancePlans,
-        remaining: getRemainingUsage(plan, 'maintenancePlans', usageStats.maintenancePlans, customLimits),
-        percentage: getUsagePercentage(plan, 'maintenancePlans', usageStats.maintenancePlans, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      jobsPerMonth: {
-        current: usageStats.jobsThisMonth,
-        limit: limits.jobsPerMonth === Infinity ? 'Unlimited' : limits.jobsPerMonth,
-        remaining: getRemainingUsage(plan, 'jobsPerMonth', usageStats.jobsThisMonth, customLimits),
-        percentage: getUsagePercentage(plan, 'jobsPerMonth', usageStats.jobsThisMonth, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-      documentUploadsPerMonth: {
-        current: usageStats.documentUploadsThisMonth,
-        limit: limits.documentUploadsPerMonth === Infinity ? 'Unlimited' : limits.documentUploadsPerMonth,
-        remaining: getRemainingUsage(plan, 'documentUploadsPerMonth', usageStats.documentUploadsThisMonth, customLimits),
-        percentage: getUsagePercentage(plan, 'documentUploadsPerMonth', usageStats.documentUploadsThisMonth, customLimits),
-        isApproachingLimit: false,
-        hasReachedLimit: false,
-      },
-    };
+      if (req.user.role === 'OWNER') {
+        const ownership = await prisma.propertyOwner.findFirst({
+          where: { ownerId: req.user.id },
+          include: {
+            property: {
+              select: {
+                managerId: true,
+                manager: {
+                  select: {
+                    subscriptionPlan: true,
+                  },
+                },
+              },
+            },
+          },
+        });
 
-    // Calculate approaching limits and reached limits
-    const currentUsageObj = {
-      properties: usageStats.properties,
-      teamMembers: usageStats.teamMembers,
-      inspectionsPerMonth: usageStats.inspectionsThisMonth,
-      recurringInspections: usageStats.recurringInspections,
-      customTemplates: usageStats.customTemplates,
-      maintenancePlans: usageStats.maintenancePlans,
-      jobsPerMonth: usageStats.jobsThisMonth,
-      documentUploadsPerMonth: usageStats.documentUploadsThisMonth,
-    };
-
-    const approachingLimits = getApproachingLimits(plan, currentUsageObj, customLimits);
-    const warnings = [];
-
-    // Update usage objects with approaching/reached flags
-    for (const [key, value] of Object.entries(usage)) {
-      const approaching = approachingLimits.find(l => l.type === key);
-      if (approaching) {
-        value.isApproachingLimit = true;
-        if (approaching.percentage >= 100) {
-          value.hasReachedLimit = true;
-          warnings.push({
-            type: key,
-            message: `You have reached your ${key} limit. Please upgrade to continue.`,
-            severity: 'error',
-          });
-        } else {
-          warnings.push({
-            type: key,
-            message: `You are using ${approaching.percentage}% of your ${key} limit. Consider upgrading soon.`,
-            severity: 'warning',
-          });
+        if (ownership) {
+          property = ownership.property;
         }
+      } else if (req.user.role === 'TENANT') {
+        const tenancy = await prisma.unitTenant.findFirst({
+          where: { tenantId: req.user.id },
+          include: {
+            unit: {
+              select: {
+                property: {
+                  select: {
+                    managerId: true,
+                    manager: {
+                      select: {
+                        subscriptionPlan: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (tenancy) {
+          property = tenancy.unit.property;
+        }
+      } else if (req.user.role === 'TECHNICIAN') {
+        const job = await prisma.job.findFirst({
+          where: { assignedToId: req.user.id },
+          include: {
+            property: {
+              select: {
+                managerId: true,
+                manager: {
+                  select: {
+                    subscriptionPlan: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (job) {
+          property = job.property;
+        }
+      }
+
+      if (property) {
+        userId = property.managerId;
+        subscriptionPlan = property.manager.subscriptionPlan;
       }
     }
 
+    // Get usage statistics
+    const usageStats = await getUserUsageStats(userId, subscriptionPlan);
+    const planLimits = getPlanLimits(subscriptionPlan);
+
+    // Calculate usage percentages and remaining quotas
+    const usageWithLimits = {};
+
+    for (const [limitType, currentUsage] of Object.entries(usageStats.usage)) {
+      const limit = planLimits[limitType];
+
+      usageWithLimits[limitType] = {
+        current: currentUsage,
+        limit: limit === Infinity ? 'unlimited' : limit,
+        remaining: getRemainingUsage(subscriptionPlan, limitType, currentUsage),
+        percentage: getUsagePercentage(subscriptionPlan, limitType, currentUsage),
+        isUnlimited: limit === Infinity,
+        isApproachingLimit: getUsagePercentage(subscriptionPlan, limitType, currentUsage) >= 80,
+        hasReachedLimit: limit !== Infinity && currentUsage >= limit,
+      };
+    }
+
+    // Get approaching limits warnings
+    const approachingLimits = getApproachingLimits(subscriptionPlan, usageStats.usage);
+
     res.json({
-      plan,
-      usage,
-      warnings,
-      timestamp: new Date().toISOString(),
+      plan: subscriptionPlan,
+      usage: usageWithLimits,
+      warnings: approachingLimits,
+      timestamp: usageStats.timestamp,
     });
   } catch (error) {
     console.error('Error fetching usage stats:', error);
-    return sendError(res, 500, 'Failed to fetch usage stats', ErrorCodes.ERR_INTERNAL_SERVER);
+    return sendError(res, 500, 'Failed to fetch usage statistics', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
-// GET /api/subscriptions/churn-analysis - Get churn analysis (admin only)
+// GET /api/subscriptions/churn-analysis - Churn analysis (ADMIN only)
+// Returns data about cancellations, downgrades, reactivations, and MRR changes
 router.get('/churn-analysis', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { startDate, endDate, period = '30d' } = req.query;
 
-    // Get all subscriptions
-    const allSubscriptions = await prisma.subscription.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            subscriptionPlan: true,
-          },
-        },
+    // Calculate date range
+    let start, end;
+
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      end = new Date();
+      start = new Date();
+
+      // Parse period (e.g., '30d', '7d', '90d', '1y')
+      const periodMatch = period.match(/^(\d+)([dmy])$/);
+      if (periodMatch) {
+        const value = parseInt(periodMatch[1]);
+        const unit = periodMatch[2];
+
+        if (unit === 'd') {
+          start.setDate(start.getDate() - value);
+        } else if (unit === 'm') {
+          start.setMonth(start.getMonth() - value);
+        } else if (unit === 'y') {
+          start.setFullYear(start.getFullYear() - value);
+        }
+      } else {
+        start.setDate(start.getDate() - 30); // Default to 30 days
+      }
+    }
+
+    // Get subscription counts by plan
+    const subscriptionCounts = await prisma.user.groupBy({
+      by: ['subscriptionPlan'],
+      _count: {
+        subscriptionPlan: true,
       },
-      orderBy: {
-        createdAt: 'desc',
+      where: {
+        role: 'PROPERTY_MANAGER',
+        subscriptionStatus: {
+          in: ['ACTIVE', 'TRIAL'],
+        },
       },
     });
 
-    // Calculate metrics
-    const cancellations = allSubscriptions.filter(s => 
-      s.status === 'CANCELLED' && s.cancelledAt && s.cancelledAt >= thirtyDaysAgo
-    ).length;
+    // Get cancellations in period
+    const cancellations = await prisma.subscription.count({
+      where: {
+        status: 'CANCELLED',
+        cancelledAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+    });
 
-    const newSubscriptions = allSubscriptions.filter(s => 
-      s.status === 'ACTIVE' && s.createdAt >= thirtyDaysAgo
-    ).length;
+    // Get cancellations by plan
+    const cancellationsByPlan = await prisma.subscription.groupBy({
+      by: ['planName'],
+      _count: {
+        planName: true,
+      },
+      where: {
+        status: 'CANCELLED',
+        cancelledAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+    });
 
-    const reactivations = allSubscriptions.filter(s => 
-      s.status === 'ACTIVE' && s.cancelledAt && s.createdAt < s.cancelledAt && s.updatedAt >= thirtyDaysAgo
-    ).length;
+    // Get new subscriptions in period
+    const newSubscriptions = await prisma.subscription.count({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        status: {
+          in: ['ACTIVE', 'TRIAL'],
+        },
+      },
+    });
 
-    const activeSubscriptions = allSubscriptions.filter(s => s.status === 'ACTIVE').length;
-    const suspendedSubscriptions = allSubscriptions.filter(s => s.status === 'SUSPENDED').length;
+    // Get reactivations (users who were cancelled and then became active again)
+    const reactivations = await prisma.subscription.count({
+      where: {
+        status: 'ACTIVE',
+        updatedAt: {
+          gte: start,
+          lte: end,
+        },
+        user: {
+          subscriptions: {
+            some: {
+              status: 'CANCELLED',
+              cancelledAt: {
+                lt: start,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    // Calculate MRR (Monthly Recurring Revenue)
+    // Calculate MRR (Monthly Recurring Revenue) estimates
+    // Basic = $29, Professional = $79, Enterprise = $149
     const planPrices = {
       BASIC: 29,
       PROFESSIONAL: 79,
       ENTERPRISE: 149,
     };
 
-    let mrr = 0;
-    const planBreakdown = {
-      BASIC: { count: 0, revenue: 0 },
-      PROFESSIONAL: { count: 0, revenue: 0 },
-      ENTERPRISE: { count: 0, revenue: 0 },
-    };
+    let currentMRR = 0;
+    const mrrByPlan = {};
 
-    allSubscriptions
-      .filter(s => s.status === 'ACTIVE')
-      .forEach(sub => {
-        const plan = sub.user.subscriptionPlan || 'FREE_TRIAL';
-        if (plan !== 'FREE_TRIAL' && planPrices[plan]) {
-          const price = planPrices[plan];
-          mrr += price;
-          if (planBreakdown[plan]) {
-            planBreakdown[plan].count++;
-            planBreakdown[plan].revenue += price;
-          }
-        }
-      });
+    for (const count of subscriptionCounts) {
+      const plan = count.subscriptionPlan;
+      const price = planPrices[plan] || 0;
+      const revenue = price * count._count.subscriptionPlan;
+
+      mrrByPlan[plan] = {
+        count: count._count.subscriptionPlan,
+        price,
+        revenue,
+      };
+
+      currentMRR += revenue;
+    }
+
+    // Calculate churned MRR
+    let churnedMRR = 0;
+    for (const cancellation of cancellationsByPlan) {
+      const plan = cancellation.planName;
+      const price = planPrices[plan] || 0;
+      churnedMRR += price * cancellation._count.planName;
+    }
 
     // Calculate churn rate
-    const churnRate = activeSubscriptions > 0 
-      ? (cancellations / activeSubscriptions) * 100 
-      : 0;
+    const totalActive = subscriptionCounts.reduce((sum, c) => sum + c._count.subscriptionPlan, 0);
+    const churnRate = totalActive > 0 ? (cancellations / totalActive) * 100 : 0;
+
+    // Get suspended subscriptions (payment failures)
+    const suspended = await prisma.user.count({
+      where: {
+        role: 'PROPERTY_MANAGER',
+        subscriptionStatus: 'SUSPENDED',
+      },
+    });
 
     res.json({
       period: {
-        start: thirtyDaysAgo.toISOString(),
-        end: now.toISOString(),
-        days: 30,
+        start: start.toISOString(),
+        end: end.toISOString(),
       },
-      metrics: {
-        cancellations,
+      summary: {
+        currentActiveSubscriptions: totalActive,
         newSubscriptions,
+        cancellations,
         reactivations,
-        activeSubscriptions,
-        suspendedSubscriptions,
-        churnRate: Math.round(churnRate * 100) / 100,
-        mrr: Math.round(mrr * 100) / 100,
+        suspended,
+        netChange: newSubscriptions - cancellations + reactivations,
+        churnRate: churnRate.toFixed(2) + '%',
       },
-      planBreakdown,
-      timestamp: now.toISOString(),
+      mrr: {
+        current: currentMRR,
+        churned: churnedMRR,
+        netChange: currentMRR - churnedMRR,
+        byPlan: mrrByPlan,
+      },
+      cancellationsByPlan: cancellationsByPlan.map(c => ({
+        plan: c.planName,
+        count: c._count.planName,
+      })),
+      subscriptionCountsByPlan: subscriptionCounts.map(c => ({
+        plan: c.subscriptionPlan,
+        count: c._count.subscriptionPlan,
+      })),
     });
   } catch (error) {
     console.error('Error fetching churn analysis:', error);

@@ -38,6 +38,7 @@ export function setCurrentUser(user) {
 
 export function getAuthToken() {
   try {
+    // ✅ Check auth_token first (new standard), fallback to token (legacy) for backwards compatibility
     return localStorage.getItem('auth_token') || localStorage.getItem('token');
   } catch (error) {
     console.error('Failed to read auth token from storage:', error);
@@ -52,8 +53,10 @@ export function saveAuthToken(token) {
   }
 
   try {
+    // ✅ Only use auth_token going forward (removed duplicate 'token' key)
     localStorage.setItem('auth_token', token);
-    localStorage.setItem('token', token);
+    // Clean up legacy token key if it exists
+    localStorage.removeItem('token');
   } catch (error) {
     console.error('Failed to persist auth token:', error);
   }
@@ -64,6 +67,7 @@ export function saveAuthToken(token) {
 export function removeAuthToken() {
   try {
     localStorage.removeItem('auth_token');
+    // Clean up legacy token key as well
     localStorage.removeItem('token');
   } catch (error) {
     console.error('Failed to clear auth token:', error);

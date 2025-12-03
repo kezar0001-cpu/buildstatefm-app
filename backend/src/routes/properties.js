@@ -9,6 +9,7 @@ import axios from 'axios';
 import prisma from '../config/prismaClient.js';
 import { redisGet, redisSet } from '../config/redisClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { canCreateProperty, getPropertyLimit, getLimitReachedMessage } from '../utils/subscriptionLimits.js';
 import unitsRouter from './units.js';
 import { cacheMiddleware, invalidate, invalidatePattern } from '../utils/cache.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
@@ -1394,6 +1395,18 @@ router.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, asy
 
     // Property managers can only create properties for themselves
     const managerId = req.user.id;
+
+    // Check property limit based on subscription plan
+    const currentPropertyCount = await prisma.property.count({
+      where: { managerId },
+    });
+
+    const userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
+    if (!canCreateProperty(userPlan, currentPropertyCount)) {
+      const limit = getPropertyLimit(userPlan);
+      const message = getLimitReachedMessage('properties', userPlan);
+      return sendError(res, 403, message, ErrorCodes.SUB_LIMIT_REACHED);
+    }
 
     const rawImages = legacyImages;
 
