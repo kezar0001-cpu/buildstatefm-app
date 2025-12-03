@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useMutation } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { apiClient } from '../../api/client';
 
 const ROOM_TYPES = [
@@ -128,7 +129,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
       const errorMessage = error.response?.data?.message || 'Failed to generate checklist. Please try again.';
       console.error('Failed to generate AI checklist:', error);
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   });
 

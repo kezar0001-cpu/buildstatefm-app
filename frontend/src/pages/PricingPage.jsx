@@ -29,8 +29,8 @@ import BlogPublicNav from '../components/BlogPublicNav';
 
 const PRICING_TIERS = [
   {
-    id: 'STARTER',
-    name: 'Starter',
+    id: 'BASIC',
+    name: 'Basic',
     price: 29,
     yearlyPrice: 290, // ~17% discount
     description: 'Perfect for individual property managers getting started',
@@ -44,9 +44,10 @@ const PRICING_TIERS = [
       { text: '1 property manager', included: true },
       { text: 'Email support', included: true },
       { text: 'Mobile access', included: true },
-      { text: 'Maintenance plans', included: false },
-      { text: 'Advanced analytics', included: false },
-      { text: 'Custom templates', included: false },
+      { text: 'Maintenance plans & scheduling', included: false },
+      { text: 'Analytics dashboard', included: false },
+      { text: 'Recurring inspections', included: false },
+      { text: 'Custom inspection templates', included: false },
       { text: 'API access', included: false },
     ],
     highlighted: false,
@@ -72,7 +73,9 @@ const PRICING_TIERS = [
       { text: 'Recurring inspections', included: true },
       { text: 'Technician & owner invites', included: true },
       { text: 'Custom inspection templates', included: false },
+      { text: 'Audit trails & compliance', included: false },
       { text: 'API access', included: false },
+      { text: 'Custom integrations', included: false },
     ],
     highlighted: true,
   },
@@ -93,7 +96,7 @@ const PRICING_TIERS = [
       { text: 'Dedicated support', included: true },
       { text: 'Mobile access', included: true },
       { text: 'Maintenance plans & scheduling', included: true },
-      { text: 'Advanced analytics & reports', included: true },
+      { text: 'Advanced analytics & reporting', included: true },
       { text: 'Custom inspection templates', included: true },
       { text: 'Audit trails & compliance', included: true },
       { text: 'API access', included: true },

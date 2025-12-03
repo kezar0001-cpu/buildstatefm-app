@@ -1,8 +1,7 @@
 import prisma from '../config/prismaClient.js';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
-import { hasReachedLimit, getRemainingUsage, getUsagePercentage } from '../utils/subscriptionLimits.js';
-import { getUsageStats } from '../utils/usageTracking.js';
+import { hasFeature, getLimitReachedMessage } from '../utils/subscriptionLimits.js';
 
 /**
  * Middleware to require authentication
@@ -286,67 +285,83 @@ export const requirePropertyManagerSubscription = async (req, res, next) => {
 };
 
 /**
- * Middleware to enforce usage limits instead of feature blocks
- * All features are available, but usage is limited by subscription plan
- * 
- * @param {string} limitType - Type of limit to check (e.g., 'properties', 'teamMembers')
- * @param {function} getCurrentUsageFn - Async function that returns current usage count
- * @returns {function} Express middleware
- * 
- * @example
- * requireUsage('properties', async (userId) => await getPropertyCount(userId))
+ * Middleware to require a specific feature based on subscription plan
+ * NOTE: In the new usage-based model, all features are available to all plans.
+ * This middleware is kept for backward compatibility but always allows access.
+ * Use requireUsage instead to enforce usage limits.
+ * @param {string} feature - The feature name (kept for backward compatibility)
+ * @returns {Function} Express middleware
+ */
+export const requireFeature = (feature) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    }
+
+    // All features are available in the usage-based model
+    return next();
+  };
+};
+
+/**
+ * Middleware to check and enforce usage limits
+ * Prevents actions when usage limits are reached
+ * @param {string} limitType - The type of limit to check (e.g., 'properties', 'teamMembers', 'inspectionsPerMonth')
+ * @param {Function} getCurrentUsageFn - Async function that returns current usage count
+ * @returns {Function} Express middleware
  */
 export const requireUsage = (limitType, getCurrentUsageFn) => {
   return async (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    }
+
     try {
-      if (!req.user) {
-        return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
-      }
+      // Get the property manager's plan (for property managers, it's their own plan)
+      let userPlan = req.user.subscriptionPlan || 'FREE_TRIAL';
+      let userId = req.user.id;
 
-      // Get usage stats to determine property manager and plan
-      const usageStats = await getUsageStats(req.user.id, req.user.role);
-      const plan = usageStats.plan || 'FREE_TRIAL';
-      const customLimits = usageStats.customLimits;
+      // For non-property managers, check their property manager's subscription
+      if (req.user.role !== 'PROPERTY_MANAGER') {
+        const propertyId = req.body?.propertyId || req.params?.propertyId || req.query?.propertyId;
 
-      // Get current usage for the specific limit type
-      let currentUsage;
-      if (typeof getCurrentUsageFn === 'function') {
-        // Use provided function to get current usage
-        currentUsage = await getCurrentUsageFn(usageStats.propertyManagerId || req.user.id);
-      } else {
-        // Fallback to usage stats object
-        currentUsage = usageStats[limitType] || 0;
-      }
+        if (propertyId) {
+          const property = await prisma.property.findUnique({
+            where: { id: propertyId },
+            select: {
+              managerId: true,
+              manager: {
+                select: {
+                  subscriptionPlan: true,
+                },
+              },
+            },
+          });
 
-      // Check if limit has been reached
-      if (hasReachedLimit(plan, limitType, currentUsage, customLimits)) {
-        const remaining = getRemainingUsage(plan, limitType, currentUsage, customLimits);
-        const percentage = getUsagePercentage(plan, limitType, currentUsage, customLimits);
-
-        return sendError(
-          res,
-          402, // Payment Required
-          `You have reached your ${limitType} limit. Please upgrade your plan to continue.`,
-          ErrorCodes.SUB_USAGE_LIMIT_REACHED,
-          {
-            limitType,
-            currentUsage,
-            limit: remaining === Infinity ? 'Unlimited' : currentUsage + remaining,
-            remaining,
-            percentage: percentage !== null ? Math.round(percentage) : null,
-            plan,
-            upgradeRequired: true,
+          if (property) {
+            userPlan = property.manager.subscriptionPlan;
+            userId = property.managerId;
           }
-        );
+        }
       }
 
-      // Store usage info in request for route handlers
+      // Get current usage
+      const currentUsage = await getCurrentUsageFn(userId, req);
+
+      // Import after function declaration to avoid circular dependency
+      const { hasReachedLimit, getLimitReachedMessage } = await import('../utils/subscriptionLimits.js');
+
+      // Check if limit is reached
+      if (hasReachedLimit(userPlan, limitType, currentUsage)) {
+        const message = getLimitReachedMessage(limitType, userPlan);
+        return sendError(res, 403, message, ErrorCodes.SUB_USAGE_LIMIT_REACHED);
+      }
+
+      // Store usage info in request for potential use in route handler
       req.usageInfo = {
         limitType,
         currentUsage,
-        plan,
-        customLimits,
-        propertyManagerId: usageStats.propertyManagerId || req.user.id,
+        plan: userPlan,
       };
 
       return next();

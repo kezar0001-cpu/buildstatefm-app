@@ -20,6 +20,7 @@
     "@prisma/client": "^6.18.0",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
+    "clamscan": "^2.4.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

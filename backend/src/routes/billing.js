@@ -14,7 +14,7 @@ const stripe = createStripeClient();
 const stripeAvailable = isStripeClientConfigured(stripe);
 
 const PLAN_PRICE_MAP = {
-  STARTER: process.env.STRIPE_PRICE_ID_STARTER,
+  BASIC: process.env.STRIPE_PRICE_ID_BASIC || process.env.STRIPE_PRICE_ID_STARTER, // Support both names for backward compatibility
   PROFESSIONAL: process.env.STRIPE_PRICE_ID_PROFESSIONAL,
   ENTERPRISE: process.env.STRIPE_PRICE_ID_ENTERPRISE,
 };
@@ -90,8 +90,24 @@ router.post('/checkout', async (req, res) => {
       return sendError(res, 401, 'Invalid token', ErrorCodes.AUTH_INVALID_TOKEN);
     }
 
-    const { plan = 'STARTER', successUrl, cancelUrl } = req.body || {};
-    const normalisedPlan = normalisePlan(plan) || 'STARTER';
+    // Get full user data to check role
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser) {
+      return sendError(res, 401, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    // Only property managers (and admins) can access subscription checkout
+    if (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN') {
+      return sendError(
+        res,
+        403,
+        'Only property managers can manage subscriptions. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
+    const { plan = 'BASIC', successUrl, cancelUrl, addOns = [] } = req.body || {};
+    const normalisedPlan = normalisePlan(plan) || 'BASIC';
 
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
@@ -111,13 +127,40 @@ router.post('/checkout', async (req, res) => {
       plan: normalisedPlan,
     };
 
+    // Build line items with main plan and any add-ons
+    const lineItems = [{ price: priceId, quantity: 1 }];
+
+    // Add-ons support (e.g., extra properties, extra team members, extra storage)
+    // Add-ons should have their own Stripe price IDs configured in environment variables
+    const ADD_ON_PRICE_IDS = {
+      extraProperties: process.env.STRIPE_ADDON_EXTRA_PROPERTIES,
+      extraTeamMembers: process.env.STRIPE_ADDON_EXTRA_TEAM_MEMBERS,
+      extraStorage: process.env.STRIPE_ADDON_EXTRA_STORAGE,
+      extraAutomation: process.env.STRIPE_ADDON_EXTRA_AUTOMATION,
+    };
+
+    if (Array.isArray(addOns)) {
+      for (const addOn of addOns) {
+        const priceId = ADD_ON_PRICE_IDS[addOn.type];
+        if (priceId) {
+          lineItems.push({
+            price: priceId,
+            quantity: addOn.quantity || 1,
+          });
+
+          // Store add-on in metadata
+          metadata[`addOn_${addOn.type}`] = `${addOn.quantity || 1}`;
+        }
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: lineItems,
       success_url: success,
       cancel_url: cancel,
-      customer_email: user.email,
-      client_reference_id: user.orgId || user.id,
+      customer_email: dbUser.email,
+      client_reference_id: dbUser.orgId || dbUser.id,
       metadata,
       subscription_data: {
         metadata,
@@ -163,7 +206,7 @@ router.post('/confirm', async (req, res) => {
         : null;
 
     const priceId = subscription?.items?.data?.[0]?.price?.id;
-    const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'STARTER');
+    const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
     const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
 
     const data = { subscriptionStatus: status };
@@ -551,8 +594,8 @@ async function upsertSubscription({
 
       const subscriptionData = {
         userId: uid,
-        planId: plan || 'STARTER',
-        planName: plan || 'STARTER',
+        planId: plan || 'BASIC',
+        planName: plan || 'BASIC',
         status: status || 'PENDING',
         ...(stripeCustomerId && { stripeCustomerId }),
         ...(stripeSubscriptionId && { stripeSubscriptionId }),
@@ -610,6 +653,36 @@ export async function webhook(req, res) {
     return sendError(res, 400, `Webhook Error: ${err.message}`, ErrorCodes.EXT_STRIPE_ERROR);
   }
 
+  // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing
+  try {
+    const existingEvent = await prisma.stripeWebhookEvent.findUnique({
+      where: { eventId: event.id },
+    });
+
+    if (existingEvent && existingEvent.processed) {
+      console.log(`Webhook ${event.id} already processed, skipping`);
+      return res.json({ received: true, status: 'duplicate' });
+    }
+
+    // Record webhook event (or update if exists but not processed)
+    await prisma.stripeWebhookEvent.upsert({
+      where: { eventId: event.id },
+      create: {
+        eventId: event.id,
+        eventType: event.type,
+        processed: false,
+        data: event.data,
+      },
+      update: {
+        eventType: event.type,
+        data: event.data,
+      },
+    });
+  } catch (error) {
+    console.error('Error checking webhook idempotency:', error);
+    // Continue processing - don't block on idempotency check failure
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -632,7 +705,7 @@ export async function webhook(req, res) {
         }
 
         const priceId = subscription?.items?.data?.[0]?.price?.id;
-        const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'STARTER');
+        const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
         const status = mapStripeStatusToAppStatus(subscription?.status, 'ACTIVE');
 
         // Update User model
@@ -932,6 +1005,21 @@ export async function webhook(req, res) {
         // console.log(`Unhandled event type ${event.type}`);
         break;
     }
+
+    // ✅ Mark webhook as processed
+    try {
+      await prisma.stripeWebhookEvent.update({
+        where: { eventId: event.id },
+        data: {
+          processed: true,
+          processedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('Error marking webhook as processed:', error);
+      // Continue - don't block response
+    }
+
     res.json({ received: true });
   } catch (err) {
     console.error('⚠️ Webhook handler error:', err);
