@@ -361,66 +361,66 @@ function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDays
         },
       }}
     >
-      {plan.popular && !isCurrentPlan && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -12,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1,
-          }}
-        >
-          <Chip
-            label="MOST POPULAR"
-            color="primary"
-            size="small"
-            sx={{ fontWeight: 700, fontSize: '0.75rem' }}
-          />
-        </Box>
-      )}
-      {isCurrentPlan && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -12,
-            right: 16,
-            zIndex: 1,
-          }}
-        >
-          <Chip
-            label="CURRENT PLAN"
-            color="success"
-            size="small"
-            sx={{ fontWeight: 700, fontSize: '0.75rem' }}
-          />
-        </Box>
-      )}
-      {showDiscount && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: plan.popular ? 28 : -12,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1,
-          }}
-        >
-          <Chip
-            icon={<LocalOfferIcon />}
-            label="20% OFF FIRST MONTH"
+      <CardContent sx={{ p: 4, pt: 4, flexGrow: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* Badges positioned inside CardContent to avoid cutoff */}
+        {plan.popular && !isCurrentPlan && (
+          <Box
             sx={{
-              bgcolor: '#dc2626',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '0.75rem',
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1,
             }}
-          />
-        </Box>
-      )}
-
-      <CardContent sx={{ p: 4, pt: showDiscount ? (plan.popular ? 6 : 5) : plan.popular ? 5 : 4, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Stack spacing={3} sx={{ flexGrow: 1 }}>
+          >
+            <Chip
+              label="MOST POPULAR"
+              color="primary"
+              size="small"
+              sx={{ fontWeight: 700, fontSize: '0.75rem' }}
+            />
+          </Box>
+        )}
+        {isCurrentPlan && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 1,
+            }}
+          >
+            <Chip
+              label="CURRENT PLAN"
+              color="success"
+              size="small"
+              sx={{ fontWeight: 700, fontSize: '0.75rem' }}
+            />
+          </Box>
+        )}
+        {showDiscount && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 16,
+              left: plan.popular ? '50%' : '50%',
+              transform: 'translateX(-50%)',
+              zIndex: plan.popular ? 2 : 1,
+            }}
+          >
+            <Chip
+              icon={<LocalOfferIcon />}
+              label="20% OFF FIRST MONTH"
+              sx={{
+                bgcolor: '#dc2626',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+              }}
+            />
+          </Box>
+        )}
+        <Stack spacing={3} sx={{ flexGrow: 1, mt: (plan.popular || showDiscount || isCurrentPlan) ? 4 : 0 }}>
           {/* Plan Header */}
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
@@ -616,11 +616,16 @@ export default function SubscriptionsPage() {
 
   const startCheckout = async (plan = 'BASIC') => {
     try {
+      // Apply 20% discount for Basic plan when trial is ending (first month only)
+      const shouldApplyDiscount = plan === 'BASIC' && (trialDaysRemaining <= 3 || !isTrialActive);
+      const promoCode = shouldApplyDiscount ? 'FIRST20' : validatedPromo?.code || null;
+
       const res = await checkoutMutation.mutateAsync({
         data: {
           plan,
           successUrl: `${window.location.origin}/subscriptions?success=1`,
           cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
+          promoCode,
         },
       });
       if (res?.data?.url) {
@@ -707,7 +712,7 @@ export default function SubscriptionsPage() {
   const usageWarnings = usageQuery.data?.warnings || [];
 
   return (
-    <Box sx={{ py: 4, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ py: 4, minHeight: '100vh' }}>
       <Container maxWidth="xl">
         <Stack spacing={4}>
           {/* Header */}
@@ -905,7 +910,7 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Promo Code Section */}
-              <Paper sx={{ p: 3, mt: 4, borderRadius: 3, bgcolor: 'primary.50' }}>
+              <Paper sx={{ p: 3, mt: 4, borderRadius: 3, bgcolor: 'background.paper' }}>
                 <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems="center">
                   <LocalOfferIcon color="primary" sx={{ fontSize: 32 }} />
                   <Box sx={{ flexGrow: 1 }}>
@@ -990,82 +995,6 @@ export default function SubscriptionsPage() {
             </Paper>
           )}
 
-          {/* Feature Comparison Table */}
-          {!hasActiveSubscription && (
-            <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 2, overflow: 'auto' }}>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
-                Feature Comparison
-              </Typography>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>Feature</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>Basic</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>Professional</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>Enterprise</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Properties</TableCell>
-                      <TableCell align="center">10</TableCell>
-                      <TableCell align="center">50</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Team Members</TableCell>
-                      <TableCell align="center">1</TableCell>
-                      <TableCell align="center">5</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Inspections per Month</TableCell>
-                      <TableCell align="center">25</TableCell>
-                      <TableCell align="center">100</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Recurring Inspections</TableCell>
-                      <TableCell align="center">5</TableCell>
-                      <TableCell align="center">25</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Custom Templates</TableCell>
-                      <TableCell align="center">3</TableCell>
-                      <TableCell align="center">15</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Analytics History</TableCell>
-                      <TableCell align="center">30 days</TableCell>
-                      <TableCell align="center">180 days</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Storage</TableCell>
-                      <TableCell align="center">5 GB</TableCell>
-                      <TableCell align="center">50 GB</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Support</TableCell>
-                      <TableCell align="center">Email</TableCell>
-                      <TableCell align="center">Priority Email & Chat</TableCell>
-                      <TableCell align="center">Dedicated (4hr response)</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>API Access</TableCell>
-                      <TableCell align="center">100 calls/day</TableCell>
-                      <TableCell align="center">1,000 calls/day</TableCell>
-                      <TableCell align="center">Unlimited</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          )}
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
@@ -1240,7 +1169,7 @@ export default function SubscriptionsPage() {
 
           {/* Why Subscribe Section */}
           {!hasActiveSubscription && (
-            <Paper sx={{ p: 4, borderRadius: 3, bgcolor: 'primary.50', boxShadow: 2 }}>
+            <Paper sx={{ p: 4, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 2 }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
                 Why Subscribe to BuildState FM?
               </Typography>
