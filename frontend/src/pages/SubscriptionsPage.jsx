@@ -991,7 +991,75 @@ export default function SubscriptionsPage() {
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
                 Compare Plans
               </Typography>
-              <Grid container spacing={3}>
+              {/* Mobile Carousel Container */}
+              <Box
+                sx={{
+                  // Mobile: Horizontal scrollable carousel
+                  display: { xs: 'flex', md: 'none' },
+                  overflowX: 'auto',
+                  scrollSnapType: 'x mandatory',
+                  scrollBehavior: 'smooth',
+                  gap: 2,
+                  px: 0.5,
+                  mx: -0.5,
+                  pb: 2,
+                  // Hide scrollbar for clean UI
+                  '&::-webkit-scrollbar': {
+                    display: 'none',
+                  },
+                  scrollbarWidth: 'none', // Firefox
+                  // Add subtle fade gradient at edges
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '30px',
+                    background: 'linear-gradient(to right, rgba(255,255,255,0.95), transparent)',
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '30px',
+                    background: 'linear-gradient(to left, rgba(255,255,255,0.95), transparent)',
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  },
+                }}
+                role="group"
+                aria-label="Subscription plan options"
+              >
+                {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => (
+                  <Box
+                    key={planKey}
+                    sx={{
+                      flex: '0 0 auto',
+                      width: '85%',
+                      maxWidth: '350px',
+                      scrollSnapAlign: 'center',
+                    }}
+                  >
+                    <PlanCard
+                      plan={plan}
+                      planKey={planKey}
+                      isCurrentPlan={false}
+                      onSelect={startCheckout}
+                      isLoading={checkoutMutation.isPending}
+                      trialDaysRemaining={trialDaysRemaining}
+                      isTrialActive={isTrialActive}
+                    />
+                  </Box>
+                ))}
+              </Box>
+              {/* Desktop Grid Layout */}
+              <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' } }}>
                 {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => (
                   <Grid item xs={12} md={4} key={planKey}>
                     <PlanCard
@@ -1066,7 +1134,83 @@ export default function SubscriptionsPage() {
                     Upgrade or downgrade your subscription at any time. Changes will be prorated.
                   </Typography>
                 </Box>
-                <Grid container spacing={3}>
+                {/* Mobile Carousel Container */}
+                <Box
+                  sx={{
+                    // Mobile: Horizontal scrollable carousel
+                    display: { xs: 'flex', md: 'none' },
+                    overflowX: 'auto',
+                    scrollSnapType: 'x mandatory',
+                    scrollBehavior: 'smooth',
+                    gap: 2,
+                    px: 0.5,
+                    mx: -0.5,
+                    pb: 2,
+                    // Hide scrollbar for clean UI
+                    '&::-webkit-scrollbar': {
+                      display: 'none',
+                    },
+                    scrollbarWidth: 'none', // Firefox
+                    // Add subtle fade gradient at edges
+                    position: 'relative',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '30px',
+                      background: 'linear-gradient(to right, rgba(255,255,255,0.95), transparent)',
+                      pointerEvents: 'none',
+                      zIndex: 1,
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '30px',
+                      background: 'linear-gradient(to left, rgba(255,255,255,0.95), transparent)',
+                      pointerEvents: 'none',
+                      zIndex: 1,
+                    },
+                  }}
+                  role="group"
+                  aria-label="Change subscription plan options"
+                >
+                  {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
+                    const isCurrentPlan = subscriptionPlan === planKey;
+                    const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
+                    const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(planKey);
+                    const isUpgrade = thisPlanIndex > currentPlanIndex;
+                    const isDowngrade = thisPlanIndex < currentPlanIndex;
+
+                    return (
+                      <Box
+                        key={planKey}
+                        sx={{
+                          flex: '0 0 auto',
+                          width: '85%',
+                          maxWidth: '350px',
+                          scrollSnapAlign: 'center',
+                        }}
+                      >
+                        <PlanCard
+                          plan={plan}
+                          planKey={planKey}
+                          isCurrentPlan={isCurrentPlan}
+                          onSelect={startCheckout}
+                          isLoading={checkoutMutation.isPending}
+                          trialDaysRemaining={trialDaysRemaining}
+                          isTrialActive={false}
+                        />
+                      </Box>
+                    );
+                  })}
+                </Box>
+                {/* Desktop Grid Layout */}
+                <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' } }}>
                   {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
                     const isCurrentPlan = subscriptionPlan === planKey;
                     const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
