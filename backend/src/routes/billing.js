@@ -106,7 +106,7 @@ router.post('/checkout', async (req, res) => {
       );
     }
 
-    const { plan = 'BASIC', successUrl, cancelUrl, addOns = [] } = req.body || {};
+    const { plan = 'BASIC', successUrl, cancelUrl, addOns = [], promoCode } = req.body || {};
     const normalisedPlan = normalisePlan(plan) || 'BASIC';
 
     if (!stripeAvailable) {
@@ -154,7 +154,8 @@ router.post('/checkout', async (req, res) => {
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Handle promo code if provided
+    const sessionConfig = {
       mode: 'subscription',
       line_items: lineItems,
       success_url: success,
@@ -169,7 +170,74 @@ router.post('/checkout', async (req, res) => {
         },
       },
       allow_promotion_codes: true,
-    });
+    };
+
+    // If promo code is provided, try to apply it
+    if (promoCode) {
+      try {
+        // Look up promo code in database
+        const promo = await prisma.promoCode.findUnique({
+          where: { code: promoCode.toUpperCase() },
+        });
+
+        if (promo && promo.isActive) {
+          // Check if expired
+          if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+            // Promo expired, but continue without it
+          } else if (promo.maxUses && promo.currentUses >= promo.maxUses) {
+            // Max uses reached, but continue without it
+          } else {
+            // Check if applicable to this plan
+            if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
+              // Create or retrieve Stripe coupon
+              let couponId;
+              try {
+                // Try to find existing coupon in Stripe
+                const coupons = await stripe.coupons.list({ limit: 100 });
+                const existingCoupon = coupons.data.find(c => c.id === promoCode.toUpperCase() || c.name === promoCode.toUpperCase());
+                
+                if (existingCoupon) {
+                  couponId = existingCoupon.id;
+                } else {
+                  // Create new Stripe coupon
+                  const couponData = {
+                    id: promoCode.toUpperCase(),
+                    name: promo.description || `${promoCode} Discount`,
+                  };
+
+                  if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
+                    couponData.percent_off = promo.discountPercentage;
+                  } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
+                    couponData.amount_off = Math.round(promo.discountAmount * 100); // Convert to cents
+                    couponData.currency = 'usd';
+                  }
+
+                  // For first month only discount, use duration: 'once'
+                  if (promoCode.toUpperCase() === 'FIRST20') {
+                    couponData.duration = 'once';
+                  }
+
+                  const coupon = await stripe.coupons.create(couponData);
+                  couponId = coupon.id;
+                }
+
+                // Apply coupon to checkout session
+                sessionConfig.discounts = [{ coupon: couponId }];
+                metadata.promoCode = promoCode.toUpperCase();
+              } catch (stripeError) {
+                console.error('Error creating/applying Stripe coupon:', stripeError);
+                // Continue without coupon if Stripe error
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing promo code:', error);
+        // Continue without promo code if there's an error
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return res.json({ id: session.id, url: session.url });
   } catch (err) {
