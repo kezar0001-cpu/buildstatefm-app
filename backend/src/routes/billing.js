@@ -1006,11 +1006,15 @@ export async function webhook(req, res) {
         }
 
         try {
-          await applySubscriptionUpdate({ userId, orgId, data: update });
-          console.log(`User subscription updated successfully for ${userId || orgId}`);
+          if (userId || orgId) {
+            await applySubscriptionUpdate({ userId, orgId, data: update });
+            console.log(`User subscription updated successfully for ${userId || orgId}`);
+          } else {
+            console.warn('Skipping user update - no userId or orgId available');
+          }
         } catch (error) {
           console.error('Error updating user subscription:', error);
-          throw error; // Re-throw to trigger error handling
+          // Don't throw - try to continue with subscription record
         }
 
         // Create/Update Subscription record
