@@ -271,7 +271,7 @@ router.get('/invoices', async (req, res) => {
     }
 
     // Find user's Stripe customer ID
-    const dbUser = await prisma.user.findUnique({
+    const userWithSubscriptions = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
         subscriptions: {
@@ -284,11 +284,11 @@ router.get('/invoices', async (req, res) => {
       },
     });
 
-    if (!dbUser || !dbUser.subscriptions[0]?.stripeCustomerId) {
+    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeCustomerId) {
       return res.json({ invoices: [] });
     }
 
-    const stripeCustomerId = dbUser.subscriptions[0].stripeCustomerId;
+    const stripeCustomerId = userWithSubscriptions.subscriptions[0].stripeCustomerId;
 
     // Fetch invoices from Stripe
     const invoices = await stripe.invoices.list({
@@ -345,8 +345,8 @@ router.post('/payment-method', async (req, res) => {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
     }
 
-    // Find user's Stripe customer ID
-    const dbUser = await prisma.user.findUnique({
+    // Find user's Stripe customer ID (reuse dbUser but fetch with subscriptions)
+    const userWithSubscriptions = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
         subscriptions: {
@@ -359,11 +359,11 @@ router.post('/payment-method', async (req, res) => {
       },
     });
 
-    if (!dbUser || !dbUser.subscriptions[0]?.stripeCustomerId) {
+    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeCustomerId) {
       return sendError(res, 404, 'No active subscription found', ErrorCodes.RES_NOT_FOUND);
     }
 
-    const stripeCustomerId = dbUser.subscriptions[0].stripeCustomerId;
+    const stripeCustomerId = userWithSubscriptions.subscriptions[0].stripeCustomerId;
 
     // Create a billing portal session for updating payment method
     const portalSession = await stripe.billingPortal.sessions.create({
@@ -409,7 +409,7 @@ router.post('/cancel', async (req, res) => {
     const { immediate = false } = req.body || {};
 
     // Find user's active subscription
-    const dbUser = await prisma.user.findUnique({
+    const userWithSubscriptions = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
         subscriptions: {
@@ -423,11 +423,11 @@ router.post('/cancel', async (req, res) => {
       },
     });
 
-    if (!dbUser || !dbUser.subscriptions[0]?.stripeSubscriptionId) {
+    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeSubscriptionId) {
       return sendError(res, 404, 'No active subscription found', ErrorCodes.RES_NOT_FOUND);
     }
 
-    const subscription = dbUser.subscriptions[0];
+    const subscription = userWithSubscriptions.subscriptions[0];
 
     // Cancel subscription in Stripe
     const canceledSubscription = await stripe.subscriptions.update(
