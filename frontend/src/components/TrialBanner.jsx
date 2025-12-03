@@ -109,31 +109,6 @@ const TrialBanner = () => {
     };
   }, [isExpanded, isTrialActive, isTrialExpired, isSuspended]);
 
-  useEffect(() => {
-    const updateBannerHeight = () => {
-      const height = bannerRef.current?.offsetHeight ?? 0;
-      document.documentElement.style.setProperty('--trial-banner-height', `${height}px`);
-    };
-
-    updateBannerHeight();
-
-    window.addEventListener('resize', updateBannerHeight);
-
-    let resizeObserver;
-    if (bannerRef.current && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(updateBannerHeight);
-      resizeObserver.observe(bannerRef.current);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateBannerHeight);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-      document.documentElement.style.removeProperty('--trial-banner-height');
-    };
-  }, [isExpanded, isTrialActive, isTrialExpired, isSuspended]);
-
   // Don't show banner if user has active subscription
   if (!user || subscriptionStatus === 'ACTIVE') {
     return null;

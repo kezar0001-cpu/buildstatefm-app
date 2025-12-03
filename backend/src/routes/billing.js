@@ -704,13 +704,16 @@ router.post('/cancel', async (req, res) => {
     // Cancel subscription in Stripe
     let canceledSubscription;
     try {
-      canceledSubscription = await stripe.subscriptions.update(
-        subscription.stripeSubscriptionId,
-        {
-          cancel_at_period_end: !immediate,
-          ...(immediate && { cancel_at: 'now' }),
-        }
-      );
+      if (immediate) {
+        // Immediate cancellation - use cancel() method
+        canceledSubscription = await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+      } else {
+        // Cancel at period end - use update() method
+        canceledSubscription = await stripe.subscriptions.update(
+          subscription.stripeSubscriptionId,
+          { cancel_at_period_end: true }
+        );
+      }
     } catch (stripeError) {
       console.error('Stripe subscription cancellation failed:', stripeError);
       return sendError(
