@@ -230,6 +230,7 @@ const TrialBanner = () => {
                 color: '#dc2626',
                 fontWeight: 700,
                 px: 2,
+                py: 1,
                 '&:hover': {
                   bgcolor: '#fef2f2',
                 },
@@ -347,6 +348,7 @@ const TrialBanner = () => {
                 color: isCritical || isUrgent ? '#dc2626' : '#ea580c',
                 fontWeight: 700,
                 px: 2,
+                py: 1,
                 '&:hover': {
                   bgcolor: '#fef2f2',
                 },
@@ -399,7 +401,7 @@ const TrialBanner = () => {
             variant="contained"
             size="small"
             onClick={() => navigate('/subscriptions')}
-            sx={{ fontWeight: 700 }}
+            sx={{ fontWeight: 700, px: 2, py: 1 }}
           >
             View plans
           </Button>

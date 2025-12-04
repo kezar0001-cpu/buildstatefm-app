@@ -363,12 +363,12 @@ function NavBar() {
           ))}
           
           <Divider sx={{ my: 1 }} />
-          
+
           <MenuItem onClick={() => handleNavigation('/profile')}>
             <PersonIcon fontSize="small" sx={{ mr: 1.5 }} />
             Profile
           </MenuItem>
-          
+
           <MenuItem onClick={() => handleNavigation('/subscriptions')}>
             <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
             Subscriptions
@@ -380,9 +380,16 @@ function NavBar() {
               Team Management
             </MenuItem>
           )}
-          
+
           <Divider sx={{ my: 1 }} />
-          
+
+          <MenuItem onClick={toggleTheme}>
+            {theme === 'light' ? <Brightness4Icon fontSize="small" sx={{ mr: 1.5 }} /> : <Brightness7Icon fontSize="small" sx={{ mr: 1.5 }} />}
+            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+          </MenuItem>
+
+          <Divider sx={{ my: 1 }} />
+
           <Box sx={{ px: 2, pb: 1 }}>
             <LogoutButton
               fullWidth
