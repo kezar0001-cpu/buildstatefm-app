@@ -185,6 +185,7 @@ model Property {
   RecurringInspection RecurringInspection[]
   ReportRequest       ReportRequest[]
   serviceRequests     ServiceRequest[]
+  recommendations     Recommendation[]
   units               Unit[]
 
   @@index([managerId])
@@ -469,6 +470,7 @@ model Recommendation {
   id              String               @id @default(cuid())
   title           String
   description     String
+  propertyId      String
   reportId        String?
   estimatedCost   Float?
   priority        JobPriority          @default(MEDIUM)
@@ -482,9 +484,11 @@ model Recommendation {
   updatedAt       DateTime             @updatedAt
   approvedBy      User?                @relation("ApprovedBy", fields: [approvedById], references: [id])
   createdBy       User                 @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  property        Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   report          Report?              @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
+  @@index([propertyId])
   @@index([status])
   @@index([createdById])
 }

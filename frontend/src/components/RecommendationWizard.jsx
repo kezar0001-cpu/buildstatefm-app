@@ -207,6 +207,7 @@ export default function RecommendationWizard({ open, onClose }) {
       onClose={handleCancel}
       maxWidth="md"
       fullWidth
+      disableEnforceFocus
       PaperProps={{
         sx: {
           borderRadius: 3,

@@ -82,6 +82,7 @@ router.post('/', requireAuth, async (req, res) => {
       data: {
         title: title.trim(),
         description: description.trim(),
+        propertyId: propertyId,
         reportId: mostRecentReport?.id || null,
         priority: priority || 'MEDIUM',
         estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
@@ -89,6 +90,12 @@ router.post('/', requireAuth, async (req, res) => {
         createdById: req.user.id,
       },
       include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         report: {
           include: {
             inspection: {
@@ -170,36 +177,42 @@ router.get('/', requireAuth, async (req, res) => {
     }
     
     // Add role-based access control
-    // Recommendations are tied to inspection reports, which are tied to properties
+    // Recommendations are now directly linked to properties via propertyId
     if (req.user.role === 'PROPERTY_MANAGER') {
       // Property managers see recommendations for their properties
-      where.report = {
-        inspection: {
-          property: {
-            managerId: req.user.id,
-          },
-        },
+      where.property = {
+        managerId: req.user.id,
       };
     } else if (req.user.role === 'OWNER') {
       // Owners see recommendations for properties they own
-      where.report = {
-        inspection: {
-          property: {
-            owners: {
-              some: {
-                ownerId: req.user.id,
-              },
-            },
+      where.property = {
+        owners: {
+          some: {
+            ownerId: req.user.id,
           },
         },
       };
     } else if (req.user.role === 'TECHNICIAN') {
-      // Technicians see recommendations for inspections assigned to them
-      where.report = {
-        inspection: {
-          assignedToId: req.user.id,
+      // Technicians see recommendations for inspections assigned to them (if report exists)
+      // Or recommendations for properties where they have assigned inspections
+      where.OR = [
+        {
+          report: {
+            inspection: {
+              assignedToId: req.user.id,
+            },
+          },
         },
-      };
+        {
+          property: {
+            inspections: {
+              some: {
+                assignedToId: req.user.id,
+              },
+            },
+          },
+        },
+      ];
     } else {
       // Tenants and other roles have no access to recommendations
       return sendError(res, 403, 'Access denied. You do not have permission to view recommendations.', ErrorCodes.ACC_ACCESS_DENIED);
@@ -208,6 +221,13 @@ router.get('/', requireAuth, async (req, res) => {
     const recommendations = await prisma.recommendation.findMany({
       where,
       include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
         report: {
           select: {
             id: true,
@@ -258,24 +278,16 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
     const recommendation = await prisma.recommendation.findUnique({
       where: { id },
       include: {
-        report: {
+        property: {
           include: {
-            inspection: {
-              include: {
-                property: {
-                  include: {
-                    owners: {
-                      select: { ownerId: true },
-                    },
-                    manager: {
-                      select: {
-                        id: true,
-                        subscriptionStatus: true,
-                        trialEndDate: true,
-                      },
-                    },
-                  },
-                },
+            owners: {
+              select: { ownerId: true },
+            },
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
               },
             },
           },
@@ -288,7 +300,7 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
     }
 
     // Access control: Only property managers and owners can approve recommendations
-    const property = recommendation.report?.inspection?.property;
+    const property = recommendation.property;
     if (!property) {
       return sendError(res, 404, 'Associated property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
@@ -325,22 +337,14 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
         approvedAt: new Date(),
       },
       include: {
-        report: {
+        property: {
           include: {
-            inspection: {
-              include: {
-                property: {
-                  include: {
-                    manager: {
-                      select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                      },
-                    },
-                  },
-                },
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
               },
             },
           },
@@ -357,7 +361,7 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
 
     // Notify property manager when owner approves
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const updatedProperty = updated.report?.inspection?.property;
+    const updatedProperty = updated.property;
     if (updatedProperty && updatedProperty.manager) {
       try {
         await sendNotification(
@@ -400,27 +404,19 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
     const recommendation = await prisma.recommendation.findUnique({
       where: { id },
       include: {
-        report: {
+        property: {
           include: {
-            inspection: {
-              include: {
-                property: {
-                  include: {
-                    owners: {
-                      select: { ownerId: true },
-                    },
-                    manager: {
-                      select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        subscriptionStatus: true,
-                        trialEndDate: true,
-                      },
-                    },
-                  },
-                },
+            owners: {
+              select: { ownerId: true },
+            },
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
               },
             },
           },
@@ -433,7 +429,7 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
     }
 
     // Access control: Only property managers and owners can reject recommendations
-    const property = recommendation.report?.inspection?.property;
+    const property = recommendation.property;
     if (!property) {
       return sendError(res, 404, 'Associated property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
