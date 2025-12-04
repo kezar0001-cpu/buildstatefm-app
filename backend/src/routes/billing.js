@@ -242,18 +242,31 @@ router.post('/checkout', async (req, res) => {
                 } else {
                   // Check if applicable to this plan
                   if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
-                    // Create Stripe coupon from database promo
-                    const couponData = {
-                      id: promoCodeUpper,
-                      name: promo.description || `${promoCodeUpper} Discount`,
-                    };
+                    // Validate promo code has valid discount values
+                    const hasValidPercentage = promo.discountType === 'PERCENTAGE' && promo.discountPercentage && promo.discountPercentage > 0;
+                    const hasValidFixed = promo.discountType === 'FIXED' && promo.discountAmount && promo.discountAmount > 0;
 
-                    if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
-                      couponData.percent_off = promo.discountPercentage;
-                    } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
-                      couponData.amount_off = Math.round(promo.discountAmount * 100);
-                      couponData.currency = 'usd';
-                    }
+                    if (!hasValidPercentage && !hasValidFixed) {
+                      console.error(`Promo code ${promoCodeUpper} has invalid discount configuration:`, {
+                        discountType: promo.discountType,
+                        discountPercentage: promo.discountPercentage,
+                        discountAmount: promo.discountAmount,
+                      });
+                      // Skip this promo code - invalid configuration
+                      console.log('Skipping promo code due to invalid discount configuration');
+                    } else {
+                      // Create Stripe coupon from database promo
+                      const couponData = {
+                        id: promoCodeUpper,
+                        name: promo.description || `${promoCodeUpper} Discount`,
+                      };
+
+                      if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
+                        couponData.percent_off = promo.discountPercentage;
+                      } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
+                        couponData.amount_off = Math.round(promo.discountAmount * 100);
+                        couponData.currency = 'usd';
+                      }
 
                     // Set duration - required field for Stripe coupons
                     // Use promo.duration if available, otherwise default to 'once'
@@ -269,6 +282,7 @@ router.post('/checkout', async (req, res) => {
                     }
 
                     try {
+                      console.log(`Creating Stripe coupon with data:`, JSON.stringify(couponData, null, 2));
                       const coupon = await stripe.coupons.create(couponData);
                       sessionConfig.discounts = [{ coupon: coupon.id }];
                       metadata.promoCode = promoCodeUpper;
@@ -281,7 +295,11 @@ router.post('/checkout', async (req, res) => {
                         console.log(`Using existing coupon: ${promoCodeUpper}`);
                       } else {
                         console.error('Error creating Stripe coupon:', stripeError);
+                        console.error('Coupon data that failed:', JSON.stringify(couponData, null, 2));
+                        // Don't apply discount if coupon creation fails
+                        console.log('Proceeding without promo code discount due to coupon creation error');
                       }
+                    }
                     }
                   }
                 }
@@ -299,7 +317,21 @@ router.post('/checkout', async (req, res) => {
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionConfig);
+    } catch (stripeError) {
+      console.error('Stripe session creation failed:', stripeError);
+      console.error('Session config:', JSON.stringify(sessionConfig, null, 2));
+
+      // Provide more specific error message
+      let errorMessage = 'Checkout failed';
+      if (stripeError.message) {
+        errorMessage = `Checkout failed: ${stripeError.message}`;
+      }
+
+      return sendError(res, 500, errorMessage, ErrorCodes.EXT_STRIPE_ERROR);
+    }
 
     return res.json({ id: session.id, url: session.url });
   } catch (err) {
