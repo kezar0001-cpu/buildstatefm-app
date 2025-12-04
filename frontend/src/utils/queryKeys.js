@@ -116,5 +116,6 @@ export const queryKeys = {
   },
   recommendations: {
     all: () => ['recommendations'],
+    list: (filters) => ['recommendations', 'list', filters],
   },
 };
