@@ -24,6 +24,9 @@ export default function EmptyState({
   onAction,
   helperText,
   iconColor = 'primary.main', // Allow custom icon color, default to primary
+  iconBackground = 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)', // Allow custom background
+  iconBorderColor = 'rgba(59, 130, 246, 0.2)', // Allow custom border color
+  iconShadow = '0 4px 14px 0 rgb(59 130 246 / 0.15)', // Allow custom shadow
   sx = {},
 }) {
   const defaultIconSx = { fontSize: { xs: 48, md: 56 }, color: iconColor, opacity: 1 };
@@ -81,10 +84,10 @@ export default function EmptyState({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)',
+            background: iconBackground,
             border: '1px solid',
-            borderColor: 'rgba(59, 130, 246, 0.2)',
-            boxShadow: '0 4px 14px 0 rgb(59 130 246 / 0.15)',
+            borderColor: iconBorderColor,
+            boxShadow: iconShadow,
             transition: 'transform 0.3s ease',
             '&:hover': {
               transform: 'scale(1.05)',

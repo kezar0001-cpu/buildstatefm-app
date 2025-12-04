@@ -159,7 +159,7 @@ export default function RecommendationsPage() {
     if (!debouncedSearch) return recommendations;
     const searchLower = debouncedSearch.toLowerCase();
     return recommendations.filter((rec) => {
-      const property = propertiesMap.get(rec.report?.inspection?.propertyId);
+      const property = rec.property || propertiesMap.get(rec.propertyId);
       const propertyName = property?.name || '';
       return (
         rec.title?.toLowerCase().includes(searchLower) ||
@@ -331,6 +331,9 @@ export default function RecommendationsPage() {
             <EmptyState
               icon={LightbulbIcon}
               iconColor="#dc2626"
+              iconBackground="linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%)"
+              iconBorderColor="rgba(220, 38, 38, 0.2)"
+              iconShadow="0 4px 14px 0 rgb(220 38 38 / 0.15)"
               title={hasFilters ? 'No recommendations match your filters' : 'No recommendations yet'}
               description={
                 hasFilters
@@ -367,8 +370,8 @@ export default function RecommendationsPage() {
                   </TableHead>
                   <TableBody>
                     {filteredRecommendations.map((recommendation) => {
-                      const property = propertiesMap.get(recommendation.report?.inspection?.propertyId);
-                      const propertyName = property?.name || recommendation.report?.inspection?.propertyId || 'N/A';
+                      const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                      const propertyName = property?.name || 'N/A';
                       return (
                         <TableRow key={recommendation.id}>
                           <TableCell>{recommendation.title}</TableCell>
