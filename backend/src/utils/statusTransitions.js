@@ -107,6 +107,17 @@ export function getAllowedJobTransitions(currentStatus) {
 }
 
 /**
+ * Get error message for invalid status transition
+ * @param {string} currentStatus - Current status
+ * @param {string} newStatus - Desired new status
+ * @returns {string} - Error message
+ */
+export function getTransitionErrorMessage(currentStatus, newStatus) {
+  const allowed = getAllowedJobTransitions(currentStatus);
+  return `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed transitions: ${allowed.join(', ') || 'none'}`;
+}
+
+/**
  * Middleware to validate service request status transition
  * @param {object} req - Express request object
  * @param {object} res - Express response object

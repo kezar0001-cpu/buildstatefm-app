@@ -6,7 +6,7 @@ import { prisma } from '../config/prismaClient.js';
 import { notifyJobAssigned, notifyJobCompleted, notifyJobStarted, notifyJobReassigned } from '../utils/notificationService.js';
 import { invalidate } from '../utils/cache.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
-import { isValidJobTransition, getAllowedJobTransitions } from '../utils/statusTransitions.js';
+import { isValidJobTransition, getAllowedJobTransitions, getTransitionErrorMessage } from '../utils/statusTransitions.js';
 
 const router = express.Router();
 
@@ -301,7 +301,7 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubs
         title,
         description,
         priority: priority || 'MEDIUM',
-        status: 'OPEN',
+        status: assignedToId ? 'ASSIGNED' : 'OPEN',
         propertyId,
         unitId: unitId || null,
         assignedToId: assignedToId || null,
@@ -424,7 +424,7 @@ router.post(
       const invalidTransitionJob = jobs.find((job) => {
         if (job.status === 'OPEN') {
           // This job will transition from OPEN to ASSIGNED
-          return !isValidStatusTransition('OPEN', 'ASSIGNED');
+          return !isValidJobTransition('OPEN', 'ASSIGNED');
         }
         return false;
       });
@@ -546,7 +546,7 @@ const statusUpdateSchema = z.object({
   status: z.enum(STATUSES),
 });
 
-router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), validate(statusUpdateSchema), async (req, res) => {
+router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), requireActiveSubscription, validate(statusUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -604,7 +604,7 @@ router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNI
     }
 
     // Validate status transition using state machine
-    if (!isValidStatusTransition(existingJob.status, status)) {
+    if (!isValidJobTransition(existingJob.status, status)) {
       return sendError(
         res,
         400,
@@ -1216,7 +1216,9 @@ router.get('/:id/comments', requireAuth, async (req, res) => {
     // Check if job exists and user has access
     const job = await prisma.job.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        assignedToId: true,
         property: {
           select: {
             managerId: true,

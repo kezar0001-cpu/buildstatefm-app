@@ -62,7 +62,7 @@ export function PropertyDocumentManager({
     hasDocuments,
     completedCount,
   } = useDocumentUpload({
-    endpoint: '/upload/documents',
+    endpoint: '/uploads/documents',
     initialDocuments,
     onSuccess: (completedDocs) => {
       console.log('[PropertyDocumentManager] All uploads complete:', completedDocs);

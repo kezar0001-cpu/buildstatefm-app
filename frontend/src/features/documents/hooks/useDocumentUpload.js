@@ -18,7 +18,7 @@ export function useDocumentUpload(options = {}) {
   const {
     onSuccess,
     onError,
-    endpoint = '/upload/documents',
+    endpoint = '/uploads/documents',
     maxConcurrent = 3,
     initialDocuments = [],
   } = options;

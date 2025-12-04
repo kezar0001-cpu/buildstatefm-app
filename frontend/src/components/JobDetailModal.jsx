@@ -555,12 +555,28 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
   };
 
   const handleClose = () => {
+    // Blur any focused elements before closing to prevent aria-hidden warnings
+    if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
     onClose?.(returnPath);
   };
 
   return (
     <>
-      <Dialog open={open && !!job} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog 
+        open={open && !!job} 
+        onClose={handleClose} 
+        maxWidth="md" 
+        fullWidth
+        disableEnforceFocus
+        onTransitionExited={() => {
+          // Ensure no elements retain focus after dialog closes
+          if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+          }
+        }}
+      >
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
             <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">

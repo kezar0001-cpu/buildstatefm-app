@@ -16,7 +16,7 @@ export async function uploadPropertyDocument(file) {
   formData.append('files', file);
 
   try {
-    const response = await apiClient.post('/upload/documents', formData);
+    const response = await apiClient.post('/uploads/documents', formData);
 
     if (!response || !response.data) {
       throw new Error('Invalid response from upload endpoint');
