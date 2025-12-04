@@ -32,14 +32,36 @@ export default function MobileBottomNav() {
     ? { label: 'My Jobs', path: '/technician/dashboard', icon: BuildIcon }
     : { label: 'Jobs', path: '/jobs', icon: BuildIcon };
 
-  // Main navigation items for bottom nav
-  const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
-    { label: 'Properties', path: '/properties', icon: HomeIcon },
-    { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
-    jobsNavigation,
-    { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
-  ];
+  // Main navigation items for bottom nav - customize based on user role
+  let navItems = [];
+
+  if (user?.role === 'OWNER') {
+    // Navigation for property owners
+    navItems = [
+      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+      { label: 'Properties', path: '/properties', icon: HomeIcon },
+      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
+      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+    ];
+  } else if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
+    // Navigation for property managers
+    navItems = [
+      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+      { label: 'Properties', path: '/properties', icon: HomeIcon },
+      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
+      jobsNavigation,
+      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+    ];
+  } else {
+    // Default navigation (includes all items)
+    navItems = [
+      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+      { label: 'Properties', path: '/properties', icon: HomeIcon },
+      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
+      jobsNavigation,
+      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+    ];
+  }
 
   // Find current active item index
   const getActiveIndex = () => {

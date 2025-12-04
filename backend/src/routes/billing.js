@@ -653,6 +653,135 @@ router.get('/portal', async (req, res) => {
   }
 });
 
+// POST /api/billing/change-plan - Change subscription plan (upgrade/downgrade)
+router.post('/change-plan', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req);
+    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+
+    // Verify user is a property manager or admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN')) {
+      return sendError(
+        res,
+        403,
+        'Only property managers can change plans. Please contact your property manager.',
+        ErrorCodes.ACC_ROLE_REQUIRED
+      );
+    }
+
+    if (!stripeAvailable) {
+      return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
+    }
+
+    const { plan } = req.body || {};
+    const normalisedPlan = normalisePlan(plan) || 'BASIC';
+
+    const priceId = PLAN_PRICE_MAP[normalisedPlan];
+    if (!priceId) {
+      return sendError(res, 400, `Unknown plan or missing price id: ${plan}`, ErrorCodes.VAL_INVALID_REQUEST);
+    }
+
+    // Find user's active subscription
+    const userWithSubscriptions = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        subscriptions: {
+          where: {
+            stripeSubscriptionId: { not: null },
+            status: 'ACTIVE',
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!userWithSubscriptions || !userWithSubscriptions.subscriptions[0]?.stripeSubscriptionId) {
+      return sendError(res, 404, 'No active subscription found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    const subscription = userWithSubscriptions.subscriptions[0];
+
+    // Update subscription in Stripe
+    let updatedSubscription;
+    try {
+      // Retrieve the current subscription
+      const currentSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+
+      // Update the subscription with the new price
+      updatedSubscription = await stripe.subscriptions.update(
+        subscription.stripeSubscriptionId,
+        {
+          items: [{
+            id: currentSubscription.items.data[0].id,
+            price: priceId,
+          }],
+          proration_behavior: 'always_invoice', // Prorate the changes
+          metadata: {
+            ...currentSubscription.metadata,
+            plan: normalisedPlan,
+          },
+        }
+      );
+    } catch (stripeError) {
+      console.error('Stripe subscription update failed:', stripeError);
+      return sendError(
+        res,
+        500,
+        `Failed to update subscription in Stripe: ${stripeError.message || 'Unknown error'}`,
+        ErrorCodes.EXT_STRIPE_ERROR
+      );
+    }
+
+    // Update subscription in database
+    try {
+      const newStatus = mapStripeStatusToAppStatus(updatedSubscription.status);
+
+      // Update User model
+      await applySubscriptionUpdate({
+        userId: user.id,
+        orgId: user.orgId,
+        data: {
+          subscriptionStatus: newStatus,
+          subscriptionPlan: normalisedPlan,
+        },
+      });
+
+      // Update Subscription record
+      await upsertSubscription({
+        userId: user.id,
+        orgId: user.orgId,
+        stripeCustomerId: subscription.stripeCustomerId,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        status: newStatus,
+        plan: normalisedPlan,
+        currentPeriodEnd: updatedSubscription.current_period_end,
+      });
+    } catch (updateError) {
+      console.error('Error updating subscription in database after plan change:', updateError);
+      // Log but don't fail - webhook will handle it
+    }
+
+    return res.json({
+      success: true,
+      plan: normalisedPlan,
+      status: updatedSubscription.status,
+      currentPeriodEnd: updatedSubscription.current_period_end,
+    });
+  } catch (err) {
+    if (err instanceof StripeNotConfiguredError) {
+      return sendError(res, 503, err.message, ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
+    }
+    console.error('Stripe change plan error:', err);
+    return sendError(res, 500, 'Failed to change plan', ErrorCodes.EXT_STRIPE_ERROR);
+  }
+});
+
 // POST /api/billing/cancel - Cancel subscription
 router.post('/cancel', async (req, res) => {
   try {
