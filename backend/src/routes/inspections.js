@@ -117,7 +117,7 @@ router.get('/analytics', inspectionController.getAnalytics);
 router.get('/calendar', inspectionController.getCalendar);
 router.get('/overdue', hydrateInspectionUser, inspectionController.getOverdueInspections);
 
-router.get('/', inspectionController.listInspections);
+router.get('/', requireAuth, hydrateInspectionUser, inspectionController.listInspections);
 router.post(
   '/',
   requireRole(ROLE_MANAGER),
