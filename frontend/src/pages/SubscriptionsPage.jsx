@@ -304,9 +304,9 @@ function UsageProgressBar({ label, current, limit, unit = '' }) {
   const displayCurrent = isUnlimited ? current : `${current} / ${displayLimit}${unit ? ` ${unit}` : ''}`;
 
   return (
-    <Box sx={{ mb: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+    <Box sx={{ mb: 2, width: '100%', overflow: 'hidden' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5, gap: 1, width: '100%' }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {label}
         </Typography>
         <Typography
@@ -314,6 +314,8 @@ function UsageProgressBar({ label, current, limit, unit = '' }) {
           sx={{
             fontWeight: 600,
             color: isExceeded ? 'error.main' : isApproaching ? 'warning.main' : 'text.secondary',
+            flexShrink: 0,
+            ml: 1,
           }}
         >
           {displayCurrent}
@@ -327,6 +329,7 @@ function UsageProgressBar({ label, current, limit, unit = '' }) {
             height: 8,
             borderRadius: 4,
             bgcolor: 'grey.200',
+            width: '100%',
             '& .MuiLinearProgress-bar': {
               bgcolor: isExceeded ? 'error.main' : isApproaching ? 'warning.main' : 'primary.main',
             },
@@ -1106,113 +1109,6 @@ export default function SubscriptionsPage() {
             </Alert>
           )}
 
-          {/* Usage Statistics Section */}
-          {hasActiveSubscription && usageQuery.data && (
-            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto' }}>
-              <Stack spacing={3}>
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-                      Usage Statistics
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                      Track your current usage against plan limits
-                    </Typography>
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setShowUsageDetails(!showUsageDetails)}
-                    endIcon={showUsageDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                    sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, minWidth: { xs: '100%', sm: 'auto' } }}
-                  >
-                    {showUsageDetails ? 'Show Less' : 'Show All'}
-                  </Button>
-                </Box>
-
-                <Grid container spacing={3}>
-                  {/* Key Metrics */}
-                  <Grid item xs={12} md={6}>
-                    <UsageProgressBar
-                      label="Properties"
-                      current={usageStats.properties?.current || 0}
-                      limit={usageStats.properties?.limit}
-                    />
-                    <UsageProgressBar
-                      label="Team Members"
-                      current={usageStats.teamMembers?.current || 0}
-                      limit={usageStats.teamMembers?.limit}
-                    />
-                    <UsageProgressBar
-                      label="Inspections This Month"
-                      current={usageStats.inspectionsPerMonth?.current || 0}
-                      limit={usageStats.inspectionsPerMonth?.limit}
-                    />
-                    <UsageProgressBar
-                      label="Jobs This Month"
-                      current={usageStats.jobsPerMonth?.current || 0}
-                      limit={usageStats.jobsPerMonth?.limit}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Collapse in={showUsageDetails}>
-                      <UsageProgressBar
-                        label="Recurring Inspections"
-                        current={usageStats.recurringInspections?.current || 0}
-                        limit={usageStats.recurringInspections?.limit}
-                      />
-                      <UsageProgressBar
-                        label="Custom Templates"
-                        current={usageStats.customTemplates?.current || 0}
-                        limit={usageStats.customTemplates?.limit}
-                      />
-                      <UsageProgressBar
-                        label="Document Uploads This Month"
-                        current={usageStats.documentUploadsPerMonth?.current || 0}
-                        limit={usageStats.documentUploadsPerMonth?.limit}
-                      />
-                      <UsageProgressBar
-                        label="Storage"
-                        current={usageStats.storageGB?.current || 0}
-                        limit={usageStats.storageGB?.limit}
-                        unit="GB"
-                      />
-                    </Collapse>
-                    {!showUsageDetails && (
-                      <Box sx={{ textAlign: 'center', pt: 2 }}>
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={() => setShowUsageDetails(true)}
-                        >
-                          View all usage metrics
-                        </Button>
-                      </Box>
-                    )}
-                  </Grid>
-                </Grid>
-
-                {usageWarnings.length > 0 && (
-                  <Alert severity="warning">
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                      Approaching Limits
-                    </Typography>
-                    <List dense>
-                      {usageWarnings.map((warning, idx) => (
-                        <ListItem key={idx} sx={{ py: 0.5 }}>
-                          <ListItemText
-                            primary={warning.message || `You're using ${warning.percentage}% of your ${warning.limitType} limit`}
-                            primaryTypographyProps={{ variant: 'body2' }}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Alert>
-                )}
-              </Stack>
-            </Paper>
-          )}
-
           {/* Plan Selection - Show all plans side by side */}
           {!hasActiveSubscription && (
             <Box>
@@ -1299,81 +1195,79 @@ export default function SubscriptionsPage() {
             </Box>
           )}
 
-          {/* Plan Comparison for Active Subscribers */}
+          {/* Plan Comparison for Active Subscribers - No white background, just plan cards */}
           {hasActiveSubscription && (
-            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto' }}>
-              <Stack spacing={3}>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-                    Change Your Plan
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                    Upgrade or downgrade your subscription at any time. Changes will be prorated.
-                  </Typography>
-                </Box>
-                {/* Mobile Grid Layout */}
-                <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, mx: 0, width: '100%' }}>
-                  {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
-                    const isCurrentPlan = subscriptionPlan === planKey;
-                    const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
-                    const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(planKey);
-                    const isUpgrade = thisPlanIndex > currentPlanIndex;
-                    const isDowngrade = thisPlanIndex < currentPlanIndex;
+            <Box>
+              <Box sx={{ textAlign: 'center', mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+                  Change Your Plan
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                  Upgrade or downgrade your subscription at any time. Changes will be prorated.
+                </Typography>
+              </Box>
+              {/* Mobile Grid Layout */}
+              <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, mx: 0, width: '100%', justifyContent: 'center' }}>
+                {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
+                  const isCurrentPlan = subscriptionPlan === planKey;
+                  const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
+                  const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(planKey);
+                  const isUpgrade = thisPlanIndex > currentPlanIndex;
+                  const isDowngrade = thisPlanIndex < currentPlanIndex;
 
-                    return (
-                      <Grid item xs={12} key={planKey} sx={{ px: 0 }}>
-                        <MobilePlanCard
-                          plan={plan}
-                          planKey={planKey}
-                          isCurrentPlan={isCurrentPlan}
-                          onSelect={startCheckout}
-                          isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
-                          trialDaysRemaining={trialDaysRemaining}
-                          isTrialActive={false}
-                          isUpgrade={isUpgrade}
-                          isDowngrade={isDowngrade}
-                        />
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-                {/* Desktop Grid Layout */}
-                <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
-                  {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
-                    const isCurrentPlan = subscriptionPlan === planKey;
-                    const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
-                    const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(planKey);
-                    const isUpgrade = thisPlanIndex > currentPlanIndex;
-                    const isDowngrade = thisPlanIndex < currentPlanIndex;
+                  return (
+                    <Grid item xs={12} key={planKey} sx={{ px: 0, maxWidth: { xs: '100%', sm: '500px' } }}>
+                      <MobilePlanCard
+                        plan={plan}
+                        planKey={planKey}
+                        isCurrentPlan={isCurrentPlan}
+                        onSelect={startCheckout}
+                        isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
+                        trialDaysRemaining={trialDaysRemaining}
+                        isTrialActive={false}
+                        isUpgrade={isUpgrade}
+                        isDowngrade={isDowngrade}
+                      />
+                    </Grid>
+                  );
+                })}
+              </Grid>
+              {/* Desktop Grid Layout */}
+              <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
+                {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
+                  const isCurrentPlan = subscriptionPlan === planKey;
+                  const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
+                  const thisPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(planKey);
+                  const isUpgrade = thisPlanIndex > currentPlanIndex;
+                  const isDowngrade = thisPlanIndex < currentPlanIndex;
 
-                    return (
-                      <Grid item xs={12} md={4} key={planKey}>
-                        <PlanCard
-                          plan={plan}
-                          planKey={planKey}
-                          isCurrentPlan={isCurrentPlan}
-                          onSelect={startCheckout}
-                          isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
-                          trialDaysRemaining={trialDaysRemaining}
-                          isTrialActive={false}
-                          isUpgrade={isUpgrade}
-                          isDowngrade={isDowngrade}
-                        />
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </Stack>
-            </Paper>
+                  return (
+                    <Grid item xs={12} md={4} key={planKey}>
+                      <PlanCard
+                        plan={plan}
+                        planKey={planKey}
+                        isCurrentPlan={isCurrentPlan}
+                        onSelect={startCheckout}
+                        isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
+                        trialDaysRemaining={trialDaysRemaining}
+                        isTrialActive={false}
+                        isUpgrade={isUpgrade}
+                        isDowngrade={isDowngrade}
+                      />
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
           )}
 
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ justifyContent: 'center', mx: 0, width: '100%' }}>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ justifyContent: 'center', mx: 'auto', width: '100%', maxWidth: { xs: '100%', md: '1200px' } }}>
               {/* Subscription Info */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1414,9 +1308,118 @@ export default function SubscriptionsPage() {
                 </Paper>
               </Grid>
 
+              {/* Usage Statistics Section - Moved below Subscription Details */}
+              {usageQuery.data && (
+                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', overflow: 'hidden' }}>
+                    <Stack spacing={3}>
+                      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+                            Usage Statistics
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                            Track your current usage against plan limits
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => setShowUsageDetails(!showUsageDetails)}
+                          endIcon={showUsageDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, minWidth: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+                        >
+                          {showUsageDetails ? 'Show Less' : 'Show All'}
+                        </Button>
+                      </Box>
+
+                      <Grid container spacing={3} sx={{ mx: 0, width: '100%' }}>
+                        {/* Key Metrics */}
+                        <Grid item xs={12} md={6} sx={{ px: 0 }}>
+                          <UsageProgressBar
+                            label="Properties"
+                            current={usageStats.properties?.current || 0}
+                            limit={usageStats.properties?.limit}
+                          />
+                          <UsageProgressBar
+                            label="Team Members"
+                            current={usageStats.teamMembers?.current || 0}
+                            limit={usageStats.teamMembers?.limit}
+                          />
+                          <UsageProgressBar
+                            label="Inspections This Month"
+                            current={usageStats.inspectionsPerMonth?.current || 0}
+                            limit={usageStats.inspectionsPerMonth?.limit}
+                          />
+                          <UsageProgressBar
+                            label="Jobs This Month"
+                            current={usageStats.jobsPerMonth?.current || 0}
+                            limit={usageStats.jobsPerMonth?.limit}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={6} sx={{ px: 0 }}>
+                          <Collapse in={showUsageDetails}>
+                            <UsageProgressBar
+                              label="Recurring Inspections"
+                              current={usageStats.recurringInspections?.current || 0}
+                              limit={usageStats.recurringInspections?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Custom Templates"
+                              current={usageStats.customTemplates?.current || 0}
+                              limit={usageStats.customTemplates?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Document Uploads This Month"
+                              current={usageStats.documentUploadsPerMonth?.current || 0}
+                              limit={usageStats.documentUploadsPerMonth?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Storage"
+                              current={usageStats.storageGB?.current || 0}
+                              limit={usageStats.storageGB?.limit}
+                              unit="GB"
+                            />
+                          </Collapse>
+                            {!showUsageDetails && (
+                              <Box sx={{ textAlign: 'center', pt: 2 }}>
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={() => setShowUsageDetails(true)}
+                                >
+                                  View all usage metrics
+                                </Button>
+                              </Box>
+                            )}
+                        </Grid>
+                      </Grid>
+
+                      {usageWarnings.length > 0 && (
+                        <Alert severity="warning">
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                            Approaching Limits
+                          </Typography>
+                          <List dense>
+                            {usageWarnings.map((warning, idx) => (
+                              <ListItem key={idx} sx={{ py: 0.5 }}>
+                                <ListItemText
+                                  primary={warning.message || `You're using ${warning.percentage}% of your ${warning.limitType} limit`}
+                                  primaryTypographyProps={{ variant: 'body2' }}
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Alert>
+                      )}
+                    </Stack>
+                  </Paper>
+                </Grid>
+              )}
+
               {/* Billing Actions */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1500,8 +1503,8 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Invoice History */}
-              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', maxWidth: { xs: '100%', md: '1000px' }, mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
