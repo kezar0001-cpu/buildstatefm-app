@@ -349,7 +349,7 @@ const TrialBanner = () => {
             }}
           >
             <Typography variant="body2" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
-              {isCritical || isUrgent ? 'Reserve your rate today' : 'Upgrade when you're ready'}
+              {isCritical || isUrgent ? 'Reserve your rate today' : 'Upgrade when you\'re ready'}
             </Typography>
             <Button
               variant="contained"
