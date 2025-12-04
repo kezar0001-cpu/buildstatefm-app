@@ -138,8 +138,28 @@ router.get('/usage', requireAuth, async (req, res) => {
       }
     }
 
-    // Get usage statistics
-    const usageStats = await getUserUsageStats(userId, subscriptionPlan);
+    // Get usage statistics with error handling
+    let usageStats;
+    try {
+      usageStats = await getUserUsageStats(userId, subscriptionPlan);
+    } catch (error) {
+      console.error('Error fetching usage stats:', error);
+      // Return default usage stats to prevent request failure
+      usageStats = {
+        plan: subscriptionPlan,
+        usage: {
+          properties: 0,
+          teamMembers: 0,
+          inspectionsPerMonth: 0,
+          recurringInspections: 0,
+          customTemplates: 0,
+          maintenancePlansActive: 0,
+          jobsPerMonth: 0,
+          documentUploadsPerMonth: 0,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
     const planLimits = getPlanLimits(subscriptionPlan);
 
     // Calculate usage percentages and remaining quotas

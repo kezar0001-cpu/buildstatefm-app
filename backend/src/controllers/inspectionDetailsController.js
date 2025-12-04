@@ -400,8 +400,8 @@ export const getBatchedInspectionDetails = async (req, res) => {
             },
             orderBy: { createdAt: 'desc' },
           },
-          attachments: {
-            orderBy: { createdAt: 'desc' },
+          InspectionAttachment: {
+            orderBy: { uploadedAt: 'desc' },
           },
         },
       }),

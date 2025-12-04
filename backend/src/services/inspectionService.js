@@ -105,17 +105,17 @@ export const baseInspectionInclude = {
       email: true,
     },
   },
-  attachments: {
-    orderBy: { createdAt: 'desc' },
+  InspectionAttachment: {
+    orderBy: { uploadedAt: 'desc' },
     select: {
       id: true,
-      url: true,
-      name: true,
-      mimeType: true,
+      fileUrl: true,
+      fileName: true,
+      fileType: true,
       size: true,
       annotations: true,
-      createdAt: true,
-      uploadedBy: {
+      uploadedAt: true,
+      User: {
         select: { id: true, firstName: true, lastName: true, email: true },
       },
     },

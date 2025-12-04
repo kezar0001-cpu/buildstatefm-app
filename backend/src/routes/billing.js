@@ -1296,7 +1296,9 @@ export async function webhook(req, res) {
         }
 
         const priceId = subscription?.items?.data?.[0]?.price?.id;
-        const plan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
+        const resolvedPlan = resolvePlanFromPriceId(priceId, session.metadata?.plan || 'BASIC');
+        // Normalize the plan to ensure it matches the enum (BASIC, not STARTER)
+        const plan = normalisePlan(resolvedPlan) || 'BASIC';
         const status = mapStripeStatusToAppStatus(subscription?.status || 'active', 'ACTIVE');
 
         console.log(`Updating subscription: userId=${userId}, orgId=${orgId}, plan=${plan}, status=${status}`);

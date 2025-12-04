@@ -56,24 +56,29 @@ export async function getTeamMemberCount(userId) {
  * @returns {Promise<number>} Number of inspections this month
  */
 export async function getInspectionsThisMonth(userId) {
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
-  const endOfMonth = new Date(startOfMonth);
-  endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+    const endOfMonth = new Date(startOfMonth);
+    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
 
-  return await prisma.inspection.count({
-    where: {
-      property: {
-        managerId: userId,
+    return await prisma.inspection.count({
+      where: {
+        property: {
+          managerId: userId,
+        },
+        createdAt: {
+          gte: startOfMonth,
+          lt: endOfMonth,
+        },
       },
-      createdAt: {
-        gte: startOfMonth,
-        lt: endOfMonth,
-      },
-    },
-  });
+    });
+  } catch (error) {
+    console.error('Error getting inspections this month:', error);
+    return 0; // Return 0 on error to prevent request failure
+  }
 }
 
 /**
@@ -82,14 +87,19 @@ export async function getInspectionsThisMonth(userId) {
  * @returns {Promise<number>} Number of active recurring inspections
  */
 export async function getRecurringInspectionCount(userId) {
-  return await prisma.recurringInspection.count({
-    where: {
-      property: {
-        managerId: userId,
+  try {
+    return await prisma.recurringInspection.count({
+      where: {
+        Property: {
+          managerId: userId,
+        },
+        isActive: true,
       },
-      isActive: true,
-    },
-  });
+    });
+  } catch (error) {
+    console.error('Error getting recurring inspection count:', error);
+    return 0; // Return 0 on error to prevent request failure
+  }
 }
 
 /**
