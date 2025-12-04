@@ -37,30 +37,33 @@ export default function MobileBottomNav() {
   let navItems = [];
 
   if (user?.role === 'OWNER') {
-    // Navigation for property owners
+    // Navigation for property owners - show 6 most important workflow pages
     navItems = [
       { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+      { label: 'Reports', path: '/reports', icon: AssessmentIcon },
       { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   } else if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
-    // Navigation for property managers
+    // Navigation for property managers - show 6 most important workflow pages
     navItems = [
       { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       jobsNavigation,
+      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
       { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   } else {
-    // Default navigation (includes all items)
+    // Default navigation - show 6 most important workflow pages
     navItems = [
       { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       jobsNavigation,
+      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
       { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   }
@@ -102,8 +105,16 @@ export default function MobileBottomNav() {
           backgroundColor: 'background.paper',
           '& .MuiBottomNavigationAction-root': {
             color: 'text.secondary',
+            minWidth: 'auto',
+            px: 0.5,
             '&.Mui-selected': {
               color: 'primary.main',
+            },
+            '& .MuiBottomNavigationAction-label': {
+              fontSize: '0.65rem',
+              '&.Mui-selected': {
+                fontSize: '0.7rem',
+              },
             },
           },
         }}

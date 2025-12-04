@@ -344,13 +344,13 @@ function NavBar() {
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" fontWeight={600}>
-              {user?.firstName} {user?.lastName}
+              Navigation
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {user?.email}
+              All workflow pages
             </Typography>
           </Box>
-          
+
           {navigation.map((item) => (
             <MenuItem
               key={item.name}
@@ -361,25 +361,6 @@ function NavBar() {
               {item.name}
             </MenuItem>
           ))}
-          
-          <Divider sx={{ my: 1 }} />
-
-          <MenuItem onClick={() => handleNavigation('/profile')}>
-            <PersonIcon fontSize="small" sx={{ mr: 1.5 }} />
-            Profile
-          </MenuItem>
-
-          <MenuItem onClick={() => handleNavigation('/subscriptions')}>
-            <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
-            Subscriptions
-          </MenuItem>
-
-          {user?.role === 'PROPERTY_MANAGER' && (
-            <MenuItem onClick={() => handleNavigation('/team')}>
-              <GroupIcon fontSize="small" sx={{ mr: 1.5 }} />
-              Team Management
-            </MenuItem>
-          )}
 
           <Divider sx={{ my: 1 }} />
 
@@ -387,18 +368,6 @@ function NavBar() {
             {theme === 'light' ? <Brightness4Icon fontSize="small" sx={{ mr: 1.5 }} /> : <Brightness7Icon fontSize="small" sx={{ mr: 1.5 }} />}
             {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
           </MenuItem>
-
-          <Divider sx={{ my: 1 }} />
-
-          <Box sx={{ px: 2, pb: 1 }}>
-            <LogoutButton
-              fullWidth
-              variant="outlined"
-              color="error"
-              size="medium"
-              sx={{ textTransform: 'none' }}
-            />
-          </Box>
         </Menu>
       </Toolbar>
 
