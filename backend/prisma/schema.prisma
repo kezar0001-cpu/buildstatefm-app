@@ -478,6 +478,7 @@ model Recommendation {
   createdById     String
   approvedById    String?
   approvedAt      DateTime?
+  rejectedAt      DateTime?
   implementedAt   DateTime?
   rejectionReason String?
   createdAt       DateTime             @default(now())
@@ -1087,6 +1088,7 @@ enum RecommendationStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
+  ARCHIVED
   IMPLEMENTED
 }
 

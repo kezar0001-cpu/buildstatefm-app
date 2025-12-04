@@ -12,6 +12,7 @@
 
 import cron from 'node-cron';
 import { checkAndSendTrialReminders, expireTrials } from '../utils/trialReminders.js';
+import { prisma } from '../config/prismaClient.js';
 
 /**
  * Initialize all cron jobs
@@ -36,8 +37,19 @@ export function initializeCronJobs() {
     }
   });
 
+  // Archive rejected recommendations after 24 hours - runs every hour
+  cron.schedule('0 * * * *', async () => {
+    console.log('Running recommendation archiving check...');
+    try {
+      await archiveRejectedRecommendations();
+    } catch (error) {
+      console.error('Error in recommendation archiving cron job:', error);
+    }
+  });
+
   console.log('Cron jobs initialized successfully');
   console.log('- Trial reminders: Daily at 9:00 AM');
+  console.log('- Recommendation archiving: Every hour');
 }
 
 /**
@@ -49,4 +61,30 @@ export async function triggerTrialReminders() {
 
 export async function triggerExpireTrials() {
   return await expireTrials();
+}
+
+/**
+ * Archive rejected recommendations that have been rejected for more than 24 hours
+ */
+export async function archiveRejectedRecommendations() {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  
+  const result = await prisma.recommendation.updateMany({
+    where: {
+      status: 'REJECTED',
+      rejectedAt: {
+        not: null,
+        lte: twentyFourHoursAgo,
+      },
+    },
+    data: {
+      status: 'ARCHIVED',
+    },
+  });
+
+  if (result.count > 0) {
+    console.log(`Archived ${result.count} rejected recommendation(s) that were rejected more than 24 hours ago`);
+  }
+
+  return result;
 }
