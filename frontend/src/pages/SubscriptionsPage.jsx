@@ -1199,10 +1199,10 @@ export default function SubscriptionsPage() {
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mx: 'auto', width: '100%' }}>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mx: 'auto', width: '100%', justifyContent: { xs: 'center', md: 'flex-start' } }}>
               {/* Subscription Info */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: { xs: 'auto', md: 0 } }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1243,10 +1243,10 @@ export default function SubscriptionsPage() {
                 </Paper>
               </Grid>
 
-              {/* Usage Statistics Section - Moved below Subscription Details */}
+              {/* Usage Statistics Section - Below Subscription Details and Billing Management */}
               {usageQuery.data && (
-                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', overflow: 'hidden' }}>
+                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', overflow: 'hidden', mx: { xs: 'auto', md: 0 } }}>
                     <Stack spacing={3}>
                       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1384,8 +1384,8 @@ export default function SubscriptionsPage() {
               )}
 
               {/* Billing Actions */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: { xs: 'auto', md: 0 } }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1469,8 +1469,8 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Invoice History */}
-              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%' }}>
+              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: { xs: 'auto', md: 0 } }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
