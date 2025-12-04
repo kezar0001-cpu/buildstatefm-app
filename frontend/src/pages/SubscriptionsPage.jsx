@@ -698,6 +698,16 @@ export default function SubscriptionsPage() {
     method: 'post',
   });
 
+  // Change plan mutation (for existing subscriptions)
+  const changePlanMutation = useApiMutation({
+    url: '/billing/change-plan',
+    method: 'post',
+    onSuccess: () => {
+      query.refetch();
+      refreshUser();
+    },
+  });
+
   // Promo code validation
   const validatePromoMutation = useApiMutation({
     url: '/promo-codes/validate',
@@ -859,26 +869,37 @@ export default function SubscriptionsPage() {
 
   const startCheckout = async (plan = 'BASIC') => {
     try {
-      // Apply 20% discount for Basic plan when trial is ending (first month only)
-      const shouldApplyDiscount = plan === 'BASIC' && (trialDaysRemaining <= 3 || !isTrialActive);
-      // Use validated promo code, manual promo code input, or auto discount
-      const finalPromoCode = validatedPromo?.code || (promoCode.trim() ? promoCode.trim().toUpperCase() : null) || (shouldApplyDiscount ? 'FIRST20' : null);
-
-      const res = await checkoutMutation.mutateAsync({
-        data: {
-          plan,
-          successUrl: `${window.location.origin}/subscriptions?success=1&session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
-          promoCode: finalPromoCode,
-        },
-      });
-      if (res?.data?.url) {
-        window.location.href = res.data.url;
+      // If user has an active subscription, use change-plan endpoint instead
+      if (hasActiveSubscription) {
+        const res = await changePlanMutation.mutateAsync({
+          data: { plan },
+        });
+        if (res?.success) {
+          // Show success message - the mutation's onSuccess will refresh the data
+          return;
+        }
       } else {
-        throw new Error('No checkout URL returned');
+        // Apply 20% discount for Basic plan when trial is ending (first month only)
+        const shouldApplyDiscount = plan === 'BASIC' && (trialDaysRemaining <= 3 || !isTrialActive);
+        // Use validated promo code, manual promo code input, or auto discount
+        const finalPromoCode = validatedPromo?.code || (promoCode.trim() ? promoCode.trim().toUpperCase() : null) || (shouldApplyDiscount ? 'FIRST20' : null);
+
+        const res = await checkoutMutation.mutateAsync({
+          data: {
+            plan,
+            successUrl: `${window.location.origin}/subscriptions?success=1&session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
+            promoCode: finalPromoCode,
+          },
+        });
+        if (res?.data?.url) {
+          window.location.href = res.data.url;
+        } else {
+          throw new Error('No checkout URL returned');
+        }
       }
     } catch (err) {
-      logger.error("Checkout failed:", err);
+      logger.error("Checkout/plan change failed:", err);
     }
   };
 
@@ -1030,6 +1051,16 @@ export default function SubscriptionsPage() {
           {checkoutMutation.isError && (
             <Alert severity="error">
               {checkoutMutation.error?.response?.data?.message || checkoutMutation.error?.message || 'Checkout failed. Please try again.'}
+            </Alert>
+          )}
+          {changePlanMutation.isError && (
+            <Alert severity="error">
+              {changePlanMutation.error?.response?.data?.message || changePlanMutation.error?.message || 'Plan change failed. Please try again.'}
+            </Alert>
+          )}
+          {changePlanMutation.isSuccess && (
+            <Alert severity="success">
+              <strong>Plan changed successfully!</strong> Your subscription has been updated.
             </Alert>
           )}
 
@@ -1253,7 +1284,7 @@ export default function SubscriptionsPage() {
                           planKey={planKey}
                           isCurrentPlan={isCurrentPlan}
                           onSelect={startCheckout}
-                          isLoading={checkoutMutation.isPending}
+                          isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
                           trialDaysRemaining={trialDaysRemaining}
                           isTrialActive={false}
                           isUpgrade={isUpgrade}
@@ -1279,7 +1310,7 @@ export default function SubscriptionsPage() {
                           planKey={planKey}
                           isCurrentPlan={isCurrentPlan}
                           onSelect={startCheckout}
-                          isLoading={checkoutMutation.isPending}
+                          isLoading={checkoutMutation.isPending || changePlanMutation.isPending}
                           trialDaysRemaining={trialDaysRemaining}
                           isTrialActive={false}
                           isUpgrade={isUpgrade}
@@ -1296,7 +1327,7 @@ export default function SubscriptionsPage() {
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={3}>
+            <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
               {/* Subscription Info */}
               <Grid item xs={12} md={6}>
                 <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
