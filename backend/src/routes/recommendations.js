@@ -362,11 +362,11 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
 
     // Notify property manager when owner approves
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const property = updated.report?.inspection?.property;
-    if (property && property.manager) {
+    const updatedProperty = updated.report?.inspection?.property;
+    if (updatedProperty && updatedProperty.manager) {
       try {
         await sendNotification(
-          property.manager.id,
+          updatedProperty.manager.id,
           'SERVICE_REQUEST_UPDATE',
           'Recommendation Approved',
           `${req.user.firstName} ${req.user.lastName} approved your recommendation: "${updated.title}"`,
@@ -375,10 +375,10 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
             entityId: updated.id,
             sendEmail: true,
             emailData: {
-              managerName: `${property.manager.firstName} ${property.manager.lastName}`,
+              managerName: `${updatedProperty.manager.firstName} ${updatedProperty.manager.lastName}`,
               ownerName: `${req.user.firstName} ${req.user.lastName}`,
               recommendationTitle: updated.title,
-              propertyName: property.name,
+              propertyName: updatedProperty.name,
               estimatedCost: updated.estimatedCost ? `$${updated.estimatedCost.toLocaleString()}` : 'Not specified',
               recommendationUrl: `${frontendUrl}/recommendations`,
             },
@@ -417,6 +417,9 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
                     manager: {
                       select: {
                         id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
                         subscriptionStatus: true,
                         trialEndDate: true,
                       },
@@ -464,32 +467,6 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
       return sendError(res, 403, message, ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
     }
     
-    const recommendation = await prisma.recommendation.findUnique({
-      where: { id },
-      include: {
-        report: {
-          include: {
-            inspection: {
-              include: {
-                property: {
-                  include: {
-                    manager: {
-                      select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
     const updated = await prisma.recommendation.update({
       where: { id },
       data: {
@@ -500,7 +477,7 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
 
     // Notify property manager when owner rejects
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const property = recommendation.report?.inspection?.property;
+    // Reuse the property from the recommendation query above
     if (property && property.manager) {
       try {
         await sendNotification(
