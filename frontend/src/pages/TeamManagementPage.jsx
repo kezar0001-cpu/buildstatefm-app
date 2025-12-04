@@ -26,6 +26,10 @@ import {
   CircularProgress,
   useMediaQuery,
   useTheme,
+  Card,
+  CardContent,
+  Stack,
+  Divider,
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
@@ -178,113 +182,251 @@ export default function TeamManagementPage() {
   const tenants = users?.filter(u => u.role === 'TENANT') || [];
 
   const renderUsersTable = (usersList, roleLabel) => (
-    <Box sx={{ overflowX: 'auto' }}>
-      <Table sx={{ minWidth: { xs: 600, md: 'auto' } }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Email</TableCell>
-            <TableCell>Role</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {usersList.length === 0 ? (
+    <>
+      {/* Desktop Table View */}
+      <TableContainer sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Table>
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={4} align="center">
-                <Typography color="text.secondary">
-                  No {roleLabel.toLowerCase()} found
-                </Typography>
-              </TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          ) : (
-            usersList.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                    {user.firstName} {user.lastName}
+          </TableHead>
+          <TableBody>
+            {usersList.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  <Typography color="text.secondary">
+                    No {roleLabel.toLowerCase()} found
                   </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                    {user.email}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={user.role} color={getRoleColor(user.role)} size="small" />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={user.isActive ? 'Active' : 'Inactive'}
-                    color={user.isActive ? 'success' : 'default'}
-                    size="small"
-                  />
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Box>
+            ) : (
+              usersList.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {user.firstName} {user.lastName}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                      {user.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={user.role} color={getRoleColor(user.role)} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.isActive ? 'Active' : 'Inactive'}
+                      color={user.isActive ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Mobile Card View */}
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, p: 2 }}>
+        {usersList.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography color="text.secondary">
+              No {roleLabel.toLowerCase()} found
+            </Typography>
+          </Box>
+        ) : (
+          usersList.map((user) => (
+            <Card key={user.id} sx={{ boxShadow: 2 }}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack spacing={2}>
+                  {/* Header Row */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                        Name
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                        {user.firstName} {user.lastName}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={user.isActive ? 'Active' : 'Inactive'}
+                      color={user.isActive ? 'success' : 'default'}
+                      size="small"
+                      sx={{ flexShrink: 0 }}
+                    />
+                  </Box>
+                  <Divider />
+                  {/* Email */}
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                      Email
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                      {user.email}
+                    </Typography>
+                  </Box>
+                  {/* Role */}
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                      Role
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      <Chip label={user.role} color={getRoleColor(user.role)} size="small" />
+                    </Box>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </Stack>
+    </>
   );
 
   const renderInvitesTable = () => (
-    <Box sx={{ overflowX: 'auto' }}>
-      <Table sx={{ minWidth: { xs: 650, md: 'auto' } }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Email</TableCell>
-            <TableCell>Role</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Expires</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {invites.length === 0 ? (
+    <>
+      {/* Desktop Table View */}
+      <TableContainer sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Table>
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={5} align="center">
-                <Typography color="text.secondary">
-                  No pending invites
-                </Typography>
-              </TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Expires</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
-          ) : (
-            invites.map((invite) => (
-              <TableRow key={invite.id}>
-                <TableCell>
-                  <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                    {invite.email}
+          </TableHead>
+          <TableBody>
+            {invites.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <Typography color="text.secondary">
+                    No pending invites
                   </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={invite.role} color={getRoleColor(invite.role)} size="small" />
-                </TableCell>
-                <TableCell>
-                  <Chip label={invite.status} color={getStatusColor(invite.status)} size="small" />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                    {formatDate(invite.expiresAt)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => deleteInviteMutation.mutate(invite.id)}
-                    disabled={deleteInviteMutation.isPending}
-                    aria-label="Delete invite"
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Box>
+            ) : (
+              invites.map((invite) => (
+                <TableRow key={invite.id}>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                      {invite.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={invite.role} color={getRoleColor(invite.role)} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={invite.status} color={getStatusColor(invite.status)} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatDate(invite.expiresAt)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => deleteInviteMutation.mutate(invite.id)}
+                      disabled={deleteInviteMutation.isPending}
+                      aria-label="Delete invite"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Mobile Card View */}
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, p: 2 }}>
+        {invites.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography color="text.secondary">
+              No pending invites
+            </Typography>
+          </Box>
+        ) : (
+          invites.map((invite) => (
+            <Card key={invite.id} sx={{ boxShadow: 2 }}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack spacing={2}>
+                  {/* Header Row */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                        Email
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                        {invite.email}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={invite.status}
+                      color={getStatusColor(invite.status)}
+                      size="small"
+                      sx={{ flexShrink: 0 }}
+                    />
+                  </Box>
+                  <Divider />
+                  {/* Role */}
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                      Role
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      <Chip label={invite.role} color={getRoleColor(invite.role)} size="small" />
+                    </Box>
+                  </Box>
+                  {/* Expires */}
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                      Expires
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                      {formatDate(invite.expiresAt)}
+                    </Typography>
+                  </Box>
+                  {/* Actions */}
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => deleteInviteMutation.mutate(invite.id)}
+                      disabled={deleteInviteMutation.isPending}
+                      aria-label="Delete invite"
+                      sx={{ 
+                        border: '1px solid',
+                        borderColor: 'error.main',
+                        '&:hover': {
+                          bgcolor: 'error.light',
+                          color: 'error.contrastText',
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </Stack>
+    </>
   );
 
   // Don't render for unauthorized users
@@ -355,11 +497,95 @@ export default function TeamManagementPage() {
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: { xs: 48, sm: 48 },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              px: { xs: 1.5, sm: 2 },
+              textTransform: 'none',
+            },
+          }}
         >
-          <Tab label={`Owners (${owners.length})`} />
-          <Tab label={`Technicians (${technicians.length})`} />
-          <Tab label={`Tenants (${tenants.length})`} />
-          <Tab label={`Pending Invites (${invites.length})`} />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                  {isMobile ? 'Owners' : 'Owners'}
+                </Typography>
+                <Chip 
+                  label={owners.length} 
+                  size="small" 
+                  color="primary"
+                  sx={{ 
+                    height: '20px',
+                    minWidth: '20px',
+                    fontSize: '0.65rem',
+                    '& .MuiChip-label': { px: 0.75, py: 0 },
+                  }}
+                />
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                  {isMobile ? 'Techs' : 'Technicians'}
+                </Typography>
+                <Chip 
+                  label={technicians.length} 
+                  size="small" 
+                  color="primary"
+                  sx={{ 
+                    height: '20px',
+                    minWidth: '20px',
+                    fontSize: '0.65rem',
+                    '& .MuiChip-label': { px: 0.75, py: 0 },
+                  }}
+                />
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                  Tenants
+                </Typography>
+                <Chip 
+                  label={tenants.length} 
+                  size="small" 
+                  color="primary"
+                  sx={{ 
+                    height: '20px',
+                    minWidth: '20px',
+                    fontSize: '0.65rem',
+                    '& .MuiChip-label': { px: 0.75, py: 0 },
+                  }}
+                />
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                  Invites
+                </Typography>
+                <Chip 
+                  label={invites.length} 
+                  size="small" 
+                  color="primary"
+                  sx={{ 
+                    height: '20px',
+                    minWidth: '20px',
+                    fontSize: '0.65rem',
+                    '& .MuiChip-label': { px: 0.75, py: 0 },
+                  }}
+                />
+              </Box>
+            }
+          />
         </Tabs>
       </Paper>
 
