@@ -1199,54 +1199,146 @@ export default function SubscriptionsPage() {
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mx: 'auto', width: '100%', justifyContent: { xs: 'center', md: 'flex-start' } }}>
-              {/* Subscription Info */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: { xs: 'auto', md: 0 } }}>
-                  <Stack spacing={3}>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                        Subscription Details
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                        Your current plan and billing information
-                      </Typography>
-                    </Box>
-                    <Stack spacing={2}>
-                      <DetailRow
-                        icon={<PaymentIcon fontSize="small" />}
-                        label="Plan"
-                        value={currentPlanDetails.name}
-                      />
-                      <DetailRow
-                        icon={<PaymentIcon fontSize="small" />}
-                        label="Price"
-                        value={`${formatCurrency(currentPlanDetails.price)}/month`}
-                      />
-                      <DetailRow
-                        icon={<AutorenewIcon fontSize="small" />}
-                        label="Billing Cycle"
-                        value="Monthly"
-                      />
-                      <DetailRow
-                        icon={<CalendarMonthIcon fontSize="small" />}
-                        label="Next Billing Date"
-                        value={nextBillingDate ? formatDateDisplay(nextBillingDate) : 'Managed via Stripe'}
-                      />
-                      <DetailRow
-                        icon={<PersonIcon fontSize="small" />}
-                        label="Account Owner"
-                        value={[currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') || currentUser?.email || 'Not available'}
-                      />
-                    </Stack>
-                  </Stack>
-                </Paper>
+            <>
+              {/* First Row: Subscription Details and Billing Management */}
+              <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%', mx: 'auto' }}>
+                {/* Subscription Info */}
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ width: '100%', maxWidth: { xs: '100%', md: 'none' }, mx: { xs: 'auto', md: 0 } }}>
+                    <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                            Subscription Details
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                            Your current plan and billing information
+                          </Typography>
+                        </Box>
+                        <Stack spacing={2}>
+                          <DetailRow
+                            icon={<PaymentIcon fontSize="small" />}
+                            label="Plan"
+                            value={currentPlanDetails.name}
+                          />
+                          <DetailRow
+                            icon={<PaymentIcon fontSize="small" />}
+                            label="Price"
+                            value={`${formatCurrency(currentPlanDetails.price)}/month`}
+                          />
+                          <DetailRow
+                            icon={<AutorenewIcon fontSize="small" />}
+                            label="Billing Cycle"
+                            value="Monthly"
+                          />
+                          <DetailRow
+                            icon={<CalendarMonthIcon fontSize="small" />}
+                            label="Next Billing Date"
+                            value={nextBillingDate ? formatDateDisplay(nextBillingDate) : 'Managed via Stripe'}
+                          />
+                          <DetailRow
+                            icon={<PersonIcon fontSize="small" />}
+                            label="Account Owner"
+                            value={[currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') || currentUser?.email || 'Not available'}
+                          />
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  </Box>
+                </Grid>
+
+                {/* Billing Actions */}
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ width: '100%', maxWidth: { xs: '100%', md: 'none' }, mx: { xs: 'auto', md: 0 } }}>
+                    <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                            Billing Management
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                            Update payment method or manage your subscription
+                          </Typography>
+                        </Box>
+                        {/* Desktop: Vertical Stack */}
+                        <Stack spacing={2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CreditCardIcon />}
+                            onClick={handleManageBilling}
+                            fullWidth
+                            size="large"
+                          >
+                            Manage Billing Portal
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CreditCardIcon />}
+                            onClick={handleUpdatePaymentMethod}
+                            disabled={updatePaymentMutation.isPending}
+                            fullWidth
+                            size="large"
+                          >
+                            {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => openCancelDialog(false)}
+                            disabled={cancelMutation.isPending}
+                            fullWidth
+                            size="large"
+                          >
+                            Cancel Subscription
+                          </Button>
+                        </Stack>
+                        {/* Mobile: Vertical Stack (same as desktop for better UX) */}
+                        <Stack spacing={2} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CreditCardIcon />}
+                            onClick={handleManageBilling}
+                            fullWidth
+                            size="large"
+                            sx={{ py: 1.5 }}
+                          >
+                            Manage Billing Portal
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CreditCardIcon />}
+                            onClick={handleUpdatePaymentMethod}
+                            disabled={updatePaymentMutation.isPending}
+                            fullWidth
+                            size="large"
+                            sx={{ py: 1.5 }}
+                          >
+                            {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => openCancelDialog(false)}
+                            disabled={cancelMutation.isPending}
+                            fullWidth
+                            size="large"
+                            sx={{ py: 1.5 }}
+                          >
+                            Cancel Subscription
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  </Box>
+                </Grid>
               </Grid>
 
-              {/* Usage Statistics Section - Below Subscription Details and Billing Management */}
+              {/* Second Row: Usage Statistics */}
               {usageQuery.data && (
-                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', overflow: 'hidden', mx: { xs: 'auto', md: 0 } }}>
+                <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', mt: { xs: 2, sm: 3 } }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', overflow: 'hidden' }}>
                     <Stack spacing={3}>
                       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1380,97 +1472,12 @@ export default function SubscriptionsPage() {
                       )}
                     </Stack>
                   </Paper>
-                </Grid>
+                </Box>
               )}
 
-              {/* Billing Actions */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: { xs: 'auto', md: 0 } }}>
-                  <Stack spacing={3}>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                        Billing Management
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                        Update payment method or manage your subscription
-                      </Typography>
-                    </Box>
-                    {/* Desktop: Vertical Stack */}
-                    <Stack spacing={2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
-                      <Button
-                        variant="outlined"
-                        startIcon={<CreditCardIcon />}
-                        onClick={handleManageBilling}
-                        fullWidth
-                        size="large"
-                      >
-                        Manage Billing Portal
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<CreditCardIcon />}
-                        onClick={handleUpdatePaymentMethod}
-                        disabled={updatePaymentMutation.isPending}
-                        fullWidth
-                        size="large"
-                      >
-                        {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        onClick={() => openCancelDialog(false)}
-                        disabled={cancelMutation.isPending}
-                        fullWidth
-                        size="large"
-                      >
-                        Cancel Subscription
-                      </Button>
-                    </Stack>
-                    {/* Mobile: Vertical Stack (same as desktop for better UX) */}
-                    <Stack spacing={2} sx={{ display: { xs: 'flex', sm: 'none' } }}>
-                      <Button
-                        variant="outlined"
-                        startIcon={<CreditCardIcon />}
-                        onClick={handleManageBilling}
-                        fullWidth
-                        size="large"
-                        sx={{ py: 1.5 }}
-                      >
-                        Manage Billing Portal
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<CreditCardIcon />}
-                        onClick={handleUpdatePaymentMethod}
-                        disabled={updatePaymentMutation.isPending}
-                        fullWidth
-                        size="large"
-                        sx={{ py: 1.5 }}
-                      >
-                        {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        onClick={() => openCancelDialog(false)}
-                        disabled={cancelMutation.isPending}
-                        fullWidth
-                        size="large"
-                        sx={{ py: 1.5 }}
-                      >
-                        Cancel Subscription
-                      </Button>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              </Grid>
-
-              {/* Invoice History */}
-              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: { xs: 'auto', md: 0 } }}>
+              {/* Third Row: Invoice History */}
+              <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', mt: { xs: 2, sm: 3 } }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1620,8 +1627,8 @@ export default function SubscriptionsPage() {
                     </DataState>
                   </Stack>
                 </Paper>
-              </Grid>
-            </Grid>
+              </Box>
+            </>
           )}
 
           {/* Why Subscribe Section */}
