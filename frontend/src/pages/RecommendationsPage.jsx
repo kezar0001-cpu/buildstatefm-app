@@ -214,7 +214,7 @@ export default function RecommendationsPage() {
   };
 
   const handleReject = async (recommendationId) => {
-    const rejectionReason = window.prompt('Please provide a reason for rejection:');
+    const rejectionReason = window.prompt('Please provide a reason for rejection (required):');
     if (!rejectionReason || !rejectionReason.trim()) {
       toast.error('Rejection reason is required');
       return;
@@ -227,7 +227,8 @@ export default function RecommendationsPage() {
       });
       toast.success('Recommendation rejected');
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to reject recommendation');
+      const errorMessage = error?.response?.data?.message || 'Failed to reject recommendation';
+      toast.error(errorMessage);
     }
   };
 

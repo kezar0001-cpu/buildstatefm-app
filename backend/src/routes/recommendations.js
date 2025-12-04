@@ -165,8 +165,17 @@ router.get('/', requireAuth, async (req, res) => {
     
     const where = {};
     if (reportId) where.reportId = reportId;
-    if (status) where.status = status;
     if (priority) where.priority = priority;
+    
+    // Filter out archived recommendations by default (unless explicitly requested)
+    const includeArchived = req.query.includeArchived === 'true';
+    if (status) {
+      where.status = status;
+    } else if (!includeArchived) {
+      where.status = {
+        not: 'ARCHIVED',
+      };
+    }
     
     // Search filter (searches in title and description)
     if (search) {
@@ -281,7 +290,10 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
         property: {
           include: {
             owners: {
-              select: { ownerId: true },
+              select: { 
+                ownerId: true,
+                endDate: true,
+              },
             },
             manager: {
               select: {
@@ -305,11 +317,21 @@ router.post('/:id/approve', requireAuth, async (req, res) => {
       return sendError(res, 404, 'Associated property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
+    // Check if property has active owners
+    const activeOwners = property.owners?.filter(po => 
+      !po.endDate || new Date(po.endDate) > new Date()
+    ) || [];
+    const hasActiveOwners = activeOwners.length > 0;
+
     let hasAccess = false;
-    if (req.user.role === 'PROPERTY_MANAGER') {
-      hasAccess = property.managerId === req.user.id;
-    } else if (req.user.role === 'OWNER') {
-      hasAccess = property.owners?.some(o => o.ownerId === req.user.id);
+    
+    // Primary approvers: Owners (if they exist)
+    if (hasActiveOwners && req.user.role === 'OWNER') {
+      hasAccess = activeOwners.some(o => o.ownerId === req.user.id);
+    }
+    // Fallback: If property has no active owners, property manager acts as owner authority
+    else if (!hasActiveOwners && req.user.role === 'PROPERTY_MANAGER' && property.managerId === req.user.id) {
+      hasAccess = true; // Manager can approve when no active owners exist
     }
 
     if (!hasAccess) {
@@ -401,6 +423,11 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
+    // Rejection reason is required
+    if (!rejectionReason || !rejectionReason.trim()) {
+      return sendError(res, 400, 'Rejection reason is required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
     const recommendation = await prisma.recommendation.findUnique({
       where: { id },
       include: {
@@ -462,7 +489,8 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
       where: { id },
       data: {
         status: 'REJECTED',
-        rejectionReason: rejectionReason || null,
+        rejectionReason: rejectionReason.trim(),
+        rejectedAt: new Date(),
       },
     });
 
@@ -500,6 +528,160 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error rejecting recommendation:', error);
     return sendError(res, 500, 'Failed to reject recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// POST /recommendations/:id/convert - Convert approved recommendation to job
+router.post('/:id/convert', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduledDate, assignedToId, estimatedCost, notes } = req.body;
+
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Only property managers can convert recommendations to jobs
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can convert recommendations to jobs', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only convert recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Check subscription
+    const manager = recommendation.property.manager;
+    const isManagerSubscriptionActive =
+      manager.subscriptionStatus === 'ACTIVE' ||
+      (manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date());
+
+    if (!isManagerSubscriptionActive) {
+      return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
+    }
+
+    // Only approved recommendations can be converted
+    if (recommendation.status !== 'APPROVED') {
+      return sendError(res, 400, 'Only approved recommendations can be converted to jobs', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    // Verify assigned user exists if provided
+    if (assignedToId) {
+      const assignedUser = await prisma.user.findUnique({
+        where: { id: assignedToId },
+      });
+
+      if (!assignedUser) {
+        return sendError(res, 404, 'Assigned user not found', ErrorCodes.RES_USER_NOT_FOUND);
+      }
+    }
+
+    // Use recommendation's estimated cost if not provided
+    const jobEstimatedCost = estimatedCost || recommendation.estimatedCost || null;
+    const jobStatus = assignedToId ? 'ASSIGNED' : 'OPEN';
+
+    // Create job from recommendation
+    const [job, updatedRecommendation] = await prisma.$transaction(async (tx) => {
+      const createdJob = await tx.job.create({
+        data: {
+          title: recommendation.title,
+          description: recommendation.description,
+          status: jobStatus,
+          priority: recommendation.priority,
+          scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+          propertyId: recommendation.propertyId,
+          unitId: null, // Recommendations are property-level, not unit-level
+          assignedToId: assignedToId || null,
+          createdById: req.user.id,
+          estimatedCost: jobEstimatedCost,
+          notes: notes || `Converted from recommendation: "${recommendation.title}" (ID: ${recommendation.id})`,
+        },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Update recommendation status to IMPLEMENTED
+      const updated = await tx.recommendation.update({
+        where: { id },
+        data: {
+          status: 'IMPLEMENTED',
+          implementedAt: new Date(),
+        },
+      });
+
+      return [createdJob, updated];
+    });
+
+    // Notify assigned technician if job was assigned
+    if (job.assignedTo) {
+      try {
+        await sendNotification(
+          job.assignedTo.id,
+          'JOB_ASSIGNED',
+          'New Job Assigned',
+          `You have been assigned a new job: "${job.title}"`,
+          {
+            entityType: 'job',
+            entityId: job.id,
+            sendEmail: true,
+            emailData: {
+              technicianName: `${job.assignedTo.firstName} ${job.assignedTo.lastName}`,
+              jobTitle: job.title,
+              propertyName: job.property.name,
+              priority: job.priority,
+              jobUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/jobs`,
+            },
+          }
+        );
+      } catch (notifError) {
+        console.error('Failed to send job assignment notification:', notifError);
+      }
+    }
+
+    res.json({ success: true, job, recommendation: updatedRecommendation });
+  } catch (error) {
+    console.error('Error converting recommendation to job:', error);
+    return sendError(res, 500, 'Failed to convert recommendation to job', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
