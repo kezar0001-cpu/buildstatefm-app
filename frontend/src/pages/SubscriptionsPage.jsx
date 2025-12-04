@@ -268,24 +268,24 @@ function DetailRow({ icon, label, value }) {
   const resolvedValue = React.isValidElement(value) ? value : value ?? 'Not available';
 
   return (
-    <Stack direction="row" spacing={2} alignItems="flex-start">
+    <Stack direction="row" spacing={{ xs: 1.5, sm: 2 }} alignItems="flex-start" sx={{ width: '100%' }}>
       {icon ? (
-        <Box sx={{ color: 'primary.main', mt: 0.5, display: 'inline-flex' }}>
+        <Box sx={{ color: 'primary.main', mt: 0.5, display: 'inline-flex', flexShrink: 0 }}>
           {icon}
         </Box>
       ) : null}
-      <Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
           variant="overline"
           color="text.secondary"
-          sx={{ letterSpacing: 0.6, display: 'block' }}
+          sx={{ letterSpacing: 0.6, display: 'block', fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
         >
           {label}
         </Typography>
         {React.isValidElement(resolvedValue) ? (
           resolvedValue
         ) : (
-          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, fontSize: { xs: '0.9rem', sm: '1rem' }, wordBreak: 'break-word' }}>
             {resolvedValue}
           </Typography>
         )}
@@ -1014,8 +1014,8 @@ export default function SubscriptionsPage() {
   const usageWarnings = usageQuery.data?.warnings || [];
 
   return (
-    <Box sx={{ py: { xs: 2, sm: 3, md: 4 }, minHeight: '100vh' }}>
-      <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 } }}>
+    <Box sx={{ py: { xs: 2, sm: 3, md: 4 }, minHeight: '100vh', overflowX: 'hidden', width: '100%' }}>
+      <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 }, width: '100%' }}>
         <Stack spacing={{ xs: 3, sm: 3.5, md: 4 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
@@ -1108,12 +1108,12 @@ export default function SubscriptionsPage() {
           {hasActiveSubscription && usageQuery.data && (
             <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
               <Stack spacing={3}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
                       Usage Statistics
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                       Track your current usage against plan limits
                     </Typography>
                   </Box>
@@ -1122,6 +1122,7 @@ export default function SubscriptionsPage() {
                     size="small"
                     onClick={() => setShowUsageDetails(!showUsageDetails)}
                     endIcon={showUsageDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, minWidth: { xs: '100%', sm: 'auto' } }}
                   >
                     {showUsageDetails ? 'Show Less' : 'Show All'}
                   </Button>
@@ -1251,13 +1252,13 @@ export default function SubscriptionsPage() {
 
               {/* Promo Code Section */}
               <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mt: { xs: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper' }}>
-                <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems="center">
-                  <LocalOfferIcon color="primary" sx={{ fontSize: 32 }} />
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <LocalOfferIcon color="primary" sx={{ fontSize: { xs: 28, sm: 32 }, alignSelf: { xs: 'center', sm: 'flex-start' } }} />
+                  <Box sx={{ flexGrow: 1, width: { xs: '100%', sm: 'auto' } }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, textAlign: { xs: 'center', sm: 'left' } }}>
                       Have a promo code?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
                       Enter your code during checkout to apply the discount
                     </Typography>
                   </Box>
@@ -1280,7 +1281,7 @@ export default function SubscriptionsPage() {
                         </InputAdornment>
                       ),
                     }}
-                    sx={{ minWidth: 250 }}
+                    sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: '100%', sm: 250 } }}
                   />
                 </Stack>
                 {validatedPromo && (
@@ -1301,10 +1302,10 @@ export default function SubscriptionsPage() {
             <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
               <Stack spacing={3}>
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
                     Change Your Plan
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                     Upgrade or downgrade your subscription at any time. Changes will be prorated.
                   </Typography>
                 </Box>
@@ -1373,10 +1374,10 @@ export default function SubscriptionsPage() {
                 <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                         Subscription Details
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                         Your current plan and billing information
                       </Typography>
                     </Box>
@@ -1416,10 +1417,10 @@ export default function SubscriptionsPage() {
                 <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                         Billing Management
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                         Update payment method or manage your subscription
                       </Typography>
                     </Box>
@@ -1456,57 +1457,28 @@ export default function SubscriptionsPage() {
                         Cancel Subscription
                       </Button>
                     </Stack>
-                    {/* Mobile: Horizontal Scrollable Carousel */}
-                    <Box
-                      sx={{
-                        display: { xs: 'flex', sm: 'none' },
-                        overflowX: 'auto',
-                        scrollSnapType: 'x mandatory',
-                        scrollBehavior: 'smooth',
-                        gap: 2,
-                        pb: 1,
-                        mx: -2,
-                        px: 2,
-                        '&::-webkit-scrollbar': {
-                          height: '6px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: 'transparent',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#cbd5e1',
-                          borderRadius: '3px',
-                        },
-                      }}
-                    >
+                    {/* Mobile: Vertical Stack (same as desktop for better UX) */}
+                    <Stack spacing={2} sx={{ display: { xs: 'flex', sm: 'none' } }}>
                       <Button
                         variant="outlined"
                         startIcon={<CreditCardIcon />}
                         onClick={handleManageBilling}
+                        fullWidth
                         size="large"
-                        sx={{
-                          flex: '0 0 auto',
-                          minWidth: '280px',
-                          scrollSnapAlign: 'start',
-                          whiteSpace: 'nowrap',
-                        }}
+                        sx={{ py: 1.5 }}
                       >
-                        Manage Billing
+                        Manage Billing Portal
                       </Button>
                       <Button
                         variant="outlined"
                         startIcon={<CreditCardIcon />}
                         onClick={handleUpdatePaymentMethod}
                         disabled={updatePaymentMutation.isPending}
+                        fullWidth
                         size="large"
-                        sx={{
-                          flex: '0 0 auto',
-                          minWidth: '280px',
-                          scrollSnapAlign: 'start',
-                          whiteSpace: 'nowrap',
-                        }}
+                        sx={{ py: 1.5 }}
                       >
-                        {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment'}
+                        {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
                       </Button>
                       <Button
                         variant="outlined"
@@ -1514,17 +1486,13 @@ export default function SubscriptionsPage() {
                         startIcon={<CancelIcon />}
                         onClick={() => openCancelDialog(false)}
                         disabled={cancelMutation.isPending}
+                        fullWidth
                         size="large"
-                        sx={{
-                          flex: '0 0 auto',
-                          minWidth: '280px',
-                          scrollSnapAlign: 'start',
-                          whiteSpace: 'nowrap',
-                        }}
+                        sx={{ py: 1.5 }}
                       >
                         Cancel Subscription
                       </Button>
-                    </Box>
+                    </Stack>
                   </Stack>
                 </Paper>
               </Grid>
@@ -1534,10 +1502,10 @@ export default function SubscriptionsPage() {
                 <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
                   <Stack spacing={3}>
                     <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                         Invoice History
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                         View and download your billing invoices
                       </Typography>
                     </Box>
@@ -1550,54 +1518,133 @@ export default function SubscriptionsPage() {
                       onRetry={invoicesQuery.refetch}
                     >
                       {invoicesQuery.data?.invoices && invoicesQuery.data.invoices.length > 0 && (
-                        <TableContainer>
-                          <Table>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell><strong>Invoice #</strong></TableCell>
-                                <TableCell><strong>Date</strong></TableCell>
-                                <TableCell><strong>Description</strong></TableCell>
-                                <TableCell align="right"><strong>Amount</strong></TableCell>
-                                <TableCell><strong>Status</strong></TableCell>
-                                <TableCell align="center"><strong>Actions</strong></TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {invoicesQuery.data.invoices.map((invoice) => (
-                                <TableRow key={invoice.id} hover>
-                                  <TableCell>{invoice.number || invoice.id.slice(-8)}</TableCell>
-                                  <TableCell>
-                                    {formatDate(new Date(invoice.created * 1000))}
-                                  </TableCell>
-                                  <TableCell>{invoice.description}</TableCell>
-                                  <TableCell align="right">
-                                    {formatCurrency(invoice.amount, invoice.currency)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={invoice.status.toUpperCase()}
-                                      color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
-                                      size="small"
-                                    />
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    {invoice.invoicePdf && (
-                                      <Link
-                                        href={invoice.invoicePdf}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                                      >
-                                        <DownloadIcon fontSize="small" />
-                                        PDF
-                                      </Link>
-                                    )}
-                                  </TableCell>
+                        <>
+                          {/* Desktop: Table View */}
+                          <TableContainer sx={{ display: { xs: 'none', md: 'block' } }}>
+                            <Table>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell><strong>Invoice #</strong></TableCell>
+                                  <TableCell><strong>Date</strong></TableCell>
+                                  <TableCell><strong>Description</strong></TableCell>
+                                  <TableCell align="right"><strong>Amount</strong></TableCell>
+                                  <TableCell><strong>Status</strong></TableCell>
+                                  <TableCell align="center"><strong>Actions</strong></TableCell>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
+                              </TableHead>
+                              <TableBody>
+                                {invoicesQuery.data.invoices.map((invoice) => (
+                                  <TableRow key={invoice.id} hover>
+                                    <TableCell>{invoice.number || invoice.id.slice(-8)}</TableCell>
+                                    <TableCell>
+                                      {formatDate(new Date(invoice.created * 1000))}
+                                    </TableCell>
+                                    <TableCell>{invoice.description}</TableCell>
+                                    <TableCell align="right">
+                                      {formatCurrency(invoice.amount, invoice.currency)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip
+                                        label={invoice.status.toUpperCase()}
+                                        color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
+                                        size="small"
+                                      />
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      {invoice.invoicePdf && (
+                                        <Link
+                                          href={invoice.invoicePdf}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                                        >
+                                          <DownloadIcon fontSize="small" />
+                                          PDF
+                                        </Link>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          {/* Mobile: Card View */}
+                          <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
+                            {invoicesQuery.data.invoices.map((invoice) => (
+                              <Card key={invoice.id} sx={{ boxShadow: 2 }}>
+                                <CardContent sx={{ p: 2.5 }}>
+                                  <Stack spacing={2}>
+                                    {/* Header Row */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                                      <Box>
+                                        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                          Invoice Number
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
+                                          {invoice.number || invoice.id.slice(-8)}
+                                        </Typography>
+                                      </Box>
+                                      <Chip
+                                        label={invoice.status.toUpperCase()}
+                                        color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
+                                        size="small"
+                                        sx={{ fontWeight: 600 }}
+                                      />
+                                    </Box>
+                                    <Divider />
+                                    {/* Description */}
+                                    <Box>
+                                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                        Description
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                                        {invoice.description}
+                                      </Typography>
+                                    </Box>
+                                    {/* Date and Amount Row */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                      <Box>
+                                        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                          Date
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                                          {formatDate(new Date(invoice.created * 1000))}
+                                        </Typography>
+                                      </Box>
+                                      <Box sx={{ textAlign: 'right' }}>
+                                        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                          Amount
+                                        </Typography>
+                                        <Typography variant="h6" sx={{ mt: 0.5, fontWeight: 700, color: 'primary.main' }}>
+                                          {formatCurrency(invoice.amount, invoice.currency)}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                    {/* Action Button */}
+                                    {invoice.invoicePdf && (
+                                      <>
+                                        <Divider />
+                                        <Button
+                                          variant="outlined"
+                                          startIcon={<DownloadIcon />}
+                                          href={invoice.invoicePdf}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          fullWidth
+                                          size="medium"
+                                          component="a"
+                                          sx={{ mt: 1 }}
+                                        >
+                                          Download PDF
+                                        </Button>
+                                      </>
+                                    )}
+                                  </Stack>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </Stack>
+                        </>
                       )}
                     </DataState>
                   </Stack>
