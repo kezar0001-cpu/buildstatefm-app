@@ -541,35 +541,45 @@ export default function TeamManagementPage() {
               width: '100%',
             },
             '& .MuiTab-root': {
-              minHeight: { xs: 48, sm: 48 },
+              minHeight: { xs: 64, sm: 48 },
               fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.875rem' },
               px: { xs: 0.5, sm: 1, md: 2 },
+              py: { xs: 1, sm: 1.5 },
               textTransform: 'none',
               flex: '1 1 0%',
               minWidth: 0,
               maxWidth: 'none',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 0.25, sm: 0.5 },
             },
           }}
         >
           <Tab 
             icon={
-              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <BusinessIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+              <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <BusinessIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                  {isMobile && (
+                    <Chip 
+                      label={owners.length} 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        height: '16px',
+                        minWidth: '16px',
+                        fontSize: '0.55rem',
+                        '& .MuiChip-label': { px: 0.25, py: 0 },
+                      }}
+                    />
+                  )}
+                </Box>
                 {isMobile && (
-                  <Chip 
-                    label={owners.length} 
-                    size="small" 
-                    color="primary"
-                    sx={{ 
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      height: '16px',
-                      minWidth: '16px',
-                      fontSize: '0.55rem',
-                      '& .MuiChip-label': { px: 0.25, py: 0 },
-                    }}
-                  />
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 0.25 }}>
+                    Owners
+                  </Typography>
                 )}
               </Box>
             }
@@ -596,23 +606,30 @@ export default function TeamManagementPage() {
           />
           <Tab 
             icon={
-              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <BuildIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+              <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <BuildIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                  {isMobile && (
+                    <Chip 
+                      label={technicians.length} 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        height: '16px',
+                        minWidth: '16px',
+                        fontSize: '0.55rem',
+                        '& .MuiChip-label': { px: 0.25, py: 0 },
+                      }}
+                    />
+                  )}
+                </Box>
                 {isMobile && (
-                  <Chip 
-                    label={technicians.length} 
-                    size="small" 
-                    color="primary"
-                    sx={{ 
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      height: '16px',
-                      minWidth: '16px',
-                      fontSize: '0.55rem',
-                      '& .MuiChip-label': { px: 0.25, py: 0 },
-                    }}
-                  />
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 0.25 }}>
+                    Techs
+                  </Typography>
                 )}
               </Box>
             }
@@ -639,23 +656,30 @@ export default function TeamManagementPage() {
           />
           <Tab 
             icon={
-              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <HomeIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+              <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <HomeIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                  {isMobile && (
+                    <Chip 
+                      label={tenants.length} 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        height: '16px',
+                        minWidth: '16px',
+                        fontSize: '0.55rem',
+                        '& .MuiChip-label': { px: 0.25, py: 0 },
+                      }}
+                    />
+                  )}
+                </Box>
                 {isMobile && (
-                  <Chip 
-                    label={tenants.length} 
-                    size="small" 
-                    color="primary"
-                    sx={{ 
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      height: '16px',
-                      minWidth: '16px',
-                      fontSize: '0.55rem',
-                      '& .MuiChip-label': { px: 0.25, py: 0 },
-                    }}
-                  />
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 0.25 }}>
+                    Tenants
+                  </Typography>
                 )}
               </Box>
             }
@@ -682,23 +706,30 @@ export default function TeamManagementPage() {
           />
           <Tab 
             icon={
-              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <MailOutlineIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+              <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <MailOutlineIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                  {isMobile && (
+                    <Chip 
+                      label={invites.length} 
+                      size="small" 
+                      color="primary"
+                      sx={{ 
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        height: '16px',
+                        minWidth: '16px',
+                        fontSize: '0.55rem',
+                        '& .MuiChip-label': { px: 0.25, py: 0 },
+                      }}
+                    />
+                  )}
+                </Box>
                 {isMobile && (
-                  <Chip 
-                    label={invites.length} 
-                    size="small" 
-                    color="primary"
-                    sx={{ 
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      height: '16px',
-                      minWidth: '16px',
-                      fontSize: '0.55rem',
-                      '& .MuiChip-label': { px: 0.25, py: 0 },
-                    }}
-                  />
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 0.25 }}>
+                    Invites
+                  </Typography>
                 )}
               </Box>
             }

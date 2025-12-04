@@ -54,7 +54,7 @@ const PLAN_DETAILS = {
     popular: false,
     features: [
       'Up to 10 properties',
-      '1 team member',
+      '30 team members',
       '25 inspections per month',
       '5 recurring inspections',
       '3 custom templates',
@@ -74,7 +74,7 @@ const PLAN_DETAILS = {
     ],
     limits: {
       properties: 10,
-      teamMembers: 1,
+      teamMembers: 30,
       inspectionsPerMonth: 25,
       recurringInspections: 5,
       customTemplates: 3,
@@ -102,7 +102,7 @@ const PLAN_DETAILS = {
     popular: true,
     features: [
       'Up to 50 properties',
-      '5 team members',
+      '100 team members',
       '100 inspections per month',
       '25 recurring inspections',
       '15 custom templates',
@@ -122,7 +122,7 @@ const PLAN_DETAILS = {
     ],
     limits: {
       properties: 50,
-      teamMembers: 5,
+      teamMembers: 100,
       inspectionsPerMonth: 100,
       recurringInspections: 25,
       customTemplates: 15,
