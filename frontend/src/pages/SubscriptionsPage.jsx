@@ -862,7 +862,9 @@ export default function SubscriptionsPage() {
       sessionStorage.setItem('autoCheckoutTriggered', 'true');
       startCheckout(normalizedPlan);
     }
-  }, [planFromUrl, hasActiveSubscription, checkoutMutation.isPending]);
+    // Note: startCheckout is intentionally not in deps to avoid re-triggering on state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planFromUrl, hasActiveSubscription, checkoutMutation.isPending, navigate, location.pathname]);
 
   const subscriptionPlan = currentUser?.subscriptionPlan;
   const subscriptions = normaliseArray(query.data);
@@ -881,17 +883,39 @@ export default function SubscriptionsPage() {
       } else {
         // Apply 20% discount for Basic plan when trial is ending (first month only)
         const shouldApplyDiscount = plan === 'BASIC' && (trialDaysRemaining <= 3 || !isTrialActive);
-        // Use validated promo code, manual promo code input, or auto discount
-        const finalPromoCode = validatedPromo?.code || (promoCode.trim() ? promoCode.trim().toUpperCase() : null) || (shouldApplyDiscount ? 'FIRST20' : null);
+
+        // Determine final promo code to use (priority order):
+        // 1. Validated promo code (user clicked validate)
+        // 2. Manual promo code input (user typed but didn't validate)
+        // 3. Auto-applied discount (FIRST20 for Basic plan when trial ending)
+        let finalPromoCode = null;
+
+        if (validatedPromo?.code) {
+          // User validated a promo code - use it
+          finalPromoCode = validatedPromo.code;
+        } else if (promoCode && promoCode.trim()) {
+          // User entered a promo code but didn't validate - still try to use it
+          finalPromoCode = promoCode.trim().toUpperCase();
+        } else if (shouldApplyDiscount) {
+          // Auto-apply FIRST20 discount for Basic plan
+          finalPromoCode = 'FIRST20';
+        }
+
+        const checkoutData = {
+          plan,
+          successUrl: `${window.location.origin}/subscriptions?success=1&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
+        };
+
+        // Only include promoCode if we have one
+        if (finalPromoCode) {
+          checkoutData.promoCode = finalPromoCode;
+        }
 
         const res = await checkoutMutation.mutateAsync({
-          data: {
-            plan,
-            successUrl: `${window.location.origin}/subscriptions?success=1&session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${window.location.origin}/subscriptions?canceled=1`,
-            promoCode: finalPromoCode,
-          },
+          data: checkoutData,
         });
+
         if (res?.data?.url) {
           window.location.href = res.data.url;
         } else {
@@ -900,26 +924,32 @@ export default function SubscriptionsPage() {
       }
     } catch (err) {
       logger.error("Checkout/plan change failed:", err);
+      // Re-throw to show error in UI
+      throw err;
     }
   };
 
   const handleValidatePromo = async () => {
-    if (!promoCode.trim()) return;
+    const trimmedCode = promoCode.trim();
+    if (!trimmedCode) return;
+
     try {
       const res = await validatePromoMutation.mutateAsync({
-        data: { code: promoCode.trim().toUpperCase(), plan: subscriptionPlan || 'BASIC' },
+        data: { code: trimmedCode.toUpperCase(), plan: subscriptionPlan || 'BASIC' },
       });
+
       if (res?.data?.valid) {
+        // Promo code is valid in our database
         setValidatedPromo(res.data.promoCode);
       } else {
         // Even if validation fails in database, the code might exist in Stripe
         // So we'll still allow it to be used (backend will check Stripe)
-        setValidatedPromo({ code: promoCode.trim().toUpperCase() });
+        setValidatedPromo({ code: trimmedCode.toUpperCase() });
       }
     } catch (err) {
       // Even if validation fails, allow the code to be used
-      // Backend will check Stripe directly
-      setValidatedPromo({ code: promoCode.trim().toUpperCase() });
+      // Backend will check Stripe directly during checkout
+      setValidatedPromo({ code: trimmedCode.toUpperCase() });
       logger.error('Promo code validation failed (will check Stripe during checkout):', err);
     }
   };
