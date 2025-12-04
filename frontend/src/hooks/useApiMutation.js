@@ -58,7 +58,17 @@ export default function useApiMutation({ url, method = 'post', invalidateKeys = 
       await invalidateProvidedKeys();
       return resp;
     } catch (err) {
-      console.error('useApiMutation error:', err);
+      // Enhanced error logging for debugging
+      console.error('[useApiMutation] Error:', {
+        url: variables.url || url,
+        method: variables.method || method || 'post',
+        error: err,
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        request: err?.request,
+      });
       setIsError(true);
       setError(err);
       throw err;

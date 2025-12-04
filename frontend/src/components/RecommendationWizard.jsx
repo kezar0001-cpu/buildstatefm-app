@@ -53,8 +53,27 @@ const initialState = {
 };
 
 const getErrorMessage = (error) => {
-  if (!error) return '';
-  return error?.response?.data?.message || error.message || 'Something went wrong while creating the recommendation.';
+  if (!error) return 'Something went wrong while creating the recommendation.';
+  
+  // Handle axios error response
+  if (error?.response?.data) {
+    const errorData = error.response.data;
+    // Backend uses standardized error format: { success: false, message: "...", code: "..." }
+    if (errorData.message) {
+      return errorData.message;
+    }
+    // Fallback for other error formats
+    if (errorData.error) {
+      return errorData.error;
+    }
+  }
+  
+  // Handle network errors or other error types
+  if (error?.message) {
+    return error.message;
+  }
+  
+  return 'Something went wrong while creating the recommendation.';
 };
 
 export default function RecommendationWizard({ open, onClose }) {
@@ -179,12 +198,16 @@ export default function RecommendationWizard({ open, onClose }) {
         estimatedCost: formState.estimatedCost ? parseFloat(formState.estimatedCost) : null,
       };
 
-      await createRecommendationMutation.mutateAsync({
+      console.log('[RecommendationWizard] Creating recommendation with payload:', payload);
+      
+      const response = await createRecommendationMutation.mutateAsync({
         url: '/recommendations',
         method: 'post',
         data: payload,
       });
 
+      console.log('[RecommendationWizard] Recommendation created successfully:', response?.data);
+      
       toast.success('Recommendation created successfully!');
       queryClient.invalidateQueries({ queryKey: queryKeys.recommendations.all() });
       
@@ -192,8 +215,15 @@ export default function RecommendationWizard({ open, onClose }) {
         onClose();
       }
     } catch (error) {
-      console.error('Error creating recommendation:', error);
-      toast.error(getErrorMessage(error));
+      console.error('[RecommendationWizard] Error creating recommendation:', {
+        error,
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+      });
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -254,11 +284,11 @@ export default function RecommendationWizard({ open, onClose }) {
         {/* Step 0: Select Property */}
         {activeStep === 0 && (
           <Stack spacing={3}>
-            <FormControl fullWidth error={!!errors.propertyId}>
-              <InputLabel>Property *</InputLabel>
+            <FormControl fullWidth error={!!errors.propertyId} required>
+              <InputLabel>Property</InputLabel>
               <Select
                 value={formState.propertyId}
-                label="Property *"
+                label="Property"
                 onChange={handleChange('propertyId')}
                 disabled={loadingProperties || isSubmitting}
               >
@@ -304,7 +334,7 @@ export default function RecommendationWizard({ open, onClose }) {
           <Stack spacing={3}>
             <TextField
               fullWidth
-              label="Title *"
+              label="Title"
               value={formState.title}
               onChange={handleChange('title')}
               error={!!errors.title}
@@ -315,7 +345,7 @@ export default function RecommendationWizard({ open, onClose }) {
 
             <TextField
               fullWidth
-              label="Description *"
+              label="Description"
               value={formState.description}
               onChange={handleChange('description')}
               error={!!errors.description}
@@ -327,11 +357,11 @@ export default function RecommendationWizard({ open, onClose }) {
             />
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormControl fullWidth error={!!errors.priority}>
-                <InputLabel>Priority *</InputLabel>
+              <FormControl fullWidth error={!!errors.priority} required>
+                <InputLabel>Priority</InputLabel>
                 <Select
                   value={formState.priority}
-                  label="Priority *"
+                  label="Priority"
                   onChange={handleChange('priority')}
                   disabled={isSubmitting}
                 >
