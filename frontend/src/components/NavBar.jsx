@@ -201,6 +201,7 @@ function NavBar() {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Desktop: Search, Notification, Dark Mode */}
           <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
             <Tooltip title="Search (Ctrl+K)">
               <IconButton
@@ -221,34 +222,56 @@ function NavBar() {
             </Tooltip>
           </Box>
 
-          <Tooltip title="Account">
-            <IconButton
-              onClick={handleOpenUserMenu}
-              size="small"
-              sx={{ ml: 1 }}
-              aria-label="account menu"
-            >
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  boxShadow: '0 2px 8px 0 rgb(185 28 28 / 0.3)',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.1)',
-                    boxShadow: '0 4px 12px 0 rgb(185 28 28 / 0.4)',
-                  },
-                }}
+          {/* Desktop: Profile Avatar */}
+          <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+            <Tooltip title="Account">
+              <IconButton
+                onClick={handleOpenUserMenu}
+                size="small"
+                sx={{ ml: 1 }}
+                aria-label="account menu"
               >
-                {getUserInitials()}
-              </Avatar>
-            </IconButton>
-          </Tooltip>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    boxShadow: '0 2px 8px 0 rgb(185 28 28 / 0.3)',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'scale(1.1)',
+                      boxShadow: '0 4px 12px 0 rgb(185 28 28 / 0.4)',
+                    },
+                  }}
+                >
+                  {getUserInitials()}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
+          </Box>
           
-          <Box sx={{ display: { xs: 'flex', lg: 'none' } }}>
+          {/* Mobile: Search, Notification, Dark Mode, Hamburger Menu */}
+          <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title="Search">
+              <IconButton
+                color="inherit"
+                onClick={() => setSearchOpen(true)}
+                size="medium"
+              >
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
+
+            <NotificationBell />
+
+            <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+              <IconButton onClick={toggleTheme} color="inherit" size="medium">
+                {theme === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
+              </IconButton>
+            </Tooltip>
+
             <IconButton
               size="large"
               aria-label="open navigation menu"
@@ -339,18 +362,27 @@ function NavBar() {
             '& .MuiPaper-root': {
               minWidth: 240,
               borderRadius: 2,
+              maxHeight: '80vh',
+              overflowY: 'auto',
             },
           }}
         >
+          {/* User Info Header */}
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" fontWeight={600}>
-              Navigation
+              {user?.firstName} {user?.lastName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              All workflow pages
+              {user?.email}
             </Typography>
           </Box>
 
+          {/* Navigation Items */}
+          <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Navigation
+            </Typography>
+          </Box>
           {navigation.map((item) => (
             <MenuItem
               key={item.name}
@@ -364,10 +396,48 @@ function NavBar() {
 
           <Divider sx={{ my: 1 }} />
 
-          <MenuItem onClick={toggleTheme}>
-            {theme === 'light' ? <Brightness4Icon fontSize="small" sx={{ mr: 1.5 }} /> : <Brightness7Icon fontSize="small" sx={{ mr: 1.5 }} />}
-            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+          {/* Account Menu Items */}
+          <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Account
+            </Typography>
+          </Box>
+          
+          <MenuItem onClick={() => handleUserMenuNavigation('/profile')}>
+            <PersonIcon fontSize="small" sx={{ mr: 1.5 }} />
+            Profile
           </MenuItem>
+          
+          <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
+            <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
+            Subscriptions
+          </MenuItem>
+
+          {user?.role === 'PROPERTY_MANAGER' && (
+            <MenuItem onClick={() => handleUserMenuNavigation('/team')}>
+              <GroupIcon fontSize="small" sx={{ mr: 1.5 }} />
+              Team Management
+            </MenuItem>
+          )}
+
+          {user?.role === 'ADMIN' && (
+            <MenuItem onClick={() => handleUserMenuNavigation('/admin/blog')}>
+              <ArticleIcon fontSize="small" sx={{ mr: 1.5 }} />
+              Blog Admin
+            </MenuItem>
+          )}
+
+          <Divider sx={{ my: 1 }} />
+          
+          <Box sx={{ px: 2, pb: 1 }}>
+            <LogoutButton
+              fullWidth
+              variant="outlined"
+              color="error"
+              size="small"
+              sx={{ textTransform: 'none' }}
+            />
+          </Box>
         </Menu>
       </Toolbar>
 

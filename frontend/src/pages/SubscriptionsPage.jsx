@@ -343,8 +343,6 @@ function UsageProgressBar({ label, current, limit, unit = '' }) {
 // Mobile-specific square card with expandable drawer
 function MobilePlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDaysRemaining, isTrialActive, isUpgrade = false, isDowngrade = false }) {
   const [expanded, setExpanded] = useState(false);
-  const showDiscount = (trialDaysRemaining <= 3 || !isTrialActive) && planKey === 'BASIC';
-  const discountedPrice = showDiscount ? Math.round(plan.price * 0.8) : plan.price;
 
   return (
     <Card
@@ -382,19 +380,6 @@ function MobilePlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, tri
             sx={{ fontWeight: 700, fontSize: '0.7rem', mb: 2 }}
           />
         )}
-        {showDiscount && (
-          <Chip
-            icon={<LocalOfferIcon />}
-            label="20% OFF FIRST MONTH"
-            sx={{
-              bgcolor: '#dc2626',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '0.7rem',
-              mb: 2,
-            }}
-          />
-        )}
 
         {/* Plan Name */}
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
@@ -403,20 +388,8 @@ function MobilePlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, tri
 
         {/* Price */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1 }}>
-          {showDiscount && (
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 700,
-                color: 'text.disabled',
-                textDecoration: 'line-through',
-              }}
-            >
-              {formatCurrency(plan.price)}
-            </Typography>
-          )}
-          <Typography variant="h3" sx={{ fontWeight: 700, color: showDiscount ? '#dc2626' : 'inherit' }}>
-            {formatCurrency(discountedPrice)}
+          <Typography variant="h3" sx={{ fontWeight: 700 }}>
+            {formatCurrency(plan.price)}
           </Typography>
           <Typography variant="h6" color="text.secondary">
             /month
@@ -493,8 +466,6 @@ function MobilePlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, tri
 }
 
 function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDaysRemaining, isTrialActive, isUpgrade = false, isDowngrade = false }) {
-  const showDiscount = (trialDaysRemaining <= 3 || !isTrialActive) && planKey === 'BASIC';
-  const discountedPrice = showDiscount ? Math.round(plan.price * 0.8) : plan.price;
 
   return (
     <Card
@@ -553,29 +524,7 @@ function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDays
             />
           </Box>
         )}
-        {showDiscount && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 16,
-              left: plan.popular ? '50%' : '50%',
-              transform: 'translateX(-50%)',
-              zIndex: plan.popular ? 2 : 1,
-            }}
-          >
-            <Chip
-              icon={<LocalOfferIcon />}
-              label="20% OFF FIRST MONTH"
-              sx={{
-                bgcolor: '#dc2626',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: '0.75rem',
-              }}
-            />
-          </Box>
-        )}
-        <Stack spacing={3} sx={{ flexGrow: 1, mt: (plan.popular || showDiscount || isCurrentPlan) ? 4 : 0 }}>
+        <Stack spacing={3} sx={{ flexGrow: 1, mt: (plan.popular || isCurrentPlan) ? 4 : 0 }}>
           {/* Plan Header */}
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
@@ -585,30 +534,13 @@ function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDays
               {plan.description}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-              {showDiscount && (
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: 'text.disabled',
-                    textDecoration: 'line-through',
-                  }}
-                >
-                  {formatCurrency(plan.price)}
-                </Typography>
-              )}
-              <Typography variant="h3" sx={{ fontWeight: 700, color: showDiscount ? '#dc2626' : 'inherit' }}>
-                {formatCurrency(discountedPrice)}
+              <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                {formatCurrency(plan.price)}
               </Typography>
               <Typography variant="h6" color="text.secondary">
                 /month
               </Typography>
             </Box>
-            {showDiscount && (
-              <Typography variant="caption" color="error" sx={{ fontWeight: 600, display: 'block', mt: 0.5 }}>
-                First month only • Regular price applies after
-              </Typography>
-            )}
           </Box>
 
           <Divider />
@@ -1156,8 +1088,11 @@ export default function SubscriptionsPage() {
                     <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, textAlign: { xs: 'center', sm: 'left' } }}>
                       Have a promo code?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' }, mb: 0.5 }}>
                       Enter your code during checkout to apply the discount
+                    </Typography>
+                    <Typography variant="caption" color="primary" sx={{ fontWeight: 600, textAlign: { xs: 'center', sm: 'left' }, display: 'block' }}>
+                      💡 Use code <strong>"FIRST20"</strong> for a one-time 20% off your first month!
                     </Typography>
                   </Box>
                   <TextField
@@ -1264,10 +1199,10 @@ export default function SubscriptionsPage() {
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ justifyContent: 'center', mx: 'auto', width: '100%', maxWidth: { xs: '100%', md: '1200px' } }}>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mx: 'auto', width: '100%' }}>
               {/* Subscription Info */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 } }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1310,8 +1245,8 @@ export default function SubscriptionsPage() {
 
               {/* Usage Statistics Section - Moved below Subscription Details */}
               {usageQuery.data && (
-                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
-                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', overflow: 'hidden' }}>
+                <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 } }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', overflow: 'hidden' }}>
                     <Stack spacing={3}>
                       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1322,12 +1257,18 @@ export default function SubscriptionsPage() {
                             Track your current usage against plan limits
                           </Typography>
                         </Box>
+                        {/* Mobile only - Show/Hide button */}
                         <Button
                           variant="outlined"
                           size="small"
                           onClick={() => setShowUsageDetails(!showUsageDetails)}
                           endIcon={showUsageDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                          sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, minWidth: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+                          sx={{ 
+                            display: { xs: 'flex', md: 'none' },
+                            alignSelf: { xs: 'stretch', sm: 'auto' }, 
+                            minWidth: { xs: '100%', sm: 'auto' }, 
+                            flexShrink: 0 
+                          }}
                         >
                           {showUsageDetails ? 'Show Less' : 'Show All'}
                         </Button>
@@ -1358,7 +1299,32 @@ export default function SubscriptionsPage() {
                           />
                         </Grid>
                         <Grid item xs={12} md={6} sx={{ px: 0 }}>
-                          <Collapse in={showUsageDetails}>
+                          {/* Desktop: Always show, Mobile: Collapse */}
+                          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                            <UsageProgressBar
+                              label="Recurring Inspections"
+                              current={usageStats.recurringInspections?.current || 0}
+                              limit={usageStats.recurringInspections?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Custom Templates"
+                              current={usageStats.customTemplates?.current || 0}
+                              limit={usageStats.customTemplates?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Document Uploads This Month"
+                              current={usageStats.documentUploadsPerMonth?.current || 0}
+                              limit={usageStats.documentUploadsPerMonth?.limit}
+                            />
+                            <UsageProgressBar
+                              label="Storage"
+                              current={usageStats.storageGB?.current || 0}
+                              limit={usageStats.storageGB?.limit}
+                              unit="GB"
+                            />
+                          </Box>
+                          {/* Mobile: Collapsible */}
+                          <Collapse in={showUsageDetails} sx={{ display: { xs: 'block', md: 'none' } }}>
                             <UsageProgressBar
                               label="Recurring Inspections"
                               current={usageStats.recurringInspections?.current || 0}
@@ -1381,17 +1347,17 @@ export default function SubscriptionsPage() {
                               unit="GB"
                             />
                           </Collapse>
-                            {!showUsageDetails && (
-                              <Box sx={{ textAlign: 'center', pt: 2 }}>
-                                <Button
-                                  variant="text"
-                                  size="small"
-                                  onClick={() => setShowUsageDetails(true)}
-                                >
-                                  View all usage metrics
-                                </Button>
-                              </Box>
-                            )}
+                          {!showUsageDetails && (
+                            <Box sx={{ textAlign: 'center', pt: 2, display: { xs: 'block', md: 'none' } }}>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => setShowUsageDetails(true)}
+                              >
+                                View all usage metrics
+                              </Button>
+                            </Box>
+                          )}
                         </Grid>
                       </Grid>
 
@@ -1418,8 +1384,8 @@ export default function SubscriptionsPage() {
               )}
 
               {/* Billing Actions */}
-              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', maxWidth: { xs: '100%', md: '500px' }, mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 } }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1503,8 +1469,8 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Invoice History */}
-              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex', justifyContent: 'center' }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', maxWidth: { xs: '100%', md: '1000px' }, mx: 'auto', flex: 1 }}>
+              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 } }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%' }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
