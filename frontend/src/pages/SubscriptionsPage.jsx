@@ -337,7 +337,7 @@ function UsageProgressBar({ label, current, limit, unit = '' }) {
   );
 }
 
-function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDaysRemaining, isTrialActive }) {
+function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDaysRemaining, isTrialActive, isUpgrade = false, isDowngrade = false }) {
   const showDiscount = (trialDaysRemaining <= 3 || !isTrialActive) && planKey === 'BASIC';
   const discountedPrice = showDiscount ? Math.round(plan.price * 0.8) : plan.price;
 
@@ -494,7 +494,11 @@ function PlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, trialDays
                 ? 'Current Plan'
                 : isTrialActive && !isCurrentPlan
                   ? 'Subscribe Now'
-                  : 'Select Plan'}
+                  : isUpgrade
+                    ? 'Upgrade to This Plan'
+                    : isDowngrade
+                      ? 'Downgrade to This Plan'
+                      : 'Select Plan'}
           </Button>
         </Stack>
       </CardContent>
@@ -1059,7 +1063,7 @@ export default function SubscriptionsPage() {
                 ))}
               </Box>
               {/* Desktop Grid Layout */}
-              <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' } }}>
+              <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
                 {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => (
                   <Grid item xs={12} md={4} key={planKey}>
                     <PlanCard
@@ -1204,13 +1208,15 @@ export default function SubscriptionsPage() {
                           isLoading={checkoutMutation.isPending}
                           trialDaysRemaining={trialDaysRemaining}
                           isTrialActive={false}
+                          isUpgrade={isUpgrade}
+                          isDowngrade={isDowngrade}
                         />
                       </Box>
                     );
                   })}
                 </Box>
                 {/* Desktop Grid Layout */}
-                <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' } }}>
+                <Grid container spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
                   {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
                     const isCurrentPlan = subscriptionPlan === planKey;
                     const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
@@ -1228,6 +1234,8 @@ export default function SubscriptionsPage() {
                           isLoading={checkoutMutation.isPending}
                           trialDaysRemaining={trialDaysRemaining}
                           isTrialActive={false}
+                          isUpgrade={isUpgrade}
+                          isDowngrade={isDowngrade}
                         />
                       </Grid>
                     );
