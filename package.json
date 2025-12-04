@@ -8,7 +8,7 @@
   "name": "agentfm-app",
   "version": "1.0.0",
   "description": "Buildstate FM is a **full-stack facilities management platform** with role-based access control, subscription management, and real-time collaboration features.",
-  "main": "prisma.config.js",
+  "main": "server.js",
   "directories": {
     "doc": "docs"
   },
