@@ -357,6 +357,8 @@ function MobilePlanCard({ plan, planKey, isCurrentPlan, onSelect, isLoading, tri
         position: 'relative',
         borderRadius: 3,
         overflow: 'hidden',
+        width: '100%',
+        mx: 'auto',
       }}
     >
       <CardContent sx={{ p: 3 }}>
@@ -1014,8 +1016,8 @@ export default function SubscriptionsPage() {
   const usageWarnings = usageQuery.data?.warnings || [];
 
   return (
-    <Box sx={{ py: { xs: 2, sm: 3, md: 4 }, minHeight: '100vh', overflowX: 'hidden', width: '100%' }}>
-      <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 }, width: '100%' }}>
+    <Box sx={{ py: { xs: 2, sm: 3, md: 4 }, minHeight: '100vh', overflowX: 'hidden', width: '100%', mx: 'auto' }}>
+      <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 1.5, sm: 3, md: 4 }, width: '100%', mx: 'auto' }}>
         <Stack spacing={{ xs: 3, sm: 3.5, md: 4 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
@@ -1106,7 +1108,7 @@ export default function SubscriptionsPage() {
 
           {/* Usage Statistics Section */}
           {hasActiveSubscription && usageQuery.data && (
-            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto' }}>
               <Stack spacing={3}>
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 0 } }}>
                   <Box sx={{ flex: 1 }}>
@@ -1218,9 +1220,9 @@ export default function SubscriptionsPage() {
                 Compare Plans
               </Typography>
               {/* Mobile Grid Layout */}
-              <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
+              <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, mx: 0, width: '100%' }}>
                 {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => (
-                  <Grid item xs={12} key={planKey}>
+                  <Grid item xs={12} key={planKey} sx={{ px: 0 }}>
                     <MobilePlanCard
                       plan={plan}
                       planKey={planKey}
@@ -1251,7 +1253,7 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Promo Code Section */}
-              <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mt: { xs: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper' }}>
+              <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mt: { xs: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper', width: '100%', mx: 'auto' }}>
                 <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }}>
                   <LocalOfferIcon color="primary" sx={{ fontSize: { xs: 28, sm: 32 }, alignSelf: { xs: 'center', sm: 'flex-start' } }} />
                   <Box sx={{ flexGrow: 1, width: { xs: '100%', sm: 'auto' } }}>
@@ -1299,7 +1301,7 @@ export default function SubscriptionsPage() {
 
           {/* Plan Comparison for Active Subscribers */}
           {hasActiveSubscription && (
-            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto' }}>
               <Stack spacing={3}>
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
@@ -1310,7 +1312,7 @@ export default function SubscriptionsPage() {
                   </Typography>
                 </Box>
                 {/* Mobile Grid Layout */}
-                <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
+                <Grid container spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, mx: 0, width: '100%' }}>
                   {Object.entries(PLAN_DETAILS).map(([planKey, plan]) => {
                     const isCurrentPlan = subscriptionPlan === planKey;
                     const currentPlanIndex = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].indexOf(subscriptionPlan);
@@ -1319,7 +1321,7 @@ export default function SubscriptionsPage() {
                     const isDowngrade = thisPlanIndex < currentPlanIndex;
 
                     return (
-                      <Grid item xs={12} key={planKey}>
+                      <Grid item xs={12} key={planKey} sx={{ px: 0 }}>
                         <MobilePlanCard
                           plan={plan}
                           planKey={planKey}
@@ -1368,10 +1370,10 @@ export default function SubscriptionsPage() {
 
           {/* Subscription Details for Active Subscribers */}
           {hasActiveSubscription && (
-            <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ justifyContent: 'center', mx: 0, width: '100%' }}>
               {/* Subscription Info */}
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1413,8 +1415,8 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Billing Actions */}
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%' }}>
+              <Grid item xs={12} md={6} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1498,8 +1500,8 @@ export default function SubscriptionsPage() {
               </Grid>
 
               {/* Invoice History */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2 }}>
+              <Grid item xs={12} sx={{ px: { xs: 0, sm: 1.5 }, display: 'flex' }}>
+                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%', mx: 'auto', flex: 1 }}>
                   <Stack spacing={3}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1655,7 +1657,7 @@ export default function SubscriptionsPage() {
 
           {/* Why Subscribe Section */}
           {!hasActiveSubscription && (
-            <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 2, width: '100%', mx: 'auto' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
                 Why Subscribe to BuildState FM?
               </Typography>
