@@ -8,6 +8,7 @@ import {
   Assignment as AssignmentIcon,
   RequestQuote as RequestQuoteIcon,
   Assessment as AssessmentIcon,
+  Recommend as RecommendIcon,
 } from '@mui/icons-material';
 import { useCurrentUser } from '../context/UserContext';
 
@@ -42,6 +43,7 @@ export default function MobileBottomNav() {
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   } else if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
     // Navigation for property managers
@@ -50,7 +52,7 @@ export default function MobileBottomNav() {
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       jobsNavigation,
-      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   } else {
     // Default navigation (includes all items)
@@ -59,7 +61,7 @@ export default function MobileBottomNav() {
       { label: 'Properties', path: '/properties', icon: HomeIcon },
       { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
       jobsNavigation,
-      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
+      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
     ];
   }
 

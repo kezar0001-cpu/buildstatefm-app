@@ -145,10 +145,10 @@ const TrialBanner = () => {
 
   const floatingContainerStyles = {
     position: 'fixed',
-    bottom: { xs: 16, sm: 24 },
+    bottom: { xs: 72, sm: 24 }, // Increased bottom spacing on mobile to avoid footer menu
     right: { xs: 16, sm: 24 },
     left: { xs: 16, sm: 'auto' },
-    zIndex: (theme) => theme.zIndex.drawer + 2,
+    zIndex: (theme) => theme.zIndex.drawer, // Changed from drawer + 2 to drawer to stay below footer
     width: { xs: 'auto', sm: 360 },
     maxWidth: { xs: 'calc(100% - 32px)', sm: 360 },
   };
@@ -217,26 +217,38 @@ const TrialBanner = () => {
               </IconButton>
             </Tooltip>
           </Box>
-          <Box sx={{ bgcolor: 'rgba(0,0,0,0.12)', px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Box sx={{
+            bgcolor: 'rgba(0,0,0,0.12)',
+            px: 2,
+            py: 1.5,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: { xs: 1.5, sm: 0 },
+          }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
               Reactivate your workspace instantly
             </Typography>
             <Button
               variant="contained"
-              size="small"
+              size="large"
               onClick={() => navigate('/subscriptions')}
+              fullWidth={{ xs: true, sm: false }}
               sx={{
                 bgcolor: '#fff',
                 color: '#dc2626',
                 fontWeight: 700,
-                px: 2,
-                py: 1,
+                px: { xs: 3, sm: 2 },
+                py: { xs: 1.5, sm: 1 },
+                fontSize: { xs: '1rem', sm: '0.875rem' },
+                textTransform: 'none',
                 '&:hover': {
                   bgcolor: '#fef2f2',
                 },
               }}
             >
-              Subscribe
+              Subscribe Now
             </Button>
           </Box>
         </Paper>
@@ -330,31 +342,35 @@ const TrialBanner = () => {
               px: 2,
               py: 1.5,
               display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
               justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 1,
+              alignItems: { xs: 'stretch', sm: 'center' },
+              gap: { xs: 1.5, sm: 1 },
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {isCritical || isUrgent ? 'Reserve your rate today' : 'Upgrade when you’re ready'}
+            <Typography variant="body2" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
+              {isCritical || isUrgent ? 'Reserve your rate today' : 'Upgrade when you're ready'}
             </Typography>
             <Button
               variant="contained"
-              size="small"
+              size={isCritical || isUrgent ? 'large' : 'medium'}
               onClick={() => navigate('/subscriptions')}
               startIcon={<TrendingUpIcon />}
+              fullWidth={{ xs: true, sm: false }}
               sx={{
                 bgcolor: '#fff',
                 color: isCritical || isUrgent ? '#dc2626' : '#ea580c',
                 fontWeight: 700,
-                px: 2,
-                py: 1,
+                px: { xs: 3, sm: 2 },
+                py: { xs: 1.5, sm: 1 },
+                fontSize: { xs: '1rem', sm: '0.875rem' },
+                textTransform: 'none',
                 '&:hover': {
                   bgcolor: '#fef2f2',
                 },
               }}
             >
-              View plans
+              Subscribe Now
             </Button>
           </Box>
         </Paper>
