@@ -255,8 +255,16 @@ router.post('/checkout', async (req, res) => {
                       couponData.currency = 'usd';
                     }
 
-                    // For first month only discount, use duration: 'once'
-                    if (promoCodeUpper === 'FIRST20') {
+                    // Set duration - required field for Stripe coupons
+                    // Use promo.duration if available, otherwise default to 'once'
+                    if (promo.duration) {
+                      couponData.duration = promo.duration.toLowerCase();
+                      // If duration is 'repeating', include duration_in_months
+                      if (promo.duration.toLowerCase() === 'repeating' && promo.durationInMonths) {
+                        couponData.duration_in_months = promo.durationInMonths;
+                      }
+                    } else {
+                      // Default to 'once' for first invoice only
                       couponData.duration = 'once';
                     }
 

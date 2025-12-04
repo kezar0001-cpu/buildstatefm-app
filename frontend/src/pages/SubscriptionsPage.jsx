@@ -1040,12 +1040,18 @@ export default function SubscriptionsPage() {
                 },
               }}
             >
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                spacing={{ xs: 2, sm: 0 }}
+                sx={{ width: '100%' }}
+              >
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.1rem' } }}>
                     {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} left in your trial
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
                     {trialDaysRemaining <= 3
                       ? 'Your trial is ending soon. Subscribe now to continue using BuildState FM without interruption.'
                       : 'Subscribe before your trial ends to ensure uninterrupted access to all features.'}
@@ -1057,7 +1063,12 @@ export default function SubscriptionsPage() {
                     size="large"
                     onClick={() => startCheckout('BASIC')}
                     disabled={checkoutMutation.isPending}
-                    sx={{ ml: 2 }}
+                    fullWidth={{ xs: true, sm: false }}
+                    sx={{
+                      ml: { xs: 0, sm: 2 },
+                      minWidth: { sm: '180px' },
+                      py: { xs: 1.5, sm: 1.25 }
+                    }}
                   >
                     {checkoutMutation.isPending ? 'Processing...' : 'Subscribe Now'}
                   </Button>
