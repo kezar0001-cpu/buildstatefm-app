@@ -16,7 +16,7 @@ export const PLAN_LIMITS = {
   FREE_TRIAL: {
     // Basic Limits
     properties: 10,
-    teamMembers: 1,
+    teamMembers: 5,
 
     // Inspection Limits
     inspectionsPerMonth: 25,
@@ -59,7 +59,7 @@ export const PLAN_LIMITS = {
   BASIC: {
     // Basic Limits
     properties: 10,
-    teamMembers: 1,
+    teamMembers: 30,
 
     // Inspection Limits
     inspectionsPerMonth: 25,
@@ -102,7 +102,7 @@ export const PLAN_LIMITS = {
   PROFESSIONAL: {
     // Basic Limits
     properties: 50,
-    teamMembers: 5,
+    teamMembers: 100,
 
     // Inspection Limits
     inspectionsPerMonth: 100,

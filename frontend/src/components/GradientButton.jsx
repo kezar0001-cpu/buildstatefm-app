@@ -59,6 +59,8 @@ const GradientButton = ({
         letterSpacing: '0.02em',
         textTransform: 'none',
         transition: 'all 0.2s ease-in-out',
+        overflow: 'hidden',
+        borderRadius: '8px',
         '&:hover': {
           background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)',
           boxShadow: '0 6px 20px 0 rgb(185 28 28 / 0.4)',

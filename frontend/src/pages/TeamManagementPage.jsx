@@ -54,12 +54,12 @@ import { useCurrentUser } from '../context/UserContext';
 // Simple function to get team member limit based on plan
 const getTeamMemberLimit = (plan) => {
   const limits = {
-    FREE_TRIAL: 1,
-    BASIC: 1,
-    PROFESSIONAL: 5,
+    FREE_TRIAL: 5,
+    BASIC: 30,
+    PROFESSIONAL: 100,
     ENTERPRISE: Infinity,
   };
-  return limits[plan?.toUpperCase()] || 1;
+  return limits[plan?.toUpperCase()] || 5;
 };
 
 const ALLOWED_ROLES = ['PROPERTY_MANAGER', 'ADMIN'];
@@ -497,12 +497,15 @@ export default function TeamManagementPage() {
           <GradientButton
             startIcon={<PersonAddIcon />}
             onClick={() => setInviteDialogOpen(true)}
-            size="medium"
+            size="large"
             disabled={!canAddMore}
             sx={{
               display: { xs: 'flex', sm: 'inline-flex' },
               maxWidth: { xs: '100%', sm: 'auto' },
               whiteSpace: 'nowrap',
+              minWidth: { xs: '100%', sm: '140px' },
+              overflow: 'hidden',
+              borderRadius: '8px',
             }}
           >
             Invite User
@@ -527,20 +530,24 @@ export default function TeamManagementPage() {
         </Alert>
       )}
 
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 3, overflow: 'hidden' }}>
         <Tabs
           value={tabValue}
           onChange={(e, v) => setTabValue(v)}
-          variant={isMobile ? 'scrollable' : 'fullWidth'}
-          scrollButtons="auto"
-          allowScrollButtonsMobile
+          variant="fullWidth"
           sx={{
+            '& .MuiTabs-flexContainer': {
+              display: 'flex',
+              width: '100%',
+            },
             '& .MuiTab-root': {
               minHeight: { xs: 48, sm: 48 },
               fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.875rem' },
-              px: { xs: 0.75, sm: 1.5, md: 2 },
+              px: { xs: 0.5, sm: 1, md: 2 },
               textTransform: 'none',
-              minWidth: { xs: 'auto', sm: 'auto' },
+              flex: '1 1 0%',
+              minWidth: 0,
+              maxWidth: 'none',
             },
           }}
         >
