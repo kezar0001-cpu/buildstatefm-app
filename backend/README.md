@@ -8,6 +8,8 @@ This package contains the backend API for the **Buildstate FM** Facilities Manag
 * **PostgreSQL** database (local or hosted)
 * npm
 
+**Windows Users:** See [WINDOWS_SETUP.md](WINDOWS_SETUP.md) for Windows-specific instructions, especially regarding Prisma CLI execution.
+
 ## Setup
 
 1. **Clone this repository** (or copy these files into your project).

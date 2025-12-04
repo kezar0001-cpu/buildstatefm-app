@@ -52,6 +52,8 @@ Buildstate FM is a **full-stack facilities management platform** with role-based
 - PostgreSQL database
 - npm or yarn
 
+**Windows Users:** See [backend/WINDOWS_SETUP.md](backend/WINDOWS_SETUP.md) for Windows-specific setup instructions and common pitfalls.
+
 ### Backend Setup
 
 ```bash
