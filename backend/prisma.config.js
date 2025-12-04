@@ -1,30 +1,29 @@
-// Try to load .env file if it exists, but also use process.env (for environment variables)
+// Prisma 7 config - Load .env file
 import { config } from 'dotenv';
-import { existsSync } from 'fs';
-import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
+// Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Try loading .env from backend or root directory
-const backendEnv = join(__dirname, '.env');
-const rootEnv = join(__dirname, '..', '.env');
+// Load .env from backend directory
+const envPath = join(__dirname, '.env');
+const result = config({ path: envPath });
 
-if (existsSync(backendEnv)) {
-  config({ path: backendEnv });
-} else if (existsSync(rootEnv)) {
-  config({ path: rootEnv });
-} else {
-  // No .env file, rely on environment variables
-  config(); // This will try to load from default locations
+// Get DATABASE_URL and remove quotes if present
+let databaseUrl = process.env.DATABASE_URL;
+if (databaseUrl) {
+  // Remove surrounding quotes if present
+  databaseUrl = databaseUrl.replace(/^["']|["']$/g, '').trim();
 }
 
-// Use DATABASE_URL from environment (set via .env or system environment)
-const databaseUrl = process.env.DATABASE_URL;
-
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL environment variable is required. Please set it in your .env file or environment variables.');
+  throw new Error(
+    `DATABASE_URL not found.\n` +
+    `Looked for .env at: ${envPath}\n` +
+    `Please ensure DATABASE_URL is set in your .env file.`
+  );
 }
 
 export default {
