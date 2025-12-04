@@ -5,15 +5,19 @@ import { PrismaClient } from '@prisma/client';
 let prisma;
 
 try {
+  // Prisma 7: Use adapter for direct connection (config file handles migrations)
   prisma = new PrismaClient({
     log: ['error', 'warn'],
     errorFormat: 'pretty',
-    // Connection pool configuration for better performance on hosted environments
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
+    // Connection URL from environment (Prisma 7 still supports this in client)
+    // The prisma.config.js handles migrations, but client needs URL here
+    ...(process.env.DATABASE_URL && {
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
       },
-    },
+    }),
   });
 } catch (error) {
   console.error('❌ Failed to initialize Prisma Client:', error.message);
