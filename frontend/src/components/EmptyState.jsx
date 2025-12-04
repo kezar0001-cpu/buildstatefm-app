@@ -23,9 +23,10 @@ export default function EmptyState({
   actionLabel,
   onAction,
   helperText,
+  iconColor = 'primary.main', // Allow custom icon color, default to primary
   sx = {},
 }) {
-  const defaultIconSx = { fontSize: { xs: 48, md: 56 }, color: 'primary.main', opacity: 0.8 };
+  const defaultIconSx = { fontSize: { xs: 48, md: 56 }, color: iconColor, opacity: 1 };
 
   const renderIcon = () => {
     if (!icon) {
@@ -81,6 +82,8 @@ export default function EmptyState({
             alignItems: 'center',
             justifyContent: 'center',
             background: 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)',
+            border: '1px solid',
+            borderColor: 'rgba(59, 130, 246, 0.2)',
             boxShadow: '0 4px 14px 0 rgb(59 130 246 / 0.15)',
             transition: 'transform 0.3s ease',
             '&:hover': {

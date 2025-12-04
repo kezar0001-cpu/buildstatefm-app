@@ -2815,11 +2815,16 @@ const withDocumentActionUrls = (document, req) => {
 };
 
 // GET /properties/:id/documents - List all documents for a property
-propertyDocumentsRouter.get('/', async (req, res) => {
+propertyDocumentsRouter.get('/', requireAuth, async (req, res) => {
   const propertyId = req.params.id;
   const { unitId } = req.query; // Optional query parameter for filtering by unit
 
   try {
+    // Ensure user is authenticated
+    if (!req.user || !req.user.id) {
+      return sendError(res, 401, 'Authentication required', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
@@ -2878,7 +2883,14 @@ propertyDocumentsRouter.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Get property documents error:', error);
-    return sendError(res, 500, 'Failed to fetch property documents', ErrorCodes.ERR_INTERNAL_SERVER);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      propertyId,
+      userId: req.user?.id,
+      userRole: req.user?.role,
+      errorMessage: error.message,
+    });
+    return sendError(res, 500, `Failed to fetch property documents: ${error.message}`, ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

@@ -195,7 +195,7 @@ const unitIncludeConfig = {
       },
     },
   },
-  unitImages: {
+  UnitImage: {
     orderBy: { displayOrder: 'asc' },
   },
   tenants: tenantListArgs,
@@ -299,7 +299,7 @@ const toPublicOwner = (owner) => {
 const toPublicUnit = (unit) => {
   if (!unit) return unit;
 
-  const { property, tenants, owners, unitImages, ...rest } = unit;
+  const { property, tenants, owners, UnitImage, ...rest } = unit;
 
   return {
     ...rest,
@@ -310,7 +310,7 @@ const toPublicUnit = (unit) => {
     rentAmount: unit.rentAmount ?? null,
     description: unit.description ?? null,
     imageUrl: unit.imageUrl ?? null,
-    images: normalizeUnitImages({ ...unit, unitImages }),
+    images: normalizeUnitImages({ ...unit, unitImages: UnitImage }),
     property: property
       ? {
           id: property.id,
@@ -470,8 +470,8 @@ router.get(
     }
 
     const include = {
-      // Always include unitImages so Edit Unit form can display existing images
-      unitImages: {
+      // Always include UnitImage so Edit Unit form can display existing images
+      UnitImage: {
         orderBy: { displayOrder: 'asc' },
       },
     };

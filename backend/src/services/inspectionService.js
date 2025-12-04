@@ -120,8 +120,8 @@ export const baseInspectionInclude = {
       },
     },
   },
-  reminders: {
-    orderBy: { remindAt: 'asc' },
+  InspectionReminder: {
+    orderBy: { reminderDate: 'asc' },
   },
   report: true,
   jobs: {

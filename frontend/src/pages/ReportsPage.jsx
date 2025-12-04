@@ -40,8 +40,9 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
 import PageHeader from '../components/PageHeader';
-import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon, Description as DescriptionIcon } from '@mui/icons-material';
 import PageShell from '../components/PageShell';
+import EmptyState from '../components/EmptyState';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -436,9 +437,14 @@ export default function ReportsPage() {
             <CircularProgress />
           </Box>
         ) : filteredReports.length === 0 ? (
-          <Alert severity="info">
-            No reports match your filters. Try expanding the date range or clearing filters.
-          </Alert>
+          <EmptyState
+            icon={DescriptionIcon}
+            iconColor="#dc2626"
+            title="No reports yet"
+            description="Generate your first report to track inspections, jobs, payments, and service requests. Create audit-ready outputs for your property management needs."
+            actionLabel="Generate Report"
+            onAction={handleStartNewReport}
+          />
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Table sx={{ minWidth: { xs: 900, md: 'auto' } }}>

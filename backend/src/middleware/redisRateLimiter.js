@@ -124,12 +124,12 @@ export function createRedisRateLimiter(options = {}) {
  * Pre-configured rate limiters for common use cases
  */
 
-// Upload rate limiter: 30 uploads per minute
+// Upload rate limiter: 100 uploads per minute
 export const uploadRateLimiter = createRedisRateLimiter({
   keyPrefix: 'upload_rate_limit',
-  points: 30,
+  points: 100,
   duration: 60,
-  errorMessage: 'Too many uploads. Maximum 30 uploads per minute.',
+  errorMessage: 'Too many uploads. Maximum 100 uploads per minute.',
 });
 
 // Property upload rate limiter: 20 uploads per minute

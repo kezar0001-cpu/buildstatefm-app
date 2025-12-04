@@ -330,6 +330,7 @@ export default function RecommendationsPage() {
           {filteredRecommendations.length === 0 ? (
             <EmptyState
               icon={LightbulbIcon}
+              iconColor="#dc2626"
               title={hasFilters ? 'No recommendations match your filters' : 'No recommendations yet'}
               description={
                 hasFilters

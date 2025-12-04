@@ -877,6 +877,7 @@ const JobsPage = () => {
       {!filteredJobs || filteredJobs.length === 0 ? (
         <EmptyState
           icon={BuildIcon}
+          iconColor="#dc2626"
           title={hasActiveFilters ? 'No jobs match your filters' : 'No jobs yet'}
           description={
             hasActiveFilters
