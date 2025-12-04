@@ -919,13 +919,12 @@ export default function SubscriptionsPage() {
         if (res?.data?.url) {
           window.location.href = res.data.url;
         } else {
-          throw new Error('No checkout URL returned');
+          logger.error('No checkout URL returned from backend');
         }
       }
     } catch (err) {
       logger.error("Checkout/plan change failed:", err);
-      // Re-throw to show error in UI
-      throw err;
+      // Error will be shown via mutation error state
     }
   };
 
