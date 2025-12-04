@@ -21,6 +21,16 @@ import {
   MenuItem,
   InputAdornment,
   IconButton,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,6 +39,10 @@ import {
   Lightbulb as LightbulbIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
+  TableChart as TableChartIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -88,11 +102,23 @@ const getStatusColor = (status) => {
 export default function RecommendationsPage() {
   const { t } = useTranslation();
   const { user } = useCurrentUser();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [wizardOpen, setWizardOpen] = useState(false);
+  
+  // View mode state - persist in localStorage
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem('recommendations-view-mode');
+      return stored && ['grid', 'list', 'table'].includes(stored) ? stored : 'list';
+    } catch {
+      return 'list';
+    }
+  });
 
   // Debounce search input
   useEffect(() => {
@@ -213,6 +239,17 @@ export default function RecommendationsPage() {
     setWizardOpen(false);
   };
 
+  const handleViewModeChange = (event, newViewMode) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      try {
+        localStorage.setItem('recommendations-view-mode', newViewMode);
+      } catch (err) {
+        // Ignore localStorage errors
+      }
+    }
+  };
+
   const hasFilters = debouncedSearch || priorityFilter || statusFilter;
 
   return (
@@ -311,6 +348,62 @@ export default function RecommendationsPage() {
                 ))}
               </Select>
             </FormControl>
+
+            {/* View Toggle - Desktop only */}
+            {!isMobile && (
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={handleViewModeChange}
+                aria-label="View mode toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
+                  },
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  },
+                  '& .Mui-selected': {
+                    color: 'error.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="grid" aria-label="grid view">
+                  <Tooltip title="Grid View">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="list view">
+                  <Tooltip title="List View">
+                    <ViewListIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <Tooltip title="Table View">
+                    <TableChartIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
           </Stack>
         </Paper>
 
@@ -346,67 +439,96 @@ export default function RecommendationsPage() {
               onAction={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : handleCreate}
             />
           ) : (
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 2, md: 3 },
-                borderRadius: 3,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Property</TableCell>
-                      <TableCell>Priority</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Estimated Cost</TableCell>
-                          <TableCell>Description</TableCell>
-                          <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredRecommendations.map((recommendation) => {
-                      const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
-                      const propertyName = property?.name || 'N/A';
-                      return (
-                        <TableRow key={recommendation.id}>
-                          <TableCell>{recommendation.title}</TableCell>
-                          <TableCell>{propertyName}</TableCell>
-                          <TableCell>
-                            {recommendation.priority && (
-                              <Chip
-                                size="small"
-                                label={recommendation.priority}
-                                color={getPriorityColor(recommendation.priority)}
-                              />
+            <Stack spacing={3}>
+              {/* Grid View */}
+              {viewMode === 'grid' && (
+                <Grid container spacing={{ xs: 2, md: 3 }}>
+                  {filteredRecommendations.map((recommendation) => {
+                    const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                    const propertyName = property?.name || 'N/A';
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={recommendation.id}>
+                        <Card
+                          sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '4px',
+                              background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                              opacity: 0,
+                              transition: 'opacity 0.3s ease-in-out',
+                            },
+                            '&:hover::before': {
+                              opacity: 1,
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                                {recommendation.title}
+                              </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <HomeIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
+                                {propertyName}
+                              </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {recommendation.priority && (
+                                <Chip
+                                  size="small"
+                                  label={recommendation.priority}
+                                  color={getPriorityColor(recommendation.priority)}
+                                />
+                              )}
+                              {recommendation.status && (
+                                <Chip
+                                  size="small"
+                                  label={recommendation.status.replace(/_/g, ' ')}
+                                  color={getStatusColor(recommendation.status)}
+                                />
+                              )}
+                            </Box>
+
+                            {recommendation.estimatedCost && (
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Typography>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {recommendation.status && (
-                              <Chip
-                                size="small"
-                                label={recommendation.status.replace(/_/g, ' ')}
-                                color={getStatusColor(recommendation.status)}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {recommendation.estimatedCost
-                              ? `$${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                flexGrow: 1,
+                              }}
+                            >
                               {recommendation.description}
                             </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                              {/* Owner actions: Approve/Reject */}
+                          </CardContent>
+
+                          <CardActions sx={{ px: 2, pb: 2, pt: 0, flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+                            <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                               {user?.role === 'OWNER' &&
                                 (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
                                   <>
@@ -417,6 +539,7 @@ export default function RecommendationsPage() {
                                       startIcon={<CancelIcon />}
                                       onClick={() => handleReject(recommendation.id)}
                                       disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      fullWidth
                                     >
                                       Reject
                                     </Button>
@@ -427,31 +550,392 @@ export default function RecommendationsPage() {
                                       startIcon={<CheckCircleIcon />}
                                       onClick={() => handleApprove(recommendation.id)}
                                       disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      fullWidth
                                     >
                                       Approve
                                     </Button>
                                   </>
                                 )}
 
-                              {/* Property Manager actions: Convert to job */}
                               {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                 <GradientButton
                                   size="small"
                                   onClick={() => handleConvert(recommendation.id)}
                                   disabled={convertMutation.isPending}
+                                  fullWidth
                                 >
                                   Convert to job
                                 </GradientButton>
                               )}
                             </Stack>
-                          </TableCell>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+
+              {/* List View */}
+              {viewMode === 'list' && !isMobile && (
+                <Stack spacing={2}>
+                  {filteredRecommendations.map((recommendation) => {
+                    const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                    const propertyName = property?.name || 'N/A';
+                    return (
+                      <Card
+                        key={recommendation.id}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: { xs: 'column', md: 'row' },
+                          borderRadius: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            boxShadow: 3,
+                          },
+                        }}
+                      >
+                        <CardContent sx={{ flex: 1, p: 3 }}>
+                          <Stack spacing={2}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                                  {recommendation.title}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                                  <HomeIcon fontSize="small" color="action" />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {propertyName}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                {recommendation.priority && (
+                                  <Chip
+                                    size="small"
+                                    label={recommendation.priority}
+                                    color={getPriorityColor(recommendation.priority)}
+                                  />
+                                )}
+                                {recommendation.status && (
+                                  <Chip
+                                    size="small"
+                                    label={recommendation.status.replace(/_/g, ' ')}
+                                    color={getStatusColor(recommendation.status)}
+                                  />
+                                )}
+                              </Box>
+                            </Box>
+
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {recommendation.description}
+                            </Typography>
+
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              {recommendation.estimatedCost && (
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                  ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
+                              )}
+                              <Stack direction="row" spacing={1}>
+                                {user?.role === 'OWNER' &&
+                                  (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
+                                    <>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        startIcon={<CancelIcon />}
+                                        onClick={() => handleReject(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      >
+                                        Reject
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="contained"
+                                        color="success"
+                                        startIcon={<CheckCircleIcon />}
+                                        onClick={() => handleApprove(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      >
+                                        Approve
+                                      </Button>
+                                    </>
+                                  )}
+
+                                {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
+                                  <GradientButton
+                                    size="small"
+                                    onClick={() => handleConvert(recommendation.id)}
+                                    disabled={convertMutation.isPending}
+                                  >
+                                    Convert to job
+                                  </GradientButton>
+                                )}
+                              </Stack>
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Stack>
+              )}
+
+              {/* Mobile Card View */}
+              {isMobile && (
+                <Stack spacing={2}>
+                  {filteredRecommendations.map((recommendation) => {
+                    const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                    const propertyName = property?.name || 'N/A';
+                    return (
+                      <Card key={recommendation.id} sx={{ boxShadow: 2 }}>
+                        <CardContent sx={{ p: 2.5 }}>
+                          <Stack spacing={2}>
+                            {/* Header Row */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                  Title
+                                </Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                                  {recommendation.title}
+                                </Typography>
+                              </Box>
+                              {recommendation.status && (
+                                <Chip
+                                  label={recommendation.status.replace(/_/g, ' ')}
+                                  color={getStatusColor(recommendation.status)}
+                                  size="small"
+                                  sx={{ flexShrink: 0 }}
+                                />
+                              )}
+                            </Box>
+                            <Divider />
+
+                            {/* Property */}
+                            <Box>
+                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                Property
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                <HomeIcon fontSize="small" color="action" />
+                                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                                  {propertyName}
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            {/* Priority */}
+                            {recommendation.priority && (
+                              <Box>
+                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                  Priority
+                                </Typography>
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Chip
+                                    label={recommendation.priority}
+                                    color={getPriorityColor(recommendation.priority)}
+                                    size="small"
+                                  />
+                                </Box>
+                              </Box>
+                            )}
+
+                            {/* Estimated Cost */}
+                            {recommendation.estimatedCost && (
+                              <Box>
+                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                  Estimated Cost
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', mt: 0.5 }}>
+                                  ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {/* Description */}
+                            <Box>
+                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                Description
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                                {recommendation.description}
+                              </Typography>
+                            </Box>
+
+                            <Divider />
+
+                            {/* Actions */}
+                            <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
+                              {user?.role === 'OWNER' &&
+                                (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
+                                  <>
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="success"
+                                      startIcon={<CheckCircleIcon />}
+                                      onClick={() => handleApprove(recommendation.id)}
+                                      disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      fullWidth
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      startIcon={<CancelIcon />}
+                                      onClick={() => handleReject(recommendation.id)}
+                                      disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      fullWidth
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+
+                              {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
+                                <GradientButton
+                                  size="small"
+                                  onClick={() => handleConvert(recommendation.id)}
+                                  disabled={convertMutation.isPending}
+                                  fullWidth
+                                >
+                                  Convert to job
+                                </GradientButton>
+                              )}
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Stack>
+              )}
+
+              {/* Table View - Desktop only */}
+              {viewMode === 'table' && !isMobile && (
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2, md: 3 },
+                    borderRadius: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Property</TableCell>
+                          <TableCell>Priority</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Estimated Cost</TableCell>
+                          <TableCell>Description</TableCell>
+                          <TableCell align="right">Actions</TableCell>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
+                      </TableHead>
+                      <TableBody>
+                        {filteredRecommendations.map((recommendation) => {
+                          const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                          const propertyName = property?.name || 'N/A';
+                          return (
+                            <TableRow key={recommendation.id}>
+                              <TableCell>{recommendation.title}</TableCell>
+                              <TableCell>{propertyName}</TableCell>
+                              <TableCell>
+                                {recommendation.priority && (
+                                  <Chip
+                                    size="small"
+                                    label={recommendation.priority}
+                                    color={getPriorityColor(recommendation.priority)}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {recommendation.status && (
+                                  <Chip
+                                    size="small"
+                                    label={recommendation.status.replace(/_/g, ' ')}
+                                    color={getStatusColor(recommendation.status)}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {recommendation.estimatedCost
+                                  ? `$${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {recommendation.description}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                  {user?.role === 'OWNER' &&
+                                    (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
+                                      <>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          color="error"
+                                          startIcon={<CancelIcon />}
+                                          onClick={() => handleReject(recommendation.id)}
+                                          disabled={rejectMutation.isPending || approveMutation.isPending}
+                                        >
+                                          Reject
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          variant="contained"
+                                          color="success"
+                                          startIcon={<CheckCircleIcon />}
+                                          onClick={() => handleApprove(recommendation.id)}
+                                          disabled={rejectMutation.isPending || approveMutation.isPending}
+                                        >
+                                          Approve
+                                        </Button>
+                                      </>
+                                    )}
+
+                                  {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
+                                    <GradientButton
+                                      size="small"
+                                      onClick={() => handleConvert(recommendation.id)}
+                                      disabled={convertMutation.isPending}
+                                    >
+                                      Convert to job
+                                    </GradientButton>
+                                  )}
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              )}
+            </Stack>
           )}
         </DataState>
       </PageShell>
