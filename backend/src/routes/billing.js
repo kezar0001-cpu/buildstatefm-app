@@ -223,12 +223,18 @@ router.post('/checkout', async (req, res) => {
             const existingCoupon = coupons.data.find(
               c => c.id === promoCodeUpper || c.name?.toUpperCase() === promoCodeUpper
             );
-            
-            if (existingCoupon) {
+
+            // Check if existing coupon is valid (not expired, not fully redeemed)
+            const isCouponValid = existingCoupon && existingCoupon.valid;
+
+            if (isCouponValid) {
               sessionConfig.discounts = [{ coupon: existingCoupon.id }];
               metadata.promoCode = promoCodeUpper;
-              console.log(`Applied Stripe coupon: ${existingCoupon.id}`);
+              console.log(`Applied existing Stripe coupon: ${existingCoupon.id}`);
             } else {
+              if (existingCoupon && !existingCoupon.valid) {
+                console.log(`Found existing coupon ${existingCoupon.id} but it's expired/invalid, will try to create new one`);
+              }
               // Last resort: Check database and create if needed
               const promo = await prisma.promoCode.findUnique({
                 where: { code: promoCodeUpper },
@@ -289,11 +295,25 @@ router.post('/checkout', async (req, res) => {
                       metadata.promoCode = promoCodeUpper;
                       console.log(`Created and applied coupon from database: ${promoCodeUpper}`);
                     } catch (stripeError) {
-                      // Coupon might already exist, try to use it
+                      // Coupon might already exist
                       if (stripeError.code === 'resource_already_exists') {
-                        sessionConfig.discounts = [{ coupon: promoCodeUpper }];
-                        metadata.promoCode = promoCodeUpper;
-                        console.log(`Using existing coupon: ${promoCodeUpper}`);
+                        console.log(`Coupon ${promoCodeUpper} already exists in Stripe, checking if it's valid...`);
+
+                        // Retrieve the existing coupon to check if it's valid
+                        try {
+                          const existingCoupon = await stripe.coupons.retrieve(promoCodeUpper);
+                          if (existingCoupon.valid) {
+                            sessionConfig.discounts = [{ coupon: promoCodeUpper }];
+                            metadata.promoCode = promoCodeUpper;
+                            console.log(`Using existing valid coupon: ${promoCodeUpper}`);
+                          } else {
+                            console.log(`Existing coupon ${promoCodeUpper} is expired/invalid, cannot apply discount`);
+                            console.log('Proceeding without promo code discount');
+                          }
+                        } catch (retrieveError) {
+                          console.error('Error retrieving existing coupon:', retrieveError);
+                          console.log('Proceeding without promo code discount');
+                        }
                       } else {
                         console.error('Error creating Stripe coupon:', stripeError);
                         console.error('Coupon data that failed:', JSON.stringify(couponData, null, 2));
