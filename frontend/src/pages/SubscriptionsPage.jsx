@@ -1201,11 +1201,10 @@ export default function SubscriptionsPage() {
           {hasActiveSubscription && (
             <>
               {/* First Row: Subscription Details and Billing Management */}
-              <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%', mx: 'auto' }}>
+              <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%', mx: 'auto', maxWidth: '100%' }}>
                 {/* Subscription Info */}
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ width: '100%', maxWidth: { xs: '100%', md: 'none' }, mx: { xs: 'auto', md: 0 } }}>
-                    <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+                <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', flex: 1 }}>
                       <Stack spacing={3}>
                         <Box>
                           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1244,13 +1243,11 @@ export default function SubscriptionsPage() {
                         </Stack>
                       </Stack>
                     </Paper>
-                  </Box>
                 </Grid>
 
                 {/* Billing Actions */}
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ width: '100%', maxWidth: { xs: '100%', md: 'none' }, mx: { xs: 'auto', md: 0 } }}>
-                    <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%' }}>
+                <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', flex: 1 }}>
                       <Stack spacing={3}>
                         <Box>
                           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
@@ -1331,7 +1328,6 @@ export default function SubscriptionsPage() {
                         </Stack>
                       </Stack>
                     </Paper>
-                  </Box>
                 </Grid>
               </Grid>
 
