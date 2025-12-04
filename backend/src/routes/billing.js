@@ -194,7 +194,8 @@ router.post('/checkout', async (req, res) => {
           addOns: JSON.stringify(addOns),
         },
       },
-      allow_promotion_codes: true,
+      // Note: allow_promotion_codes will be set to true only if no promo code is provided
+      // If a promo code is provided, we'll apply it via discounts instead
     };
 
     // If promo code is provided, try to apply it
@@ -315,6 +316,12 @@ router.post('/checkout', async (req, res) => {
         console.error('Error processing promo code:', error);
         // Continue without promo code if there's an error
       }
+    }
+
+    // If no discount was applied via promo code, allow users to enter promotion codes in Stripe UI
+    // Note: Stripe doesn't allow both 'discounts' and 'allow_promotion_codes' at the same time
+    if (!sessionConfig.discounts) {
+      sessionConfig.allow_promotion_codes = true;
     }
 
     let session;
