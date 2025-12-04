@@ -981,14 +981,14 @@ export default function SubscriptionsPage() {
                 direction={{ xs: 'column', sm: 'row' }}
                 justifyContent="space-between"
                 alignItems={{ xs: 'stretch', sm: 'center' }}
-                spacing={{ xs: 2, sm: 0 }}
+                spacing={{ xs: 2, sm: 3, md: 4 }}
                 sx={{ width: '100%' }}
               >
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.1rem' } }}>
+                <Box sx={{ flex: { xs: 1, sm: '1 1 auto' }, minWidth: 0, pr: { sm: 2 } }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.1rem', md: '1.15rem' } }}>
                     {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} left in your trial
                   </Typography>
-                  <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                  <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem', md: '0.95rem' }, mt: 0.5 }}>
                     {trialDaysRemaining <= 3
                       ? 'Your trial is ending soon. Subscribe now to continue using BuildState FM without interruption.'
                       : 'Subscribe before your trial ends to ensure uninterrupted access to all features.'}
@@ -997,14 +997,17 @@ export default function SubscriptionsPage() {
                 {!hasActiveSubscription && (
                   <Button
                     variant="contained"
-                    size="large"
+                    size="medium"
                     onClick={() => startCheckout('BASIC')}
                     disabled={checkoutMutation.isPending}
                     fullWidth={{ xs: true, sm: false }}
                     sx={{
-                      ml: { xs: 0, sm: 2 },
-                      minWidth: { sm: '180px' },
-                      py: { xs: 1.5, sm: 1.25 }
+                      ml: { xs: 0, sm: 0 },
+                      minWidth: { xs: '100%', sm: '140px', md: '160px' },
+                      maxWidth: { xs: '100%', sm: '180px' },
+                      py: { xs: 1.5, sm: 1 },
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {checkoutMutation.isPending ? 'Processing...' : 'Subscribe Now'}
