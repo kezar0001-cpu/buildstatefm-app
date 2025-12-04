@@ -336,10 +336,10 @@ export default function RecommendationsPage() {
                 hasFilters
                   ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
                   : user?.role === 'PROPERTY_MANAGER'
-                    ? 'Get started by creating your first job recommendation. Share maintenance suggestions with property owners for their review and approval.'
+                    ? 'Start managing job recommendations for your properties. Share maintenance suggestions with property owners for their review and approval.'
                     : 'No recommendations have been created yet. Property managers can create recommendations for you to review.'
               }
-              actionLabel={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : 'Create First Recommendation'}
+              actionLabel={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : 'Create Recommendation'}
               onAction={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : handleCreate}
             />
           ) : (

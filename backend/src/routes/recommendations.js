@@ -65,8 +65,7 @@ router.post('/', requireAuth, async (req, res) => {
       return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
     }
 
-    // Find the most recent inspection report for this property
-    // If no report exists, we'll need to create a placeholder or return an error
+    // Find the most recent inspection report for this property (optional)
     const mostRecentReport = await prisma.report.findFirst({
       where: {
         inspection: {
@@ -78,16 +77,12 @@ router.post('/', requireAuth, async (req, res) => {
       },
     });
 
-    if (!mostRecentReport) {
-      return sendError(res, 400, 'No inspection report found for this property. Please complete an inspection first.', ErrorCodes.VAL_VALIDATION_ERROR);
-    }
-
-    // Create the recommendation
+    // Create the recommendation (reportId is now optional)
     const recommendation = await prisma.recommendation.create({
       data: {
         title: title.trim(),
         description: description.trim(),
-        reportId: mostRecentReport.id,
+        reportId: mostRecentReport?.id || null,
         priority: priority || 'MEDIUM',
         estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
         status: 'SUBMITTED',
