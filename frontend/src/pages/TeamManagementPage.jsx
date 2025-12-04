@@ -36,17 +36,31 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Email as EmailIcon,
+  Business as BusinessIcon,
+  Build as BuildIcon,
+  Home as HomeIcon,
+  MailOutline as MailOutlineIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
-import Breadcrumbs from '../components/Breadcrumbs';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import GradientButton from '../components/GradientButton';
 import { formatDate } from '../utils/date';
 import { useCurrentUser } from '../context/UserContext';
+
+// Simple function to get team member limit based on plan
+const getTeamMemberLimit = (plan) => {
+  const limits = {
+    FREE_TRIAL: 1,
+    BASIC: 1,
+    PROFESSIONAL: 5,
+    ENTERPRISE: Infinity,
+  };
+  return limits[plan?.toUpperCase()] || 1;
+};
 
 const ALLOWED_ROLES = ['PROPERTY_MANAGER', 'ADMIN'];
 
@@ -434,13 +448,17 @@ export default function TeamManagementPage() {
     return null;
   }
 
+  // Calculate team member limit info
+  // Note: users array only contains OWNER, TECHNICIAN, TENANT (not PROPERTY_MANAGER)
+  // So we count all users as team members
+  const subscriptionPlan = currentUser?.subscriptionPlan || 'FREE_TRIAL';
+  const teamMemberLimit = getTeamMemberLimit(subscriptionPlan);
+  const totalTeamMembers = users?.length || 0;
+  const canAddMore = teamMemberLimit === Infinity || totalTeamMembers < teamMemberLimit;
+  const remainingSlots = teamMemberLimit === Infinity ? 'Unlimited' : Math.max(0, teamMemberLimit - totalTeamMembers);
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
-      <Breadcrumbs
-        labelOverrides={{
-          '/team': 'Team Management',
-        }}
-      />
       <Box sx={{
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' },
@@ -480,9 +498,11 @@ export default function TeamManagementPage() {
             startIcon={<PersonAddIcon />}
             onClick={() => setInviteDialogOpen(true)}
             size="medium"
+            disabled={!canAddMore}
             sx={{
               display: { xs: 'flex', sm: 'inline-flex' },
               maxWidth: { xs: '100%', sm: 'auto' },
+              whiteSpace: 'nowrap',
             }}
           >
             Invite User
@@ -490,100 +510,210 @@ export default function TeamManagementPage() {
         </Box>
       </Box>
 
+      {/* Subscription Limit Info */}
+      {!canAddMore && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>Team member limit reached:</strong> Your {subscriptionPlan} plan allows {teamMemberLimit} team member{teamMemberLimit !== 1 ? 's' : ''}. 
+            Upgrade to add more team members.
+          </Typography>
+        </Alert>
+      )}
+      {canAddMore && teamMemberLimit !== Infinity && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>Team member limit:</strong> {totalTeamMembers} of {teamMemberLimit} used ({remainingSlots} remaining)
+          </Typography>
+        </Alert>
+      )}
+
       <Paper sx={{ mb: 3 }}>
         <Tabs
           value={tabValue}
           onChange={(e, v) => setTabValue(v)}
-          variant="scrollable"
+          variant={isMobile ? 'scrollable' : 'fullWidth'}
           scrollButtons="auto"
           allowScrollButtonsMobile
           sx={{
             '& .MuiTab-root': {
               minHeight: { xs: 48, sm: 48 },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              px: { xs: 1.5, sm: 2 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.875rem' },
+              px: { xs: 0.75, sm: 1.5, md: 2 },
               textTransform: 'none',
+              minWidth: { xs: 'auto', sm: 'auto' },
             },
           }}
         >
           <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
-                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
-                  {isMobile ? 'Owners' : 'Owners'}
-                </Typography>
-                <Chip 
-                  label={owners.length} 
-                  size="small" 
-                  color="primary"
-                  sx={{ 
-                    height: '20px',
-                    minWidth: '20px',
-                    fontSize: '0.65rem',
-                    '& .MuiChip-label': { px: 0.75, py: 0 },
-                  }}
-                />
+            icon={
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <BusinessIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                {isMobile && (
+                  <Chip 
+                    label={owners.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      height: '16px',
+                      minWidth: '16px',
+                      fontSize: '0.55rem',
+                      '& .MuiChip-label': { px: 0.25, py: 0 },
+                    }}
+                  />
+                )}
               </Box>
+            }
+            label={
+              !isMobile ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
+                  <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                    Owners
+                  </Typography>
+                  <Chip 
+                    label={owners.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      height: '18px',
+                      minWidth: '18px',
+                      fontSize: '0.6rem',
+                      '& .MuiChip-label': { px: 0.5, py: 0 },
+                    }}
+                  />
+                </Box>
+              ) : undefined
             }
           />
           <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
-                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
-                  {isMobile ? 'Techs' : 'Technicians'}
-                </Typography>
-                <Chip 
-                  label={technicians.length} 
-                  size="small" 
-                  color="primary"
-                  sx={{ 
-                    height: '20px',
-                    minWidth: '20px',
-                    fontSize: '0.65rem',
-                    '& .MuiChip-label': { px: 0.75, py: 0 },
-                  }}
-                />
+            icon={
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <BuildIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                {isMobile && (
+                  <Chip 
+                    label={technicians.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      height: '16px',
+                      minWidth: '16px',
+                      fontSize: '0.55rem',
+                      '& .MuiChip-label': { px: 0.25, py: 0 },
+                    }}
+                  />
+                )}
               </Box>
+            }
+            label={
+              !isMobile ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
+                  <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                    Technicians
+                  </Typography>
+                  <Chip 
+                    label={technicians.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      height: '18px',
+                      minWidth: '18px',
+                      fontSize: '0.6rem',
+                      '& .MuiChip-label': { px: 0.5, py: 0 },
+                    }}
+                  />
+                </Box>
+              ) : undefined
             }
           />
           <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
-                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
-                  Tenants
-                </Typography>
-                <Chip 
-                  label={tenants.length} 
-                  size="small" 
-                  color="primary"
-                  sx={{ 
-                    height: '20px',
-                    minWidth: '20px',
-                    fontSize: '0.65rem',
-                    '& .MuiChip-label': { px: 0.75, py: 0 },
-                  }}
-                />
+            icon={
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <HomeIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                {isMobile && (
+                  <Chip 
+                    label={tenants.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      height: '16px',
+                      minWidth: '16px',
+                      fontSize: '0.55rem',
+                      '& .MuiChip-label': { px: 0.25, py: 0 },
+                    }}
+                  />
+                )}
               </Box>
+            }
+            label={
+              !isMobile ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
+                  <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                    Tenants
+                  </Typography>
+                  <Chip 
+                    label={tenants.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      height: '18px',
+                      minWidth: '18px',
+                      fontSize: '0.6rem',
+                      '& .MuiChip-label': { px: 0.5, py: 0 },
+                    }}
+                  />
+                </Box>
+              ) : undefined
             }
           />
           <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
-                <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
-                  Invites
-                </Typography>
-                <Chip 
-                  label={invites.length} 
-                  size="small" 
-                  color="primary"
-                  sx={{ 
-                    height: '20px',
-                    minWidth: '20px',
-                    fontSize: '0.65rem',
-                    '& .MuiChip-label': { px: 0.75, py: 0 },
-                  }}
-                />
+            icon={
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <MailOutlineIcon sx={{ fontSize: { xs: '1.2rem', sm: '1rem' } }} />
+                {isMobile && (
+                  <Chip 
+                    label={invites.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      height: '16px',
+                      minWidth: '16px',
+                      fontSize: '0.55rem',
+                      '& .MuiChip-label': { px: 0.25, py: 0 },
+                    }}
+                  />
+                )}
               </Box>
+            }
+            label={
+              !isMobile ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap' }}>
+                  <Typography component="span" sx={{ fontSize: 'inherit', whiteSpace: 'nowrap' }}>
+                    Invites
+                  </Typography>
+                  <Chip 
+                    label={invites.length} 
+                    size="small" 
+                    color="primary"
+                    sx={{ 
+                      height: '18px',
+                      minWidth: '18px',
+                      fontSize: '0.6rem',
+                      '& .MuiChip-label': { px: 0.5, py: 0 },
+                    }}
+                  />
+                </Box>
+              ) : undefined
             }
           />
         </Tabs>
