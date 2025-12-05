@@ -1,5 +1,5 @@
 import prisma from '../config/prismaClient.js';
-import { notifyInspectionCompleted, notifyInspectionReminder, notifyInspectionApproved, notifyInspectionRejected } from '../utils/notificationService.js';
+import { notifyInspectionCompleted, notifyInspectionReminder, notifyInspectionApproved, notifyInspectionRejected, sendNotification } from '../utils/notificationService.js';
 import { generateAndUploadInspectionPDF } from './pdfService.js';
 import { uploadToS3, getS3Url, isUsingS3 } from './s3Service.js';
 import path from 'path';
@@ -157,6 +157,11 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       },
       assignedTo: true,
       completedBy: true,
+      rooms: {
+        include: {
+          checklistItems: true,
+        },
+      },
     },
   });
 
@@ -166,6 +171,23 @@ export async function completeInspection(inspectionId, userId, userRole, payload
 
   const findingsText = payload.findings ?? before.findings ?? '';
   const highPriorityFindings = parseHighPriorityFindings(findingsText);
+
+  // Collect failed checklist items for creating recommendations
+  const failedChecklistItems = [];
+  if (before.rooms && before.rooms.length > 0) {
+    for (const room of before.rooms) {
+      if (room.checklistItems && room.checklistItems.length > 0) {
+        const failedItems = room.checklistItems.filter(item => item.status === 'FAILED');
+        failedItems.forEach(item => {
+          failedChecklistItems.push({
+            roomName: room.name,
+            description: item.description,
+            item: item,
+          });
+        });
+      }
+    }
+  }
 
   if (payload.previewOnly) {
     const previewJobs = highPriorityFindings.map((finding, index) => ({
@@ -177,10 +199,19 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       inspectionId: before.id,
     }));
 
+    const previewRecommendations = failedChecklistItems.map((failedItem, index) => ({
+      title: `${before.title} - ${failedItem.roomName}: ${failedItem.description.substring(0, 50)}`,
+      description: `Failed inspection item in ${failedItem.roomName}: ${failedItem.description}`,
+      propertyId: before.propertyId,
+      priority: 'MEDIUM',
+    }));
+
     return {
       preview: true,
       followUpJobs: previewJobs,
       totalJobsToCreate: previewJobs.length,
+      recommendationsToCreate: previewRecommendations,
+      totalRecommendations: previewRecommendations.length,
     };
   }
 
@@ -229,7 +260,7 @@ export async function completeInspection(inspectionId, userId, userRole, payload
           },
         });
         createdJobs.push(job);
-        
+
         await tx.inspectionAuditLog.create({
           data: {
             inspectionId,
@@ -241,7 +272,41 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       }
     }
 
-    return { inspection, createdJobs };
+    // Create recommendations for failed checklist items
+    const createdRecommendations = [];
+    if (failedChecklistItems.length > 0) {
+      // Find the report for this inspection to link recommendations
+      const report = await tx.report.findFirst({
+        where: { inspectionId: inspection.id },
+        select: { id: true },
+      });
+
+      for (const failedItem of failedChecklistItems) {
+        const recommendation = await tx.recommendation.create({
+          data: {
+            title: `${inspection.title} - ${failedItem.roomName}: ${failedItem.description.substring(0, 100)}`,
+            description: `Failed inspection item in ${failedItem.roomName}: ${failedItem.description}`,
+            propertyId: inspection.propertyId,
+            reportId: report?.id || null,
+            priority: 'MEDIUM',
+            status: 'SUBMITTED',
+            createdById: userId,
+          },
+        });
+        createdRecommendations.push(recommendation);
+
+        await tx.inspectionAuditLog.create({
+          data: {
+            inspectionId,
+            userId,
+            action: 'RECOMMENDATION_CREATED',
+            changes: { recommendationId: recommendation.id, checklistItemId: failedItem.item.id },
+          }
+        });
+      }
+    }
+
+    return { inspection, createdJobs, createdRecommendations };
   });
 
   // Notifications (outside transaction to avoid holding lock)
@@ -263,6 +328,58 @@ export async function completeInspection(inspectionId, userId, userRole, payload
         result.createdJobs
       );
     }
+
+    // Notify property owners about created recommendations
+    if (result.createdRecommendations && result.createdRecommendations.length > 0) {
+      const property = await prisma.property.findUnique({
+        where: { id: before.propertyId },
+        include: {
+          owners: {
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const activeOwners = property?.owners?.filter(po => !po.endDate || new Date(po.endDate) > new Date()) || [];
+
+      for (const recommendation of result.createdRecommendations) {
+        const ownerNotifications = activeOwners.map((propertyOwner) => {
+          const owner = propertyOwner.owner;
+          return sendNotification(
+            owner.id,
+            'SERVICE_REQUEST_UPDATE',
+            'New Inspection Recommendation',
+            `A new recommendation has been created from inspection: "${before.title}"`,
+            {
+              entityType: 'recommendation',
+              entityId: recommendation.id,
+              sendEmail: true,
+              emailData: {
+                ownerName: `${owner.firstName} ${owner.lastName}`,
+                managerName: completedByUser ? `${completedByUser.firstName} ${completedByUser.lastName}` : 'System',
+                recommendationTitle: recommendation.title,
+                propertyName: property.name,
+                description: recommendation.description,
+                priority: recommendation.priority,
+                recommendationUrl: `${frontendUrl}/recommendations`,
+              },
+            }
+          );
+        });
+
+        await Promise.allSettled(ownerNotifications);
+      }
+    }
   } catch (notificationError) {
     console.error('Failed to send notification', notificationError);
   }
@@ -271,6 +388,8 @@ export async function completeInspection(inspectionId, userId, userRole, payload
     ...result.inspection,
     followUpJobsCreated: result.createdJobs.length,
     followUpJobs: result.createdJobs,
+    recommendationsCreated: result.createdRecommendations?.length || 0,
+    recommendations: result.createdRecommendations || [],
   };
 }
 

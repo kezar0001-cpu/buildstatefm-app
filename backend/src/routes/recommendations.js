@@ -531,6 +531,127 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
   }
 });
 
+// POST /recommendations/:id/respond - Property manager responds to rejection
+router.post('/:id/respond', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { managerResponse } = req.body;
+
+    // Manager response is required
+    if (!managerResponse || !managerResponse.trim()) {
+      return sendError(res, 400, 'Manager response is required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
+            owners: {
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Only property managers can respond
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can respond to rejections', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only respond to recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Can only respond to rejected recommendations
+    if (recommendation.status !== 'REJECTED') {
+      return sendError(res, 400, 'Can only respond to rejected recommendations', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    // Check subscription
+    const manager = recommendation.property.manager;
+    const isManagerSubscriptionActive =
+      manager.subscriptionStatus === 'ACTIVE' ||
+      (manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date());
+
+    if (!isManagerSubscriptionActive) {
+      return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
+    }
+
+    const updated = await prisma.recommendation.update({
+      where: { id },
+      data: {
+        managerResponse: managerResponse.trim(),
+        managerResponseAt: new Date(),
+      },
+    });
+
+    // Notify property owners about the response
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const property = recommendation.property;
+    const activeOwners = property.owners?.filter(po => !po.endDate || new Date(po.endDate) > new Date()) || [];
+
+    const ownerNotifications = activeOwners.map((propertyOwner) => {
+      const owner = propertyOwner.owner;
+      return sendNotification(
+        owner.id,
+        'SERVICE_REQUEST_UPDATE',
+        'Manager Response to Rejection',
+        `${req.user.firstName} ${req.user.lastName} has responded to your rejection of: "${recommendation.title}"`,
+        {
+          entityType: 'recommendation',
+          entityId: updated.id,
+          sendEmail: true,
+          emailData: {
+            ownerName: `${owner.firstName} ${owner.lastName}`,
+            managerName: `${req.user.firstName} ${req.user.lastName}`,
+            recommendationTitle: recommendation.title,
+            propertyName: property.name,
+            rejectionReason: recommendation.rejectionReason || 'No reason provided',
+            managerResponse: managerResponse,
+            recommendationUrl: `${frontendUrl}/recommendations`,
+          },
+        }
+      );
+    });
+
+    // Send all notifications (don't fail if one fails)
+    try {
+      await Promise.allSettled(ownerNotifications);
+    } catch (notifError) {
+      console.error('Failed to send some owner notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error adding manager response:', error);
+    return sendError(res, 500, 'Failed to add manager response', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 // POST /recommendations/:id/convert - Convert approved recommendation to job
 router.post('/:id/convert', requireAuth, async (req, res) => {
   try {
