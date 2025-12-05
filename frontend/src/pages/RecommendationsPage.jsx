@@ -138,6 +138,7 @@ export default function RecommendationsPage() {
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
   const [modalEditMode, setModalEditMode] = useState(false);
   const [modalDeleteDialog, setModalDeleteDialog] = useState(false);
+  const [selectedRecommendationIds, setSelectedRecommendationIds] = useState([]);
 
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
@@ -686,6 +687,53 @@ export default function RecommendationsPage() {
           />
         ) : (
             <Stack spacing={3}>
+              {/* Bulk Actions Bar */}
+              {selectedRecommendationIds.length > 0 && (
+                <Paper
+                  elevation={2}
+                  sx={{
+                    mb: 3,
+                    px: { xs: 2, md: 3 },
+                    py: { xs: 2, md: 2.5 },
+                    borderRadius: { xs: 2, md: 2 },
+                  }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    spacing={{ xs: 2, md: 3 }}
+                    alignItems={{ xs: 'stretch', md: 'center' }}
+                    justifyContent="space-between"
+                  >
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Checkbox
+                        color="primary"
+                        checked={filteredRecommendations.length > 0 && selectedRecommendationIds.length === filteredRecommendations.length}
+                        indeterminate={selectedRecommendationIds.length > 0 && selectedRecommendationIds.length < filteredRecommendations.length}
+                        onChange={handleToggleSelectAllVisible}
+                        inputProps={{ 'aria-label': 'Select all visible recommendations' }}
+                      />
+                      <Box>
+                        <Typography variant="subtitle1">{selectedRecommendationIds.length} selected</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Delete selected recommendations
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={handleBulkDelete}
+                        startIcon={<DeleteIcon />}
+                      >
+                        Delete Selected
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              )}
+
               {/* Grid View */}
               {viewMode === 'grid' && !isMobile && (
                 <Grid container spacing={{ xs: 2, md: 3 }}>
@@ -705,6 +753,7 @@ export default function RecommendationsPage() {
                             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
                             overflow: 'hidden',
                             position: 'relative',
+                            cursor: 'pointer',
                             '&::before': {
                               content: '""',
                               position: 'absolute',
@@ -720,22 +769,23 @@ export default function RecommendationsPage() {
                               opacity: 1,
                             },
                           }}
+                          onClick={() => handleViewDetails(recommendation)}
                         >
-                          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          <CardContent 
+                            sx={{ 
+                              flexGrow: 1, 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              gap: 1.5,
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleViewDetails(recommendation)}
+                          >
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
                                 {recommendation.title}
                               </Typography>
-                              <Stack direction="row" spacing={0.5}>
-                                <Tooltip title="View Details">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleViewDetails(recommendation)}
-                                    sx={{ color: 'primary.main' }}
-                                  >
-                                    <VisibilityIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                              <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                                 {user?.role === 'PROPERTY_MANAGER' && (
                                   <>
                                     <Tooltip title="Edit">
@@ -963,16 +1013,7 @@ export default function RecommendationsPage() {
                                   <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
                                     {recommendation.title}
                                   </Typography>
-                                  <Stack direction="row" spacing={0.5}>
-                                    <Tooltip title="View Details">
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleViewDetails(recommendation)}
-                                        sx={{ color: 'primary.main' }}
-                                      >
-                                        <VisibilityIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
+                                  <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                                     {user?.role === 'PROPERTY_MANAGER' && (
                                       <>
                                         <Tooltip title="Edit">
@@ -1129,16 +1170,40 @@ export default function RecommendationsPage() {
                   {filteredRecommendations.map((recommendation) => {
                     const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
                     const propertyName = property?.name || 'N/A';
+                    const isSelected = selectedRecommendationIds.includes(recommendation.id);
                     return (
-                      <Card key={recommendation.id} sx={{ boxShadow: 2, borderRadius: 2 }}>
+                      <Card 
+                        key={recommendation.id} 
+                        sx={{ 
+                          boxShadow: 2, 
+                          borderRadius: 2,
+                          border: '1px solid',
+                          borderColor: isSelected ? 'primary.main' : 'divider',
+                          outline: isSelected ? '2px solid' : 'none',
+                          outlineColor: 'primary.main',
+                        }}
+                        onClick={() => handleViewDetails(recommendation)}
+                      >
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack spacing={2}>
                             {/* Header Row */}
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                  Title
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleRecommendationSelection(recommendation.id);
+                                    }}
+                                    color="primary"
+                                    sx={{ p: 0.5 }}
+                                    inputProps={{ 'aria-label': `Select recommendation ${recommendation.title}` }}
+                                  />
+                                  <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                    Title
+                                  </Typography>
+                                </Box>
                                 <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
                                   {recommendation.title}
                                 </Typography>
@@ -1151,16 +1216,7 @@ export default function RecommendationsPage() {
                                   />
                                 )}
                               </Box>
-                              <Stack direction="row" spacing={0.5}>
-                                <Tooltip title="View Details">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleViewDetails(recommendation)}
-                                    sx={{ color: 'primary.main' }}
-                                  >
-                                    <VisibilityIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                              <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                                 {user?.role === 'PROPERTY_MANAGER' && (
                                   <>
                                     <Tooltip title="Edit">
@@ -1343,6 +1399,15 @@ export default function RecommendationsPage() {
                     <Table>
                       <TableHead>
                         <TableRow>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              color="primary"
+                              checked={filteredRecommendations.length > 0 && selectedRecommendationIds.length === filteredRecommendations.length}
+                              indeterminate={selectedRecommendationIds.length > 0 && selectedRecommendationIds.length < filteredRecommendations.length}
+                              onChange={handleToggleSelectAllVisible}
+                              inputProps={{ 'aria-label': 'Select all visible recommendations' }}
+                            />
+                          </TableCell>
                           <TableCell>Title</TableCell>
                           <TableCell>Property</TableCell>
                           <TableCell>Priority</TableCell>
@@ -1356,8 +1421,25 @@ export default function RecommendationsPage() {
                         {filteredRecommendations.map((recommendation) => {
                           const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
                           const propertyName = property?.name || 'N/A';
+                          const isSelected = selectedRecommendationIds.includes(recommendation.id);
                           return (
-                            <TableRow key={recommendation.id}>
+                            <TableRow 
+                              key={recommendation.id}
+                              hover
+                              sx={{ cursor: 'pointer' }}
+                              onClick={() => handleViewDetails(recommendation)}
+                            >
+                              <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleRecommendationSelection(recommendation.id);
+                                  }}
+                                  color="primary"
+                                  inputProps={{ 'aria-label': `Select recommendation ${recommendation.title}` }}
+                                />
+                              </TableCell>
                               <TableCell>{recommendation.title}</TableCell>
                               <TableCell>{propertyName}</TableCell>
                               <TableCell>
@@ -1406,15 +1488,6 @@ export default function RecommendationsPage() {
                               </TableCell>
                               <TableCell align="right">
                                 <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                  <Tooltip title="View Details">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleViewDetails(recommendation)}
-                                      sx={{ color: 'primary.main' }}
-                                    >
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
                                   {user?.role === 'PROPERTY_MANAGER' && (
                                     <>
                                       <Tooltip title="Edit">
@@ -1767,19 +1840,7 @@ const RecommendationKanban = ({
                         <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
                           {recommendation.title}
                         </Typography>
-                        <Stack direction="row" spacing={0.5}>
-                          <Tooltip title="View Details">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onView(recommendation);
-                              }}
-                              sx={{ color: 'primary.main' }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                           {user?.role === 'PROPERTY_MANAGER' && (
                             <>
                               <Tooltip title="Edit">

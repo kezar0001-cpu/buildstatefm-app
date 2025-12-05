@@ -421,7 +421,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
                   variant="outlined"
                   startIcon={<PhotoLibraryIcon />}
                   onClick={handleLibraryClick}
-                  disabled={isUploadingPhotos || isLoading}
+                  disabled={uploadingPhotos || isLoading}
                   size="small"
                 >
                   {isMobile ? 'Choose from Library' : 'Choose Photos'}

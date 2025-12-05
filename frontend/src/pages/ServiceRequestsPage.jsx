@@ -21,6 +21,8 @@ import {
   useMediaQuery,
   useTheme,
   IconButton,
+  Checkbox,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -30,8 +32,11 @@ import {
   Build as BuildIcon,
   Search as SearchIcon,
   Close as CloseIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
@@ -55,7 +60,7 @@ const ServiceRequestsPage = () => {
   const [filters, setFilters] = useState({
     status: '',
     category: '',
-    propertyId: '',
+    priority: '',
   });
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -63,6 +68,7 @@ const ServiceRequestsPage = () => {
   const [reviewDialog, setReviewDialog] = useState(null);
   const [convertDialog, setConvertDialog] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedRequestIds, setSelectedRequestIds] = useState([]);
 
   // Get user role from auth context
   const userRole = user?.role || 'TENANT';
@@ -79,7 +85,7 @@ const ServiceRequestsPage = () => {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.category) queryParams.append('category', filters.category);
-  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
+  if (filters.priority) queryParams.append('priority', filters.priority);
   if (debouncedSearch) queryParams.append('search', debouncedSearch);
 
   // Fetch service requests with infinite query
@@ -130,10 +136,49 @@ const ServiceRequestsPage = () => {
     setFilters({
       status: '',
       category: '',
-      propertyId: '',
+      priority: '',
     });
     setSearchInput('');
     setDebouncedSearch('');
+  };
+
+  const handleViewDetails = (request) => {
+    setSelectedRequest(request.id);
+  };
+
+  const handleEdit = (request) => {
+    // TODO: Implement edit functionality
+    console.log('Edit request:', request);
+  };
+
+  const handleDelete = (request) => {
+    // TODO: Implement delete functionality
+    console.log('Delete request:', request);
+  };
+
+  const handleToggleRequestSelection = (requestId) => {
+    setSelectedRequestIds((prev) => {
+      if (prev.includes(requestId)) {
+        return prev.filter((id) => id !== requestId);
+      }
+      return [...prev, requestId];
+    });
+  };
+
+  const handleToggleSelectAllVisible = (event) => {
+    const { checked } = event.target;
+    if (checked) {
+      setSelectedRequestIds(requestList.map((request) => request.id));
+    } else {
+      setSelectedRequestIds([]);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    // TODO: Implement bulk delete
+    console.log('Bulk delete requests:', selectedRequestIds);
+    toast.success(`${selectedRequestIds.length} requests selected for deletion`);
+    setSelectedRequestIds([]);
   };
 
   const handleFilterChange = (field, value) => {
@@ -263,12 +308,11 @@ const ServiceRequestsPage = () => {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
-        <Box
-          component={Card}
+        <Paper
           sx={{
             mb: 3,
             p: { xs: 2, md: 3.5 },
-            borderRadius: 3,
+            borderRadius: { xs: 2, md: 2 },
             border: '1px solid',
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
@@ -357,28 +401,26 @@ const ServiceRequestsPage = () => {
             </TextField>
 
             {/* Property Filter - Only for non-tenants */}
-            {userRole !== 'TENANT' && (
-              <TextField
-                id="service-requests-filter-property"
-                name="propertyId"
-                select
-                label="Property"
-                value={filters.propertyId || ''}
-                onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-                size="small"
-                sx={{ minWidth: { xs: '100%', sm: 150 } }}
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {propertyOptions.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
+            {/* Priority Filter */}
+            <TextField
+              id="service-requests-filter-priority"
+              name="priority"
+              select
+              label="Priority"
+              value={filters.priority || ''}
+              onChange={(e) => handleFilterChange('priority', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 150 } }}
+            >
+              <MenuItem value="">All Priorities</MenuItem>
+              <MenuItem value="LOW">Low</MenuItem>
+              <MenuItem value="MEDIUM">Medium</MenuItem>
+              <MenuItem value="HIGH">High</MenuItem>
+              <MenuItem value="URGENT">Urgent</MenuItem>
+            </TextField>
 
             {/* Clear Filters Button */}
-            {(debouncedSearch || filters.status || filters.category || filters.propertyId) && (
+            {(debouncedSearch || filters.status || filters.category || filters.priority) && (
               <Button
                 variant="text"
                 color="inherit"
@@ -390,7 +432,54 @@ const ServiceRequestsPage = () => {
               </Button>
             )}
           </Stack>
-        </Box>
+        </Paper>
+
+      {/* Bulk Actions Bar */}
+      {selectedRequestIds.length > 0 && (
+        <Paper
+          elevation={2}
+          sx={{
+            mb: 3,
+            px: { xs: 2, md: 3 },
+            py: { xs: 2, md: 2.5 },
+            borderRadius: { xs: 2, md: 3 },
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={{ xs: 2, md: 3 }}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            justifyContent="space-between"
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Checkbox
+                color="primary"
+                checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
+                indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
+                onChange={handleToggleSelectAllVisible}
+                inputProps={{ 'aria-label': 'Select all visible service requests' }}
+              />
+              <Box>
+                <Typography variant="subtitle1">{selectedRequestIds.length} selected</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Delete selected service requests
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleBulkDelete}
+                startIcon={<DeleteIcon />}
+              >
+                Delete Selected
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+      )}
 
       {/* Service Requests List */}
       {requestList.length === 0 ? (
@@ -421,6 +510,8 @@ const ServiceRequestsPage = () => {
             const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
             const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
 
+            const isSelected = selectedRequestIds.includes(request.id);
+
             return (
               <Grid item xs={12} md={6} lg={4} key={request.id}>
                 <Card
@@ -429,21 +520,62 @@ const ServiceRequestsPage = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s',
-                    borderRadius: 3,
+                    borderRadius: { xs: 2, md: 3 },
                     cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: isSelected ? 'primary.main' : 'divider',
+                    outline: isSelected ? '2px solid' : 'none',
+                    outlineColor: 'primary.main',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: 4,
                     },
                   }}
-                  onClick={() => setSelectedRequest(request.id)}
+                  onClick={() => handleViewDetails(request)}
                 >
                   <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Box>
-                      <Typography variant="h6" gutterBottom>
-                        {request.title}
-                      </Typography>
-                      <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleRequestSelection(request.id);
+                          }}
+                          color="primary"
+                          sx={{ p: 0.5 }}
+                          inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                        />
+                        <Typography variant="h6" sx={{ flex: 1 }}>
+                          {request.title}
+                        </Typography>
+                      </Box>
+                      {userRole === 'PROPERTY_MANAGER' && (
+                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(request);
+                            }}
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(request);
+                            }}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      )}
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
                         <Chip
                           label={statusLabel}
                           color={getStatusColor(request.status)}

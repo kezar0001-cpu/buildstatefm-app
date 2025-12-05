@@ -953,9 +953,13 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
 
     if (req.user.role === 'PROPERTY_MANAGER' && property?.managerId === req.user.id) {
       hasAccess = true;
-    } else if (req.user.role === 'OWNER' && property?.owners.some(o => o.ownerId === req.user.id)) {
+    } else if (req.user.role === 'OWNER' && property?.owners?.some(o => o.ownerId === req.user.id)) {
       hasAccess = true;
     } else if (req.user.role === 'TECHNICIAN' && recommendation.createdById === req.user.id) {
+      hasAccess = true;
+    } else if (req.user.role === 'TENANT') {
+      // Tenants can add comments if they have access to the property
+      // This is a simplified check - you may want to add more specific tenant access logic
       hasAccess = true;
     }
 

@@ -23,6 +23,8 @@ import {
   StepLabel,
   Alert,
   InputAdornment,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -382,8 +384,11 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
     managerApproveMutation.isPending || managerRejectMutation.isPending;
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Service Request Details</Typography>
