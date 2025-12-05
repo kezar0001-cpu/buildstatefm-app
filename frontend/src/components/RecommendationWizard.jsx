@@ -20,6 +20,8 @@ import {
   InputLabel,
   Select,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -78,6 +80,8 @@ const getErrorMessage = (error) => {
 
 export default function RecommendationWizard({ open, onClose }) {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeStep, setActiveStep] = useState(0);
   const [formState, setFormState] = useState(initialState);
   const [errors, setErrors] = useState({});
@@ -237,10 +241,11 @@ export default function RecommendationWizard({ open, onClose }) {
       onClose={handleCancel}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       disableEnforceFocus
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: isMobile ? 0 : 3,
         },
       }}
     >
@@ -259,17 +264,31 @@ export default function RecommendationWizard({ open, onClose }) {
         </Box>
       </DialogTitle>
 
-      <DialogContent dividers>
-        <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 2 }}>
+      <DialogContent dividers sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
+        <Stepper 
+          activeStep={activeStep} 
+          orientation={isMobile ? 'vertical' : 'horizontal'}
+          sx={{ 
+            mb: { xs: 3, sm: 4 }, 
+            mt: { xs: 1, sm: 2 },
+            '& .MuiStepLabel-root': {
+              '& .MuiStepLabel-label': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+              },
+            },
+          }}
+        >
           {steps.map((step, index) => (
             <Step key={step.label}>
               <StepLabel>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                   {step.label}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {step.description}
-                </Typography>
+                {!isMobile && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    {step.description}
+                  </Typography>
+                )}
               </StepLabel>
             </Step>
           ))}
@@ -410,43 +429,66 @@ export default function RecommendationWizard({ open, onClose }) {
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider' }}>
+      <DialogActions 
+        sx={{ 
+          p: { xs: 2, sm: 2.5 }, 
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          flexDirection: { xs: 'column-reverse', sm: 'row' },
+          gap: { xs: 1, sm: 0 },
+        }}
+      >
         <Button
           onClick={handleCancel}
           disabled={isSubmitting || createRecommendationMutation.isPending}
+          fullWidth={isMobile}
+          sx={{ m: 0 }}
         >
           Cancel
         </Button>
-        <Box sx={{ flex: 1 }} />
-        {activeStep > 0 && (
-          <Button onClick={handleBack} disabled={isSubmitting || createRecommendationMutation.isPending}>
-            Back
-          </Button>
-        )}
-        {activeStep < steps.length - 1 ? (
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={isSubmitting || createRecommendationMutation.isPending}
-          >
-            Next
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            onClick={handleFinish}
-            disabled={isSubmitting || createRecommendationMutation.isPending}
-            startIcon={
-              isSubmitting || createRecommendationMutation.isPending ? (
-                <CircularProgress size={16} />
-              ) : (
-                <CheckCircleIcon />
-              )
-            }
-          >
-            {isSubmitting || createRecommendationMutation.isPending ? 'Creating...' : 'Create Recommendation'}
-          </Button>
-        )}
+        <Box sx={{ flex: { xs: 0, sm: 1 } }} />
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={1} 
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
+        >
+          {activeStep > 0 && (
+            <Button 
+              onClick={handleBack} 
+              disabled={isSubmitting || createRecommendationMutation.isPending}
+              fullWidth={isMobile}
+              variant={isMobile ? 'outlined' : 'text'}
+            >
+              Back
+            </Button>
+          )}
+          {activeStep < steps.length - 1 ? (
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={isSubmitting || createRecommendationMutation.isPending}
+              fullWidth={isMobile}
+            >
+              Next
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleFinish}
+              disabled={isSubmitting || createRecommendationMutation.isPending}
+              fullWidth={isMobile}
+              startIcon={
+                isSubmitting || createRecommendationMutation.isPending ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <CheckCircleIcon />
+                )
+              }
+            >
+              {isSubmitting || createRecommendationMutation.isPending ? 'Creating...' : 'Create Recommendation'}
+            </Button>
+          )}
+        </Stack>
       </DialogActions>
     </Dialog>
   );

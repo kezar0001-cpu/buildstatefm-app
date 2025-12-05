@@ -378,9 +378,10 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
               </Box>
             )}
 
-            <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
-              <Grid item xs={12} md={6} order={{ xs: 1, md: 1 }}>
-                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%', mx: 'auto' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <Grid container spacing={3} sx={{ maxWidth: '100%', justifyContent: 'center' }}>
+                <Grid item xs={12} md={6} order={{ xs: 1, md: 1 }}>
+                  <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
                   <Stack spacing={2}>
                     <Typography variant="h6">Recommendation Details</Typography>
 
@@ -562,147 +563,148 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} md={6} order={{ xs: 2, md: 2 }}>
-                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%', mx: 'auto' }}>
-                  <Typography variant="h6" gutterBottom>
-                    <CommentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                    Comments
-                  </Typography>
-                  {commentsLoading && <Typography>Loading comments...</Typography>}
-                  {comments.length === 0 && !commentsLoading ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      No comments yet. Be the first to add one.
+                <Grid item xs={12} md={6} order={{ xs: 2, md: 2 }}>
+                  <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
+                    <Typography variant="h6" gutterBottom>
+                      <CommentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                      Comments
                     </Typography>
-                  ) : (
-                    <Stack spacing={2} sx={{ maxHeight: { xs: 300, md: 400 }, overflowY: 'auto', mb: 2 }}>
-                      {comments.map((comment) => (
-                        <Box
-                          key={comment.id}
-                          sx={{
-                            p: 1.5,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 2,
-                            backgroundColor: 'background.default',
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-                              {(comment.user?.firstName?.[0] || '').toUpperCase()}
-                            </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {comment.user?.firstName} {comment.user?.lastName}
-                                {comment.user?.role && (
-                                  <Chip
+                    {commentsLoading && <Typography>Loading comments...</Typography>}
+                    {comments.length === 0 && !commentsLoading ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        No comments yet. Be the first to add one.
+                      </Typography>
+                    ) : (
+                      <Stack spacing={2} sx={{ maxHeight: { xs: 300, md: 400 }, overflowY: 'auto', mb: 2 }}>
+                        {comments.map((comment) => (
+                          <Box
+                            key={comment.id}
+                            sx={{
+                              p: 1.5,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 2,
+                              backgroundColor: 'background.default',
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                                {(comment.user?.firstName?.[0] || '').toUpperCase()}
+                              </Avatar>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  {comment.user?.firstName} {comment.user?.lastName}
+                                  {comment.user?.role && (
+                                    <Chip
+                                      size="small"
+                                      label={comment.user.role.replace('_', ' ')}
+                                      color={getRoleBadgeColor(comment.user.role)}
+                                      sx={{ height: 20 }}
+                                    />
+                                  )}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                </Typography>
+                              </Box>
+                              <Stack direction="row" spacing={0.5}>
+                                {canEditComment(comment) && (
+                                  <IconButton
                                     size="small"
-                                    label={comment.user.role.replace('_', ' ')}
-                                    color={getRoleBadgeColor(comment.user.role)}
-                                    sx={{ height: 20 }}
-                                  />
+                                    onClick={() => handleStartEditComment(comment)}
+                                    disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
                                 )}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                              </Typography>
-                            </Box>
-                            <Stack direction="row" spacing={0.5}>
-                              {canEditComment(comment) && (
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleStartEditComment(comment)}
-                                  disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                              {canDeleteComment(comment) && (
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDeleteComment(comment.id)}
-                                  disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
-                                >
-                                  <DeleteOutlineIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                            </Stack>
-                          </Box>
-                          {editingCommentId === comment.id ? (
-                            <Box>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                multiline
-                                maxRows={4}
-                                value={editCommentText}
-                                onChange={(e) => setEditCommentText(e.target.value)}
-                                disabled={editCommentMutation.isPending}
-                                sx={{ mb: 1 }}
-                              />
-                              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <Button
-                                  size="small"
-                                  onClick={handleCancelEditComment}
-                                  disabled={editCommentMutation.isPending}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  onClick={handleSaveEditComment}
-                                  disabled={!editCommentText.trim() || editCommentMutation.isPending}
-                                >
-                                  {editCommentMutation.isPending ? 'Saving...' : 'Save'}
-                                </Button>
+                                {canDeleteComment(comment) && (
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeleteComment(comment.id)}
+                                    disabled={editCommentMutation.isPending || deleteCommentMutation.isPending}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                )}
                               </Stack>
                             </Box>
-                          ) : (
-                            <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>
-                              {comment.content}
-                            </Typography>
-                          )}
-                        </Box>
-                      ))}
-                    </Stack>
-                  )}
+                            {editingCommentId === comment.id ? (
+                              <Box>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  multiline
+                                  maxRows={4}
+                                  value={editCommentText}
+                                  onChange={(e) => setEditCommentText(e.target.value)}
+                                  disabled={editCommentMutation.isPending}
+                                  sx={{ mb: 1 }}
+                                />
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                  <Button
+                                    size="small"
+                                    onClick={handleCancelEditComment}
+                                    disabled={editCommentMutation.isPending}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={handleSaveEditComment}
+                                    disabled={!editCommentText.trim() || editCommentMutation.isPending}
+                                  >
+                                    {editCommentMutation.isPending ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </Stack>
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>
+                                {comment.content}
+                              </Typography>
+                            )}
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
 
-                  <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 2 }} />
 
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                    <TextField
-                      fullWidth
-                      variant="outlined"
-                      label="Add a comment..."
-                      size="small"
-                      multiline
-                      maxRows={4}
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handlePostComment();
-                        }
-                      }}
-                      disabled={postCommentMutation.isPending}
-                    />
-                    <IconButton
-                      color="primary"
-                      onClick={handlePostComment}
-                      disabled={!commentText.trim() || postCommentMutation.isPending}
-                      size="small"
-                    >
-                      {postCommentMutation.isPending ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <SendIcon />
-                      )}
-                    </IconButton>
-                  </Box>
-                </Paper>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                      <TextField
+                        fullWidth
+                        variant="outlined"
+                        label="Add a comment..."
+                        size="small"
+                        multiline
+                        maxRows={4}
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handlePostComment();
+                          }
+                        }}
+                        disabled={postCommentMutation.isPending}
+                      />
+                      <IconButton
+                        color="primary"
+                        onClick={handlePostComment}
+                        disabled={!commentText.trim() || postCommentMutation.isPending}
+                        size="small"
+                      >
+                        {postCommentMutation.isPending ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <SendIcon />
+                        )}
+                      </IconButton>
+                    </Box>
+                  </Paper>
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
