@@ -1,10 +1,16 @@
 import express from 'express';
+import { z } from 'zod';
 import { prisma } from '../config/prismaClient.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { sendNotification } from '../utils/notificationService.js';
+import validate from '../middleware/validate.js';
 
 const router = express.Router();
+
+const commentSchema = z.object({
+  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment too long'),
+});
 
 
 // POST /recommendations - Create a new recommendation
@@ -840,6 +846,256 @@ router.post('/:id/convert', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error converting recommendation to job:', error);
     return sendError(res, 500, 'Failed to convert recommendation to job', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// ========================================
+// RECOMMENDATION COMMENTS
+// ========================================
+
+// GET /:id/comments - Get all comments for a recommendation
+router.get('/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if recommendation exists and user has access
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            managerId: true,
+            owners: {
+              select: {
+                ownerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Check access based on role
+    const property = recommendation.property;
+    let hasAccess = false;
+
+    if (req.user.role === 'PROPERTY_MANAGER' && property?.managerId === req.user.id) {
+      hasAccess = true;
+    } else if (req.user.role === 'OWNER' && property?.owners.some(o => o.ownerId === req.user.id)) {
+      hasAccess = true;
+    } else if (req.user.role === 'TECHNICIAN' && recommendation.createdById === req.user.id) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Fetch comments
+    const comments = await prisma.recommendationComment.findMany({
+      where: { recommendationId: id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    
+    res.json({ success: true, comments });
+  } catch (error) {
+    console.error('Error fetching recommendation comments:', error);
+    return sendError(res, 500, 'Failed to fetch comments', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// POST /:id/comments - Add a comment to a recommendation
+router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    
+    // Check if recommendation exists and user has access
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            managerId: true,
+            owners: {
+              select: {
+                ownerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Check access based on role
+    const property = recommendation.property;
+    let hasAccess = false;
+
+    if (req.user.role === 'PROPERTY_MANAGER' && property?.managerId === req.user.id) {
+      hasAccess = true;
+    } else if (req.user.role === 'OWNER' && property?.owners.some(o => o.ownerId === req.user.id)) {
+      hasAccess = true;
+    } else if (req.user.role === 'TECHNICIAN' && recommendation.createdById === req.user.id) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Create comment
+    const comment = await prisma.recommendationComment.create({
+      data: {
+        recommendationId: id,
+        userId: req.user.id,
+        content,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+    
+    res.status(201).json({ success: true, comment });
+  } catch (error) {
+    console.error('Error creating recommendation comment:', error);
+    return sendError(res, 500, 'Failed to create comment', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /:id/comments/:commentId - Edit a recommendation comment
+router.patch('/:id/comments/:commentId', requireAuth, validate(commentSchema), async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const { content } = req.body;
+
+    // Find the comment
+    const comment = await prisma.recommendationComment.findUnique({
+      where: { id: commentId },
+      include: {
+        recommendation: {
+          include: {
+            property: {
+              select: {
+                managerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!comment) {
+      return sendError(res, 404, 'Comment not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify comment belongs to the specified recommendation
+    if (comment.recommendationId !== id) {
+      return sendError(res, 400, 'Comment does not belong to this recommendation', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Only the comment author can edit their own comment
+    if (comment.userId !== req.user.id) {
+      return sendError(res, 403, 'You can only edit your own comments', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Update the comment
+    const updated = await prisma.recommendationComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    res.json({ success: true, comment: updated });
+  } catch (error) {
+    console.error('Error updating recommendation comment:', error);
+    return sendError(res, 500, 'Failed to update comment', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /:id/comments/:commentId - Delete a recommendation comment
+router.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    // Find the comment
+    const comment = await prisma.recommendationComment.findUnique({
+      where: { id: commentId },
+      include: {
+        recommendation: {
+          include: {
+            property: {
+              select: {
+                managerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!comment) {
+      return sendError(res, 404, 'Comment not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify comment belongs to the specified recommendation
+    if (comment.recommendationId !== id) {
+      return sendError(res, 400, 'Comment does not belong to this recommendation', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Only the comment author or property manager can delete comments
+    const isAuthor = comment.userId === req.user.id;
+    const isPropertyManager = req.user.role === 'PROPERTY_MANAGER' && 
+      comment.recommendation.property?.managerId === req.user.id;
+
+    if (!isAuthor && !isPropertyManager) {
+      return sendError(res, 403, 'You can only delete your own comments or be a property manager', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Delete the comment
+    await prisma.recommendationComment.delete({
+      where: { id: commentId },
+    });
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting recommendation comment:', error);
+    return sendError(res, 500, 'Failed to delete comment', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

@@ -88,14 +88,14 @@ const getRoleBadgeColor = (role) => {
   }
 };
 
-const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, onDelete }) => {
+const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, onDelete, initialEditMode = false, initialDeleteDialog = false }) => {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [commentText, setCommentText] = useState('');
-  const [editMode, setEditMode] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editMode, setEditMode] = useState(initialEditMode);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(initialDeleteDialog);
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
   const [deleteCommentId, setDeleteCommentId] = useState(null);
@@ -141,6 +141,22 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
       setEditEstimatedCost(recommendationData.estimatedCost?.toString() || '');
     }
   }, [recommendationData]);
+
+  // Handle initial edit mode or delete dialog when modal opens
+  useEffect(() => {
+    if (open) {
+      if (initialEditMode) {
+        setEditMode(true);
+      }
+      if (initialDeleteDialog) {
+        setDeleteDialogOpen(true);
+      }
+    } else {
+      // Reset when modal closes
+      setEditMode(false);
+      setDeleteDialogOpen(false);
+    }
+  }, [open, initialEditMode, initialDeleteDialog]);
 
   const postCommentMutation = useMutation({
     mutationFn: async (content) => {

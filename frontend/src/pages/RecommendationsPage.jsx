@@ -133,6 +133,8 @@ export default function RecommendationsPage() {
   const [convertingRecommendation, setConvertingRecommendation] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
+  const [modalEditMode, setModalEditMode] = useState(false);
+  const [modalDeleteDialog, setModalDeleteDialog] = useState(false);
 
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
@@ -385,12 +387,30 @@ export default function RecommendationsPage() {
 
   const handleViewDetails = (recommendation) => {
     setSelectedRecommendation(recommendation);
+    setModalEditMode(false);
+    setModalDeleteDialog(false);
+    setDetailModalOpen(true);
+  };
+
+  const handleEditRecommendation = (recommendation) => {
+    setSelectedRecommendation(recommendation);
+    setModalEditMode(true);
+    setModalDeleteDialog(false);
+    setDetailModalOpen(true);
+  };
+
+  const handleDeleteRecommendation = (recommendation) => {
+    setSelectedRecommendation(recommendation);
+    setModalEditMode(false);
+    setModalDeleteDialog(true);
     setDetailModalOpen(true);
   };
 
   const handleDetailModalClose = () => {
     setDetailModalOpen(false);
     setSelectedRecommendation(null);
+    setModalEditMode(false);
+    setModalDeleteDialog(false);
   };
 
   const handleRecommendationUpdate = () => {
@@ -439,7 +459,7 @@ export default function RecommendationsPage() {
           sx={{
             p: { xs: 2, md: 3.5 },
             mb: 3,
-            borderRadius: 3,
+            borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
@@ -675,7 +695,10 @@ export default function RecommendationsPage() {
                                     <Tooltip title="Edit">
                                       <IconButton
                                         size="small"
-                                        onClick={() => handleViewDetails(recommendation)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditRecommendation(recommendation);
+                                        }}
                                         sx={{ color: 'text.secondary' }}
                                       >
                                         <EditIcon fontSize="small" />
@@ -684,7 +707,10 @@ export default function RecommendationsPage() {
                                     <Tooltip title="Delete">
                                       <IconButton
                                         size="small"
-                                        onClick={() => handleViewDetails(recommendation)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteRecommendation(recommendation);
+                                        }}
                                         sx={{ color: 'error.main' }}
                                       >
                                         <DeleteIcon fontSize="small" />
@@ -883,7 +909,10 @@ export default function RecommendationsPage() {
                                         <Tooltip title="Edit">
                                           <IconButton
                                             size="small"
-                                            onClick={() => handleViewDetails(recommendation)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEditRecommendation(recommendation);
+                                            }}
                                             sx={{ color: 'text.secondary' }}
                                           >
                                             <EditIcon fontSize="small" />
@@ -892,7 +921,10 @@ export default function RecommendationsPage() {
                                         <Tooltip title="Delete">
                                           <IconButton
                                             size="small"
-                                            onClick={() => handleViewDetails(recommendation)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteRecommendation(recommendation);
+                                            }}
                                             sx={{ color: 'error.main' }}
                                           >
                                             <DeleteIcon fontSize="small" />
@@ -1065,7 +1097,10 @@ export default function RecommendationsPage() {
                                     <Tooltip title="Edit">
                                       <IconButton
                                         size="small"
-                                        onClick={() => handleViewDetails(recommendation)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditRecommendation(recommendation);
+                                        }}
                                         sx={{ color: 'text.secondary' }}
                                       >
                                         <EditIcon fontSize="small" />
@@ -1074,7 +1109,10 @@ export default function RecommendationsPage() {
                                     <Tooltip title="Delete">
                                       <IconButton
                                         size="small"
-                                        onClick={() => handleViewDetails(recommendation)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteRecommendation(recommendation);
+                                        }}
                                         sx={{ color: 'error.main' }}
                                       >
                                         <DeleteIcon fontSize="small" />
@@ -1526,6 +1564,8 @@ export default function RecommendationsPage() {
           onClose={handleDetailModalClose}
           onUpdate={handleRecommendationUpdate}
           onDelete={handleRecommendationDelete}
+          initialEditMode={modalEditMode}
+          initialDeleteDialog={modalDeleteDialog}
         />
       )}
     </Container>
