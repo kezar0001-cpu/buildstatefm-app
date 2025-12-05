@@ -333,21 +333,8 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
         disableEnforceFocus
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-              <LightbulbIcon sx={{ color: 'error.main' }} />
-              <Typography variant="h5" component="span">
-                {editMode ? 'Edit Recommendation' : modalRecommendation?.title}
-              </Typography>
-              {!editMode && (
-                <Chip
-                  label={modalRecommendation?.status?.replace(/_/g, ' ')}
-                  color={getStatusColor(modalRecommendation?.status)}
-                  size="small"
-                />
-              )}
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
+          <Stack spacing={1.5}>
+            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1}>
               {canEdit && !editMode && (
                 <Button
                   variant="outlined"
@@ -375,6 +362,12 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
                 <CloseIcon />
               </IconButton>
             </Stack>
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              <LightbulbIcon sx={{ color: 'error.main' }} />
+              <Typography variant="h5" component="span">
+                {editMode ? 'Edit Recommendation' : modalRecommendation?.title}
+              </Typography>
+            </Stack>
           </Stack>
         </DialogTitle>
         <DialogContent dividers>
@@ -385,9 +378,9 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
               </Box>
             )}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
               <Grid item xs={12} md={6} order={{ xs: 1, md: 1 }}>
-                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
+                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%', mx: 'auto' }}>
                   <Stack spacing={2}>
                     <Typography variant="h6">Recommendation Details</Typography>
 
@@ -570,7 +563,7 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
               </Grid>
 
               <Grid item xs={12} md={6} order={{ xs: 2, md: 2 }}>
-                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
+                <Paper elevation={2} sx={{ p: { xs: 2, md: 3 }, width: '100%', mx: 'auto' }}>
                   <Typography variant="h6" gutterBottom>
                     <CommentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                     Comments
