@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Button,
@@ -12,14 +12,16 @@ import {
   CircularProgress,
   Typography,
   IconButton,
-  ImageList,
-  ImageListItem,
-  ImageListItemBar,
+  Stack,
+  Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
-  CloudUpload as UploadIcon,
-  PhotoCamera as CameraIcon,
+  CameraAlt as CameraAltIcon,
+  PhotoLibrary as PhotoLibraryIcon,
   Delete as DeleteIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -27,6 +29,11 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 
 const ServiceRequestForm = ({ onSuccess, onCancel }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -41,6 +48,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   const [photoFiles, setPhotoFiles] = useState([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState('');
 
   // Fetch properties
   const { data: properties = [], isLoading: loadingProperties } = useQuery({
@@ -94,6 +102,18 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     }
   };
 
+  const handleCameraClick = () => {
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
+    }
+  };
+
+  const handleLibraryClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const validate = () => {
     const newErrors = {};
 
@@ -117,14 +137,36 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePhotoSelect = (e) => {
+  const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    // Validate files
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        setPhotoError('Please select image files only');
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setPhotoError('File size must be less than 10MB');
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     // Create preview URLs
-    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
-    setPhotoFiles(prev => [...prev, ...files]);
+    const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
+    setPhotoFiles(prev => [...prev, ...validFiles]);
     setPhotoPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    setPhotoError('');
+    
+    // Reset input
+    if (e.target) e.target.value = '';
   };
 
   const handleRemovePhoto = (index) => {
@@ -141,7 +183,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     try {
       const formData = new FormData();
       photoFiles.forEach(file => {
-        formData.append('photos', file);
+        formData.append('files', file);
       });
 
       const response = await apiClient.post('/uploads/multiple', formData, {
@@ -150,11 +192,13 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
         },
       });
 
-      // Response should contain array of uploaded file URLs
-      return response.data.files?.map(f => f.url) || [];
+      // Response format: { success: true, urls: [...] }
+      return response.data.urls || [];
     } catch (error) {
       console.error('Error uploading photos:', error);
-      setErrors(prev => ({ ...prev, photos: 'Failed to upload photos' }));
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';
+      setPhotoError(errorMessage);
+      setErrors(prev => ({ ...prev, photos: errorMessage }));
       return [];
     } finally {
       setUploadingPhotos(false);
@@ -196,7 +240,11 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   return (
     <Box component="form" onSubmit={handleSubmit}>
       <DialogTitle>
-        Submit Service Request
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" fontWeight={600}>
+            Submit Service Request
+          </Typography>
+        </Box>
       </DialogTitle>
 
       <DialogContent dividers>
@@ -335,77 +383,123 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
             <Typography variant="subtitle2" color="text.primary" gutterBottom>
               Photos (Optional)
             </Typography>
-            <Typography variant="caption" color="text.secondary" gutterBottom display="block" sx={{ mb: 1 }}>
-              Add photos to help describe the issue. You can upload multiple images.
-            </Typography>
+            
+            {/* Hidden file inputs */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
 
-            {errors.photos && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {errors.photos}
-              </Alert>
-            )}
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {/* Upload buttons */}
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {isMobile && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<CameraAltIcon />}
+                    onClick={handleCameraClick}
+                    disabled={uploadingPhotos || isLoading}
+                    size="small"
+                  >
+                    Take Photo
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  startIcon={<PhotoLibraryIcon />}
+                  onClick={handleLibraryClick}
+                  disabled={isUploadingPhotos || isLoading}
+                  size="small"
+                >
+                  {isMobile ? 'Choose from Library' : 'Choose Photos'}
+                </Button>
+              </Stack>
 
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<UploadIcon />}
-                disabled={uploadingPhotos || isLoading}
-              >
-                Choose Photos
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoSelect}
-                />
-              </Button>
+              {uploadingPhotos && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="caption" color="text.secondary">
+                    Uploading photos...
+                  </Typography>
+                </Box>
+              )}
 
-              {/* Mobile: Camera capture */}
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<CameraIcon />}
-                disabled={uploadingPhotos || isLoading}
-                sx={{ display: { xs: 'inline-flex', md: 'none' } }}
-              >
-                Camera
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoSelect}
-                />
-              </Button>
-            </Box>
+              {photoError && (
+                <Alert severity="error" onClose={() => setPhotoError('')}>
+                  {photoError}
+                </Alert>
+              )}
 
-            {photoPreviewUrls.length > 0 && (
-              <ImageList sx={{ width: '100%', maxHeight: 300 }} cols={3} rowHeight={164}>
-                {photoPreviewUrls.map((url, index) => (
-                  <ImageListItem key={index}>
-                    <img
-                      src={url}
-                      alt={`Preview ${index + 1}`}
-                      loading="lazy"
-                      style={{ height: '164px', objectFit: 'cover' }}
-                    />
-                    <ImageListItemBar
-                      actionIcon={
+              {/* Photo previews */}
+              {photoPreviewUrls.length > 0 && (
+                <Grid container spacing={1}>
+                  {photoPreviewUrls.map((photoUrl, index) => (
+                    <Grid item xs={6} sm={4} md={3} key={index}>
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          width: '100%',
+                          paddingTop: '100%',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={photoUrl}
+                          alt={`Photo ${index + 1}`}
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
                         <IconButton
-                          sx={{ color: 'rgba(255, 255, 255, 0.9)' }}
+                          size="small"
                           onClick={() => handleRemovePhoto(index)}
-                          disabled={uploadingPhotos || isLoading}
+                          disabled={isLoading}
+                          sx={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 1)',
+                            },
+                          }}
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
-                      }
-                    />
-                  </ImageListItem>
-                ))}
-              </ImageList>
-            )}
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+
+              {photoPreviewUrls.length === 0 && !uploadingPhotos && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Add photos to help describe the issue. You can take a photo with your camera or choose from your library.
+                </Alert>
+              )}
+            </Stack>
           </Grid>
         </Grid>
       </DialogContent>

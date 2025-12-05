@@ -605,6 +605,24 @@ export default function RecommendationsPage() {
                 </ToggleButton>
               </ToggleButtonGroup>
             )}
+
+            {/* Clear Filters Button */}
+            {hasFilters && (
+              <Button
+                variant="text"
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setSearchInput('');
+                  setPriorityFilter('');
+                  setStatusFilter('');
+                }}
+                sx={{ textTransform: 'none', minWidth: 'auto' }}
+                startIcon={<CloseIcon />}
+              >
+                Clear filters
+              </Button>
+            )}
           </Stack>
         </Paper>
 

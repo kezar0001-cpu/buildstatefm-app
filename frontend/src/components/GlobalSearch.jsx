@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   TextField,
@@ -16,6 +16,7 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -71,16 +72,36 @@ export default function GlobalSearch({ open, onClose }) {
   }, [searchTerm]);
 
   // Search query
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: searchError } = useQuery({
     queryKey: queryKeys.globalSearch.results(debouncedTerm),
     queryFn: async () => {
-      if (!debouncedTerm.trim()) return { results: [] };
-      const response = await apiClient.get(`/search?q=${encodeURIComponent(debouncedTerm)}&limit=20`);
-      return response.data;
+      if (!debouncedTerm.trim()) return { success: true, results: [] };
+      try {
+        const response = await apiClient.get(`/search?q=${encodeURIComponent(debouncedTerm)}&limit=20`);
+        // Handle both response structures
+        if (response.data && typeof response.data === 'object') {
+          // If response has success and results, use it directly
+          if (response.data.success !== undefined && Array.isArray(response.data.results)) {
+            return response.data;
+          }
+          // If response is just results array, wrap it
+          if (Array.isArray(response.data.results)) {
+            return { success: true, results: response.data.results };
+          }
+          // If response.data itself is an array (unlikely but handle it)
+          if (Array.isArray(response.data)) {
+            return { success: true, results: response.data };
+          }
+        }
+        return { success: true, results: [] };
+      } catch (err) {
+        console.error('Global search error:', err);
+        throw err;
+      }
     },
     enabled: debouncedTerm.length > 0,
     staleTime: 30000, // 30 seconds
-    initialData: { results: [] },
+    initialData: { success: true, results: [] },
     retry: 1,
   });
 
@@ -101,7 +122,15 @@ export default function GlobalSearch({ open, onClose }) {
     }
   };
 
-  const results = (data && typeof data === 'object' && Array.isArray(data.results)) ? data.results : [];
+  // Extract results from response, handling different response structures
+  const results = React.useMemo(() => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object' && Array.isArray(data.results)) {
+      return data.results;
+    }
+    return [];
+  }, [data]);
 
   return (
     <Dialog
@@ -161,7 +190,15 @@ export default function GlobalSearch({ open, onClose }) {
           </Box>
         )}
 
-        {searchTerm && !isLoading && results.length === 0 && (
+        {searchError && (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {searchError.response?.data?.message || searchError.message || 'Failed to search. Please try again.'}
+            </Alert>
+          </Box>
+        )}
+
+        {searchTerm && !isLoading && !searchError && results.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               No results found for &quot;{searchTerm}&quot;
