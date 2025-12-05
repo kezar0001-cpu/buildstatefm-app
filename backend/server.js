@@ -15,6 +15,7 @@ import logger from './src/utils/logger.js';
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
 import scheduleOverdueInspectionCron from './src/cron/overdueInspections.js';
+import { initializeCronJobs } from './src/jobs/cronJobs.js';
 import { initializeWebSocket } from './src/websocket.js';
 
 // ---- Load env
@@ -37,6 +38,7 @@ const PORT = process.env.PORT || 3000;
 const maintenancePlanCronTask = scheduleMaintenancePlanCron();
 startRecurringInspectionCron();
 const overdueInspectionCronTask = scheduleOverdueInspectionCron();
+initializeCronJobs(); // Initialize recommendation archiving and other cron jobs
 
 // Trust proxy so secure cookies & redirects work behind Render/CF
 app.set('trust proxy', 1);
