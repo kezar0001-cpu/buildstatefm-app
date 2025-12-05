@@ -51,6 +51,7 @@ const ServiceRequestsPage = () => {
   const location = useLocation();
   const { user } = useCurrentUser();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -591,7 +592,7 @@ const ServiceRequestsPage = () => {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
-        fullScreen={useMediaQuery(theme.breakpoints.down('md'))}
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
             borderRadius: { xs: 0, md: 3 },

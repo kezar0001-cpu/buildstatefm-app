@@ -189,6 +189,10 @@ export const listInspections = async (req, res) => {
 
 export const getOverdueInspections = async (req, res) => {
   try {
+    if (!req.user) {
+      return sendError(res, 401, 'Unauthorized', ErrorCodes.AUTH_UNAUTHORIZED);
+    }
+
     const now = new Date();
     const accessFilter = buildAccessWhere(req.user);
 
