@@ -483,6 +483,8 @@ model Recommendation {
   rejectedAt      DateTime?
   implementedAt   DateTime?
   rejectionReason String?
+  managerResponse String?
+  managerResponseAt DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   approvedBy      User?                @relation("ApprovedBy", fields: [approvedById], references: [id])

@@ -120,6 +120,9 @@ export default function RecommendationsPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [respondDialogOpen, setRespondDialogOpen] = useState(false);
+  const [respondingRecommendationId, setRespondingRecommendationId] = useState(null);
+  const [managerResponse, setManagerResponse] = useState('');
   
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
@@ -168,6 +171,12 @@ export default function RecommendationsPage() {
 
   const rejectMutation = useApiMutation({
     url: '/recommendations/:id/reject',
+    method: 'post',
+    invalidateKeys: [queryKeys.recommendations.all()],
+  });
+
+  const respondMutation = useApiMutation({
+    url: '/recommendations/:id/respond',
     method: 'post',
     invalidateKeys: [queryKeys.recommendations.all()],
   });
@@ -252,6 +261,37 @@ export default function RecommendationsPage() {
       handleRejectDialogClose();
     } catch (error) {
       const errorMessage = error?.response?.data?.message || 'Failed to reject recommendation';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleRespond = (recommendationId) => {
+    setRespondingRecommendationId(recommendationId);
+    setManagerResponse('');
+    setRespondDialogOpen(true);
+  };
+
+  const handleRespondDialogClose = () => {
+    setRespondDialogOpen(false);
+    setRespondingRecommendationId(null);
+    setManagerResponse('');
+  };
+
+  const handleRespondSubmit = async () => {
+    if (!managerResponse || !managerResponse.trim()) {
+      toast.error('Response is required');
+      return;
+    }
+    try {
+      await respondMutation.mutateAsync({
+        url: `/recommendations/${respondingRecommendationId}/respond`,
+        method: 'post',
+        data: { managerResponse: managerResponse.trim() },
+      });
+      toast.success('Response sent successfully');
+      handleRespondDialogClose();
+    } catch (error) {
+      const errorMessage = error?.response?.data?.message || 'Failed to send response';
       toast.error(errorMessage);
     }
   };
@@ -555,10 +595,18 @@ export default function RecommendationsPage() {
                             )}
 
                             {recommendation.status === 'REJECTED' && recommendation.rejectionReason && (
-                              <Alert severity="error" sx={{ mt: 1 }}>
-                                <Typography variant="caption" sx={{ fontWeight: 600 }}>Rejection Reason:</Typography>
-                                <Typography variant="body2">{recommendation.rejectionReason}</Typography>
-                              </Alert>
+                              <Box sx={{ mt: 1 }}>
+                                <Alert severity="error">
+                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>Rejection Reason:</Typography>
+                                  <Typography variant="body2">{recommendation.rejectionReason}</Typography>
+                                </Alert>
+                                {recommendation.managerResponse && (
+                                  <Alert severity="info" sx={{ mt: 1 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 600 }}>Manager Response:</Typography>
+                                    <Typography variant="body2">{recommendation.managerResponse}</Typography>
+                                  </Alert>
+                                )}
+                              </Box>
                             )}
 
                             <Typography
@@ -615,6 +663,19 @@ export default function RecommendationsPage() {
                                 >
                                   Convert to job
                                 </GradientButton>
+                              )}
+
+                              {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => handleRespond(recommendation.id)}
+                                  disabled={respondMutation.isPending}
+                                  fullWidth
+                                >
+                                  Respond to Rejection
+                                </Button>
                               )}
                             </Stack>
                           </CardActions>
@@ -693,10 +754,18 @@ export default function RecommendationsPage() {
                             </Typography>
 
                             {recommendation.status === 'REJECTED' && recommendation.rejectionReason && (
-                              <Alert severity="error" sx={{ mt: 1 }}>
-                                <Typography variant="caption" sx={{ fontWeight: 600 }}>Rejection Reason:</Typography>
-                                <Typography variant="body2">{recommendation.rejectionReason}</Typography>
-                              </Alert>
+                              <Box sx={{ mt: 1 }}>
+                                <Alert severity="error">
+                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>Rejection Reason:</Typography>
+                                  <Typography variant="body2">{recommendation.rejectionReason}</Typography>
+                                </Alert>
+                                {recommendation.managerResponse && (
+                                  <Alert severity="info" sx={{ mt: 1 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 600 }}>Manager Response:</Typography>
+                                    <Typography variant="body2">{recommendation.managerResponse}</Typography>
+                                  </Alert>
+                                )}
+                              </Box>
                             )}
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -883,6 +952,19 @@ export default function RecommendationsPage() {
                                   Convert to job
                                 </GradientButton>
                               )}
+
+                              {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => handleRespond(recommendation.id)}
+                                  disabled={respondMutation.isPending}
+                                  fullWidth
+                                >
+                                  Respond to Rejection
+                                </Button>
+                              )}
                             </Stack>
                           </Stack>
                         </CardContent>
@@ -953,10 +1035,18 @@ export default function RecommendationsPage() {
                                     {recommendation.description}
                                   </Typography>
                                   {recommendation.status === 'REJECTED' && recommendation.rejectionReason && (
-                                    <Alert severity="error" sx={{ mt: 1, py: 0.5 }}>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Rejection Reason:</Typography>
-                                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{recommendation.rejectionReason}</Typography>
-                                    </Alert>
+                                    <Box>
+                                      <Alert severity="error" sx={{ mt: 1, py: 0.5 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Rejection Reason:</Typography>
+                                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{recommendation.rejectionReason}</Typography>
+                                      </Alert>
+                                      {recommendation.managerResponse && (
+                                        <Alert severity="info" sx={{ mt: 1, py: 0.5 }}>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Manager Response:</Typography>
+                                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{recommendation.managerResponse}</Typography>
+                                        </Alert>
+                                      )}
+                                    </Box>
                                   )}
                                 </Box>
                               </TableCell>
@@ -996,6 +1086,18 @@ export default function RecommendationsPage() {
                                     >
                                       Convert to job
                                     </GradientButton>
+                                  )}
+
+                                  {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="primary"
+                                      onClick={() => handleRespond(recommendation.id)}
+                                      disabled={respondMutation.isPending}
+                                    >
+                                      Respond
+                                    </Button>
                                   )}
                                 </Stack>
                               </TableCell>
@@ -1070,6 +1172,63 @@ export default function RecommendationsPage() {
             disabled={!rejectionReason.trim() || rejectMutation.isPending}
           >
             {rejectMutation.isPending ? 'Rejecting...' : 'Reject Recommendation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manager Response Dialog */}
+      <Dialog
+        open={respondDialogOpen}
+        onClose={handleRespondDialogClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Respond to Rejection</Typography>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={handleRespondDialogClose}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Provide a response to the owner's rejection. This could include clarifications, modifications you plan to make, or additional information that addresses their concerns.
+          </Typography>
+          <TextField
+            autoFocus
+            multiline
+            rows={4}
+            fullWidth
+            label="Your Response"
+            placeholder="Enter your response to the rejection..."
+            value={managerResponse}
+            onChange={(e) => setManagerResponse(e.target.value)}
+            required
+            error={!managerResponse.trim() && managerResponse.length > 0}
+            helperText={
+              !managerResponse.trim() && managerResponse.length > 0
+                ? 'Response is required'
+                : 'Required field'
+            }
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleRespondDialogClose} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRespondSubmit}
+            variant="contained"
+            color="primary"
+            disabled={!managerResponse.trim() || respondMutation.isPending}
+          >
+            {respondMutation.isPending ? 'Sending...' : 'Send Response'}
           </Button>
         </DialogActions>
       </Dialog>
