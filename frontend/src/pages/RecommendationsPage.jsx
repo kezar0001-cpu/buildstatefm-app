@@ -61,6 +61,7 @@ import EmptyState from '../components/EmptyState';
 import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
 import RecommendationWizard from '../components/RecommendationWizard';
+import ConvertToJobDialog from '../components/ConvertToJobDialog';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -123,7 +124,9 @@ export default function RecommendationsPage() {
   const [respondDialogOpen, setRespondDialogOpen] = useState(false);
   const [respondingRecommendationId, setRespondingRecommendationId] = useState(null);
   const [managerResponse, setManagerResponse] = useState('');
-  
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [convertingRecommendation, setConvertingRecommendation] = useState(null);
+
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -247,13 +250,18 @@ export default function RecommendationsPage() {
     return false;
   };
 
-  const handleConvert = async (recommendationId) => {
-    try {
-      await convertMutation.mutateAsync({ url: `/recommendations/${recommendationId}/convert`, method: 'post' });
-      toast.success('Recommendation converted to job successfully');
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to convert recommendation');
-    }
+  const handleConvert = (recommendation) => {
+    setConvertingRecommendation(recommendation);
+    setConvertDialogOpen(true);
+  };
+
+  const handleConvertDialogClose = () => {
+    setConvertDialogOpen(false);
+    setConvertingRecommendation(null);
+  };
+
+  const handleConvertSuccess = () => {
+    handleConvertDialogClose();
   };
 
   const handleApprove = async (recommendationId) => {
@@ -687,7 +695,7 @@ export default function RecommendationsPage() {
                               {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                 <GradientButton
                                   size="small"
-                                  onClick={() => handleConvert(recommendation.id)}
+                                  onClick={() => handleConvert(recommendation)}
                                   disabled={convertMutation.isPending}
                                   fullWidth
                                 >
@@ -833,7 +841,7 @@ export default function RecommendationsPage() {
                                 {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                   <GradientButton
                                     size="small"
-                                    onClick={() => handleConvert(recommendation.id)}
+                                    onClick={() => handleConvert(recommendation)}
                                     disabled={convertMutation.isPending}
                                   >
                                     Convert to job
@@ -973,7 +981,7 @@ export default function RecommendationsPage() {
                               {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                 <GradientButton
                                   size="small"
-                                  onClick={() => handleConvert(recommendation.id)}
+                                  onClick={() => handleConvert(recommendation)}
                                   disabled={convertMutation.isPending}
                                   fullWidth
                                 >
@@ -1108,7 +1116,7 @@ export default function RecommendationsPage() {
                                   {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                     <GradientButton
                                       size="small"
-                                      onClick={() => handleConvert(recommendation.id)}
+                                      onClick={() => handleConvert(recommendation)}
                                       disabled={convertMutation.isPending}
                                     >
                                       Convert to job
@@ -1259,6 +1267,14 @@ export default function RecommendationsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Convert to Job Dialog */}
+      <ConvertToJobDialog
+        open={convertDialogOpen}
+        onClose={handleConvertDialogClose}
+        recommendation={convertingRecommendation}
+        onConvert={handleConvertSuccess}
+      />
     </Container>
   );
 }
