@@ -162,8 +162,44 @@ If Prisma warns about schema drift:
 - [ ] Check database connection pooling is working
 - [ ] Monitor for any runtime errors
 
+## Deployment Issues & Troubleshooting
+
+### Error: P1001 - Can't reach database server
+
+If you see this error during deployment:
+```
+Error: P1001: Can't reach database server at `ep-xxx.neon.tech:5432`
+```
+
+**Most Common Cause: Neon Database Suspended**
+
+Neon free tier databases auto-suspend after 5 minutes of inactivity.
+
+**Quick Fix:**
+1. Go to [Neon Console](https://console.neon.tech)
+2. Select your project
+3. If it says "Suspended", click "Activate"
+4. Immediately redeploy while database is active
+
+**Other Solutions:**
+- Verify `DIRECT_URL` is set correctly in your deployment environment (Render, Vercel, etc.)
+- Ensure the connection string includes `?sslmode=require`
+- Check that the database endpoint hasn't changed
+- For detailed troubleshooting, see `NEON_DATABASE_FIX.md`
+
+### Render-Specific Issues
+
+See `RENDER_DEPLOYMENT_GUIDE.md` for platform-specific configuration and troubleshooting.
+
+**Key Points for Render:**
+- Set both `DATABASE_URL` and `DIRECT_URL` in Environment tab
+- Ensure Neon database is active before deploying
+- Build command should include: `npx prisma generate && npx prisma migrate deploy`
+
 ## Additional Resources
 
 - [Prisma Migration Guide](https://www.prisma.io/docs/concepts/components/prisma-migrate)
 - [Neon Database Documentation](https://neon.tech/docs/introduction)
 - [Connection Pooling with Prisma](https://www.prisma.io/docs/guides/performance-and-optimization/connection-management)
+- See also: `NEON_DATABASE_FIX.md` for Neon-specific issues
+- See also: `RENDER_DEPLOYMENT_GUIDE.md` for Render deployment help
