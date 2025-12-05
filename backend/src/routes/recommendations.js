@@ -1099,4 +1099,166 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
   }
 });
 
+// PATCH /recommendations/:id - Update a recommendation
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, priority, estimatedCost } = req.body;
+
+    // Only property managers can update recommendations
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can update recommendations', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only update recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Check subscription
+    const manager = recommendation.property.manager;
+    const isManagerSubscriptionActive =
+      manager.subscriptionStatus === 'ACTIVE' ||
+      (manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date());
+
+    if (!isManagerSubscriptionActive) {
+      return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
+    }
+
+    // Only allow updates if status is DRAFT or SUBMITTED
+    if (!['DRAFT', 'SUBMITTED'].includes(recommendation.status)) {
+      return sendError(res, 400, 'Cannot update recommendations that have been approved, rejected, or implemented', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    // Build update data
+    const updateData = {};
+    if (title !== undefined) {
+      if (!title.trim()) {
+        return sendError(res, 400, 'Title cannot be empty', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+      updateData.title = title.trim();
+    }
+    if (description !== undefined) {
+      if (!description.trim()) {
+        return sendError(res, 400, 'Description cannot be empty', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+      updateData.description = description.trim();
+    }
+    if (priority !== undefined) {
+      updateData.priority = priority;
+    }
+    if (estimatedCost !== undefined) {
+      updateData.estimatedCost = estimatedCost ? parseFloat(estimatedCost) : null;
+    }
+
+    const updated = await prisma.recommendation.update({
+      where: { id },
+      data: updateData,
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating recommendation:', error);
+    return sendError(res, 500, 'Failed to update recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /recommendations/:id - Delete a recommendation
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Only property managers can delete recommendations
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can delete recommendations', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only delete recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Check subscription
+    const manager = recommendation.property.manager;
+    const isManagerSubscriptionActive =
+      manager.subscriptionStatus === 'ACTIVE' ||
+      (manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date());
+
+    if (!isManagerSubscriptionActive) {
+      return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
+    }
+
+    // Prevent deletion of approved or implemented recommendations
+    if (['APPROVED', 'IMPLEMENTED'].includes(recommendation.status)) {
+      return sendError(res, 400, 'Cannot delete recommendations that have been approved or implemented', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    await prisma.recommendation.delete({
+      where: { id },
+    });
+
+    res.json({ success: true, message: 'Recommendation deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting recommendation:', error);
+    return sendError(res, 500, 'Failed to delete recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 export default router;

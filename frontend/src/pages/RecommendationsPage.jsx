@@ -194,12 +194,6 @@ export default function RecommendationsPage() {
     invalidateKeys: [queryKeys.recommendations.all()],
   });
 
-  const archiveMutation = useApiMutation({
-    url: '/recommendations/:id/archive',
-    method: 'post',
-    invalidateKeys: [queryKeys.recommendations.all()],
-  });
-
   // Fetch properties for display
   const { data: propertiesData } = useQuery({
     queryKey: queryKeys.properties.all(),
@@ -220,32 +214,8 @@ export default function RecommendationsPage() {
 
   const recommendations = normaliseArray(query.data);
 
-  // Auto-archive implemented recommendations after 24 hours
-  useEffect(() => {
-    if (!recommendations || recommendations.length === 0 || archiveMutation.isPending) return;
-
-    const now = new Date();
-    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
-
-    // Find recommendations that need archiving
-    const recommendationsToArchive = recommendations.filter((recommendation) => {
-      if (recommendation.status === 'IMPLEMENTED' && recommendation.updatedAt) {
-        const updatedAt = new Date(recommendation.updatedAt);
-        const timeSinceImplemented = now - updatedAt;
-        return timeSinceImplemented >= twentyFourHoursInMs;
-      }
-      return false;
-    });
-
-    // Archive only the first one to prevent batch operations
-    if (recommendationsToArchive.length > 0) {
-      const recommendation = recommendationsToArchive[0];
-      archiveMutation.mutate({
-        url: `/recommendations/${recommendation.id}/archive`,
-        method: 'post'
-      });
-    }
-  }, [recommendations, archiveMutation]);
+  // Note: Archiving of rejected recommendations is handled by backend cron job
+  // (runs every hour, archives recommendations rejected 24+ hours ago)
 
   // Filter recommendations client-side for search
   const filteredRecommendations = useMemo(() => {
