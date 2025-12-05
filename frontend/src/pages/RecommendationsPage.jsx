@@ -199,23 +199,30 @@ export default function RecommendationsPage() {
 
   // Auto-archive implemented recommendations after 24 hours
   useEffect(() => {
-    if (!recommendations || recommendations.length === 0) return;
+    if (!recommendations || recommendations.length === 0 || archiveMutation.isPending) return;
 
     const now = new Date();
     const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
 
-    recommendations.forEach((recommendation) => {
+    // Find recommendations that need archiving
+    const recommendationsToArchive = recommendations.filter((recommendation) => {
       if (recommendation.status === 'IMPLEMENTED' && recommendation.updatedAt) {
         const updatedAt = new Date(recommendation.updatedAt);
         const timeSinceImplemented = now - updatedAt;
-
-        if (timeSinceImplemented >= twentyFourHoursInMs) {
-          // Auto-archive this recommendation
-          archiveMutation.mutate({ url: `/recommendations/${recommendation.id}/archive`, method: 'post' });
-        }
+        return timeSinceImplemented >= twentyFourHoursInMs;
       }
+      return false;
     });
-  }, [recommendations, archiveMutation]);
+
+    // Archive only the first one to prevent batch operations
+    if (recommendationsToArchive.length > 0) {
+      const recommendation = recommendationsToArchive[0];
+      archiveMutation.mutate({
+        url: `/recommendations/${recommendation.id}/archive`,
+        method: 'post'
+      });
+    }
+  }, [recommendations]);
 
   // Fetch properties for display
   const { data: propertiesData } = useQuery({
