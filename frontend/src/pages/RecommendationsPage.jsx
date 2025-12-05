@@ -216,6 +216,37 @@ export default function RecommendationsPage() {
     });
   }, [recommendations, debouncedSearch, propertiesMap]);
 
+  // Helper function to determine if current user can approve/reject a recommendation
+  const canApproveOrReject = (recommendation) => {
+    if (!recommendation || !user) return false;
+
+    // Only allow for SUBMITTED or UNDER_REVIEW status
+    if (recommendation.status !== 'SUBMITTED' && recommendation.status !== 'UNDER_REVIEW') {
+      return false;
+    }
+
+    const property = recommendation.property;
+    if (!property) return false;
+
+    // Check if property has active owners
+    const activeOwners = property.owners?.filter(po =>
+      !po.endDate || new Date(po.endDate) > new Date()
+    ) || [];
+    const hasActiveOwners = activeOwners.length > 0;
+
+    // Owners can approve/reject if they own the property
+    if (user.role === 'OWNER') {
+      return activeOwners.some(o => o.ownerId === user.id);
+    }
+
+    // Property managers can approve/reject ONLY if property has no active owners
+    if (user.role === 'PROPERTY_MANAGER') {
+      return !hasActiveOwners && property.managerId === user.id;
+    }
+
+    return false;
+  };
+
   const handleConvert = async (recommendationId) => {
     try {
       await convertMutation.mutateAsync({ url: `/recommendations/${recommendationId}/convert`, method: 'post' });
@@ -323,7 +354,7 @@ export default function RecommendationsPage() {
         title={t('recommendations.title', 'Recommendations')}
         subtitle="Create job recommendations for property owners to review and approve."
         actions={
-          user?.role === 'PROPERTY_MANAGER' ? (
+          (user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN') ? (
             <GradientButton
               startIcon={<AddIcon />}
               onClick={handleCreate}
@@ -626,33 +657,32 @@ export default function RecommendationsPage() {
 
                           <CardActions sx={{ px: 2, pb: 2, pt: 0, flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
                             <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
-                              {user?.role === 'OWNER' &&
-                                (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
-                                  <>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      color="error"
-                                      startIcon={<CancelIcon />}
-                                      onClick={() => handleReject(recommendation.id)}
-                                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      fullWidth
-                                    >
-                                      Reject
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      color="success"
-                                      startIcon={<CheckCircleIcon />}
-                                      onClick={() => handleApprove(recommendation.id)}
-                                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      fullWidth
-                                    >
-                                      Approve
-                                    </Button>
-                                  </>
-                                )}
+                              {canApproveOrReject(recommendation) && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    startIcon={<CancelIcon />}
+                                    onClick={() => handleReject(recommendation.id)}
+                                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    fullWidth
+                                  >
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="success"
+                                    startIcon={<CheckCircleIcon />}
+                                    onClick={() => handleApprove(recommendation.id)}
+                                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    fullWidth
+                                  >
+                                    Approve
+                                  </Button>
+                                </>
+                              )}
 
                               {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                 <GradientButton
@@ -775,31 +805,30 @@ export default function RecommendationsPage() {
                                 </Typography>
                               )}
                               <Stack direction="row" spacing={1}>
-                                {user?.role === 'OWNER' &&
-                                  (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
-                                    <>
-                                      <Button
-                                        size="small"
-                                        variant="outlined"
-                                        color="error"
-                                        startIcon={<CancelIcon />}
-                                        onClick={() => handleReject(recommendation.id)}
-                                        disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      >
-                                        Reject
-                                      </Button>
-                                      <Button
-                                        size="small"
-                                        variant="contained"
-                                        color="success"
-                                        startIcon={<CheckCircleIcon />}
-                                        onClick={() => handleApprove(recommendation.id)}
-                                        disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      >
-                                        Approve
-                                      </Button>
-                                    </>
-                                  )}
+                                {canApproveOrReject(recommendation) && (
+                                  <>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      startIcon={<CancelIcon />}
+                                      onClick={() => handleReject(recommendation.id)}
+                                      disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    >
+                                      Reject
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="success"
+                                      startIcon={<CheckCircleIcon />}
+                                      onClick={() => handleApprove(recommendation.id)}
+                                      disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    >
+                                      Approve
+                                    </Button>
+                                  </>
+                                )}
 
                                 {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                   <GradientButton
@@ -914,33 +943,32 @@ export default function RecommendationsPage() {
 
                             {/* Actions */}
                             <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
-                              {user?.role === 'OWNER' &&
-                                (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
-                                  <>
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      color="success"
-                                      startIcon={<CheckCircleIcon />}
-                                      onClick={() => handleApprove(recommendation.id)}
-                                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      fullWidth
-                                    >
-                                      Approve
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      color="error"
-                                      startIcon={<CancelIcon />}
-                                      onClick={() => handleReject(recommendation.id)}
-                                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                                      fullWidth
-                                    >
-                                      Reject
-                                    </Button>
-                                  </>
-                                )}
+                              {canApproveOrReject(recommendation) && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="success"
+                                    startIcon={<CheckCircleIcon />}
+                                    onClick={() => handleApprove(recommendation.id)}
+                                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    fullWidth
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    startIcon={<CancelIcon />}
+                                    onClick={() => handleReject(recommendation.id)}
+                                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                                    fullWidth
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
 
                               {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                 <GradientButton
@@ -1052,31 +1080,30 @@ export default function RecommendationsPage() {
                               </TableCell>
                               <TableCell align="right">
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                  {user?.role === 'OWNER' &&
-                                    (recommendation.status === 'SUBMITTED' || recommendation.status === 'UNDER_REVIEW') && (
-                                      <>
-                                        <Button
-                                          size="small"
-                                          variant="outlined"
-                                          color="error"
-                                          startIcon={<CancelIcon />}
-                                          onClick={() => handleReject(recommendation.id)}
-                                          disabled={rejectMutation.isPending || approveMutation.isPending}
-                                        >
-                                          Reject
-                                        </Button>
-                                        <Button
-                                          size="small"
-                                          variant="contained"
-                                          color="success"
-                                          startIcon={<CheckCircleIcon />}
-                                          onClick={() => handleApprove(recommendation.id)}
-                                          disabled={rejectMutation.isPending || approveMutation.isPending}
-                                        >
-                                          Approve
-                                        </Button>
-                                      </>
-                                    )}
+                                  {canApproveOrReject(recommendation) && (
+                                    <>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        startIcon={<CancelIcon />}
+                                        onClick={() => handleReject(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      >
+                                        Reject
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="contained"
+                                        color="success"
+                                        startIcon={<CheckCircleIcon />}
+                                        onClick={() => handleApprove(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                      >
+                                        Approve
+                                      </Button>
+                                    </>
+                                  )}
 
                                   {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
                                     <GradientButton
@@ -1115,7 +1142,7 @@ export default function RecommendationsPage() {
       </PageShell>
 
       {/* Recommendation Wizard */}
-      {user?.role === 'PROPERTY_MANAGER' && (
+      {(user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN') && (
         <RecommendationWizard open={wizardOpen} onClose={handleWizardClose} />
       )}
 

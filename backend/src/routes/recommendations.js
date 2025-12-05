@@ -10,9 +10,9 @@ const router = express.Router();
 // POST /recommendations - Create a new recommendation
 router.post('/', requireAuth, async (req, res) => {
   try {
-    // Only property managers can create recommendations
-    if (req.user.role !== 'PROPERTY_MANAGER') {
-      return sendError(res, 403, 'Only property managers can create recommendations', ErrorCodes.ACC_ACCESS_DENIED);
+    // Only property managers and technicians can create recommendations
+    if (req.user.role !== 'PROPERTY_MANAGER' && req.user.role !== 'TECHNICIAN') {
+      return sendError(res, 403, 'Only property managers and technicians can create recommendations', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
     const { propertyId, title, description, priority, estimatedCost } = req.body;
@@ -22,7 +22,7 @@ router.post('/', requireAuth, async (req, res) => {
       return sendError(res, 400, 'Property ID, title, and description are required', ErrorCodes.VAL_VALIDATION_ERROR);
     }
 
-    // Verify property exists and belongs to the manager
+    // Verify property exists and user has access to it
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
       include: {
@@ -45,6 +45,14 @@ router.post('/', requireAuth, async (req, res) => {
             },
           },
         },
+        inspections: {
+          where: {
+            assignedToId: req.user.id,
+          },
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -52,8 +60,17 @@ router.post('/', requireAuth, async (req, res) => {
       return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    if (property.managerId !== req.user.id) {
-      return sendError(res, 403, 'You can only create recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    // Property managers can create recommendations for their properties
+    // Technicians can create recommendations for properties where they have assigned inspections
+    let hasAccess = false;
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      hasAccess = property.managerId === req.user.id;
+    } else if (req.user.role === 'TECHNICIAN') {
+      hasAccess = property.inspections && property.inspections.length > 0;
+    }
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'You can only create recommendations for properties where you have access', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
     // Check subscription
@@ -235,6 +252,13 @@ router.get('/', requireAuth, async (req, res) => {
             id: true,
             name: true,
             address: true,
+            managerId: true,
+            owners: {
+              select: {
+                ownerId: true,
+                endDate: true,
+              },
+            },
           },
         },
         report: {
@@ -434,7 +458,10 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
         property: {
           include: {
             owners: {
-              select: { ownerId: true },
+              select: {
+                ownerId: true,
+                endDate: true,
+              },
             },
             manager: {
               select: {
@@ -455,17 +482,27 @@ router.post('/:id/reject', requireAuth, async (req, res) => {
       return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
     }
 
-    // Access control: Only property managers and owners can reject recommendations
+    // Access control: Only property owners can reject recommendations (or managers if no active owners)
     const property = recommendation.property;
     if (!property) {
       return sendError(res, 404, 'Associated property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
+    // Check if property has active owners
+    const activeOwners = property.owners?.filter(po =>
+      !po.endDate || new Date(po.endDate) > new Date()
+    ) || [];
+    const hasActiveOwners = activeOwners.length > 0;
+
     let hasAccess = false;
-    if (req.user.role === 'PROPERTY_MANAGER') {
-      hasAccess = property.managerId === req.user.id;
-    } else if (req.user.role === 'OWNER') {
-      hasAccess = property.owners?.some(o => o.ownerId === req.user.id);
+
+    // Primary rejecters: Owners (if they exist)
+    if (hasActiveOwners && req.user.role === 'OWNER') {
+      hasAccess = activeOwners.some(o => o.ownerId === req.user.id);
+    }
+    // Fallback: If property has no active owners, property manager acts as owner authority
+    else if (!hasActiveOwners && req.user.role === 'PROPERTY_MANAGER' && property.managerId === req.user.id) {
+      hasAccess = true; // Manager can reject when no active owners exist
     }
 
     if (!hasAccess) {
