@@ -44,13 +44,22 @@ const requestUpdateSchema = z.object({
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { status, propertyId, category, includeArchived } = req.query;
+    const { status, propertyId, category, search } = req.query;
 
     // Build base where clause with filters
     const where = {};
     if (status) where.status = status;
     if (propertyId) where.propertyId = propertyId;
     if (category) where.category = category;
+    
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
 
     // By default, exclude archived items unless explicitly requested
     if (includeArchived !== 'true' && !status) {

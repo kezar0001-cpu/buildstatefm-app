@@ -18,6 +18,9 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
+  IconButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,6 +28,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Build as BuildIcon,
+  Search as SearchIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -45,10 +50,13 @@ const ServiceRequestsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useCurrentUser();
+  const theme = useTheme();
   const [filters, setFilters] = useState({
     status: '',
     category: '',
   });
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [reviewDialog, setReviewDialog] = useState(null);
   const [convertDialog, setConvertDialog] = useState(null);
@@ -57,10 +65,20 @@ const ServiceRequestsPage = () => {
   // Get user role from auth context
   const userRole = user?.role || 'TENANT';
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   // Build query params
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.category) queryParams.append('category', filters.category);
+  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
+  if (debouncedSearch) queryParams.append('search', debouncedSearch);
 
   // Fetch service requests with infinite query
   const {
@@ -72,7 +90,7 @@ const ServiceRequestsPage = () => {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: queryKeys.serviceRequests.list(filters),
+    queryKey: queryKeys.serviceRequests.list({ ...filters, search: debouncedSearch }),
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams(queryParams);
       params.append('limit', '50');
@@ -96,6 +114,8 @@ const ServiceRequestsPage = () => {
       status: '',
       category: '',
     });
+    setSearchInput('');
+    setDebouncedSearch('');
   };
 
   const handleFilterChange = (field, value) => {
@@ -225,97 +245,134 @@ const ServiceRequestsPage = () => {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
-      <Card
-        sx={{
-          mb: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0px 10px 30px rgba(15, 23, 42, 0.06)',
-        }}
-      >
-        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-          <Stack spacing={2}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={1.5}
-              alignItems={{ xs: 'flex-start', md: 'center' }}
-              justifyContent="space-between"
-            >
-              <Box>
-                <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5 }}>
-                  Filters
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Find the right service requests
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="text"
-                  color="inherit"
-                  size="small"
-                  onClick={handleClearFilters}
-                  disabled={!filters.status && !filters.category}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Clear filters
-                </Button>
-              </Stack>
-            </Stack>
+        <Box
+          component={Card}
+          sx={{
+            mb: 3,
+            p: { xs: 2, md: 3.5 },
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+            animation: 'fade-in-up 0.6s ease-out',
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+          >
+            {/* Search */}
+            <TextField
+              placeholder="Search service requests..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                    <SearchIcon />
+                  </Box>
+                ),
+                endAdornment: searchInput && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                    <IconButton
+                      aria-label="clear search"
+                      onClick={() => setSearchInput('')}
+                      edge="end"
+                      size="small"
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ),
+              }}
+              size="small"
+              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
+            />
 
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  id="service-requests-filter-status"
-                  name="status"
-                  select
-                  fullWidth
-                  label="Status"
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  size="small"
-                >
-                  <MenuItem value="">All (Active)</MenuItem>
-                  <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                  <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                  <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
-                  <MenuItem value="PENDING_OWNER_APPROVAL">Pending Owner Approval</MenuItem>
-                  <MenuItem value="APPROVED">Approved</MenuItem>
-                  <MenuItem value="APPROVED_BY_OWNER">Approved by Owner</MenuItem>
-                  <MenuItem value="REJECTED">Rejected</MenuItem>
-                  <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
-                  <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
-                  <MenuItem value="COMPLETED">Completed</MenuItem>
-                  <MenuItem value="ARCHIVED">Archived</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  id="service-requests-filter-category"
-                  name="category"
-                  select
-                  fullWidth
-                  label="Category"
-                  value={filters.category}
-                  onChange={(e) => handleFilterChange('category', e.target.value)}
-                  size="small"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="PLUMBING">Plumbing</MenuItem>
-                  <MenuItem value="ELECTRICAL">Electrical</MenuItem>
-                  <MenuItem value="HVAC">HVAC</MenuItem>
-                  <MenuItem value="APPLIANCE">Appliance</MenuItem>
-                  <MenuItem value="STRUCTURAL">Structural</MenuItem>
-                  <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
-                  <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
-                  <MenuItem value="GENERAL">General</MenuItem>
-                  <MenuItem value="OTHER">Other</MenuItem>
-                </TextField>
-              </Grid>
-            </Grid>
+            {/* Status Filter */}
+            <TextField
+              id="service-requests-filter-status"
+              name="status"
+              select
+              label="Status"
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 150 } }}
+            >
+              <MenuItem value="">All Statuses</MenuItem>
+              <MenuItem value="SUBMITTED">Submitted</MenuItem>
+              <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
+              <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
+              <MenuItem value="PENDING_OWNER_APPROVAL">Pending Owner Approval</MenuItem>
+              <MenuItem value="APPROVED">Approved</MenuItem>
+              <MenuItem value="APPROVED_BY_OWNER">Approved by Owner</MenuItem>
+              <MenuItem value="REJECTED">Rejected</MenuItem>
+              <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
+              <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+            </TextField>
+
+            {/* Category Filter */}
+            <TextField
+              id="service-requests-filter-category"
+              name="category"
+              select
+              label="Category"
+              value={filters.category}
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              size="small"
+              sx={{ minWidth: { xs: '100%', sm: 150 } }}
+            >
+              <MenuItem value="">All Categories</MenuItem>
+              <MenuItem value="PLUMBING">Plumbing</MenuItem>
+              <MenuItem value="ELECTRICAL">Electrical</MenuItem>
+              <MenuItem value="HVAC">HVAC</MenuItem>
+              <MenuItem value="APPLIANCE">Appliance</MenuItem>
+              <MenuItem value="STRUCTURAL">Structural</MenuItem>
+              <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
+              <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
+              <MenuItem value="GENERAL">General</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
+            </TextField>
+
+            {/* Property Filter - Only for non-tenants */}
+            {userRole !== 'TENANT' && (
+              <TextField
+                id="service-requests-filter-property"
+                name="propertyId"
+                select
+                label="Property"
+                value={filters.propertyId}
+                onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                size="small"
+                sx={{ minWidth: { xs: '100%', sm: 150 } }}
+              >
+                <MenuItem value="">All Properties</MenuItem>
+                {propertyOptions.map((property) => (
+                  <MenuItem key={property.id} value={property.id}>
+                    {property.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+
+            {/* Clear Filters Button */}
+            {(debouncedSearch || filters.status || filters.category || filters.propertyId) && (
+              <Button
+                variant="text"
+                color="inherit"
+                size="small"
+                onClick={handleClearFilters}
+                sx={{ textTransform: 'none', minWidth: 'auto' }}
+              >
+                Clear filters
+              </Button>
+            )}
           </Stack>
-        </CardContent>
-      </Card>
+        </Box>
 
       {/* Service Requests List */}
       {requestList.length === 0 ? (
@@ -517,6 +574,13 @@ const ServiceRequestsPage = () => {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        fullScreen={useMediaQuery(theme.breakpoints.down('md'))}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, md: 3 },
+            maxHeight: { xs: '100vh', md: '90vh' },
+          },
+        }}
       >
         <ServiceRequestForm
           onSuccess={handleSuccess}
