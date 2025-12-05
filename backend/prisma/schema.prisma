@@ -1,12 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  // Note: DIRECT_URL is required for Neon and other pooled databases
-  // If not set, migrations may fail. Set it in your deployment environment.
-}
-generator client {
-  provider = "prisma-client-js"
 }
 
 model User {
@@ -125,19 +124,19 @@ model StripeWebhookEvent {
 }
 
 model PromoCode {
-  id                 String   @id @default(cuid())
-  code               String   @unique
+  id                 String    @id @default(cuid())
+  code               String    @unique
   description        String?
-  discountType       String   // 'FIXED' or 'PERCENTAGE'
+  discountType       String
   discountAmount     Float?
   discountPercentage Float?
   maxUses            Int?
-  currentUses        Int      @default(0)
+  currentUses        Int       @default(0)
   expiresAt          DateTime?
-  applicablePlans    String[] @default([])
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  applicablePlans    String[]  @default([])
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([code])
   @@index([isActive])
@@ -184,10 +183,10 @@ model Property {
   propertyImages      PropertyImage[]
   PropertyNote        PropertyNote[]
   owners              PropertyOwner[]
+  recommendations     Recommendation[]
   RecurringInspection RecurringInspection[]
   ReportRequest       ReportRequest[]
   serviceRequests     ServiceRequest[]
-  recommendations     Recommendation[]
   units               Unit[]
 
   @@index([managerId])
@@ -472,7 +471,6 @@ model Recommendation {
   id              String               @id @default(cuid())
   title           String
   description     String
-  propertyId      String
   reportId        String?
   estimatedCost   Float?
   priority        JobPriority          @default(MEDIUM)
@@ -480,11 +478,12 @@ model Recommendation {
   createdById     String
   approvedById    String?
   approvedAt      DateTime?
-  rejectedAt      DateTime?
   implementedAt   DateTime?
   rejectionReason String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+  propertyId      String
+  rejectedAt      DateTime?
   approvedBy      User?                @relation("ApprovedBy", fields: [approvedById], references: [id])
   createdBy       User                 @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
   property        Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -494,6 +493,7 @@ model Recommendation {
   @@index([propertyId])
   @@index([status])
   @@index([createdById])
+  @@index([rejectedAt])
 }
 
 model Notification {
@@ -1090,8 +1090,8 @@ enum RecommendationStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
-  ARCHIVED
   IMPLEMENTED
+  ARCHIVED
 }
 
 enum NotificationType {
@@ -1195,7 +1195,7 @@ enum RoomType {
 enum SubscriptionPlan {
   FREE_TRIAL
   STARTER
-  BASIC
   PROFESSIONAL
   ENTERPRISE
+  BASIC
 }
