@@ -2,6 +2,8 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  // Note: DIRECT_URL is required for Neon and other pooled databases
+  // If not set, migrations may fail. Set it in your deployment environment.
 }
 generator client {
   provider = "prisma-client-js"
