@@ -19,6 +19,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   const searchTerm = q.trim();
   const searchLimit = Math.min(parseInt(limit, 10) || 20, 50);
 
+  console.log(`[GlobalSearch] Searching for "${searchTerm}" by user ${req.user.id} (${req.user.role})`);
+
   // Build search filters based on user role
   let propertyFilter = {};
   let accessiblePropertyIds = null;
@@ -128,15 +130,13 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   // Get property IDs for filtering jobs and inspections
   const propertyIds = properties.map(p => p.id);
 
-  let relatedPropertyIds = propertyIds;
-
-  if (Array.isArray(accessiblePropertyIds)) {
-    relatedPropertyIds = accessiblePropertyIds;
-  } else if (relatedPropertyIds.length === 0) {
-    // User can access all properties but none matched the property search.
-    // Leave relatedPropertyIds as null so downstream queries are not constrained.
-    relatedPropertyIds = null;
-  }
+  // Use accessiblePropertyIds if available (for role-based access control)
+  // Otherwise, if user has access to all properties, use propertyIds from search results
+  let relatedPropertyIds = Array.isArray(accessiblePropertyIds) 
+    ? accessiblePropertyIds 
+    : propertyIds.length > 0 
+      ? propertyIds 
+      : null;
 
   // Search jobs
   const jobs = await prisma.job.findMany({
@@ -194,7 +194,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   let serviceRequests = [];
   if (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'TENANT') {
     const serviceRequestFilter = req.user.role === 'TENANT'
-      ? { requesterId: req.user.id }
+      ? { requestedById: req.user.id }
       : Array.isArray(relatedPropertyIds)
         ? { propertyId: { in: relatedPropertyIds } }
         : {};
@@ -202,6 +202,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     serviceRequests = await prisma.serviceRequest.findMany({
       where: {
         ...serviceRequestFilter,
+        // Exclude archived items from search results
+        status: { not: 'ARCHIVED' },
         OR: [
           { title: { contains: searchTerm, mode: 'insensitive' } },
           { description: { contains: searchTerm, mode: 'insensitive' } }
@@ -268,6 +270,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     }))
   ];
 
+  console.log(`[GlobalSearch] Found ${results.length} results (${properties.length} properties, ${jobs.length} jobs, ${inspections.length} inspections, ${serviceRequests.length} service requests)`);
+  
   res.json({ success: true, results, total: results.length });
 }));
 
