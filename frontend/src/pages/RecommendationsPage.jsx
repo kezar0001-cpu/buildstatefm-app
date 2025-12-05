@@ -459,7 +459,7 @@ export default function RecommendationsPage() {
           sx={{
             p: { xs: 2, md: 3.5 },
             mb: 3,
-            borderRadius: 2,
+            borderRadius: { xs: 2, md: 2 },
             border: '1px solid',
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
@@ -1061,7 +1061,7 @@ export default function RecommendationsPage() {
                     const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
                     const propertyName = property?.name || 'N/A';
                     return (
-                      <Card key={recommendation.id} sx={{ boxShadow: 2 }}>
+                      <Card key={recommendation.id} sx={{ boxShadow: 2, borderRadius: 2 }}>
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack spacing={2}>
                             {/* Header Row */}
