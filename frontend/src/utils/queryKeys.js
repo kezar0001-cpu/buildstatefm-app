@@ -117,5 +117,7 @@ export const queryKeys = {
   recommendations: {
     all: () => ['recommendations'],
     list: (filters) => ['recommendations', 'list', filters],
+    detail: (id) => ['recommendations', id],
+    comments: (id) => ['recommendations', id, 'comments'],
   },
 };
