@@ -1147,59 +1147,65 @@ export default function RecommendationsPage() {
                             )}
 
                             {/* Actions */}
-                            {canApproveOrReject(recommendation) && (
+                            {(canApproveOrReject(recommendation) ||
+                              (user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED') ||
+                              (user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse)) && (
                               <>
                                 <Divider />
                                 <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
-                                  <Button
-                                    size="small"
-                                    variant="contained"
-                                    color="success"
-                                    startIcon={<CheckCircleIcon />}
-                                    onClick={() => handleApprove(recommendation.id)}
-                                    disabled={rejectMutation.isPending || approveMutation.isPending}
-                                    fullWidth
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    color="error"
-                                    startIcon={<CancelIcon />}
-                                    onClick={() => handleReject(recommendation.id)}
-                                    disabled={rejectMutation.isPending || approveMutation.isPending}
-                                    fullWidth
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
+                                  {canApproveOrReject(recommendation) && (
+                                    <>
+                                      <Button
+                                        size="small"
+                                        variant="contained"
+                                        color="success"
+                                        startIcon={<CheckCircleIcon />}
+                                        onClick={() => handleApprove(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                        fullWidth
+                                      >
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        startIcon={<CancelIcon />}
+                                        onClick={() => handleReject(recommendation.id)}
+                                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                                        fullWidth
+                                      >
+                                        Reject
+                                      </Button>
+                                    </>
+                                  )}
 
-                              {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
-                                <GradientButton
-                                  size="small"
-                                  onClick={() => handleConvert(recommendation)}
-                                  disabled={convertMutation.isPending}
-                                  fullWidth
-                                >
-                                  Convert to job
-                                </GradientButton>
-                              )}
+                                  {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
+                                    <GradientButton
+                                      size="small"
+                                      onClick={() => handleConvert(recommendation)}
+                                      disabled={convertMutation.isPending}
+                                      fullWidth
+                                    >
+                                      Convert to job
+                                    </GradientButton>
+                                  )}
 
-                              {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="primary"
-                                  onClick={() => handleRespond(recommendation.id)}
-                                  disabled={respondMutation.isPending}
-                                  fullWidth
-                                >
-                                  Respond to Rejection
-                                </Button>
-                              )}
-                            </Stack>
+                                  {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="primary"
+                                      onClick={() => handleRespond(recommendation.id)}
+                                      disabled={respondMutation.isPending}
+                                      fullWidth
+                                    >
+                                      Respond to Rejection
+                                    </Button>
+                                  )}
+                                </Stack>
+                              </>
+                            )}
                           </Stack>
                         </CardContent>
                       </Card>
