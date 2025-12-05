@@ -47,6 +47,7 @@ import {
   Cancel as CancelIcon,
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
+  ViewKanban as ViewKanbanIcon,
   TableChart as TableChartIcon,
   Home as HomeIcon,
   Visibility as VisibilityIcon,
@@ -592,9 +593,9 @@ export default function RecommendationsPage() {
                     <ViewModuleIcon fontSize="small" />
                   </Tooltip>
                 </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
-                  <Tooltip title="List View">
-                    <ViewListIcon fontSize="small" />
+                <ToggleButton value="list" aria-label="kanban view">
+                  <Tooltip title="Kanban View">
+                    <ViewKanbanIcon fontSize="small" />
                   </Tooltip>
                 </ToggleButton>
                 <ToggleButton value="table" aria-label="table view">
@@ -864,8 +865,31 @@ export default function RecommendationsPage() {
                 </Grid>
               )}
 
-              {/* List View */}
+              {/* Kanban View */}
               {viewMode === 'list' && !isMobile && (
+                <RecommendationKanban
+                  recommendations={filteredRecommendations}
+                  propertiesMap={propertiesMap}
+                  onView={handleViewDetails}
+                  onEdit={handleEditRecommendation}
+                  onDelete={handleDeleteRecommendation}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  onConvert={handleConvert}
+                  onRespond={handleRespond}
+                  canApproveOrReject={canApproveOrReject}
+                  user={user}
+                  getPriorityColor={getPriorityColor}
+                  getStatusColor={getStatusColor}
+                  approveMutation={approveMutation}
+                  rejectMutation={rejectMutation}
+                  convertMutation={convertMutation}
+                  respondMutation={respondMutation}
+                />
+              )}
+
+              {/* Legacy List View - Removed, replaced with Kanban */}
+              {false && viewMode === 'list' && !isMobile && (
                 <Stack spacing={2}>
                   {filteredRecommendations.map((recommendation) => {
                     const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
@@ -1571,3 +1595,310 @@ export default function RecommendationsPage() {
     </Container>
   );
 }
+
+// ============================================================================
+// Recommendation Kanban Board Component
+// ============================================================================
+
+const RecommendationKanban = ({
+  recommendations,
+  propertiesMap,
+  onView,
+  onEdit,
+  onDelete,
+  onApprove,
+  onReject,
+  onConvert,
+  onRespond,
+  canApproveOrReject,
+  user,
+  getPriorityColor,
+  getStatusColor,
+  approveMutation,
+  rejectMutation,
+  convertMutation,
+  respondMutation,
+}) => {
+  // Group recommendations by status
+  const columns = useMemo(() => {
+    const grouped = {
+      DRAFT: [],
+      SUBMITTED: [],
+      UNDER_REVIEW: [],
+      APPROVED: [],
+      REJECTED: [],
+      IMPLEMENTED: [],
+      ARCHIVED: [],
+    };
+
+    recommendations.forEach(recommendation => {
+      const status = recommendation.status || 'DRAFT';
+      if (grouped[status]) {
+        grouped[status].push(recommendation);
+      }
+    });
+
+    return [
+      { id: 'DRAFT', title: 'Draft', recommendations: grouped.DRAFT, color: 'default' },
+      { id: 'SUBMITTED', title: 'Submitted', recommendations: grouped.SUBMITTED, color: 'info' },
+      { id: 'UNDER_REVIEW', title: 'Under Review', recommendations: grouped.UNDER_REVIEW, color: 'warning' },
+      { id: 'APPROVED', title: 'Approved', recommendations: grouped.APPROVED, color: 'success' },
+      { id: 'REJECTED', title: 'Rejected', recommendations: grouped.REJECTED, color: 'error' },
+      { id: 'IMPLEMENTED', title: 'Implemented', recommendations: grouped.IMPLEMENTED, color: 'success' },
+      { id: 'ARCHIVED', title: 'Archived', recommendations: grouped.ARCHIVED, color: 'default' },
+    ];
+  }, [recommendations]);
+
+  return (
+    <Grid container spacing={2}>
+      {columns.map(column => (
+        <Grid item xs={12} sm={6} md={4} lg={12/7} key={column.id}>
+          <Paper
+            sx={{
+              p: 2,
+              height: '100%',
+              minHeight: 400,
+              bgcolor: 'background.default',
+              borderRadius: 2,
+            }}
+          >
+            {/* Column Header */}
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                {column.title}
+              </Typography>
+              <Chip
+                label={column.recommendations.length}
+                size="small"
+                color={column.color}
+              />
+            </Box>
+
+            {/* Column Cards */}
+            <Stack spacing={2} sx={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
+              {column.recommendations.map(recommendation => {
+                const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
+                const propertyName = property?.name || 'N/A';
+                return (
+                  <Card
+                    key={recommendation.id}
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 3,
+                      },
+                    }}
+                    onClick={() => onView(recommendation)}
+                  >
+                    <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, '&:last-child': { pb: 2 } }}>
+                      {/* Header */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                          {recommendation.title}
+                        </Typography>
+                        <Stack direction="row" spacing={0.5}>
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onView(recommendation);
+                              }}
+                              sx={{ color: 'primary.main' }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          {user?.role === 'PROPERTY_MANAGER' && (
+                            <>
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(recommendation);
+                                  }}
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(recommendation);
+                                  }}
+                                  sx={{ color: 'error.main' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      {/* Priority and Status Chips */}
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {recommendation.priority && (
+                          <Chip
+                            size="small"
+                            label={recommendation.priority}
+                            color={getPriorityColor(recommendation.priority)}
+                          />
+                        )}
+                        {recommendation.status && (
+                          <Chip
+                            size="small"
+                            label={recommendation.status.replace(/_/g, ' ')}
+                            color={getStatusColor(recommendation.status)}
+                          />
+                        )}
+                      </Box>
+
+                      {/* Details - Grouped in subtle box */}
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: 'action.hover',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          {/* Property */}
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Property
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                              <HomeIcon fontSize="small" color="action" />
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {propertyName}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Estimated Cost */}
+                          {recommendation.estimatedCost && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                                Estimated Cost
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', mt: 0.5 }}>
+                                ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      {/* Description */}
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        {recommendation.description}
+                      </Typography>
+
+                      {/* Rejection Reason */}
+                      {recommendation.status === 'REJECTED' && recommendation.rejectionReason && (
+                        <Alert severity="error" sx={{ py: 0.5, mt: 'auto' }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Rejection Reason:</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                            {recommendation.rejectionReason}
+                          </Typography>
+                        </Alert>
+                      )}
+
+                      {/* Actions */}
+                      <Stack direction="column" spacing={1} sx={{ mt: 'auto', pt: 1 }}>
+                        {canApproveOrReject(recommendation) && (
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              startIcon={<CancelIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onReject(recommendation.id);
+                              }}
+                              disabled={rejectMutation.isPending || approveMutation.isPending}
+                              fullWidth
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              startIcon={<CheckCircleIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onApprove(recommendation.id);
+                              }}
+                              disabled={rejectMutation.isPending || approveMutation.isPending}
+                              fullWidth
+                            >
+                              Approve
+                            </Button>
+                          </Stack>
+                        )}
+
+                        {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'APPROVED' && (
+                          <GradientButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onConvert(recommendation);
+                            }}
+                            disabled={convertMutation.isPending}
+                            fullWidth
+                          >
+                            Convert to job
+                          </GradientButton>
+                        )}
+
+                        {user?.role === 'PROPERTY_MANAGER' && recommendation.status === 'REJECTED' && !recommendation.managerResponse && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRespond(recommendation.id);
+                            }}
+                            disabled={respondMutation.isPending}
+                            fullWidth
+                          >
+                            Respond to Rejection
+                          </Button>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </Paper>
+        </Grid>
+      ))}
+    </Grid>
+  );
+};
