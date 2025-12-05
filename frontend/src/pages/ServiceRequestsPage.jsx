@@ -48,7 +48,6 @@ const ServiceRequestsPage = () => {
   const [filters, setFilters] = useState({
     status: '',
     category: '',
-    propertyId: '',
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [reviewDialog, setReviewDialog] = useState(null);
@@ -62,7 +61,6 @@ const ServiceRequestsPage = () => {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append('status', filters.status);
   if (filters.category) queryParams.append('category', filters.category);
-  if (filters.propertyId) queryParams.append('propertyId', filters.propertyId);
 
   // Fetch service requests with infinite query
   const {
@@ -86,30 +84,17 @@ const ServiceRequestsPage = () => {
       return lastPage.hasMore ? lastPage.page * 50 : undefined;
     },
     initialPageParam: 0,
+    refetchOnWindowFocus: true, // Refresh when window regains focus
   });
 
   // Flatten all pages into a single array
   const requests = data?.pages?.flatMap(page => page.items) || [];
-
-  // Fetch properties for filter
-  const { data: propertiesData } = useQuery({
-    queryKey: queryKeys.properties.all(),
-    queryFn: async () => {
-      const response = await apiClient.get('/properties?limit=100&offset=0');
-      return response.data;
-    },
-  });
-
-  const properties = propertiesData?.items || [];
-
   const requestList = Array.isArray(requests) ? requests : [];
-  const propertyOptions = Array.isArray(properties) ? properties : [];
 
   const handleClearFilters = () => {
     setFilters({
       status: '',
       category: '',
-      propertyId: '',
     });
   };
 
@@ -172,6 +157,7 @@ const ServiceRequestsPage = () => {
       REJECTED_BY_OWNER: 'error',
       CONVERTED_TO_JOB: 'primary',
       COMPLETED: 'success',
+      ARCHIVED: 'default',
     };
     return colors[status] || 'default';
   };
@@ -269,7 +255,7 @@ const ServiceRequestsPage = () => {
                   color="inherit"
                   size="small"
                   onClick={handleClearFilters}
-                  disabled={!filters.status && !filters.category && !filters.propertyId}
+                  disabled={!filters.status && !filters.category}
                   sx={{ textTransform: 'none' }}
                 >
                   Clear filters
@@ -289,7 +275,7 @@ const ServiceRequestsPage = () => {
                   onChange={(e) => handleFilterChange('status', e.target.value)}
                   size="small"
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">All (Active)</MenuItem>
                   <MenuItem value="SUBMITTED">Submitted</MenuItem>
                   <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
                   <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
@@ -300,6 +286,7 @@ const ServiceRequestsPage = () => {
                   <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
                   <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
                   <MenuItem value="COMPLETED">Completed</MenuItem>
+                  <MenuItem value="ARCHIVED">Archived</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
@@ -325,27 +312,6 @@ const ServiceRequestsPage = () => {
                   <MenuItem value="OTHER">Other</MenuItem>
                 </TextField>
               </Grid>
-              {userRole !== 'TENANT' && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    id="service-requests-filter-property"
-                    name="propertyId"
-                    select
-                    fullWidth
-                    label="Property"
-                    value={filters.propertyId}
-                    onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All Properties</MenuItem>
-                    {propertyOptions.map((property) => (
-                      <MenuItem key={property.id} value={property.id}>
-                        {property.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              )}
             </Grid>
           </Stack>
         </CardContent>
@@ -355,16 +321,16 @@ const ServiceRequestsPage = () => {
       {requestList.length === 0 ? (
         <EmptyState
           icon={AssignmentIcon}
-          title={filters.status || filters.category || filters.propertyId ? 'No service requests match your filters' : 'No service requests yet'}
+          title={filters.status || filters.category ? 'No service requests match your filters' : 'No service requests yet'}
           description={
-            filters.status || filters.category || filters.propertyId
+            filters.status || filters.category
               ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
               : userRole === 'TENANT'
                 ? 'Need maintenance or repairs? Submit your first service request and we\'ll take care of it promptly.'
                 : 'Start managing service requests from your tenants. Track issues, assign jobs, and keep everyone informed.'
           }
-          actionLabel={filters.status || filters.category || filters.propertyId ? undefined : (userRole === 'TENANT' ? 'Submit First Request' : 'Create Request')}
-          onAction={filters.status || filters.category || filters.propertyId ? undefined : handleCreate}
+          actionLabel={filters.status || filters.category ? undefined : (userRole === 'TENANT' ? 'Submit First Request' : 'Create Request')}
+          onAction={filters.status || filters.category ? undefined : handleCreate}
         />
       ) : (
         <Stack spacing={3}>

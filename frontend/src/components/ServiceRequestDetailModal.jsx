@@ -30,6 +30,7 @@ import {
   Cancel as CancelIcon,
   Build as BuildIcon,
   AttachMoney as MoneyIcon,
+  CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -52,6 +53,7 @@ const getStatusColor = (status) => {
     REJECTED_BY_OWNER: 'error',
     CONVERTED_TO_JOB: 'primary',
     COMPLETED: 'success',
+    ARCHIVED: 'default',
   };
   return colors[status] || 'default';
 };
@@ -194,6 +196,48 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     },
   });
 
+  // Manager direct approval mutation
+  const managerApproveMutation = useMutation({
+    mutationFn: async ({ reviewNotes, approvedBudget }) => {
+      const response = await apiClient.post(`/service-requests/${requestId}/manager-approve`, {
+        reviewNotes,
+        approvedBudget: approvedBudget ? parseFloat(approvedBudget) : undefined,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
+      toast.success('Service request approved');
+      handleCancelReview();
+      onClose();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to approve request');
+    },
+  });
+
+  // Manager direct rejection mutation
+  const managerRejectMutation = useMutation({
+    mutationFn: async ({ rejectionReason, reviewNotes }) => {
+      const response = await apiClient.post(`/service-requests/${requestId}/manager-reject`, {
+        rejectionReason,
+        reviewNotes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
+      toast.success('Service request rejected');
+      handleCancelReview();
+      onClose();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to reject request');
+    },
+  });
+
   const handleApprove = () => {
     setReviewAction('approve');
     setShowReviewInput(true);
@@ -201,6 +245,20 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
   const handleReject = () => {
     setReviewAction('reject');
+    setShowReviewInput(true);
+  };
+
+  const handleManagerApprove = () => {
+    setReviewAction('manager-approve');
+    setReviewNotes('');
+    setApprovedBudget('');
+    setShowReviewInput(true);
+  };
+
+  const handleManagerReject = () => {
+    setReviewAction('manager-reject');
+    setRejectionReason('');
+    setReviewNotes('');
     setShowReviewInput(true);
   };
 
@@ -230,6 +288,20 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
       updateMutation.mutate({
         status: reviewAction === 'approve' ? 'APPROVED' : 'REJECTED',
         reviewNotes: reviewNotes.trim(),
+      });
+    } else if (reviewAction === 'manager-approve') {
+      managerApproveMutation.mutate({
+        reviewNotes: reviewNotes.trim() || undefined,
+        approvedBudget: approvedBudget || undefined,
+      });
+    } else if (reviewAction === 'manager-reject') {
+      if (!rejectionReason.trim()) {
+        toast.error('Please enter a rejection reason');
+        return;
+      }
+      managerRejectMutation.mutate({
+        rejectionReason: rejectionReason.trim(),
+        reviewNotes: reviewNotes.trim() || undefined,
       });
     } else if (reviewAction === 'add-estimate') {
       if (!managerEstimatedCost || parseFloat(managerEstimatedCost) <= 0) {
@@ -306,8 +378,9 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const linkedJobs = data?.jobs || [];
   const linkedJob = linkedJobs[0]; // Assuming only one job can be linked for simplicity
 
-  const isPendingMutation = updateMutation.isPending || convertMutation.isPending || 
-    addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending;
+  const isPendingMutation = updateMutation.isPending || convertMutation.isPending ||
+    addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
+    managerApproveMutation.isPending || managerRejectMutation.isPending;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -559,9 +632,11 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                   <Typography variant="subtitle2" gutterBottom fontWeight={600}>
                     {reviewAction === 'approve' && 'Approve Request'}
                     {reviewAction === 'reject' && 'Reject Request'}
+                    {reviewAction === 'manager-approve' && 'Approve Service Request'}
+                    {reviewAction === 'manager-reject' && 'Reject Service Request'}
                     {reviewAction === 'add-estimate' && 'Add Cost Estimate'}
-                    {reviewAction === 'owner-approve' && 'Approve Service Request'}
-                    {reviewAction === 'owner-reject' && 'Reject Service Request'}
+                    {reviewAction === 'owner-approve' && 'Approve Service Request (Owner)'}
+                    {reviewAction === 'owner-reject' && 'Reject Service Request (Owner)'}
                   </Typography>
 
                   {/* Standard approve/reject flow */}
@@ -581,6 +656,62 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                       disabled={isPendingMutation}
                       sx={{ mt: 1 }}
                     />
+                  )}
+
+                  {/* Manager direct approve */}
+                  {reviewAction === 'manager-approve' && (
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Review Notes (Optional)"
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        placeholder="Add any notes about the approval..."
+                        disabled={isPendingMutation}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Approved Budget (Optional)"
+                        type="number"
+                        value={approvedBudget}
+                        onChange={(e) => setApprovedBudget(e.target.value)}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        }}
+                        inputProps={{ min: 0, step: 0.01 }}
+                        disabled={isPendingMutation}
+                        helperText="Specify budget if applicable"
+                      />
+                    </Stack>
+                  )}
+
+                  {/* Manager direct reject */}
+                  {reviewAction === 'manager-reject' && (
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Rejection Reason"
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Please explain why you are rejecting this request..."
+                        disabled={isPendingMutation}
+                        required
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Review Notes (Optional)"
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        placeholder="Add any additional notes..."
+                        disabled={isPendingMutation}
+                      />
+                    </Stack>
                   )}
 
                   {/* Manager adds cost estimate */}
@@ -662,19 +793,19 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                       onClick={handleSubmitReview}
                       variant="contained"
                       color={
-                        reviewAction === 'approve' || reviewAction === 'owner-approve' || reviewAction === 'add-estimate'
+                        ['approve', 'manager-approve', 'owner-approve', 'add-estimate'].includes(reviewAction)
                           ? 'success'
                           : 'error'
                       }
                       disabled={isPendingMutation}
                       startIcon={
                         reviewAction === 'add-estimate' ? <MoneyIcon /> :
-                        (reviewAction === 'approve' || reviewAction === 'owner-approve') ? <CheckCircleIcon /> : <CancelIcon />
+                        ['approve', 'manager-approve', 'owner-approve'].includes(reviewAction) ? <CheckCircleIcon /> : <CancelIcon />
                       }
                     >
                       {isPendingMutation
                         ? 'Submitting...'
-                        : reviewAction === 'approve' || reviewAction === 'owner-approve'
+                        : ['approve', 'manager-approve', 'owner-approve'].includes(reviewAction)
                         ? 'Approve'
                         : reviewAction === 'add-estimate'
                         ? 'Submit Estimate'
@@ -691,11 +822,11 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
       <DialogActions>
         {data && !showReviewInput && (
           <>
-            {/* Property Manager actions for SUBMITTED requests */}
-            {data.status === 'SUBMITTED' && userRole === 'PROPERTY_MANAGER' && (
+            {/* Property Manager actions for pending requests */}
+            {['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'].includes(data.status) && userRole === 'PROPERTY_MANAGER' && (
               <>
                 <Button
-                  onClick={handleReject}
+                  onClick={handleManagerReject}
                   color="error"
                   startIcon={<CancelIcon />}
                   disabled={isPendingMutation}
@@ -703,27 +834,24 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                   Reject
                 </Button>
                 <Button
-                  onClick={handleApprove}
+                  onClick={handleManagerApprove}
                   color="success"
+                  variant="contained"
                   startIcon={<CheckCircleIcon />}
                   disabled={isPendingMutation}
                 >
                   Approve
                 </Button>
+                <Button
+                  onClick={handleAddEstimate}
+                  color="primary"
+                  startIcon={<MoneyIcon />}
+                  disabled={isPendingMutation}
+                  sx={{ ml: 1 }}
+                >
+                  Add Cost Estimate
+                </Button>
               </>
-            )}
-
-            {/* Property Manager adds cost estimate for PENDING_MANAGER_REVIEW */}
-            {data.status === 'PENDING_MANAGER_REVIEW' && userRole === 'PROPERTY_MANAGER' && (
-              <Button
-                onClick={handleAddEstimate}
-                variant="contained"
-                color="primary"
-                startIcon={<MoneyIcon />}
-                disabled={isPendingMutation}
-              >
-                Add Cost Estimate
-              </Button>
             )}
 
             {/* Owner approval/rejection for PENDING_OWNER_APPROVAL */}
@@ -749,16 +877,29 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
               </>
             )}
 
-            {/* Convert to job for APPROVED or APPROVED_BY_OWNER status */}
+            {/* Schedule Inspection or Convert to Job for APPROVED status */}
             {(data.status === 'APPROVED' || data.status === 'APPROVED_BY_OWNER') && userRole === 'PROPERTY_MANAGER' && (
-              <LoadingButton
-                onClick={handleConvert}
-                variant="contained"
-                startIcon={<BuildIcon />}
-                loading={convertMutation.isPending}
-              >
-                Convert to Job
-              </LoadingButton>
+              <>
+                <Button
+                  onClick={() => {
+                    // Navigate to inspections page with pre-filled data
+                    window.location.href = `/inspections?propertyId=${data.propertyId}&fromServiceRequest=${data.id}`;
+                  }}
+                  variant="outlined"
+                  startIcon={<CalendarIcon />}
+                  disabled={isPendingMutation}
+                >
+                  Schedule Inspection
+                </Button>
+                <LoadingButton
+                  onClick={handleConvert}
+                  variant="contained"
+                  startIcon={<BuildIcon />}
+                  loading={convertMutation.isPending}
+                >
+                  Convert to Job
+                </LoadingButton>
+              </>
             )}
           </>
         )}
