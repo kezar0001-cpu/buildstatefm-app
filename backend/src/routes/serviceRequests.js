@@ -44,7 +44,7 @@ const requestUpdateSchema = z.object({
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { status, propertyId, category, search } = req.query;
+    const { status, propertyId, category, search, includeArchived } = req.query;
 
     // Build base where clause with filters
     const where = {};
