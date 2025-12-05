@@ -44,13 +44,21 @@ const requestUpdateSchema = z.object({
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { status, propertyId, category } = req.query;
+    const { status, propertyId, category, includeArchived } = req.query;
 
     // Build base where clause with filters
     const where = {};
     if (status) where.status = status;
     if (propertyId) where.propertyId = propertyId;
     if (category) where.category = category;
+
+    // By default, exclude archived items unless explicitly requested
+    if (includeArchived !== 'true' && !status) {
+      where.status = { not: 'ARCHIVED' };
+    } else if (includeArchived !== 'true' && status && status !== 'ARCHIVED') {
+      // If filtering by specific status, ensure it's not archived
+      where.status = status;
+    }
 
     // Add role-based access control
     if (req.user.role === 'PROPERTY_MANAGER') {
@@ -142,6 +150,105 @@ router.get('/', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching service requests:', error);
     return sendError(res, 500, 'Failed to fetch service requests', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// GET /archived - Get archived service requests
+router.get('/archived', requireAuth, async (req, res) => {
+  try {
+    const { propertyId, category } = req.query;
+
+    // Build base where clause with filters
+    const where = {
+      status: 'ARCHIVED', // Only archived items
+    };
+    if (propertyId) where.propertyId = propertyId;
+    if (category) where.category = category;
+
+    // Add role-based access control
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      where.property = { managerId: req.user.id };
+    } else if (req.user.role === 'OWNER') {
+      where.property = {
+        owners: {
+          some: { ownerId: req.user.id }
+        }
+      };
+    } else if (req.user.role === 'TENANT') {
+      where.requestedById = req.user.id;
+    } else if (req.user.role === 'TECHNICIAN') {
+      const assignedJobs = await prisma.job.findMany({
+        where: { assignedToId: req.user.id },
+        select: { propertyId: true },
+        distinct: ['propertyId'],
+      });
+      const propertyIds = assignedJobs.map(j => j.propertyId).filter(Boolean);
+
+      if (propertyIds.length === 0) {
+        return res.json({
+          items: [],
+          total: 0,
+          page: 1,
+          hasMore: false,
+        });
+      }
+
+      where.propertyId = { in: propertyIds };
+    }
+
+    // Parse pagination parameters
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+    // Fetch archived service requests and total count in parallel
+    const [requests, total] = await Promise.all([
+      prisma.serviceRequest.findMany({
+        where,
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            }
+          },
+          unit: {
+            select: {
+              id: true,
+              unitNumber: true,
+            }
+          },
+          requestedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            }
+          },
+        },
+        orderBy: { archivedAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.serviceRequest.count({ where }),
+    ]);
+
+    // Calculate page number and hasMore
+    const page = Math.floor(offset / limit) + 1;
+    const hasMore = offset + limit < total;
+
+    // Return paginated response
+    res.json({
+      items: requests,
+      total,
+      page,
+      hasMore,
+    });
+  } catch (error) {
+    console.error('Error fetching archived service requests:', error);
+    return sendError(res, 500, 'Failed to fetch archived service requests', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
@@ -850,6 +957,251 @@ router.post('/:id/reject', requireAuth, requireRole('OWNER'), async (req, res) =
         updatedRequest.property,
         rejectionReason
       );
+    } catch (notifError) {
+      console.error('Failed to send rejection notification:', notifError);
+    }
+
+    res.json({ success: true, request: updatedRequest });
+  } catch (error) {
+    console.error('Error rejecting service request:', error);
+    return sendError(res, 500, 'Failed to reject service request', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// Property Manager directly approves service request (bypasses owner approval for simple requests)
+router.post('/:id/manager-approve', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reviewNotes, approvedBudget } = req.body;
+
+    // Get service request
+    const serviceRequest = await prisma.serviceRequest.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            role: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+    });
+
+    if (!serviceRequest) {
+      return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+
+    // Verify it's the property manager
+    if (serviceRequest.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'Only the property manager can approve service requests', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+
+    // Verify it's in a valid status for approval
+    const validStatuses = ['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'];
+    if (!validStatuses.includes(serviceRequest.status)) {
+      return sendError(res, 400, `Cannot approve request with status ${serviceRequest.status}`, ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    // Update service request to approved
+    const updatedRequest = await prisma.serviceRequest.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        reviewNotes: reviewNotes || null,
+        approvedBudget: approvedBudget || serviceRequest.managerEstimatedCost || serviceRequest.ownerEstimatedBudget,
+        approvedById: req.user.id,
+        approvedAt: new Date(),
+        lastReviewedById: req.user.id,
+        lastReviewedAt: new Date(),
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Log audit
+    await logAudit({
+      entityType: 'ServiceRequest',
+      entityId: id,
+      action: 'APPROVED_BY_MANAGER',
+      userId: req.user.id,
+      changes: {
+        reviewNotes,
+        approvedBudget,
+        status: { before: serviceRequest.status, after: 'APPROVED' }
+      },
+      req
+    });
+
+    // Clear cache
+    await redisDel(`property:${serviceRequest.propertyId}:*`);
+
+    // Send notification to requester
+    try {
+      await sendNotification({
+        userId: serviceRequest.requestedById,
+        type: 'SERVICE_REQUEST_APPROVED',
+        title: 'Service Request Approved',
+        message: `Your service request "${serviceRequest.title}" has been approved by the property manager.`,
+        data: {
+          serviceRequestId: id,
+          propertyId: serviceRequest.propertyId
+        }
+      });
+    } catch (notifError) {
+      console.error('Failed to send approval notification:', notifError);
+    }
+
+    res.json({ success: true, request: updatedRequest });
+  } catch (error) {
+    console.error('Error approving service request:', error);
+    return sendError(res, 500, 'Failed to approve service request', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// Property Manager directly rejects service request
+router.post('/:id/manager-reject', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rejectionReason, reviewNotes } = req.body;
+
+    if (!rejectionReason || rejectionReason.trim().length === 0) {
+      return sendError(res, 400, 'Rejection reason is required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Get service request
+    const serviceRequest = await prisma.serviceRequest.findUnique({
+      where: { id },
+      include: {
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            role: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+    });
+
+    if (!serviceRequest) {
+      return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+
+    // Verify it's the property manager
+    if (serviceRequest.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'Only the property manager can reject service requests', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+
+    // Verify it's in a valid status for rejection
+    const validStatuses = ['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'];
+    if (!validStatuses.includes(serviceRequest.status)) {
+      return sendError(res, 400, `Cannot reject request with status ${serviceRequest.status}`, ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    // Update service request to rejected
+    const updatedRequest = await prisma.serviceRequest.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectedById: req.user.id,
+        rejectedAt: new Date(),
+        rejectionReason,
+        reviewNotes: reviewNotes || null,
+        lastReviewedById: req.user.id,
+        lastReviewedAt: new Date(),
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true
+          }
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Log audit
+    await logAudit({
+      entityType: 'ServiceRequest',
+      entityId: id,
+      action: 'REJECTED_BY_MANAGER',
+      userId: req.user.id,
+      changes: {
+        rejectionReason,
+        reviewNotes,
+        status: { before: serviceRequest.status, after: 'REJECTED' }
+      },
+      req
+    });
+
+    // Clear cache
+    await redisDel(`property:${serviceRequest.propertyId}:*`);
+
+    // Send notification to requester
+    try {
+      await sendNotification({
+        userId: serviceRequest.requestedById,
+        type: 'SERVICE_REQUEST_REJECTED',
+        title: 'Service Request Rejected',
+        message: `Your service request "${serviceRequest.title}" has been rejected. Reason: ${rejectionReason}`,
+        data: {
+          serviceRequestId: id,
+          propertyId: serviceRequest.propertyId,
+          rejectionReason
+        }
+      });
     } catch (notifError) {
       console.error('Failed to send rejection notification:', notifError);
     }

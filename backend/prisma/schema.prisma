@@ -429,6 +429,7 @@ model ServiceRequest {
   rejectionReason                            String?
   lastReviewedById                           String?
   lastReviewedAt                             DateTime?
+  archivedAt                                 DateTime?
   createdAt                                  DateTime               @default(now())
   updatedAt                                  DateTime               @updatedAt
   jobs                                       Job[]
@@ -1090,6 +1091,7 @@ enum ServiceRequestStatus {
   PENDING_OWNER_APPROVAL
   APPROVED_BY_OWNER
   REJECTED_BY_OWNER
+  ARCHIVED
 }
 
 enum ServiceRequestCategory {

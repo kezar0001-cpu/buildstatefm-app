@@ -172,6 +172,7 @@ const ServiceRequestsPage = () => {
       REJECTED_BY_OWNER: 'error',
       CONVERTED_TO_JOB: 'primary',
       COMPLETED: 'success',
+      ARCHIVED: 'default',
     };
     return colors[status] || 'default';
   };
@@ -289,7 +290,7 @@ const ServiceRequestsPage = () => {
                   onChange={(e) => handleFilterChange('status', e.target.value)}
                   size="small"
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">All (Active)</MenuItem>
                   <MenuItem value="SUBMITTED">Submitted</MenuItem>
                   <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
                   <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
@@ -300,6 +301,7 @@ const ServiceRequestsPage = () => {
                   <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
                   <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
                   <MenuItem value="COMPLETED">Completed</MenuItem>
+                  <MenuItem value="ARCHIVED">Archived</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>

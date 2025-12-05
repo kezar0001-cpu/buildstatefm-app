@@ -47,9 +47,20 @@ export function initializeCronJobs() {
     }
   });
 
+  // Archive service requests - runs every hour
+  cron.schedule('0 * * * *', async () => {
+    console.log('Running service request archiving check...');
+    try {
+      await archiveServiceRequests();
+    } catch (error) {
+      console.error('Error in service request archiving cron job:', error);
+    }
+  });
+
   console.log('Cron jobs initialized successfully');
   console.log('- Trial reminders: Daily at 9:00 AM');
   console.log('- Recommendation archiving: Every hour');
+  console.log('- Service request archiving: Every hour');
 }
 
 /**
@@ -87,4 +98,63 @@ export async function archiveRejectedRecommendations() {
   }
 
   return result;
+}
+
+/**
+ * Archive service requests based on approval/rejection timing
+ * - Approved requests: archived after 24 hours
+ * - Rejected requests: archived after 25 hours
+ */
+export async function archiveServiceRequests() {
+  const now = Date.now();
+  const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000);
+  const twentyFiveHoursAgo = new Date(now - 25 * 60 * 60 * 1000);
+
+  // Archive approved requests after 24 hours
+  const approvedResult = await prisma.serviceRequest.updateMany({
+    where: {
+      status: {
+        in: ['APPROVED', 'APPROVED_BY_OWNER'],
+      },
+      approvedAt: {
+        not: null,
+        lte: twentyFourHoursAgo,
+      },
+    },
+    data: {
+      status: 'ARCHIVED',
+      archivedAt: new Date(),
+    },
+  });
+
+  if (approvedResult.count > 0) {
+    console.log(`Archived ${approvedResult.count} approved service request(s) that were approved more than 24 hours ago`);
+  }
+
+  // Archive rejected requests after 25 hours
+  const rejectedResult = await prisma.serviceRequest.updateMany({
+    where: {
+      status: {
+        in: ['REJECTED', 'REJECTED_BY_OWNER'],
+      },
+      rejectedAt: {
+        not: null,
+        lte: twentyFiveHoursAgo,
+      },
+    },
+    data: {
+      status: 'ARCHIVED',
+      archivedAt: new Date(),
+    },
+  });
+
+  if (rejectedResult.count > 0) {
+    console.log(`Archived ${rejectedResult.count} rejected service request(s) that were rejected more than 25 hours ago`);
+  }
+
+  return {
+    approved: approvedResult.count,
+    rejected: rejectedResult.count,
+    total: approvedResult.count + rejectedResult.count,
+  };
 }
