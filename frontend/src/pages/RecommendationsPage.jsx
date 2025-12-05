@@ -37,6 +37,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -68,6 +69,7 @@ import PageShell from '../components/PageShell';
 import RecommendationWizard from '../components/RecommendationWizard';
 import ConvertToJobDialog from '../components/ConvertToJobDialog';
 import RecommendationDetailModal from '../components/RecommendationDetailModal';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -632,32 +634,57 @@ export default function RecommendationsPage() {
           </Alert>
         )}
 
-        <DataState
-          isLoading={query.isLoading}
-          isError={query.isError}
-          error={query.error}
-          isEmpty={!query.isLoading && !query.isError && filteredRecommendations.length === 0}
-          onRetry={query.refetch}
-        >
-          {filteredRecommendations.length === 0 ? (
-            <EmptyState
-              icon={LightbulbIcon}
-              iconColor="#dc2626"
-              iconBackground="linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%)"
-              iconBorderColor="rgba(220, 38, 38, 0.2)"
-              iconShadow="0 4px 14px 0 rgb(220 38 38 / 0.15)"
-              title={hasFilters ? 'No recommendations match your filters' : 'No recommendations yet'}
-              description={
-                hasFilters
-                  ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
-                  : user?.role === 'PROPERTY_MANAGER'
-                    ? 'Start managing job recommendations for your properties. Share maintenance suggestions with property owners for their review and approval.'
-                    : 'No recommendations have been created yet. Property managers can create recommendations for you to review.'
-              }
-              actionLabel={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : 'Create Recommendation'}
-              onAction={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : handleCreate}
-            />
-          ) : (
+        {/* Loading State */}
+        {query.isLoading ? (
+          <Box sx={{ mt: 3 }}>
+            {viewMode === 'grid' && <LoadingSkeleton variant="card" count={6} height={300} />}
+            {viewMode === 'list' && (
+              <Grid container spacing={2}>
+                {['Submitted', 'Under Review', 'Approved', 'Rejected'].map((column, idx) => (
+                  <Grid item xs={12} sm={6} md={3} key={idx}>
+                    <Box sx={{ mb: 2 }}>
+                      <Skeleton variant="text" width="60%" height={32} sx={{ mb: 2 }} />
+                      <Stack spacing={2}>
+                        {Array.from({ length: 2 }).map((_, i) => (
+                          <Card key={i} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+                            <Skeleton variant="text" width="80%" height={24} />
+                            <Skeleton variant="text" width="60%" height={20} sx={{ mt: 1 }} />
+                            <Skeleton variant="rectangular" width="100%" height={60} sx={{ mt: 1, borderRadius: 1 }} />
+                          </Card>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+            {viewMode === 'table' && <LoadingSkeleton variant="table" count={5} />}
+          </Box>
+        ) : query.isError ? (
+          <DataState
+            isError={true}
+            error={query.error}
+            onRetry={query.refetch}
+          />
+        ) : filteredRecommendations.length === 0 ? (
+          <EmptyState
+            icon={LightbulbIcon}
+            iconColor="#dc2626"
+            iconBackground="linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%)"
+            iconBorderColor="rgba(220, 38, 38, 0.2)"
+            iconShadow="0 4px 14px 0 rgb(220 38 38 / 0.15)"
+            title={hasFilters ? 'No recommendations match your filters' : 'No recommendations yet'}
+            description={
+              hasFilters
+                ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+                : user?.role === 'PROPERTY_MANAGER'
+                  ? 'Start managing job recommendations for your properties. Share maintenance suggestions with property owners for their review and approval.'
+                  : 'No recommendations have been created yet. Property managers can create recommendations for you to review.'
+            }
+            actionLabel={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : 'Create Recommendation'}
+            onAction={hasFilters || user?.role !== 'PROPERTY_MANAGER' ? undefined : handleCreate}
+          />
+        ) : (
             <Stack spacing={3}>
               {/* Grid View */}
               {viewMode === 'grid' && !isMobile && (
