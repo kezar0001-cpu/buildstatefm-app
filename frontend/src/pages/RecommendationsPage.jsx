@@ -437,6 +437,31 @@ export default function RecommendationsPage() {
     }
   };
 
+  const handleToggleRecommendationSelection = (recommendationId) => {
+    setSelectedRecommendationIds((prev) => {
+      if (prev.includes(recommendationId)) {
+        return prev.filter((id) => id !== recommendationId);
+      }
+      return [...prev, recommendationId];
+    });
+  };
+
+  const handleToggleSelectAllVisible = (event) => {
+    const { checked } = event.target;
+    if (checked) {
+      setSelectedRecommendationIds(filteredRecommendations.map((rec) => rec.id));
+    } else {
+      setSelectedRecommendationIds([]);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    // TODO: Implement bulk delete
+    console.log('Bulk delete recommendations:', selectedRecommendationIds);
+    toast.success(`${selectedRecommendationIds.length} recommendations selected for deletion`);
+    setSelectedRecommendationIds([]);
+  };
+
   const hasFilters = debouncedSearch || priorityFilter || statusFilter;
 
   return (
