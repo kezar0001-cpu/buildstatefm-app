@@ -54,16 +54,22 @@ function NavBar() {
     ? { name: 'My Jobs', href: '/technician/dashboard' }
     : { name: 'Jobs', href: '/jobs' };
 
-  const navigation = [
+  // Base navigation items
+  const baseNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Properties', href: '/properties' },
     { name: 'Inspections', href: '/inspections' },
     jobsNavigation,
     { name: 'Reports', href: '/reports' },
     { name: 'Plans', href: '/plans' },
-    { name: 'Service Requests', href: '/service-requests' },
+    { name: 'Service Requests', href: '/service-requests', hideForRoles: ['TECHNICIAN'] },
     { name: 'Recommendations', href: '/recommendations' },
   ];
+
+  // Filter navigation based on user role
+  const navigation = baseNavigation.filter(item =>
+    !item.hideForRoles || !item.hideForRoles.includes(user?.role)
+  );
 
   const handleNavigation = (path) => {
     navigate(path);

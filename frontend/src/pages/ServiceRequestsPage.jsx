@@ -84,7 +84,6 @@ const ServiceRequestsPage = () => {
       return lastPage.hasMore ? lastPage.page * 50 : undefined;
     },
     initialPageParam: 0,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
     refetchOnWindowFocus: true, // Refresh when window regains focus
   });
 
