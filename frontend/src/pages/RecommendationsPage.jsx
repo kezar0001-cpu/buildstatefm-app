@@ -49,6 +49,7 @@ import {
   ViewList as ViewListIcon,
   TableChart as TableChartIcon,
   Home as HomeIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -62,6 +63,7 @@ import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
 import RecommendationWizard from '../components/RecommendationWizard';
 import ConvertToJobDialog from '../components/ConvertToJobDialog';
+import RecommendationDetailModal from '../components/RecommendationDetailModal';
 import { normaliseArray } from '../utils/error.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
@@ -126,6 +128,8 @@ export default function RecommendationsPage() {
   const [managerResponse, setManagerResponse] = useState('');
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingRecommendation, setConvertingRecommendation] = useState(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedRecommendation, setSelectedRecommendation] = useState(null);
 
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
@@ -341,6 +345,25 @@ export default function RecommendationsPage() {
 
   const handleWizardClose = () => {
     setWizardOpen(false);
+  };
+
+  const handleViewDetails = (recommendation) => {
+    setSelectedRecommendation(recommendation);
+    setDetailModalOpen(true);
+  };
+
+  const handleDetailModalClose = () => {
+    setDetailModalOpen(false);
+    setSelectedRecommendation(null);
+  };
+
+  const handleRecommendationUpdate = () => {
+    query.refetch();
+  };
+
+  const handleRecommendationDelete = () => {
+    query.refetch();
+    handleDetailModalClose();
   };
 
   const handleViewModeChange = (event, newViewMode) => {
@@ -603,13 +626,6 @@ export default function RecommendationsPage() {
                               </Typography>
                             </Box>
 
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <HomeIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
-                                {propertyName}
-                              </Typography>
-                            </Box>
-
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                               {recommendation.priority && (
                                 <Chip
@@ -627,11 +643,40 @@ export default function RecommendationsPage() {
                               )}
                             </Box>
 
-                            {recommendation.estimatedCost && (
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </Typography>
-                            )}
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: 'action.hover',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                              }}
+                            >
+                              <Stack spacing={1}>
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                    Property
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    <HomeIcon fontSize="small" color="action" />
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      {propertyName}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+
+                                {recommendation.estimatedCost && (
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                      Estimated Cost
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', mt: 0.5 }}>
+                                      ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Stack>
+                            </Box>
 
                             {recommendation.status === 'REJECTED' && recommendation.rejectionReason && (
                               <Box sx={{ mt: 1 }}>
@@ -664,6 +709,16 @@ export default function RecommendationsPage() {
                           </CardContent>
 
                           <CardActions sx={{ px: 2, pb: 2, pt: 0, flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+                            <Button
+                              size="small"
+                              variant="text"
+                              startIcon={<VisibilityIcon />}
+                              onClick={() => handleViewDetails(recommendation)}
+                              fullWidth
+                              sx={{ justifyContent: 'flex-start' }}
+                            >
+                              View Details
+                            </Button>
                             <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                               {canApproveOrReject(recommendation) && (
                                 <>
@@ -753,11 +808,27 @@ export default function RecommendationsPage() {
                                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                                   {recommendation.title}
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                                  <HomeIcon fontSize="small" color="action" />
-                                  <Typography variant="body2" color="text.secondary">
-                                    {propertyName}
-                                  </Typography>
+                                <Box
+                                  sx={{
+                                    p: 1.5,
+                                    borderRadius: 2,
+                                    bgcolor: 'action.hover',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    display: 'inline-block',
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <HomeIcon fontSize="small" color="action" />
+                                    <Box>
+                                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                        Property
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                        {propertyName}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
                                 </Box>
                               </Box>
                               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -807,11 +878,21 @@ export default function RecommendationsPage() {
                             )}
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              {recommendation.estimatedCost && (
-                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                  ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Typography>
-                              )}
+                              <Stack direction="row" spacing={2} alignItems="center">
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  startIcon={<VisibilityIcon />}
+                                  onClick={() => handleViewDetails(recommendation)}
+                                >
+                                  View Details
+                                </Button>
+                                {recommendation.estimatedCost && (
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                    ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </Typography>
+                                )}
+                              </Stack>
                               <Stack direction="row" spacing={1}>
                                 {canApproveOrReject(recommendation) && (
                                   <>
@@ -889,13 +970,21 @@ export default function RecommendationsPage() {
                             <Divider />
 
                             {/* Property */}
-                            <Box>
-                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: 'action.hover',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                              }}
+                            >
+                              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
                                 Property
                               </Typography>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                 <HomeIcon fontSize="small" color="action" />
-                                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
                                   {propertyName}
                                 </Typography>
                               </Box>
@@ -951,6 +1040,15 @@ export default function RecommendationsPage() {
 
                             {/* Actions */}
                             <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<VisibilityIcon />}
+                                onClick={() => handleViewDetails(recommendation)}
+                                fullWidth
+                              >
+                                View Details
+                              </Button>
                               {canApproveOrReject(recommendation) && (
                                 <>
                                   <Button
@@ -1088,6 +1186,14 @@ export default function RecommendationsPage() {
                               </TableCell>
                               <TableCell align="right">
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                  <Button
+                                    size="small"
+                                    variant="text"
+                                    startIcon={<VisibilityIcon />}
+                                    onClick={() => handleViewDetails(recommendation)}
+                                  >
+                                    View
+                                  </Button>
                                   {canApproveOrReject(recommendation) && (
                                     <>
                                       <Button
@@ -1275,6 +1381,17 @@ export default function RecommendationsPage() {
         recommendation={convertingRecommendation}
         onConvert={handleConvertSuccess}
       />
+
+      {/* Recommendation Detail Modal */}
+      {selectedRecommendation && (
+        <RecommendationDetailModal
+          recommendation={selectedRecommendation}
+          open={detailModalOpen}
+          onClose={handleDetailModalClose}
+          onUpdate={handleRecommendationUpdate}
+          onDelete={handleRecommendationDelete}
+        />
+      )}
     </Container>
   );
 }
