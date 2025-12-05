@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -54,6 +54,7 @@ const ServiceRequestsPage = () => {
   const [filters, setFilters] = useState({
     status: '',
     category: '',
+    propertyId: '',
   });
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -109,10 +110,26 @@ const ServiceRequestsPage = () => {
   const requests = data?.pages?.flatMap(page => page.items) || [];
   const requestList = Array.isArray(requests) ? requests : [];
 
+  // Fetch properties for filter (only for non-tenants)
+  const { data: propertiesData } = useQuery({
+    queryKey: queryKeys.properties.all(),
+    queryFn: async () => {
+      const response = await apiClient.get('/properties?limit=100&offset=0');
+      return response.data;
+    },
+    enabled: userRole !== 'TENANT',
+  });
+
+  const properties = propertiesData?.items || [];
+  const propertyOptions = useMemo(() => {
+    return Array.isArray(properties) ? properties : [];
+  }, [properties]);
+
   const handleClearFilters = () => {
     setFilters({
       status: '',
       category: '',
+      propertyId: '',
     });
     setSearchInput('');
     setDebouncedSearch('');
@@ -345,7 +362,7 @@ const ServiceRequestsPage = () => {
                 name="propertyId"
                 select
                 label="Property"
-                value={filters.propertyId}
+                value={filters.propertyId || ''}
                 onChange={(e) => handleFilterChange('propertyId', e.target.value)}
                 size="small"
                 sx={{ minWidth: { xs: '100%', sm: 150 } }}
