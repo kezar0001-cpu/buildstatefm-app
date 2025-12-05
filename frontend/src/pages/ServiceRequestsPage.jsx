@@ -576,25 +576,24 @@ const ServiceRequestsPage = () => {
                       )}
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={statusLabel}
+                        color={getStatusColor(request.status)}
+                        size="small"
+                      />
+                      <Chip
+                        label={categoryLabel}
+                        color={getCategoryColor(request.category)}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {priorityLabel && (
                         <Chip
-                          label={statusLabel}
-                          color={getStatusColor(request.status)}
+                          label={priorityLabel}
                           size="small"
                         />
-                        <Chip
-                          label={categoryLabel}
-                          color={getCategoryColor(request.category)}
-                          size="small"
-                          variant="outlined"
-                        />
-                        {priorityLabel && (
-                          <Chip
-                            label={priorityLabel}
-                            size="small"
-                          />
-                        )}
-                      </Stack>
-                    </Box>
+                      )}
+                    </Stack>
 
                     <Typography
                       variant="body2"
@@ -609,7 +608,7 @@ const ServiceRequestsPage = () => {
                       {displayDescription}
                     </Typography>
 
-                  <Stack spacing={1}>
+                    <Stack spacing={1}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Property
@@ -664,36 +663,36 @@ const ServiceRequestsPage = () => {
                   </Stack>
                 </CardContent>
 
-                  {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
-                    <Box
-                      sx={{
-                        p: 2,
-                        pt: 0,
-                        display: 'flex',
-                        gap: 1,
-                        flexWrap: 'wrap',
-                      }}
+                {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      pt: 0,
+                      display: 'flex',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleReview(request)}
                     >
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleReview(request)}
-                      >
-                        Review
-                      </Button>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        size="small"
-                        startIcon={<BuildIcon />}
-                        onClick={() => handleConvert(request)}
-                      >
-                        Convert to Job
-                      </Button>
-                    </Box>
-                  )}
-                </Card>
+                      Review
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      size="small"
+                      startIcon={<BuildIcon />}
+                      onClick={() => handleConvert(request)}
+                    >
+                      Convert to Job
+                    </Button>
+                  </Box>
+                )}
+              </Card>
               </Grid>
               );
             })}
