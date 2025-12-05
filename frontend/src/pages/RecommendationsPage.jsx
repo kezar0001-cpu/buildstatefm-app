@@ -50,6 +50,9 @@ import {
   TableChart as TableChartIcon,
   Home as HomeIcon,
   Visibility as VisibilityIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -187,6 +190,32 @@ export default function RecommendationsPage() {
     method: 'post',
     invalidateKeys: [queryKeys.recommendations.all()],
   });
+
+  const archiveMutation = useApiMutation({
+    url: '/recommendations/:id/archive',
+    method: 'post',
+    invalidateKeys: [queryKeys.recommendations.all()],
+  });
+
+  // Auto-archive implemented recommendations after 24 hours
+  useEffect(() => {
+    if (!recommendations || recommendations.length === 0) return;
+
+    const now = new Date();
+    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
+
+    recommendations.forEach((recommendation) => {
+      if (recommendation.status === 'IMPLEMENTED' && recommendation.updatedAt) {
+        const updatedAt = new Date(recommendation.updatedAt);
+        const timeSinceImplemented = now - updatedAt;
+
+        if (timeSinceImplemented >= twentyFourHoursInMs) {
+          // Auto-archive this recommendation
+          archiveMutation.mutate({ url: `/recommendations/${recommendation.id}/archive`, method: 'post' });
+        }
+      }
+    });
+  }, [recommendations, archiveMutation]);
 
   // Fetch properties for display
   const { data: propertiesData } = useQuery({
@@ -585,7 +614,7 @@ export default function RecommendationsPage() {
           ) : (
             <Stack spacing={3}>
               {/* Grid View */}
-              {viewMode === 'grid' && (
+              {viewMode === 'grid' && !isMobile && (
                 <Grid container spacing={{ xs: 2, md: 3 }}>
                   {filteredRecommendations.map((recommendation) => {
                     const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
@@ -624,6 +653,39 @@ export default function RecommendationsPage() {
                               <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
                                 {recommendation.title}
                               </Typography>
+                              <Stack direction="row" spacing={0.5}>
+                                <Tooltip title="View Details">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleViewDetails(recommendation)}
+                                    sx={{ color: 'primary.main' }}
+                                  >
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                {user?.role === 'PROPERTY_MANAGER' && (
+                                  <>
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDetails(recommendation)}
+                                        sx={{ color: 'text.secondary' }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Delete">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDetails(recommendation)}
+                                        sx={{ color: 'error.main' }}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </Stack>
                             </Box>
 
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -709,16 +771,6 @@ export default function RecommendationsPage() {
                           </CardContent>
 
                           <CardActions sx={{ px: 2, pb: 2, pt: 0, flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
-                            <Button
-                              size="small"
-                              variant="text"
-                              startIcon={<VisibilityIcon />}
-                              onClick={() => handleViewDetails(recommendation)}
-                              fullWidth
-                              sx={{ justifyContent: 'flex-start' }}
-                            >
-                              View Details
-                            </Button>
                             <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                               {canApproveOrReject(recommendation) && (
                                 <>
@@ -805,9 +857,44 @@ export default function RecommendationsPage() {
                           <Stack spacing={2}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                                  {recommendation.title}
-                                </Typography>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                                    {recommendation.title}
+                                  </Typography>
+                                  <Stack direction="row" spacing={0.5}>
+                                    <Tooltip title="View Details">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDetails(recommendation)}
+                                        sx={{ color: 'primary.main' }}
+                                      >
+                                        <VisibilityIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    {user?.role === 'PROPERTY_MANAGER' && (
+                                      <>
+                                        <Tooltip title="Edit">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleViewDetails(recommendation)}
+                                            sx={{ color: 'text.secondary' }}
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Delete">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleViewDetails(recommendation)}
+                                            sx={{ color: 'error.main' }}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                  </Stack>
+                                </Box>
                                 <Box
                                   sx={{
                                     p: 1.5,
@@ -878,22 +965,12 @@ export default function RecommendationsPage() {
                             )}
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Stack direction="row" spacing={2} alignItems="center">
-                                <Button
-                                  size="small"
-                                  variant="text"
-                                  startIcon={<VisibilityIcon />}
-                                  onClick={() => handleViewDetails(recommendation)}
-                                >
-                                  View Details
-                                </Button>
-                                {recommendation.estimatedCost && (
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                    ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </Typography>
-                                )}
-                              </Stack>
-                              <Stack direction="row" spacing={1}>
+                              {recommendation.estimatedCost && (
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                  ${recommendation.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
+                              )}
+                              <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
                                 {canApproveOrReject(recommendation) && (
                                   <>
                                     <Button
@@ -949,7 +1026,7 @@ export default function RecommendationsPage() {
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack spacing={2}>
                             {/* Header Row */}
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
                                   Title
@@ -957,15 +1034,48 @@ export default function RecommendationsPage() {
                                 <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
                                   {recommendation.title}
                                 </Typography>
+                                {recommendation.status && (
+                                  <Chip
+                                    label={recommendation.status.replace(/_/g, ' ')}
+                                    color={getStatusColor(recommendation.status)}
+                                    size="small"
+                                    sx={{ mt: 1 }}
+                                  />
+                                )}
                               </Box>
-                              {recommendation.status && (
-                                <Chip
-                                  label={recommendation.status.replace(/_/g, ' ')}
-                                  color={getStatusColor(recommendation.status)}
-                                  size="small"
-                                  sx={{ flexShrink: 0 }}
-                                />
-                              )}
+                              <Stack direction="row" spacing={0.5}>
+                                <Tooltip title="View Details">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleViewDetails(recommendation)}
+                                    sx={{ color: 'primary.main' }}
+                                  >
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                {user?.role === 'PROPERTY_MANAGER' && (
+                                  <>
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDetails(recommendation)}
+                                        sx={{ color: 'text.secondary' }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Delete">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDetails(recommendation)}
+                                        sx={{ color: 'error.main' }}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </Stack>
                             </Box>
                             <Divider />
 
@@ -1036,21 +1146,11 @@ export default function RecommendationsPage() {
                               </Alert>
                             )}
 
-                            <Divider />
-
                             {/* Actions */}
-                            <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<VisibilityIcon />}
-                                onClick={() => handleViewDetails(recommendation)}
-                                fullWidth
-                              >
-                                View Details
-                              </Button>
-                              {canApproveOrReject(recommendation) && (
-                                <>
+                            {canApproveOrReject(recommendation) && (
+                              <>
+                                <Divider />
+                                <Stack direction="column" spacing={1} sx={{ width: '100%' }}>
                                   <Button
                                     size="small"
                                     variant="contained"
@@ -1185,15 +1285,38 @@ export default function RecommendationsPage() {
                                 </Box>
                               </TableCell>
                               <TableCell align="right">
-                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                  <Button
-                                    size="small"
-                                    variant="text"
-                                    startIcon={<VisibilityIcon />}
-                                    onClick={() => handleViewDetails(recommendation)}
-                                  >
-                                    View
-                                  </Button>
+                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                  <Tooltip title="View Details">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleViewDetails(recommendation)}
+                                      sx={{ color: 'primary.main' }}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  {user?.role === 'PROPERTY_MANAGER' && (
+                                    <>
+                                      <Tooltip title="Edit">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleViewDetails(recommendation)}
+                                          sx={{ color: 'text.secondary' }}
+                                        >
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title="Delete">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleViewDetails(recommendation)}
+                                          sx={{ color: 'error.main' }}
+                                        >
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </>
+                                  )}
                                   {canApproveOrReject(recommendation) && (
                                     <>
                                       <Button

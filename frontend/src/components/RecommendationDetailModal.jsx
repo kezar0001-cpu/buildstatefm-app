@@ -19,6 +19,8 @@ import {
   IconButton,
   MenuItem,
   DialogContentText,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   CalendarToday as CalendarTodayIcon,
@@ -89,6 +91,8 @@ const getRoleBadgeColor = (role) => {
 const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, onDelete }) => {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [commentText, setCommentText] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -325,6 +329,7 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
         onClose={handleClose}
         maxWidth="md"
         fullWidth
+        fullScreen={isMobile}
         disableEnforceFocus
       >
         <DialogTitle sx={{ pb: 1 }}>
@@ -381,7 +386,7 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
             )}
 
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} order={{ xs: 1, md: 1 }}>
                 <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
                   <Stack spacing={2}>
                     <Typography variant="h6">Recommendation Details</Typography>
@@ -564,7 +569,7 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} order={{ xs: 2, md: 2 }}>
                 <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
                   <Typography variant="h6" gutterBottom>
                     <CommentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -576,7 +581,7 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
                       No comments yet. Be the first to add one.
                     </Typography>
                   ) : (
-                    <Stack spacing={2} sx={{ maxHeight: 400, overflowY: 'auto', mb: 2 }}>
+                    <Stack spacing={2} sx={{ maxHeight: { xs: 300, md: 400 }, overflowY: 'auto', mb: 2 }}>
                       {comments.map((comment) => (
                         <Box
                           key={comment.id}
