@@ -1495,7 +1495,6 @@ export default function RecommendationsPage() {
               )}
             </Stack>
           )}
-        </DataState>
       </PageShell>
 
       {/* Recommendation Wizard */}
