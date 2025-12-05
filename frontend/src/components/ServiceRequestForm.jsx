@@ -27,8 +27,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
-import { uploadPropertyImages } from '../utils/uploadPropertyImages.js';
-import toast from 'react-hot-toast';
 
 const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   const theme = useTheme();
@@ -47,8 +45,9 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   });
 
   const [errors, setErrors] = useState({});
-  const [uploadedPhotos, setUploadedPhotos] = useState([]);
-  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [photoPreviewUrls, setPhotoPreviewUrls] = useState([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoError, setPhotoError] = useState('');
 
   // Fetch properties
@@ -103,48 +102,6 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     }
   };
 
-  const handleFileSelect = async (event) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    // Validate files
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        setPhotoError('Please select image files only');
-        return false;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        setPhotoError('File size must be less than 10MB');
-        return false;
-      }
-      return true;
-    });
-
-    if (validFiles.length === 0) return;
-
-    setIsUploadingPhotos(true);
-    setPhotoError('');
-
-    try {
-      const uploaded = await uploadPropertyImages(validFiles);
-      const newPhotos = uploaded.map(u => u.url);
-      setUploadedPhotos(prev => [...prev, ...newPhotos]);
-      setFormData(prev => ({
-        ...prev,
-        photos: [...prev.photos, ...newPhotos],
-      }));
-      toast.success(`Successfully uploaded ${uploaded.length} photo${uploaded.length > 1 ? 's' : ''}`);
-    } catch (error) {
-      const errorMessage = error.message || 'Failed to upload photos';
-      setPhotoError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsUploadingPhotos(false);
-      // Reset input
-      if (event.target) event.target.value = '';
-    }
-  };
-
   const handleCameraClick = () => {
     if (cameraInputRef.current) {
       cameraInputRef.current.click();
@@ -155,15 +112,6 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
-  };
-
-  const handleRemovePhoto = (index) => {
-    const newPhotos = uploadedPhotos.filter((_, i) => i !== index);
-    setUploadedPhotos(newPhotos);
-    setFormData(prev => ({
-      ...prev,
-      photos: newPhotos,
-    }));
   };
 
   const validate = () => {
@@ -189,14 +137,36 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePhotoSelect = (e) => {
+  const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    // Validate files
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        setPhotoError('Please select image files only');
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setPhotoError('File size must be less than 10MB');
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     // Create preview URLs
-    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
-    setPhotoFiles(prev => [...prev, ...files]);
+    const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
+    setPhotoFiles(prev => [...prev, ...validFiles]);
     setPhotoPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    setPhotoError('');
+    
+    // Reset input
+    if (e.target) e.target.value = '';
   };
 
   const handleRemovePhoto = (index) => {
@@ -213,7 +183,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     try {
       const formData = new FormData();
       photoFiles.forEach(file => {
-        formData.append('photos', file);
+        formData.append('files', file);
       });
 
       const response = await apiClient.post('/uploads/multiple', formData, {
@@ -222,11 +192,13 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
         },
       });
 
-      // Response should contain array of uploaded file URLs
-      return response.data.files?.map(f => f.url) || [];
+      // Response format: { success: true, urls: [...] }
+      return response.data.urls || [];
     } catch (error) {
       console.error('Error uploading photos:', error);
-      setErrors(prev => ({ ...prev, photos: 'Failed to upload photos' }));
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';
+      setPhotoError(errorMessage);
+      setErrors(prev => ({ ...prev, photos: errorMessage }));
       return [];
     } finally {
       setUploadingPhotos(false);
@@ -257,7 +229,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       priority: formData.priority,
       propertyId: formData.propertyId,
       unitId: formData.unitId || undefined,
-      photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
+      photos: photoUrls.length > 0 ? photoUrls : undefined,
     };
 
     createMutation.mutate(payload);
@@ -439,7 +411,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
                     variant="outlined"
                     startIcon={<CameraAltIcon />}
                     onClick={handleCameraClick}
-                    disabled={isUploadingPhotos || isLoading}
+                    disabled={uploadingPhotos || isLoading}
                     size="small"
                   >
                     Take Photo
@@ -456,7 +428,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
                 </Button>
               </Stack>
 
-              {isUploadingPhotos && (
+              {uploadingPhotos && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CircularProgress size={16} />
                   <Typography variant="caption" color="text.secondary">
@@ -472,9 +444,9 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
               )}
 
               {/* Photo previews */}
-              {uploadedPhotos.length > 0 && (
+              {photoPreviewUrls.length > 0 && (
                 <Grid container spacing={1}>
-                  {uploadedPhotos.map((photoUrl, index) => (
+                  {photoPreviewUrls.map((photoUrl, index) => (
                     <Grid item xs={6} sm={4} md={3} key={index}>
                       <Box
                         sx={{
@@ -522,7 +494,7 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
                 </Grid>
               )}
 
-              {uploadedPhotos.length === 0 && !isUploadingPhotos && (
+              {photoPreviewUrls.length === 0 && !uploadingPhotos && (
                 <Alert severity="info" sx={{ mt: 1 }}>
                   Add photos to help describe the issue. You can take a photo with your camera or choose from your library.
                 </Alert>
@@ -533,14 +505,14 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onCancel} disabled={isLoading || isUploadingPhotos}>
+        <Button onClick={onCancel} disabled={isLoading || uploadingPhotos}>
           Cancel
         </Button>
         <Button
           type="submit"
           variant="contained"
-          disabled={isLoading || isUploadingPhotos}
-          startIcon={isLoading && <CircularProgress size={16} />}
+          disabled={isLoading || uploadingPhotos}
+          startIcon={(isLoading || uploadingPhotos) && <CircularProgress size={16} />}
         >
           {uploadingPhotos ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
         </Button>
