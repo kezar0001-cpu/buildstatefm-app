@@ -197,6 +197,26 @@ export default function RecommendationsPage() {
     invalidateKeys: [queryKeys.recommendations.all()],
   });
 
+  // Fetch properties for display
+  const { data: propertiesData } = useQuery({
+    queryKey: queryKeys.properties.all(),
+    queryFn: async () => {
+      const response = await apiClient.get('/properties?limit=100&offset=0');
+      return response.data;
+    },
+  });
+
+  const properties = propertiesData?.items || [];
+  const propertiesMap = useMemo(() => {
+    const map = new Map();
+    properties.forEach((prop) => {
+      map.set(prop.id, prop);
+    });
+    return map;
+  }, [properties]);
+
+  const recommendations = normaliseArray(query.data);
+
   // Auto-archive implemented recommendations after 24 hours
   useEffect(() => {
     if (!recommendations || recommendations.length === 0 || archiveMutation.isPending) return;
@@ -222,27 +242,7 @@ export default function RecommendationsPage() {
         method: 'post'
       });
     }
-  }, [recommendations]);
-
-  // Fetch properties for display
-  const { data: propertiesData } = useQuery({
-    queryKey: queryKeys.properties.all(),
-    queryFn: async () => {
-      const response = await apiClient.get('/properties?limit=100&offset=0');
-      return response.data;
-    },
-  });
-
-  const properties = propertiesData?.items || [];
-  const propertiesMap = useMemo(() => {
-    const map = new Map();
-    properties.forEach((prop) => {
-      map.set(prop.id, prop);
-    });
-    return map;
-  }, [properties]);
-
-  const recommendations = normaliseArray(query.data);
+  }, [recommendations, archiveMutation]);
 
   // Filter recommendations client-side for search
   const filteredRecommendations = useMemo(() => {
