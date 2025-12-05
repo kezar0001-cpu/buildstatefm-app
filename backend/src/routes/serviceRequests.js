@@ -74,26 +74,15 @@ router.get('/', requireAuth, async (req, res) => {
     } else if (req.user.role === 'TENANT') {
       // Tenants see only their own requests
       where.requestedById = req.user.id;
-    } else if (req.user.role === 'TECHNICIAN') {
-      // Technicians see requests for properties they work on
-      const assignedJobs = await prisma.job.findMany({
-        where: { assignedToId: req.user.id },
-        select: { propertyId: true },
-        distinct: ['propertyId'],
+    } else {
+      // Other roles (e.g., TECHNICIAN) do not have access to service requests
+      // They only see jobs assigned to them
+      return res.json({
+        items: [],
+        total: 0,
+        page: 1,
+        hasMore: false,
       });
-      const propertyIds = assignedJobs.map(j => j.propertyId).filter(Boolean);
-
-      if (propertyIds.length === 0) {
-        // Technician has no assigned jobs, return empty result
-        return res.json({
-          items: [],
-          total: 0,
-          page: 1,
-          hasMore: false,
-        });
-      }
-
-      where.propertyId = { in: propertyIds };
     }
 
     // Parse pagination parameters
@@ -176,24 +165,14 @@ router.get('/archived', requireAuth, async (req, res) => {
       };
     } else if (req.user.role === 'TENANT') {
       where.requestedById = req.user.id;
-    } else if (req.user.role === 'TECHNICIAN') {
-      const assignedJobs = await prisma.job.findMany({
-        where: { assignedToId: req.user.id },
-        select: { propertyId: true },
-        distinct: ['propertyId'],
+    } else {
+      // Other roles (e.g., TECHNICIAN) do not have access to archived service requests
+      return res.json({
+        items: [],
+        total: 0,
+        page: 1,
+        hasMore: false,
       });
-      const propertyIds = assignedJobs.map(j => j.propertyId).filter(Boolean);
-
-      if (propertyIds.length === 0) {
-        return res.json({
-          items: [],
-          total: 0,
-          page: 1,
-          hasMore: false,
-        });
-      }
-
-      where.propertyId = { in: propertyIds };
     }
 
     // Parse pagination parameters

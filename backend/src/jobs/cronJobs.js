@@ -103,12 +103,11 @@ export async function archiveRejectedRecommendations() {
 /**
  * Archive service requests based on approval/rejection timing
  * - Approved requests: archived after 24 hours
- * - Rejected requests: archived after 25 hours
+ * - Rejected requests: archived after 24 hours
  */
 export async function archiveServiceRequests() {
   const now = Date.now();
   const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000);
-  const twentyFiveHoursAgo = new Date(now - 25 * 60 * 60 * 1000);
 
   // Archive approved requests after 24 hours
   const approvedResult = await prisma.serviceRequest.updateMany({
@@ -131,7 +130,7 @@ export async function archiveServiceRequests() {
     console.log(`Archived ${approvedResult.count} approved service request(s) that were approved more than 24 hours ago`);
   }
 
-  // Archive rejected requests after 25 hours
+  // Archive rejected requests after 24 hours
   const rejectedResult = await prisma.serviceRequest.updateMany({
     where: {
       status: {
@@ -139,7 +138,7 @@ export async function archiveServiceRequests() {
       },
       rejectedAt: {
         not: null,
-        lte: twentyFiveHoursAgo,
+        lte: twentyFourHoursAgo,
       },
     },
     data: {
@@ -149,7 +148,7 @@ export async function archiveServiceRequests() {
   });
 
   if (rejectedResult.count > 0) {
-    console.log(`Archived ${rejectedResult.count} rejected service request(s) that were rejected more than 25 hours ago`);
+    console.log(`Archived ${rejectedResult.count} rejected service request(s) that were rejected more than 24 hours ago`);
   }
 
   return {

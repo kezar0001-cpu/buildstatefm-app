@@ -11,14 +11,11 @@ import {
   Alert,
   CircularProgress,
   Typography,
-  IconButton,
   ImageList,
   ImageListItem,
-  ImageListItemBar,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
-  Delete as DeleteIcon,
   PhotoCamera as CameraIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -125,13 +122,6 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
     setPhotoFiles(prev => [...prev, ...files]);
     setPhotoPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-  };
-
-  const handleRemovePhoto = (index) => {
-    // Revoke the preview URL to free memory
-    URL.revokeObjectURL(photoPreviewUrls[index]);
-    setPhotoFiles(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const uploadPhotos = async () => {
@@ -382,29 +372,23 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
             </Box>
 
             {photoPreviewUrls.length > 0 && (
-              <ImageList sx={{ width: '100%', maxHeight: 300 }} cols={3} rowHeight={164}>
-                {photoPreviewUrls.map((url, index) => (
-                  <ImageListItem key={index}>
-                    <img
-                      src={url}
-                      alt={`Preview ${index + 1}`}
-                      loading="lazy"
-                      style={{ height: '164px', objectFit: 'cover' }}
-                    />
-                    <ImageListItemBar
-                      actionIcon={
-                        <IconButton
-                          sx={{ color: 'rgba(255, 255, 255, 0.9)' }}
-                          onClick={() => handleRemovePhoto(index)}
-                          disabled={uploadingPhotos || isLoading}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      }
-                    />
-                  </ImageListItem>
-                ))}
-              </ImageList>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  {photoPreviewUrls.length} photo{photoPreviewUrls.length > 1 ? 's' : ''} selected
+                </Typography>
+                <ImageList sx={{ width: '100%', maxHeight: 300 }} cols={3} rowHeight={164}>
+                  {photoPreviewUrls.map((url, index) => (
+                    <ImageListItem key={index}>
+                      <img
+                        src={url}
+                        alt={`Preview ${index + 1}`}
+                        loading="lazy"
+                        style={{ height: '164px', objectFit: 'cover', borderRadius: '4px' }}
+                      />
+                    </ImageListItem>
+                  ))}
+                </ImageList>
+              </Box>
             )}
           </Grid>
         </Grid>

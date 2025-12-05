@@ -30,6 +30,7 @@ import {
   Cancel as CancelIcon,
   Build as BuildIcon,
   AttachMoney as MoneyIcon,
+  CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -876,16 +877,29 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
               </>
             )}
 
-            {/* Convert to job for APPROVED or APPROVED_BY_OWNER status */}
+            {/* Schedule Inspection or Convert to Job for APPROVED status */}
             {(data.status === 'APPROVED' || data.status === 'APPROVED_BY_OWNER') && userRole === 'PROPERTY_MANAGER' && (
-              <LoadingButton
-                onClick={handleConvert}
-                variant="contained"
-                startIcon={<BuildIcon />}
-                loading={convertMutation.isPending}
-              >
-                Convert to Job
-              </LoadingButton>
+              <>
+                <Button
+                  onClick={() => {
+                    // Navigate to inspections page with pre-filled data
+                    window.location.href = `/inspections?propertyId=${data.propertyId}&fromServiceRequest=${data.id}`;
+                  }}
+                  variant="outlined"
+                  startIcon={<CalendarIcon />}
+                  disabled={isPendingMutation}
+                >
+                  Schedule Inspection
+                </Button>
+                <LoadingButton
+                  onClick={handleConvert}
+                  variant="contained"
+                  startIcon={<BuildIcon />}
+                  loading={convertMutation.isPending}
+                >
+                  Convert to Job
+                </LoadingButton>
+              </>
             )}
           </>
         )}
