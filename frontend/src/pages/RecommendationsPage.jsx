@@ -1619,10 +1619,9 @@ const RecommendationKanban = ({
   convertMutation,
   respondMutation,
 }) => {
-  // Group recommendations by status
+  // Group recommendations by status (excluding DRAFT)
   const columns = useMemo(() => {
     const grouped = {
-      DRAFT: [],
       SUBMITTED: [],
       UNDER_REVIEW: [],
       APPROVED: [],
@@ -1633,13 +1632,13 @@ const RecommendationKanban = ({
 
     recommendations.forEach(recommendation => {
       const status = recommendation.status || 'DRAFT';
-      if (grouped[status]) {
+      // Skip DRAFT status
+      if (status !== 'DRAFT' && grouped[status]) {
         grouped[status].push(recommendation);
       }
     });
 
     return [
-      { id: 'DRAFT', title: 'Draft', recommendations: grouped.DRAFT, color: 'default' },
       { id: 'SUBMITTED', title: 'Submitted', recommendations: grouped.SUBMITTED, color: 'info' },
       { id: 'UNDER_REVIEW', title: 'Under Review', recommendations: grouped.UNDER_REVIEW, color: 'warning' },
       { id: 'APPROVED', title: 'Approved', recommendations: grouped.APPROVED, color: 'success' },
@@ -1652,7 +1651,7 @@ const RecommendationKanban = ({
   return (
     <Grid container spacing={2}>
       {columns.map(column => (
-        <Grid item xs={12} sm={6} md={4} lg={12/7} key={column.id}>
+        <Grid item xs={12} sm={6} md={4} lg={4} key={column.id}>
           <Paper
             sx={{
               p: 2,
@@ -1688,9 +1687,32 @@ const RecommendationKanban = ({
                       borderRadius: 2,
                       border: '1px solid',
                       borderColor: 'divider',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        width: 0,
+                        height: 0,
+                        borderRadius: '50%',
+                        bgcolor: 'action.hover',
+                        transform: 'translate(-50%, -50%)',
+                        transition: 'width 0.3s ease-out, height 0.3s ease-out',
+                        zIndex: 0,
+                      },
+                      '&:hover::before': {
+                        width: '100%',
+                        height: '100%',
+                      },
                       '&:hover': {
                         transform: 'translateY(-2px)',
                         boxShadow: 3,
+                      },
+                      '& > *': {
+                        position: 'relative',
+                        zIndex: 1,
                       },
                     }}
                     onClick={() => onView(recommendation)}
