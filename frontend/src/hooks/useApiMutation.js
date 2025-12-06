@@ -77,5 +77,13 @@ export default function useApiMutation({ url, method = 'post', invalidateKeys = 
     }
   };
 
-  return { mutateAsync, isPending, isError, error };
+  // Non-async mutate method for fire-and-forget scenarios
+  const mutate = (variables = {}) => {
+    mutateAsync(variables).catch((err) => {
+      // Error is already logged in mutateAsync
+      // This is a fire-and-forget call, so we don't need to do anything else
+    });
+  };
+
+  return { mutate, mutateAsync, isPending, isError, error };
 }
