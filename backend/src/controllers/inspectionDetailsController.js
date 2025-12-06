@@ -20,7 +20,7 @@ export const addRoom = async (req, res) => {
         notes,
         order: roomCount,
       },
-      include: { checklistItems: true, issues: true, photos: true },
+      include: { InspectionChecklistItem: true, InspectionIssue: true, InspectionPhoto: true },
     });
 
     await logAudit(inspectionId, req.user.id, 'ROOM_ADDED', { roomId: room.id, name });
@@ -37,9 +37,9 @@ export const getRooms = async (req, res) => {
       where: { inspectionId: req.params.id },
       orderBy: { order: 'asc' },
       include: {
-        checklistItems: { orderBy: { order: 'asc' } },
-        issues: { include: { photos: true } },
-        photos: { orderBy: { order: 'asc' } },
+        InspectionChecklistItem: { orderBy: { order: 'asc' } },
+        InspectionIssue: { include: { InspectionPhoto: true } },
+        InspectionPhoto: { orderBy: { order: 'asc' } },
       },
     });
     res.json({ rooms });
@@ -55,7 +55,7 @@ export const updateRoom = async (req, res) => {
     const room = await prisma.inspectionRoom.update({
       where: { id: req.params.roomId },
       data: { name, roomType, notes, order },
-      include: { checklistItems: true, issues: true, photos: true },
+      include: { InspectionChecklistItem: true, InspectionIssue: true, InspectionPhoto: true },
     });
 
     await logAudit(req.params.id, req.user.id, 'ROOM_UPDATED', { roomId: room.id });
@@ -212,7 +212,7 @@ export const addIssue = async (req, res) => {
         severity: severity || 'MEDIUM',
         status: status || 'OPEN',
       },
-      include: { room: true, checklistItem: true, photos: true },
+      include: { InspectionRoom: true, InspectionChecklistItem: true, InspectionPhoto: true },
     });
 
     await logAudit(inspectionId, req.user.id, 'ISSUE_ADDED', { issueId: issue.id, severity });
@@ -228,9 +228,9 @@ export const getIssues = async (req, res) => {
     const issues = await prisma.inspectionIssue.findMany({
       where: { inspectionId: req.params.id },
       include: {
-        room: true,
-        checklistItem: true,
-        photos: { orderBy: { order: 'asc' } },
+        InspectionRoom: true,
+        InspectionChecklistItem: true,
+        InspectionPhoto: { orderBy: { order: 'asc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -247,7 +247,7 @@ export const updateIssue = async (req, res) => {
     const issue = await prisma.inspectionIssue.update({
       where: { id: req.params.issueId },
       data: { title, description, severity, status },
-      include: { room: true, checklistItem: true, photos: true },
+      include: { InspectionRoom: true, InspectionChecklistItem: true, InspectionPhoto: true },
     });
 
     await logAudit(req.params.id, req.user.id, 'ISSUE_UPDATED', { issueId: issue.id });
@@ -371,25 +371,25 @@ export const getBatchedInspectionDetails = async (req, res) => {
           unit: true,
           assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
           completedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-          rooms: {
+          InspectionRoom: {
             orderBy: { order: 'asc' },
             include: {
-              checklistItems: { orderBy: { order: 'asc' } },
-              issues: {
-                include: { photos: { orderBy: { order: 'asc' } } },
+              InspectionChecklistItem: { orderBy: { order: 'asc' } },
+              InspectionIssue: {
+                include: { InspectionPhoto: { orderBy: { order: 'asc' } } },
               },
-              photos: { orderBy: { order: 'asc' } },
+              InspectionPhoto: { orderBy: { order: 'asc' } },
             },
           },
-          issues: {
+          InspectionIssue: {
             orderBy: { createdAt: 'desc' },
             include: {
-              room: true,
-              checklistItem: true,
-              photos: { orderBy: { order: 'asc' } },
+              InspectionRoom: true,
+              InspectionChecklistItem: true,
+              InspectionPhoto: { orderBy: { order: 'asc' } },
             },
           },
-          jobs: {
+          Job: {
             select: {
               id: true,
               title: true,

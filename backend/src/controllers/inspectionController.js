@@ -324,9 +324,9 @@ export const createInspection = async (req, res) => {
       const template = await prisma.inspectionTemplate.findUnique({
         where: { id: payload.templateId },
         include: {
-          rooms: {
+          InspectionTemplateRoom: {
             include: {
-              checklistItems: {
+              InspectionTemplateChecklistItem: {
                 orderBy: { order: 'asc' },
               },
             },
@@ -561,12 +561,12 @@ export const generatePDF = async (req, res) => {
         unit: true,
         assignedTo: true,
         completedBy: true,
-        rooms: {
+        InspectionRoom: {
           orderBy: { order: 'asc' },
-          include: { checklistItems: { orderBy: { order: 'asc' } } },
+          include: { InspectionChecklistItem: { orderBy: { order: 'asc' } } },
         },
-        inspectionIssues: { orderBy: { createdAt: 'asc' } },
-        inspectionPhotos: { orderBy: { order: 'asc' } },
+        InspectionIssue: { orderBy: { createdAt: 'asc' } },
+        InspectionPhoto: { orderBy: { order: 'asc' } },
       },
     });
 
@@ -885,9 +885,9 @@ export const bulkCreateInspections = async (req, res) => {
       template = await prisma.inspectionTemplate.findUnique({
         where: { id: payload.templateId },
         include: {
-          rooms: {
+          InspectionTemplateRoom: {
             include: {
-              checklistItems: {
+              InspectionTemplateChecklistItem: {
                 orderBy: { order: 'asc' },
               },
             },
