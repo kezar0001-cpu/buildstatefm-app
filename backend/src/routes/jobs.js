@@ -7,6 +7,7 @@ import { notifyJobAssigned, notifyJobCompleted, notifyJobStarted, notifyJobReass
 import { invalidate } from '../utils/cache.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidJobTransition, getAllowedJobTransitions, getTransitionErrorMessage } from '../utils/statusTransitions.js';
+import { exportJobsToCSV, setCSVHeaders } from '../utils/exportUtils.js';
 
 const router = express.Router();
 
