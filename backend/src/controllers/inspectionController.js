@@ -344,13 +344,13 @@ export const createInspection = async (req, res) => {
           ...payload,
           scheduledDate: payload.scheduledDate,
           tags: payload.tags ?? [],
-          rooms: {
-            create: template.rooms.map((room) => ({
+          InspectionRoom: {
+            create: template.InspectionTemplateRoom.map((room) => ({
               name: room.name,
               roomType: room.roomType,
               order: room.order,
-              checklistItems: {
-                create: room.checklistItems.map((item) => ({
+              InspectionChecklistItem: {
+                create: room.InspectionTemplateChecklistItem.map((item) => ({
                   description: item.description,
                   order: item.order,
                   status: 'PENDING',
@@ -923,13 +923,13 @@ export const bulkCreateInspections = async (req, res) => {
       };
 
       if (template) {
-        inspectionData.rooms = {
-          create: template.rooms.map((room) => ({
+        inspectionData.InspectionRoom = {
+          create: template.InspectionTemplateRoom.map((room) => ({
             name: room.name,
             roomType: room.roomType,
             order: room.order,
-            checklistItems: {
-              create: room.checklistItems.map((item) => ({
+            InspectionChecklistItem: {
+              create: room.InspectionTemplateChecklistItem.map((item) => ({
                 description: item.description,
                 order: item.order,
                 status: 'PENDING',

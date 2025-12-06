@@ -125,13 +125,13 @@ export const baseInspectionInclude = {
     orderBy: { reminderDate: 'asc' },
   },
   report: true,
-  rooms: {
+  InspectionRoom: {
     select: {
       id: true,
       name: true,
       roomType: true,
       order: true,
-      checklistItems: {
+      InspectionChecklistItem: {
         select: {
           id: true,
           description: true,
@@ -154,9 +154,9 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       },
       assignedTo: true,
       completedBy: true,
-      rooms: {
+      InspectionRoom: {
         include: {
-          checklistItems: true,
+          InspectionChecklistItem: true,
         },
       },
     },
@@ -171,10 +171,10 @@ export async function completeInspection(inspectionId, userId, userRole, payload
 
   // Collect failed checklist items for creating recommendations
   const failedChecklistItems = [];
-  if (before.rooms && before.rooms.length > 0) {
-    for (const room of before.rooms) {
-      if (room.checklistItems && room.checklistItems.length > 0) {
-        const failedItems = room.checklistItems.filter(item => item.status === 'FAILED');
+  if (before.InspectionRoom && before.InspectionRoom.length > 0) {
+    for (const room of before.InspectionRoom) {
+      if (room.InspectionChecklistItem && room.InspectionChecklistItem.length > 0) {
+        const failedItems = room.InspectionChecklistItem.filter(item => item.status === 'FAILED');
         failedItems.forEach(item => {
           failedChecklistItems.push({
             roomName: room.name,
@@ -504,8 +504,8 @@ export async function getTemplate(type) {
   const template = await prisma.inspectionTemplate.findFirst({
     where: { type, isDefault: true, isActive: true },
     include: {
-      rooms: {
-        include: { checklistItems: true },
+      InspectionTemplateRoom: {
+        include: { InspectionTemplateChecklistItem: true },
         orderBy: { order: 'asc' }
       }
     }
