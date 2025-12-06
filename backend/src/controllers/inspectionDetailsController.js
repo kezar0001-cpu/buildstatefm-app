@@ -117,6 +117,7 @@ export const generateAIChecklist = async (req, res) => {
     for (let i = 0; i < aiItems.length; i++) {
       const item = await prisma.inspectionChecklistItem.create({
         data: {
+          id: `checklist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           roomId,
           description: aiItems[i].description,
           status: 'PENDING',
@@ -152,6 +153,7 @@ export const addChecklistItem = async (req, res) => {
 
     const item = await prisma.inspectionChecklistItem.create({
       data: {
+        id: `checklist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         roomId,
         description,
         status: status || 'PENDING',
@@ -287,6 +289,7 @@ export const addPhoto = async (req, res) => {
 
     const photo = await prisma.inspectionPhoto.create({
       data: {
+        id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         inspectionId,
         roomId,
         issueId,
@@ -296,7 +299,7 @@ export const addPhoto = async (req, res) => {
         uploadedById: req.user.id,
       },
       include: {
-        uploadedBy: { select: { id: true, firstName: true, lastName: true } },
+        User: { select: { id: true, firstName: true, lastName: true } },
       },
     });
 
@@ -314,9 +317,9 @@ export const getPhotos = async (req, res) => {
       where: { inspectionId: req.params.id },
       orderBy: { order: 'asc' },
       include: {
-        room: true,
-        issue: true,
-        uploadedBy: { select: { id: true, firstName: true, lastName: true } },
+        InspectionRoom: true,
+        InspectionIssue: true,
+        User: { select: { id: true, firstName: true, lastName: true } },
       },
     });
     res.json({ photos });
