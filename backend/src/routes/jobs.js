@@ -438,6 +438,56 @@ router.post(
         );
       }
 
+      // Phase 2: Check for scheduling conflicts (overlapping scheduled dates)
+      const jobsWithScheduledDates = jobs.filter(job => job.scheduledDate);
+      if (jobsWithScheduledDates.length > 0) {
+        // Get existing jobs for this technician with overlapping scheduled dates
+        const scheduledDates = jobsWithScheduledDates.map(job => new Date(job.scheduledDate));
+        const minDate = new Date(Math.min(...scheduledDates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...scheduledDates.map(d => d.getTime())));
+        
+        // Expand range by 1 day on each side to catch potential overlaps
+        minDate.setDate(minDate.getDate() - 1);
+        maxDate.setDate(maxDate.getDate() + 1);
+
+        const conflictingJobs = await prisma.job.findMany({
+          where: {
+            assignedToId: technicianId,
+            scheduledDate: {
+              gte: minDate,
+              lte: maxDate,
+            },
+            status: {
+              notIn: ['COMPLETED', 'CANCELLED'],
+            },
+            id: {
+              notIn: uniqueJobIds, // Exclude jobs being assigned
+            },
+          },
+          select: {
+            id: true,
+            title: true,
+            scheduledDate: true,
+          },
+        });
+
+        if (conflictingJobs.length > 0) {
+          const conflictDetails = conflictingJobs.map(job => ({
+            id: job.id,
+            title: job.title,
+            scheduledDate: job.scheduledDate,
+          }));
+          
+          return sendError(
+            res,
+            409,
+            `Technician has ${conflictingJobs.length} conflicting job(s) scheduled at the same time. Please adjust the scheduled dates.`,
+            ErrorCodes.BIZ_SCHEDULING_CONFLICT,
+            { conflicts: conflictDetails }
+          );
+        }
+      }
+
       const updatedJobs = await prisma.$transaction(
         uniqueJobIds.map((jobId) => {
           const currentJob = jobMap.get(jobId);
