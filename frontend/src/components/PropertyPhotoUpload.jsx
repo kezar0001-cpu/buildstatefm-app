@@ -302,17 +302,17 @@ const PropertyPhotoUpload = ({
     onPhotosChange(newPhotos);
   };
 
-  const handleDragStart = (e, index) => {
+  const handlePhotoDragStart = (e, index) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e, index) => {
+  const handlePhotoDragOver = (e, index) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  const handleDrop = (e, dropIndex) => {
+  const handlePhotoDrop = (e, dropIndex) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -396,9 +396,9 @@ const PropertyPhotoUpload = ({
                     photo={photo}
                     index={index}
                     onRemove={handleRemovePhoto}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
+                    onDragStart={handlePhotoDragStart}
+                    onDragOver={handlePhotoDragOver}
+                    onDrop={handlePhotoDrop}
                     disabled={disabled || uploading}
                     isDragging={draggedIndex === index}
                   />
