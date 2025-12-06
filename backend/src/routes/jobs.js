@@ -89,6 +89,15 @@ const bulkAssignSchema = z.object({
   technicianId: z.string().min(1, 'Technician is required'),
 });
 
+const bulkUpdateSchema = z.object({
+  jobIds: z.array(z.string().min(1)).min(1, 'Select at least one job'),
+  updates: jobUpdateSchema,
+});
+
+const bulkDeleteSchema = z.object({
+  jobIds: z.array(z.string().min(1)).min(1, 'Select at least one job'),
+});
+
 const jobListQuerySchema = z.object({
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
@@ -587,6 +596,155 @@ router.post(
     } catch (error) {
       console.error('Error bulk assigning jobs:', error);
       return sendError(res, 500, 'Failed to assign jobs', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
+);
+
+// Phase 4: PATCH /bulk - Bulk update multiple jobs
+router.patch(
+  '/bulk',
+  requireAuth,
+  requireRole('PROPERTY_MANAGER'),
+  requireActiveSubscription,
+  validate(bulkUpdateSchema),
+  async (req, res) => {
+    try {
+      const { jobIds, updates } = req.body;
+      const uniqueJobIds = [...new Set(jobIds)];
+
+      // Fetch jobs to verify access
+      const jobs = await prisma.job.findMany({
+        where: { id: { in: uniqueJobIds } },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              managerId: true,
+            },
+          },
+        },
+      });
+
+      if (jobs.length !== uniqueJobIds.length) {
+        return sendError(res, 404, 'One or more jobs not found', ErrorCodes.RES_JOB_NOT_FOUND);
+      }
+
+      // Verify user has access to all jobs
+      const unauthorizedJob = jobs.find((job) => job.property.managerId !== req.user.id);
+      if (unauthorizedJob) {
+        return sendError(res, 403, 'You can only update jobs for your properties', ErrorCodes.ACC_ACCESS_DENIED);
+      }
+
+      // Validate status transitions if status is being updated
+      if (updates.status) {
+        const invalidTransitionJob = jobs.find((job) => {
+          if (job.status !== updates.status) {
+            return !isValidJobTransition(job.status, updates.status);
+          }
+          return false;
+        });
+
+        if (invalidTransitionJob) {
+          return sendError(
+            res,
+            400,
+            getTransitionErrorMessage(invalidTransitionJob.status, updates.status),
+            ErrorCodes.BIZ_INVALID_STATUS_TRANSITION
+          );
+        }
+      }
+
+      // Perform bulk update
+      const updatedJobs = await prisma.job.updateMany({
+        where: { id: { in: uniqueJobIds } },
+        data: {
+          ...updates,
+          scheduledDate: updates.scheduledDate ? new Date(updates.scheduledDate) : undefined,
+        },
+      });
+
+      // Invalidate dashboard cache
+      await invalidateDashboardCache(req.user.id);
+
+      res.json({
+        success: true,
+        message: `Updated ${updatedJobs.count} job(s)`,
+        count: updatedJobs.count,
+      });
+    } catch (error) {
+      console.error('Error bulk updating jobs:', error);
+      return sendError(res, 500, 'Failed to update jobs', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
+  }
+);
+
+// Phase 4: DELETE /bulk - Bulk delete multiple jobs
+router.delete(
+  '/bulk',
+  requireAuth,
+  requireRole('PROPERTY_MANAGER'),
+  requireActiveSubscription,
+  validate(bulkDeleteSchema),
+  async (req, res) => {
+    try {
+      const { jobIds } = req.body;
+      const uniqueJobIds = [...new Set(jobIds)];
+
+      // Fetch jobs to verify access
+      const jobs = await prisma.job.findMany({
+        where: { id: { in: uniqueJobIds } },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              managerId: true,
+            },
+          },
+        },
+      });
+
+      if (jobs.length !== uniqueJobIds.length) {
+        return sendError(res, 404, 'One or more jobs not found', ErrorCodes.RES_JOB_NOT_FOUND);
+      }
+
+      // Verify user has access to all jobs
+      const unauthorizedJob = jobs.find((job) => job.property.managerId !== req.user.id);
+      if (unauthorizedJob) {
+        return sendError(res, 403, 'You can only delete jobs for your properties', ErrorCodes.ACC_ACCESS_DENIED);
+      }
+
+      // Prevent deletion of completed or in-progress jobs
+      const lockedJob = jobs.find((job) => ['COMPLETED', 'IN_PROGRESS'].includes(job.status));
+      if (lockedJob) {
+        return sendError(
+          res,
+          400,
+          'Completed or in-progress jobs cannot be deleted',
+          ErrorCodes.BIZ_OPERATION_NOT_ALLOWED
+        );
+      }
+
+      // Perform bulk delete
+      const deletedJobs = await prisma.job.deleteMany({
+        where: {
+          id: { in: uniqueJobIds },
+          status: { notIn: ['COMPLETED', 'IN_PROGRESS'] },
+        },
+      });
+
+      // Invalidate dashboard cache
+      await invalidateDashboardCache(req.user.id);
+
+      res.json({
+        success: true,
+        message: `Deleted ${deletedJobs.count} job(s)`,
+        count: deletedJobs.count,
+      });
+    } catch (error) {
+      console.error('Error bulk deleting jobs:', error);
+      return sendError(res, 500, 'Failed to delete jobs', ErrorCodes.ERR_INTERNAL_SERVER);
     }
   }
 );
