@@ -270,9 +270,9 @@ export const getInspection = async (req, res) => {
       where: { id: req.params.id },
       include: {
         ...inspectionService.baseInspectionInclude,
-        auditLogs: {
-          orderBy: { createdAt: 'desc' },
-          include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+        InspectionAuditLog: {
+          orderBy: { timestamp: 'desc' },
+          include: { User: { select: { id: true, firstName: true, lastName: true, email: true } } },
         },
       },
     });

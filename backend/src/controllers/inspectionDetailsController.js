@@ -409,9 +409,9 @@ export const getBatchedInspectionDetails = async (req, res) => {
       // 2. Get audit logs
       prisma.inspectionAuditLog.findMany({
         where: { inspectionId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          User: { select: { id: true, firstName: true, lastName: true, email: true } },
         },
         take: 50, // Limit to recent 50 entries for performance
       }),
