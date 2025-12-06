@@ -916,7 +916,7 @@ router.get('/:id/comments', requireAuth, async (req, res) => {
     res.json({ success: true, comments });
   } catch (error) {
     console.error('Error fetching recommendation comments:', error);
-    return sendError(res, 500, 'Failed to fetch comments', ErrorCodes.ERR_INTERNAL_SERVER);
+    return sendError(res, 500, `Failed to fetch comments: ${error.message || 'Unknown error'}`, ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
@@ -989,7 +989,19 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
     res.status(201).json({ success: true, comment });
   } catch (error) {
     console.error('Error creating recommendation comment:', error);
-    return sendError(res, 500, 'Failed to create comment', ErrorCodes.ERR_INTERNAL_SERVER);
+    
+    // Provide more specific error messages
+    if (error.code === 'P2003') {
+      return sendError(res, 400, 'Invalid recommendation or user ID', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+    if (error.code === 'P2002') {
+      return sendError(res, 400, 'Duplicate comment entry', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+    if (error.message && error.message.includes('Foreign key constraint')) {
+      return sendError(res, 400, 'Invalid recommendation or user reference', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+    
+    return sendError(res, 500, `Failed to create comment: ${error.message || 'Unknown error'}`, ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

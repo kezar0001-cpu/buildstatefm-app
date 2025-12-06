@@ -23,6 +23,7 @@ import {
   IconButton,
   Checkbox,
   Paper,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -498,205 +499,417 @@ const ServiceRequestsPage = () => {
         />
       ) : (
         <Stack spacing={3}>
-          <Grid container spacing={{ xs: 2, md: 3 }}>
-            {requestList.map((request) => {
-            const description = typeof request.description === 'string' ? request.description : '';
-            const displayDescription = description
-              ? description.length > 100
-                ? `${description.substring(0, 100)}...`
-                : description
-              : 'No description provided.';
-            const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
-            const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
-            const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+          {/* Mobile Card View */}
+          {isMobile ? (
+            <Stack spacing={2}>
+              {requestList.map((request) => {
+                const description = typeof request.description === 'string' ? request.description : '';
+                const displayDescription = description
+                  ? description.length > 100
+                    ? `${description.substring(0, 100)}...`
+                    : description
+                  : 'No description provided.';
+                const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
 
-            const isSelected = selectedRequestIds.includes(request.id);
+                const isSelected = selectedRequestIds.includes(request.id);
 
-            return (
-              <Grid item xs={12} md={6} lg={4} key={request.id}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    borderRadius: { xs: 2, md: 3 },
-                    cursor: 'pointer',
-                    border: '1px solid',
-                    borderColor: isSelected ? 'primary.main' : 'divider',
-                    outline: isSelected ? '2px solid' : 'none',
-                    outlineColor: 'primary.main',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 4,
-                    },
-                  }}
-                  onClick={() => handleViewDetails(request)}
-                >
-                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleRequestSelection(request.id);
-                          }}
-                          color="primary"
-                          sx={{ p: 0.5 }}
-                          inputProps={{ 'aria-label': `Select service request ${request.title}` }}
-                        />
-                        <Typography variant="h6" sx={{ flex: 1 }}>
-                          {request.title}
-                        </Typography>
-                      </Box>
-                      {userRole === 'PROPERTY_MANAGER' && (
-                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(request);
-                            }}
-                            sx={{ color: 'text.secondary' }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(request);
-                            }}
-                            sx={{ color: 'error.main' }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      )}
-                    </Box>
-                    <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={statusLabel}
-                        color={getStatusColor(request.status)}
-                        size="small"
-                      />
-                      <Chip
-                        label={categoryLabel}
-                        color={getCategoryColor(request.category)}
-                        size="small"
-                        variant="outlined"
-                      />
-                      {priorityLabel && (
-                        <Chip
-                          label={priorityLabel}
-                          size="small"
-                        />
-                      )}
-                    </Stack>
-
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {displayDescription}
-                    </Typography>
-
-                    <Stack spacing={1}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Property
-                      </Typography>
-                      <Typography variant="body2">
-                        {request.property?.name || 'N/A'}
-                      </Typography>
-                    </Box>
-
-                    {request.unit && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Unit
-                        </Typography>
-                        <Typography variant="body2">
-                          Unit {request.unit.unitNumber}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {userRole !== 'TENANT' && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Submitted By
-                        </Typography>
-                        <Typography variant="body2">
-                          {request.requestedBy?.firstName} {request.requestedBy?.lastName}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Submitted
-                      </Typography>
-                      <Typography variant="body2">
-                        {formatDate(request.createdAt)}
-                      </Typography>
-                    </Box>
-
-                    {request.jobs && request.jobs.length > 0 && (
-                      <Box>
-                        <Chip
-                          icon={<BuildIcon fontSize="small" />}
-                          label={`${request.jobs.length} Job(s) Created`}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      </Box>
-                    )}
-                  </Stack>
-                </CardContent>
-
-                {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
-                  <Box
+                return (
+                  <Card
+                    key={request.id}
                     sx={{
-                      p: 2,
-                      pt: 0,
-                      display: 'flex',
-                      gap: 1,
-                      flexWrap: 'wrap',
+                      boxShadow: 2,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: isSelected ? 'primary.main' : 'divider',
+                      outline: isSelected ? '2px solid' : 'none',
+                      outlineColor: 'primary.main',
+                      cursor: 'pointer',
                     }}
+                    onClick={() => handleViewDetails(request)}
                   >
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleReview(request)}
+                    <CardContent sx={{ p: 2.5 }}>
+                      <Stack spacing={2}>
+                        {/* Header Row */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                              <Checkbox
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleRequestSelection(request.id);
+                                }}
+                                color="primary"
+                                sx={{ p: 0.5 }}
+                                inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                              />
+                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                Title
+                              </Typography>
+                            </Box>
+                            <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                              {request.title}
+                            </Typography>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                              <Chip
+                                label={statusLabel}
+                                color={getStatusColor(request.status)}
+                                size="small"
+                              />
+                              <Chip
+                                label={categoryLabel}
+                                color={getCategoryColor(request.category)}
+                                size="small"
+                                variant="outlined"
+                              />
+                              {priorityLabel && (
+                                <Chip
+                                  label={priorityLabel}
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
+                          </Box>
+                          {userRole === 'PROPERTY_MANAGER' && (
+                            <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(request);
+                                }}
+                                sx={{ color: 'text.secondary' }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(request);
+                                }}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          )}
+                        </Box>
+                        <Divider />
+
+                        {/* Property */}
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: 'action.hover',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                            Property
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5, wordBreak: 'break-word' }}>
+                            {request.property?.name || 'N/A'}
+                          </Typography>
+                        </Box>
+
+                        {/* Unit */}
+                        {request.unit && (
+                          <Box>
+                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                              Unit
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              Unit {request.unit.unitNumber}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Submitted By */}
+                        {userRole !== 'TENANT' && (
+                          <Box>
+                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                              Submitted By
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              {request.requestedBy?.firstName} {request.requestedBy?.lastName}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Submitted Date */}
+                        <Box>
+                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                            Submitted
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {formatDate(request.createdAt)}
+                          </Typography>
+                        </Box>
+
+                        {/* Jobs Created */}
+                        {request.jobs && request.jobs.length > 0 && (
+                          <Box>
+                            <Chip
+                              icon={<BuildIcon fontSize="small" />}
+                              label={`${request.jobs.length} Job(s) Created`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          </Box>
+                        )}
+
+                        {/* Description */}
+                        <Box>
+                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                            Description
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                            {displayDescription}
+                          </Typography>
+                        </Box>
+
+                        {/* Action Buttons */}
+                        {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                          <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
+                            <Button
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReview(request);
+                              }}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              size="small"
+                              startIcon={<BuildIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConvert(request);
+                              }}
+                            >
+                              Convert to Job
+                            </Button>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
+          ) : (
+            /* Desktop Grid View */
+            <Grid container spacing={{ xs: 2, md: 3 }}>
+              {requestList.map((request) => {
+                const description = typeof request.description === 'string' ? request.description : '';
+                const displayDescription = description
+                  ? description.length > 100
+                    ? `${description.substring(0, 100)}...`
+                    : description
+                  : 'No description provided.';
+                const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+
+                const isSelected = selectedRequestIds.includes(request.id);
+
+                return (
+                  <Grid item xs={12} md={6} lg={4} key={request.id}>
+                    <Card
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        outline: isSelected ? '2px solid' : 'none',
+                        outlineColor: 'primary.main',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: 4,
+                        },
+                      }}
+                      onClick={() => handleViewDetails(request)}
                     >
-                      Review
-                    </Button>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="small"
-                      startIcon={<BuildIcon />}
-                      onClick={() => handleConvert(request)}
-                    >
-                      Convert to Job
-                    </Button>
-                  </Box>
-                )}
-              </Card>
-              </Grid>
-              );
-            })}
-          </Grid>
+                      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleRequestSelection(request.id);
+                              }}
+                              color="primary"
+                              sx={{ p: 0.5 }}
+                              inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                            />
+                            <Typography variant="h6" sx={{ flex: 1 }}>
+                              {request.title}
+                            </Typography>
+                          </Box>
+                          {userRole === 'PROPERTY_MANAGER' && (
+                            <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(request);
+                                }}
+                                sx={{ color: 'text.secondary' }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(request);
+                                }}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          )}
+                        </Box>
+                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                          <Chip
+                            label={statusLabel}
+                            color={getStatusColor(request.status)}
+                            size="small"
+                          />
+                          <Chip
+                            label={categoryLabel}
+                            color={getCategoryColor(request.category)}
+                            size="small"
+                            variant="outlined"
+                          />
+                          {priorityLabel && (
+                            <Chip
+                              label={priorityLabel}
+                              size="small"
+                            />
+                          )}
+                        </Stack>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {displayDescription}
+                        </Typography>
+
+                        <Stack spacing={1}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Property
+                            </Typography>
+                            <Typography variant="body2">
+                              {request.property?.name || 'N/A'}
+                            </Typography>
+                          </Box>
+
+                          {request.unit && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Unit
+                              </Typography>
+                              <Typography variant="body2">
+                                Unit {request.unit.unitNumber}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {userRole !== 'TENANT' && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Submitted By
+                              </Typography>
+                              <Typography variant="body2">
+                                {request.requestedBy?.firstName} {request.requestedBy?.lastName}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Submitted
+                            </Typography>
+                            <Typography variant="body2">
+                              {formatDate(request.createdAt)}
+                            </Typography>
+                          </Box>
+
+                          {request.jobs && request.jobs.length > 0 && (
+                            <Box>
+                              <Chip
+                                icon={<BuildIcon fontSize="small" />}
+                                label={`${request.jobs.length} Job(s) Created`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            </Box>
+                          )}
+                        </Stack>
+                      </CardContent>
+
+                      {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                        <Box
+                          sx={{
+                            p: 2,
+                            pt: 0,
+                            display: 'flex',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Button
+                            fullWidth
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleReview(request)}
+                          >
+                            Review
+                          </Button>
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            size="small"
+                            startIcon={<BuildIcon />}
+                            onClick={() => handleConvert(request)}
+                          >
+                            Convert to Job
+                          </Button>
+                        </Box>
+                      )}
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
 
           {/* Load More Button */}
           {hasNextPage && (
