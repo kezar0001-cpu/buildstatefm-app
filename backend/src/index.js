@@ -258,7 +258,7 @@ app.use('/api/jobs', jobsRoutes);
 app.use('/api/inspections', inspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/promo-codes', promoCodesRoutes);
-app.use('/api/upload', uploadsRoutes); // Changed to /upload (singular) to avoid conflict with static /api/uploads
+app.use('/api/uploads', uploadsRoutes); // Route for upload endpoints (photos, documents, etc.)
 app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
