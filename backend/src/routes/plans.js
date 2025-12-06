@@ -31,30 +31,15 @@ const planUpdateSchema = z.object({
 const buildWhereClause = (userId, userRole, filters = {}) => {
   const where = {};
 
-  // Role-based filtering
-  if (userRole === 'TECHNICIAN') {
-    // Technicians see plans for properties where they have assigned jobs
-    where.property = {
-      jobs: {
-        some: {
-          assignedToId: userId,
-        },
-      },
-    };
-  } else if (userRole === 'PROPERTY_MANAGER') {
+  // Plans are only accessible to Property Managers
+  if (userRole === 'PROPERTY_MANAGER') {
     // Property managers see plans for their properties
     where.property = {
       managerId: userId,
     };
-  } else if (userRole === 'OWNER') {
-    // Owners see plans for properties they own
-    where.property = {
-      owners: {
-        some: {
-          ownerId: userId,
-        },
-      },
-    };
+  } else {
+    // Other roles cannot access plans
+    where.id = 'no-access'; // This will return no results
   }
 
   // Apply additional filters
@@ -201,11 +186,9 @@ router.get('/:id', requireAuth, async (req, res) => {
       return sendError(res, 404, 'Maintenance plan not found', ErrorCodes.RES_NOT_FOUND);
     }
 
-    // Verify user has access
+    // Verify user has access - Plans are only accessible to Property Managers
     const hasAccess =
-      req.user.role === 'PROPERTY_MANAGER' && plan.property.managerId === req.user.id ||
-      req.user.role === 'OWNER' && plan.property.owners.some(o => o.ownerId === req.user.id) ||
-      req.user.role === 'TECHNICIAN'; // Technicians can view all plans
+      req.user.role === 'PROPERTY_MANAGER' && plan.property.managerId === req.user.id;
 
     if (!hasAccess) {
       return sendError(res, 403, 'You do not have permission to access this plan', ErrorCodes.ACC_ACCESS_DENIED);

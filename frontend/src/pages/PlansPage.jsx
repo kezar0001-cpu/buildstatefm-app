@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -56,6 +57,7 @@ import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import toast from 'react-hot-toast';
 import { format, isPast, isToday, parseISO, addDays } from 'date-fns';
+import { useCurrentUser } from '../context/UserContext';
 
 const localizer = momentLocalizer(moment);
 
@@ -80,6 +82,20 @@ export default function PlansPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user: currentUser } = useCurrentUser();
+
+  // Plans are only accessible to Property Managers
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'PROPERTY_MANAGER') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
+
+  // Don't render if user doesn't have access
+  if (currentUser && currentUser.role !== 'PROPERTY_MANAGER') {
+    return null;
+  }
 
   const [view, setView] = useState('card'); // 'card', 'table', 'calendar'
   const [filters, setFilters] = useState({

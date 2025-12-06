@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -43,6 +44,7 @@ import PageHeader from '../components/PageHeader';
 import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon, Description as DescriptionIcon } from '@mui/icons-material';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
+import { useCurrentUser } from '../context/UserContext';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -86,6 +88,8 @@ const STATUS_OPTIONS = [
 
 export default function ReportsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user: currentUser } = useCurrentUser();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -95,6 +99,18 @@ export default function ReportsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // Reports are only accessible to Property Managers and Owners
+  useEffect(() => {
+    if (currentUser && !['PROPERTY_MANAGER', 'OWNER'].includes(currentUser.role)) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
+
+  // Don't render if user doesn't have access
+  if (currentUser && !['PROPERTY_MANAGER', 'OWNER'].includes(currentUser.role)) {
+    return null;
+  }
 
   // Data fetching
   const { data: propertiesData = [], isLoading: isLoadingProperties } = useQuery({
