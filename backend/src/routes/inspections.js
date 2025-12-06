@@ -115,7 +115,7 @@ router.use(hydrateInspectionUser);
 router.get('/tags', inspectionController.getTags);
 router.get('/analytics', inspectionController.getAnalytics);
 router.get('/calendar', inspectionController.getCalendar);
-router.get('/overdue', hydrateInspectionUser, inspectionController.getOverdueInspections);
+router.get('/overdue', requireAuth, hydrateInspectionUser, inspectionController.getOverdueInspections);
 
 // Inspections are only accessible to Property Managers and Technicians
 router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), hydrateInspectionUser, inspectionController.listInspections);
@@ -182,7 +182,7 @@ router.delete('/:id/photos/:photoId', ensureInspectionAccess, inspectionDetailsC
 
 // --- Misc Routes (kept from original if needed, simplified) ---
 
-router.get('/inspectors', async (req, res) => {
+router.get('/inspectors', requireAuth, async (req, res) => {
   try {
     const inspectors = await prisma.user.findMany({
       where: { role: ROLE_TECHNICIAN },
@@ -191,6 +191,7 @@ router.get('/inspectors', async (req, res) => {
     });
     res.json({ inspectors });
   } catch (error) {
+    console.error('Failed to load inspectors', error);
     sendError(res, 500, 'Failed to load inspectors', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });

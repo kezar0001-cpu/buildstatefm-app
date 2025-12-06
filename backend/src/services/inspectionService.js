@@ -115,6 +115,7 @@ export const baseInspectionInclude = {
       size: true,
       annotations: true,
       uploadedAt: true,
+      uploadedById: true,
       User: {
         select: { id: true, firstName: true, lastName: true, email: true },
       },
