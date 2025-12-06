@@ -137,7 +137,7 @@ router.post('/multiple', requireAuth, requireActiveSubscription, rateLimitUpload
  * Supports: PDF, Word, Excel, Text, Images (up to 50MB each)
  * Requires authentication
  */
-router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('files', 20), (req, res) => {
+router.post('/documents', requireAuth, requireActiveSubscription, rateLimitUpload, documentUpload.array('files', 20), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
