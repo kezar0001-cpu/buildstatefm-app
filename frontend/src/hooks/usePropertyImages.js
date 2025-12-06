@@ -1,18 +1,24 @@
 // frontend/src/hooks/usePropertyImages.js
-import useApiQuery from './useApiQuery.js';
+import { useQuery } from '@tanstack/react-query';
 import useApiMutation from './useApiMutation.js';
 import { queryKeys } from '../utils/queryKeys.js';
+import { apiClient } from '../api/client.js';
 
 /**
  * Hook to fetch property images
+ * Migrated to React Query for better caching and state management
  * @param {string} propertyId - Property ID
  * @param {boolean} enabled - Whether to enable the query
  */
 export function usePropertyImages(propertyId, enabled = true) {
-  return useApiQuery({
+  return useQuery({
     queryKey: ['propertyImages', propertyId],
-    url: propertyId ? `/properties/${propertyId}/images` : null,
+    queryFn: async () => {
+      const response = await apiClient.get(`/properties/${propertyId}/images`);
+      return response.data;
+    },
     enabled: enabled && !!propertyId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

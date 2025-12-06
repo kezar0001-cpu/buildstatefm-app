@@ -29,8 +29,9 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InfoIcon from '@mui/icons-material/Info';
-import useApiQuery from '../hooks/useApiQuery.js';
+import { useQuery } from '@tanstack/react-query';
 import useApiMutation from '../hooks/useApiMutation.js';
+import { apiClient } from '../api/client.js';
 import DataState from '../components/DataState.jsx';
 import { normaliseArray } from '../utils/error.js';
 import { calculateDaysRemaining, formatDate } from '../utils/date.js';
@@ -617,16 +618,25 @@ export default function SubscriptionsPage() {
   }
 
   // Fetch subscriptions
-  const query = useApiQuery({
+  // Migrated to React Query for better caching and state management
+  const query = useQuery({
     queryKey: queryKeys.subscriptions.all(),
-    url: '/subscriptions',
+    queryFn: async () => {
+      const response = await apiClient.get('/subscriptions');
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Fetch usage stats
-  const usageQuery = useApiQuery({
+  // Fetch usage stats - Migrated to React Query
+  const usageQuery = useQuery({
     queryKey: ['subscriptions', 'usage'],
-    url: '/subscriptions/usage',
+    queryFn: async () => {
+      const response = await apiClient.get('/subscriptions/usage');
+      return response.data;
+    },
     enabled: Boolean(currentUser),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   // Checkout mutation
@@ -652,10 +662,15 @@ export default function SubscriptionsPage() {
   });
 
   // Invoices query
-  const invoicesQuery = useApiQuery({
+  // Fetch invoices - Migrated to React Query
+  const invoicesQuery = useQuery({
     queryKey: ['billing', 'invoices'],
-    url: '/billing/invoices',
+    queryFn: async () => {
+      const response = await apiClient.get('/billing/invoices');
+      return response.data;
+    },
     enabled: hasActiveSubscription,
+    staleTime: 5 * 60 * 1000, // 5 minutes (invoices change less frequently)
   });
 
   // Cancel subscription mutation

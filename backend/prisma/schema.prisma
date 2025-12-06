@@ -339,6 +339,8 @@ model Inspection {
   @@index([rejectedById])
   @@index([templateId])
   @@index([propertyId, status], map: "idx_inspection_property_status")
+  @@index([assignedToId, status])
+  @@index([scheduledDate, status])
 }
 
 model Job {
@@ -383,6 +385,9 @@ model Job {
   @@index([inspectionId])
   @@index([propertyId, status])
   @@index([propertyId, status], map: "idx_job_property_status")
+  @@index([assignedToId, status])
+  @@index([scheduledDate, status])
+  @@index([createdAt, status])
 }
 
 model MaintenancePlan {
@@ -449,6 +454,9 @@ model ServiceRequest {
   @@index([propertyId, status])
   @@index([rejectedById])
   @@index([propertyId, status], map: "idx_service_request_property_status")
+  @@index([requestedById, status])
+  @@index([category, status])
+  @@index([createdAt, status])
 }
 
 model Report {
@@ -500,6 +508,8 @@ model Recommendation {
   @@index([status])
   @@index([createdById])
   @@index([rejectedAt])
+  @@index([propertyId, status])
+  @@index([createdAt, status])
 }
 
 model RecommendationComment {
@@ -534,6 +544,7 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([entityType, entityId], map: "idx_notification_entity")
+  @@index([userId, isRead, createdAt])
 }
 
 model AuditLog {
@@ -887,6 +898,8 @@ model PropertyDocument {
   @@index([propertyId])
   @@index([unitId])
   @@index([uploaderId])
+  @@index([propertyId, accessLevel])
+  @@index([unitId, accessLevel])
 }
 
 model PropertyManagerProfile {

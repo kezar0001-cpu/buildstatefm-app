@@ -2011,7 +2011,7 @@ propertyImagesRouter.get('/', async (req, res) => {
   }
 });
 
-propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), rateLimitUpload, maybeHandleImageUpload, async (req, res) => {
+propertyImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, rateLimitUpload, maybeHandleImageUpload, async (req, res) => {
   const propertyId = req.params.id;
 
   const cleanupUploadedFile = async () => {
@@ -3111,7 +3111,7 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
 
 // POST /properties/:id/documents - Create document record(s) from already-uploaded file(s)
 // New pattern: Files are uploaded separately via /upload/documents, then metadata is saved here
-propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const propertyId = req.params.id;
 
   try {

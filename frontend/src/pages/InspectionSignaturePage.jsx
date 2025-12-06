@@ -18,8 +18,9 @@ import {
   Clear as ClearIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
-import useApiQuery from '../hooks/useApiQuery';
+import { useQuery } from '@tanstack/react-query';
 import useApiMutation from '../hooks/useApiMutation';
+import { apiClient } from '../api/client.js';
 import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import { formatDateTime } from '../utils/date';
@@ -37,10 +38,14 @@ export default function InspectionSignaturePage() {
   const [hasSignature, setHasSignature] = useState(false);
   const [signatureData, setSignatureData] = useState(null);
 
-  // Fetch inspection details
-  const inspectionQuery = useApiQuery({
+  // Fetch inspection details - Migrated to React Query
+  const inspectionQuery = useQuery({
     queryKey: queryKeys.inspections.detail(id),
-    url: `/inspections/${id}`,
+    queryFn: async () => {
+      const response = await apiClient.get(`/inspections/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
   });
 
   // Submit signature mutation
