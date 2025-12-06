@@ -24,6 +24,7 @@ import {
   isUsingCloudStorage,
   deleteImage,
 } from '../services/uploadService.js';
+import { exportPropertiesToCSV, setCSVHeaders } from '../utils/exportUtils.js';
 
 const router = Router();
 
@@ -1354,6 +1355,33 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
 
       return { items: finalItems, total: count, hasMoreItems };
     });
+
+    // Phase 5: Handle CSV export
+    if (req.query.format === 'csv') {
+      // For CSV, fetch all properties (respecting access control) without pagination
+      const allProperties = await prisma.property.findMany({
+        where,
+        include: {
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          _count: {
+            select: {
+              units: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const csv = exportPropertiesToCSV(allProperties.map(toPublicProperty));
+      setCSVHeaders(res, `properties-export-${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send(csv);
+    }
 
     // Calculate page number and hasMore
     const page = Math.floor(offset / limit) + 1;

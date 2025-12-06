@@ -15,6 +15,7 @@ import {
 } from '../utils/notificationService.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidServiceRequestTransition } from '../utils/statusTransitions.js';
+import { exportServiceRequestsToCSV, setCSVHeaders } from '../utils/exportUtils.js';
 
 const router = express.Router();
 

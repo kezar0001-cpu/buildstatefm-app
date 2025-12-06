@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireActiveSubscription } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { optimizeImage, isImage, getOptimizationSettings } from '../utils/imageOptimization.js';
 import {
@@ -42,7 +42,7 @@ const inspectionPhotoUpload = createUploadMiddleware({
  * Returns: { url: "/uploads/<filename>" }
  * Requires authentication
  */
-router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), async (req, res) => {
+router.post('/single', requireAuth, requireActiveSubscription, rateLimitUpload, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return sendError(res, 400, 'No file uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
@@ -88,7 +88,7 @@ router.post('/single', requireAuth, rateLimitUpload, upload.single('file'), asyn
  * Returns: { urls: ["/uploads/<filename1>", "/uploads/<filename2>"] }
  * Requires authentication
  */
-router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50), async (req, res) => {
+router.post('/multiple', requireAuth, requireActiveSubscription, rateLimitUpload, upload.array('files', 50), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
@@ -137,7 +137,7 @@ router.post('/multiple', requireAuth, rateLimitUpload, upload.array('files', 50)
  * Supports: PDF, Word, Excel, Text, Images (up to 50MB each)
  * Requires authentication
  */
-router.post('/documents', requireAuth, rateLimitUpload, documentUpload.array('files', 20), (req, res) => {
+router.post('/documents', requireAuth, requireActiveSubscription, rateLimitUpload, documentUpload.array('files', 20), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);

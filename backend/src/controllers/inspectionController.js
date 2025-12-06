@@ -5,6 +5,7 @@ import { isValidInspectionTransition, getAllowedInspectionTransitions } from '..
 import * as inspectionService from '../services/inspectionService.js';
 import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
 import { sendNotification, notifyInspectionReminder } from '../utils/notificationService.js';
+import { exportInspectionsToCSV, setCSVHeaders } from '../utils/exportUtils.js';
 
 const ROLE_MANAGER = 'PROPERTY_MANAGER';
 const ROLE_OWNER = 'OWNER';
@@ -163,6 +164,20 @@ export const listInspections = async (req, res) => {
     const sortField = req.query.sortBy || 'scheduledDate';
     const sortOrder = req.query.sortOrder === 'desc' ? 'desc' : 'asc';
     const orderBy = { [sortField]: sortOrder };
+
+    // Phase 6: Handle CSV export
+    if (req.query.format === 'csv') {
+      // For CSV, fetch all inspections (respecting access control) without pagination
+      const allInspections = await prisma.inspection.findMany({
+        where,
+        include: inspectionService.baseInspectionInclude,
+        orderBy,
+      });
+
+      const csv = exportInspectionsToCSV(allInspections);
+      setCSVHeaders(res, `inspections-export-${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send(csv);
+    }
 
     const [items, total] = await Promise.all([
       prisma.inspection.findMany({
