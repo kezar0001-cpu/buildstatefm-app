@@ -21,11 +21,32 @@ router.post('/', requireAuth, async (req, res) => {
       return sendError(res, 403, 'Only property managers and technicians can create recommendations', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
-    const { propertyId, title, description, priority, estimatedCost } = req.body;
+    const { propertyId, title, description, priority, estimatedCost, inspectionId } = req.body;
 
     // Validation
     if (!propertyId || !title || !description) {
       return sendError(res, 400, 'Property ID, title, and description are required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Validate title and description are not just whitespace
+    if (!title.trim()) {
+      return sendError(res, 400, 'Title cannot be empty', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+    if (!description.trim()) {
+      return sendError(res, 400, 'Description cannot be empty', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Validate priority if provided
+    if (priority && !['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
+      return sendError(res, 400, 'Invalid priority value', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Validate estimatedCost if provided
+    if (estimatedCost !== undefined && estimatedCost !== null && estimatedCost !== '') {
+      const cost = parseFloat(estimatedCost);
+      if (isNaN(cost) || cost < 0) {
+        return sendError(res, 400, 'Estimated cost must be a valid positive number', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
     }
 
     // Verify property exists and user has access to it
@@ -88,17 +109,54 @@ router.post('/', requireAuth, async (req, res) => {
       return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
     }
 
-    // Find the most recent inspection report for this property (optional)
-    const mostRecentReport = await prisma.report.findFirst({
-      where: {
-        inspection: {
-          propertyId: propertyId,
+    // Find the report for this recommendation
+    // Priority: 1) inspectionId if provided, 2) most recent report for property
+    let reportId = null;
+    if (inspectionId) {
+      // Verify inspection exists and user has access
+      const inspection = await prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        select: {
+          id: true,
+          propertyId: true,
+          assignedToId: true,
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      });
+
+      if (!inspection) {
+        return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_NOT_FOUND);
+      }
+
+      // Verify inspection belongs to the property
+      if (inspection.propertyId !== propertyId) {
+        return sendError(res, 400, 'Inspection does not belong to the specified property', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+
+      // Verify access: technicians can only link to inspections assigned to them
+      if (req.user.role === 'TECHNICIAN' && inspection.assignedToId !== req.user.id) {
+        return sendError(res, 403, 'You can only create recommendations for inspections assigned to you', ErrorCodes.ACC_ACCESS_DENIED);
+      }
+
+      // Find the report for this inspection
+      const report = await prisma.report.findUnique({
+        where: { inspectionId: inspection.id },
+        select: { id: true },
+      });
+      reportId = report?.id || null;
+    } else {
+      // Find the most recent inspection report for this property (optional)
+      const mostRecentReport = await prisma.report.findFirst({
+        where: {
+          inspection: {
+            propertyId: propertyId,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      reportId = mostRecentReport?.id || null;
+    }
 
     // Create the recommendation (reportId is now optional)
     const recommendation = await prisma.recommendation.create({
@@ -106,7 +164,7 @@ router.post('/', requireAuth, async (req, res) => {
         title: title.trim(),
         description: description.trim(),
         propertyId: propertyId,
-        reportId: mostRecentReport?.id || null,
+        reportId: reportId,
         priority: priority || 'MEDIUM',
         estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
         status: 'SUBMITTED',
@@ -225,8 +283,10 @@ router.get('/', requireAuth, async (req, res) => {
         },
       };
     } else if (req.user.role === 'TECHNICIAN') {
-      // Technicians see recommendations for inspections assigned to them (if report exists)
-      // Or recommendations for properties where they have assigned inspections
+      // Technicians see recommendations for:
+      // 1. Recommendations linked to inspections assigned to them (via report)
+      // 2. Recommendations for properties where they have assigned inspections
+      // 3. Recommendations they created themselves
       where.OR = [
         {
           report: {
@@ -243,6 +303,9 @@ router.get('/', requireAuth, async (req, res) => {
               },
             },
           },
+        },
+        {
+          createdById: req.user.id,
         },
       ];
     } else {
@@ -307,6 +370,251 @@ router.get('/', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching recommendations:', error);
     return sendError(res, 500, 'Failed to fetch recommendations', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// GET /recommendations/:id - Get a single recommendation by ID
+router.get('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            managerId: true,
+            owners: {
+              select: {
+                ownerId: true,
+                endDate: true,
+              },
+            },
+          },
+        },
+        report: {
+          select: {
+            id: true,
+            title: true,
+            inspectionId: true,
+            inspection: {
+              select: {
+                id: true,
+                title: true,
+                propertyId: true,
+                assignedToId: true,
+              },
+            },
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Access control: Check if user has permission to view this recommendation
+    const property = recommendation.property;
+    let hasAccess = false;
+
+    if (req.user.role === 'PROPERTY_MANAGER' && property?.managerId === req.user.id) {
+      hasAccess = true;
+    } else if (req.user.role === 'OWNER' && property?.owners?.some(o => o.ownerId === req.user.id)) {
+      hasAccess = true;
+    } else if (req.user.role === 'TECHNICIAN') {
+      // Technicians can see recommendations for inspections assigned to them
+      // Or recommendations for properties where they have assigned inspections
+      if (recommendation.report?.inspection?.assignedToId === req.user.id) {
+        hasAccess = true;
+      } else if (property) {
+        // Check if technician has any assigned inspections for this property
+        const hasAssignedInspection = await prisma.inspection.findFirst({
+          where: {
+            propertyId: property.id,
+            assignedToId: req.user.id,
+          },
+          select: { id: true },
+        });
+        if (hasAssignedInspection) {
+          hasAccess = true;
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied. You do not have permission to view this recommendation.', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    res.json(recommendation);
+  } catch (error) {
+    console.error('Error fetching recommendation:', error);
+    return sendError(res, 500, 'Failed to fetch recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /recommendations/:id - Update a recommendation
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, priority, estimatedCost, status } = req.body;
+
+    // Validate priority if provided
+    if (priority !== undefined && !['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
+      return sendError(res, 400, 'Invalid priority value', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Validate estimatedCost if provided
+    if (estimatedCost !== undefined && estimatedCost !== null && estimatedCost !== '') {
+      const cost = parseFloat(estimatedCost);
+      if (isNaN(cost) || cost < 0) {
+        return sendError(res, 400, 'Estimated cost must be a valid positive number', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+    }
+
+    // Find the recommendation
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            managerId: true,
+            owners: {
+              select: {
+                ownerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Access control: Only property managers can update recommendations
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can update recommendations', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only update recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Build update data
+    const updateData = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description.trim();
+    if (priority !== undefined) updateData.priority = priority;
+    if (estimatedCost !== undefined) {
+      updateData.estimatedCost = estimatedCost === null || estimatedCost === '' ? null : parseFloat(estimatedCost);
+    }
+    // Only allow status updates to certain states (prevent unauthorized state changes)
+    if (status !== undefined && ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW'].includes(status)) {
+      updateData.status = status;
+    }
+
+    // Validate required fields if updating
+    if (updateData.title !== undefined && !updateData.title) {
+      return sendError(res, 400, 'Title is required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+    if (updateData.description !== undefined && !updateData.description) {
+      return sendError(res, 400, 'Description is required', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    const updated = await prisma.recommendation.update({
+      where: { id },
+      data: updateData,
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating recommendation:', error);
+    return sendError(res, 500, 'Failed to update recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// DELETE /recommendations/:id - Delete a recommendation
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the recommendation
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            managerId: true,
+          },
+        },
+      },
+    });
+
+    if (!recommendation) {
+      return sendError(res, 404, 'Recommendation not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    // Access control: Only property managers can delete recommendations
+    if (req.user.role !== 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Only property managers can delete recommendations', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Verify the manager owns the property
+    if (recommendation.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You can only delete recommendations for your own properties', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Prevent deletion of approved or implemented recommendations
+    if (recommendation.status === 'APPROVED' || recommendation.status === 'IMPLEMENTED') {
+      return sendError(res, 400, 'Cannot delete approved or implemented recommendations', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    }
+
+    await prisma.recommendation.delete({
+      where: { id },
+    });
+
+    res.json({ success: true, message: 'Recommendation deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting recommendation:', error);
+    return sendError(res, 500, 'Failed to delete recommendation', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
