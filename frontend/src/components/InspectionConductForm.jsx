@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Stepper, Step, StepButton, Paper, Alert, Snackbar, Stack, Button, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Stepper, Step, StepButton, Paper, Alert, Snackbar, Stack, Button, Typography, useTheme, useMediaQuery } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, ArrowForward as ArrowForwardIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useInspectionConduct } from '../hooks/useInspectionConduct';
 import { InspectionStepStart } from './inspections/InspectionStepStart';

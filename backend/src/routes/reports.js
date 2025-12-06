@@ -27,8 +27,14 @@ const reportSchema = z.object({
 });
 
 // POST /api/reports - Create and generate a new report
-router.post('/', requirePropertyManagerSubscription, async (req, res) => {
+// Reports are accessible to Property Managers and Owners
+router.post('/', requireAuth, async (req, res) => {
   try {
+    // Only Property Managers and Owners can create reports
+    if (!['PROPERTY_MANAGER', 'OWNER'].includes(req.user.role)) {
+      return sendError(res, 403, 'Only Property Managers and Owners can create reports', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
     const payload = reportSchema.parse(req.body);
 
     // Verify user has access to the property
@@ -116,8 +122,14 @@ router.post('/', requirePropertyManagerSubscription, async (req, res) => {
 });
 
 // GET /api/reports - Get all report requests
+// Reports are only accessible to Property Managers and Owners
 router.get('/', async (req, res) => {
   try {
+    // Only Property Managers and Owners can view reports
+    if (!['PROPERTY_MANAGER', 'OWNER'].includes(req.user.role)) {
+      return sendError(res, 403, 'Only Property Managers and Owners can view reports', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
     // Build where clause based on user role
     const where = {};
     
@@ -135,12 +147,6 @@ router.get('/', async (req, res) => {
           },
         },
       };
-    } else if (req.user.role === 'TENANT') {
-      // Tenants see only their own reports
-      where.requestedById = req.user.id;
-    } else {
-      // Other roles see their own reports
-      where.requestedById = req.user.id;
     }
     
     const reports = await prisma.reportRequest.findMany({
