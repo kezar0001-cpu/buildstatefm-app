@@ -125,10 +125,6 @@ export const baseInspectionInclude = {
     orderBy: { reminderDate: 'asc' },
   },
   report: true,
-  jobs: {
-    select: { id: true, title: true, status: true },
-    orderBy: { createdAt: 'desc' },
-  },
   rooms: {
     select: {
       id: true,
