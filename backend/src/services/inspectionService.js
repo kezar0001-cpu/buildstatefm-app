@@ -50,11 +50,13 @@ export function parseHighPriorityFindings(findingsText) {
   return findings;
 }
 
+import { randomUUID } from 'crypto';
+
 export async function logAudit(inspectionId, userId, action, changes = null) {
   try {
     await prisma.inspectionAuditLog.create({
       data: {
-        id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        id: randomUUID(),
         inspectionId,
         userId: userId || null,
         action,
