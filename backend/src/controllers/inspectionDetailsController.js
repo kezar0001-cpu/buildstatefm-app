@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import prisma from '../config/prismaClient.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { logAudit } from '../services/inspectionService.js';
@@ -117,7 +118,7 @@ export const generateAIChecklist = async (req, res) => {
     for (let i = 0; i < aiItems.length; i++) {
       const item = await prisma.inspectionChecklistItem.create({
         data: {
-          id: `checklist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          id: randomUUID(),
           roomId,
           description: aiItems[i].description,
           status: 'PENDING',
@@ -289,7 +290,7 @@ export const addPhoto = async (req, res) => {
 
     const photo = await prisma.inspectionPhoto.create({
       data: {
-        id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        id: randomUUID(),
         inspectionId,
         roomId,
         issueId,
