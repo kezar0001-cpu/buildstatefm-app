@@ -1419,10 +1419,9 @@ const ServiceRequestKanban = ({
     ].filter(column => column.requests.length > 0 || ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].includes(column.id));
   }, [requests]);
 
-  return (
-    <Grid container spacing={2}>
-      {columns.map(column => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={column.id}>
+  // Render a kanban column
+  const renderKanbanColumn = (column) => (
+    <Grid item xs={12} sm={6} md={4} lg={3} key={column.id}>
           <Paper
             sx={{
               p: 2,
@@ -1479,12 +1478,13 @@ const ServiceRequestKanban = ({
                         opacity: 0,
                         transition: 'opacity 0.3s ease-in-out',
                       },
-                      '&:hover::before': {
-                        opacity: 1,
-                      },
                       '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: 3,
+                        transform: 'translateY(-4px)',
+                        boxShadow: 6,
+                        borderColor: 'primary.main',
+                        '&::before': {
+                          opacity: 1,
+                        },
                       },
                     }}
                     onClick={() => onView(request)}
@@ -1641,9 +1641,33 @@ const ServiceRequestKanban = ({
               })}
             </Stack>
           </Paper>
-        </Grid>
-      ))}
     </Grid>
+  );
+
+  return (
+    <Stack spacing={3}>
+      {/* Status Row */}
+      <Box>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          By Status
+        </Typography>
+        <Grid container spacing={2}>
+          {statusColumns.map(renderKanbanColumn)}
+        </Grid>
+      </Box>
+
+      {/* Priority Row */}
+      {priorityColumns.length > 0 && (
+        <Box>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            By Priority
+          </Typography>
+          <Grid container spacing={2}>
+            {priorityColumns.map(renderKanbanColumn)}
+          </Grid>
+        </Box>
+      )}
+    </Stack>
   );
 };
 
