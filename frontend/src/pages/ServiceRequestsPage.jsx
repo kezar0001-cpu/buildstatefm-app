@@ -390,16 +390,18 @@ const ServiceRequestsPage = () => {
             ? 'Submit and track your maintenance requests'
             : 'Review and manage tenant service requests'
         }
-        actions={(
-          <GradientButton
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-            size="medium"
-            sx={{ width: { xs: '100%', md: 'auto' } }}
-          >
-            {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
-          </GradientButton>
-        )}
+        actions={
+          userRole !== 'PROPERTY_MANAGER' ? (
+            <GradientButton
+              startIcon={<AddIcon />}
+              onClick={handleCreate}
+              size="medium"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
+            </GradientButton>
+          ) : undefined
+        }
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
@@ -470,6 +472,7 @@ const ServiceRequestsPage = () => {
               <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
               <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
               <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="ARCHIVED">Archived</MenuItem>
             </TextField>
 
             {/* Category Filter */}
@@ -645,8 +648,8 @@ const ServiceRequestsPage = () => {
                 ? 'Need maintenance or repairs? Submit your first service request and we\'ll take care of it promptly.'
                 : 'Start managing service requests from your tenants. Track issues, assign jobs, and keep everyone informed.'
           }
-          actionLabel={filters.status || filters.category ? undefined : (userRole === 'TENANT' ? 'Submit First Request' : 'Create Request')}
-          onAction={filters.status || filters.category ? undefined : handleCreate}
+          actionLabel={filters.status || filters.category || userRole === 'PROPERTY_MANAGER' ? undefined : (userRole === 'TENANT' ? 'Submit First Request' : 'Create Request')}
+          onAction={filters.status || filters.category || userRole === 'PROPERTY_MANAGER' ? undefined : handleCreate}
         />
       ) : (
         <Stack spacing={3}>
