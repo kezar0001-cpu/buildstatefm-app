@@ -1,9 +1,15 @@
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography, Divider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
+import {
+  Refresh as RefreshIcon,
+  Home as HomeIcon,
+  Email as EmailIcon,
+  ErrorOutline as ErrorIcon,
+} from '@mui/icons-material';
 import GlobalGuard from './components/GlobalGuard.jsx';
 import AuthGate from './authGate';
 import ProtectedLayout from './components/ProtectedLayout';
@@ -72,23 +78,175 @@ function NotFound() {
 }
 
 class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error, errorInfo) { logger.error('App Error:', error, errorInfo); }
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorId: null,
+    };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Generate a unique error ID for tracking
+    const errorId = `ERR-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    return {
+      hasError: true,
+      error,
+      errorId,
+    };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log error with error ID for tracking
+    logger.error('App Error:', {
+      error,
+      errorInfo,
+      errorId: this.state.errorId,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+    });
+  }
+
+  handleReload = () => {
+    window.location.reload();
+  };
+
+  handleGoHome = () => {
+    window.location.href = '/';
+  };
+
+  handleContactSupport = () => {
+    const subject = encodeURIComponent(`Error Report - ${this.state.errorId || 'Unknown'}`);
+    const body = encodeURIComponent(
+      `I encountered an error while using Buildstate FM.\n\n` +
+      `Error ID: ${this.state.errorId || 'Unknown'}\n` +
+      `Time: ${new Date().toLocaleString()}\n` +
+      `Page: ${window.location.href}\n\n` +
+      `Please describe what you were doing when the error occurred:\n\n`
+    );
+    window.location.href = `mailto:admin@buildstate.com.au?subject=${subject}&body=${body}`;
+  };
+
   render() {
     if (this.state.hasError) {
       return (
-        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-          <SectionCard title="Something went wrong" subtitle="We ran into an unexpected issue">
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Please reload the page to continue. If the issue persists, contact support.
-              </Typography>
-              <Button variant="contained" color="primary" onClick={() => window.location.reload()} sx={{ textTransform: 'none' }}>
-                Reload Page
-              </Button>
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+            background: 'linear-gradient(180deg, #fef2f2 0%, #ffffff 60%)',
+          }}
+        >
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 3, md: 5 },
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              textAlign: 'center',
+              maxWidth: 560,
+              width: '100%',
+            }}
+          >
+            <Stack spacing={3} alignItems="center">
+              {/* Error Icon */}
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  backgroundColor: 'error.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1,
+                }}
+              >
+                <ErrorIcon sx={{ fontSize: 48, color: 'error.main' }} />
+              </Box>
+
+              {/* Title and Description */}
+              <Box>
+                <Typography variant="h4" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
+                  Something went wrong
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                  We encountered an unexpected error. Our team has been notified and is working to resolve it.
+                </Typography>
+                {this.state.errorId && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'inline-block',
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: 1,
+                      backgroundColor: 'grey.100',
+                      color: 'text.secondary',
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    Error ID: {this.state.errorId}
+                  </Typography>
+                )}
+              </Box>
+
+              <Divider sx={{ width: '100%' }} />
+
+              {/* Action Buttons */}
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                sx={{ width: '100%' }}
+                alignItems="stretch"
+              >
+                <Button
+                  variant="contained"
+                  color="error"
+                  size="large"
+                  startIcon={<RefreshIcon />}
+                  onClick={this.handleReload}
+                  sx={{ textTransform: 'none', flex: 1 }}
+                >
+                  Reload Page
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  size="large"
+                  startIcon={<HomeIcon />}
+                  onClick={this.handleGoHome}
+                  sx={{ textTransform: 'none', flex: 1 }}
+                >
+                  Go to Home
+                </Button>
+              </Stack>
+
+              {/* Support Section */}
+              <Box sx={{ width: '100%', pt: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  If the problem persists, please contact our support team:
+                </Typography>
+                <Button
+                  variant="text"
+                  color="primary"
+                  size="medium"
+                  startIcon={<EmailIcon />}
+                  onClick={this.handleContactSupport}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                >
+                  admin@buildstate.com.au
+                </Button>
+              </Box>
             </Stack>
-          </SectionCard>
+          </Paper>
         </Box>
       );
     }
