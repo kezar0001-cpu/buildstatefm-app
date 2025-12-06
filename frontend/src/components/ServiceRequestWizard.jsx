@@ -461,15 +461,24 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
                 onChange={handleChange('unitId')}
                 disabled={!formState.propertyId || !units.length || isLoading}
               >
-                {units.length === 0 && (
-                  <MenuItem value="">No units available</MenuItem>
+                {units.length === 0 ? (
+                  <MenuItem value="">Property-wide (no units)</MenuItem>
+                ) : (
+                  <>
+                    <MenuItem value="">Property-wide</MenuItem>
+                    {units.map((unit) => (
+                      <MenuItem key={unit.id} value={unit.id}>
+                        Unit {unit.unitNumber}
+                      </MenuItem>
+                    ))}
+                  </>
                 )}
-                {units.map((unit) => (
-                  <MenuItem key={unit.id} value={unit.id}>
-                    Unit {unit.unitNumber}
-                  </MenuItem>
-                ))}
               </Select>
+              {formState.propertyId && units.length === 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                  This property has no units - request will be property-wide
+                </Typography>
+              )}
             </FormControl>
 
             {selectedProperty && (

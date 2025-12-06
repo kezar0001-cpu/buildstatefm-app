@@ -283,14 +283,17 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubs
       return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
     
-    // Verify unit exists if provided
+    // Verify unit exists and belongs to property if provided
     if (unitId) {
-      const unit = await prisma.unit.findUnique({
-        where: { id: unitId },
+      const unit = await prisma.unit.findFirst({
+        where: { 
+          id: unitId,
+          propertyId: propertyId, // Ensure unit belongs to the property
+        },
       });
 
       if (!unit) {
-        return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
+        return sendError(res, 400, 'Unit not found or does not belong to this property', ErrorCodes.RES_UNIT_NOT_FOUND);
       }
     }
     

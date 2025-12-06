@@ -269,6 +269,32 @@ export const createInspection = async (req, res) => {
   try {
     const payload = inspectionCreateSchema.parse(req.body);
 
+    // Verify property exists and user has access
+    if (payload.propertyId) {
+      const property = await prisma.property.findUnique({
+        where: { id: payload.propertyId },
+        select: { id: true, managerId: true },
+      });
+
+      if (!property) {
+        return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+      }
+
+      // Verify unit exists and belongs to property if provided
+      if (payload.unitId) {
+        const unit = await prisma.unit.findFirst({
+          where: {
+            id: payload.unitId,
+            propertyId: payload.propertyId,
+          },
+        });
+
+        if (!unit) {
+          return sendError(res, 400, 'Unit not found or does not belong to this property', ErrorCodes.RES_UNIT_NOT_FOUND);
+        }
+      }
+    }
+
     let inspection;
 
     if (payload.templateId) {

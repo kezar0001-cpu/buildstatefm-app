@@ -286,9 +286,16 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues = {} })
             <FormSelect
               name="unitId"
               control={control}
-              label="Unit (optional)"
+              label={units.length > 0 ? "Unit (optional)" : "Unit"}
               options={unitOptions}
               disabled={!propertyId || !units.length}
+              helperText={
+                !propertyId 
+                  ? "Select a property first" 
+                  : units.length === 0 
+                    ? "This property has no units - inspection will be property-wide"
+                    : undefined
+              }
             />
           </Grid>
 
