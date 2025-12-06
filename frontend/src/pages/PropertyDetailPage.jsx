@@ -51,9 +51,8 @@ import {
   Email as EmailIcon,
 } from '@mui/icons-material';
 import { ListItemIcon } from '@mui/material';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../api/client';
-import useApiQuery from '../hooks/useApiQuery';
 import useApiMutation from '../hooks/useApiMutation';
 import DataState from '../components/DataState';
 import { formatDateTime } from '../utils/date';
@@ -168,10 +167,15 @@ export default function PropertyDetailPage() {
     deleteUnitDialogOpenRef.current = deleteUnitDialogOpen;
   }, [deleteUnitDialogOpen]);
 
-  // Fetch property details
-  const propertyQuery = useApiQuery({
+  // Fetch property details - Migrated to React Query
+  const propertyQuery = useQuery({
     queryKey: queryKeys.properties.detail(id),
-    url: `/properties/${id}`,
+    queryFn: async () => {
+      const response = await apiClient.get(`/properties/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   // Fetch units for this property with infinite query

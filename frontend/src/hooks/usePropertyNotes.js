@@ -1,18 +1,24 @@
 // frontend/src/hooks/usePropertyNotes.js
-import useApiQuery from './useApiQuery.js';
+import { useQuery } from '@tanstack/react-query';
 import useApiMutation from './useApiMutation.js';
 import { queryKeys } from '../utils/queryKeys.js';
+import { apiClient } from '../api/client.js';
 
 /**
  * Hook to fetch property notes
+ * Migrated to React Query for better caching and state management
  * @param {string} propertyId - Property ID
  * @param {boolean} enabled - Whether to enable the query
  */
 export function usePropertyNotes(propertyId, enabled = true) {
-  return useApiQuery({
+  return useQuery({
     queryKey: ['propertyNotes', propertyId],
-    url: propertyId ? `/properties/${propertyId}/notes` : null,
+    queryFn: async () => {
+      const response = await apiClient.get(`/properties/${propertyId}/notes`);
+      return response.data;
+    },
     enabled: enabled && !!propertyId,
+    staleTime: 2 * 60 * 1000, // 2 minutes (notes change more frequently)
   });
 }
 

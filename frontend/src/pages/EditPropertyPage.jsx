@@ -11,14 +11,16 @@ import {
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import PropertyForm from '../components/PropertyForm';
-import useApiQuery from '../hooks/useApiQuery';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys.js';
+import { apiClient } from '../api/client.js';
 import Breadcrumbs from '../components/Breadcrumbs';
 
 export default function EditPropertyPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState(null);
 
   const {
@@ -27,14 +29,22 @@ export default function EditPropertyPage() {
     isError,
     error,
     refetch,
-  } = useApiQuery({
+  } = useQuery({
     queryKey: queryKeys.properties.detail(id),
-    url: `/properties/${id}`,
+    queryFn: async () => {
+      const response = await apiClient.get(`/properties/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
   });
 
   const { mutateAsync, isPending } = useApiMutation({
     url: `/properties/${id}`,
     method: 'patch',
+    invalidateKeys: [
+      queryKeys.properties.detail(id),
+      queryKeys.properties.all(),
+    ],
   });
 
   const property = data?.property || data;
@@ -44,6 +54,9 @@ export default function EditPropertyPage() {
       setSubmitError(null);
       const response = await mutateAsync({ data: formData });
       if (response?.success !== false) {
+        // Invalidate related queries
+        queryClient.invalidateQueries({ queryKey: queryKeys.properties.detail(id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.properties.all() });
         navigate(`/properties/${id}`);
       } else {
         throw new Error(response?.message || 'Failed to update property');
