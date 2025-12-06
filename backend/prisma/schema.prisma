@@ -43,6 +43,7 @@ model User {
   JobComment                                           JobComment[]
   RecommendationComment                                RecommendationComment[] @relation("RecommendationCommentUser")
   notifications                                        Notification[]
+  notificationPreference                              NotificationPreference? @relation("NotificationPreferences")
   OwnerProfile                                         OwnerProfile?
   PasswordReset                                        PasswordReset[]
   managedProperties                                    Property[]              @relation("PropertyManager")
@@ -545,6 +546,29 @@ model Notification {
   @@index([createdAt])
   @@index([entityType, entityId], map: "idx_notification_entity")
   @@index([userId, isRead, createdAt])
+}
+
+model NotificationPreference {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  emailEnabled            Boolean  @default(true)
+  pushEnabled             Boolean  @default(true)
+  jobAssigned             Boolean  @default(true)
+  jobStatusChanged        Boolean  @default(true)
+  jobCompleted            Boolean  @default(true)
+  inspectionScheduled     Boolean  @default(true)
+  inspectionCompleted     Boolean  @default(true)
+  serviceRequestCreated   Boolean  @default(true)
+  serviceRequestApproved  Boolean  @default(true)
+  paymentFailed           Boolean  @default(true)
+  paymentSucceeded        Boolean  @default(true)
+  trialExpiring           Boolean  @default(true)
+  emailDigestFrequency    String   @default("DAILY")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  user                    User     @relation("NotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model AuditLog {

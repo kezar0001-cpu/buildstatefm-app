@@ -11,8 +11,15 @@ import {
   Divider,
   Alert,
   CircularProgress,
+  Switch,
+  FormControlLabel,
+  FormGroup,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
-import { Person, Lock, Save, Edit, Article as ArticleIcon } from '@mui/icons-material';
+import { Person, Lock, Save, Edit, Article as ArticleIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -27,6 +34,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const [editingProfile, setEditingProfile] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
+  const [editingNotifications, setEditingNotifications] = useState(false);
 
   // Fetch user profile
   const { data: profile, isLoading } = useQuery({
@@ -37,6 +45,54 @@ export default function ProfilePage() {
     },
     enabled: !!currentUser?.id,
   });
+
+  // Phase 3: Fetch notification preferences
+  const { data: notificationPreferences, isLoading: isLoadingPreferences } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: async () => {
+      const response = await apiClient.get('/notification-preferences');
+      return response.data;
+    },
+    enabled: !!currentUser?.id,
+  });
+
+  // Notification preferences form state
+  const [notificationForm, setNotificationForm] = useState({
+    emailEnabled: true,
+    pushEnabled: true,
+    jobAssigned: true,
+    jobStatusChanged: true,
+    jobCompleted: true,
+    inspectionScheduled: true,
+    inspectionCompleted: true,
+    serviceRequestCreated: true,
+    serviceRequestApproved: true,
+    paymentFailed: true,
+    paymentSucceeded: true,
+    trialExpiring: true,
+    emailDigestFrequency: 'DAILY',
+  });
+
+  // Update notification form when preferences load
+  React.useEffect(() => {
+    if (notificationPreferences) {
+      setNotificationForm({
+        emailEnabled: notificationPreferences.emailEnabled ?? true,
+        pushEnabled: notificationPreferences.pushEnabled ?? true,
+        jobAssigned: notificationPreferences.jobAssigned ?? true,
+        jobStatusChanged: notificationPreferences.jobStatusChanged ?? true,
+        jobCompleted: notificationPreferences.jobCompleted ?? true,
+        inspectionScheduled: notificationPreferences.inspectionScheduled ?? true,
+        inspectionCompleted: notificationPreferences.inspectionCompleted ?? true,
+        serviceRequestCreated: notificationPreferences.serviceRequestCreated ?? true,
+        serviceRequestApproved: notificationPreferences.serviceRequestApproved ?? true,
+        paymentFailed: notificationPreferences.paymentFailed ?? true,
+        paymentSucceeded: notificationPreferences.paymentSucceeded ?? true,
+        trialExpiring: notificationPreferences.trialExpiring ?? true,
+        emailDigestFrequency: notificationPreferences.emailDigestFrequency || 'DAILY',
+      });
+    }
+  }, [notificationPreferences]);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -97,6 +153,22 @@ export default function ProfilePage() {
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to change password');
+    },
+  });
+
+  // Phase 3: Update notification preferences mutation
+  const updateNotificationPreferencesMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await apiClient.patch('/notification-preferences', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationPreferences'] });
+      toast.success('Notification preferences updated successfully');
+      setEditingNotifications(false);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update notification preferences');
     },
   });
 
@@ -350,6 +422,235 @@ export default function ProfilePage() {
           </Grid>
         </Paper>
       )}
+
+      {/* Phase 3: Notification Preferences */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NotificationsIcon color="primary" />
+            <Typography variant="h6">Notification Preferences</Typography>
+          </Box>
+          {!editingNotifications && (
+            <Button
+              startIcon={<Edit />}
+              onClick={() => setEditingNotifications(true)}
+            >
+              Edit
+            </Button>
+          )}
+        </Box>
+
+        {editingNotifications ? (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            updateNotificationPreferencesMutation.mutate(notificationForm);
+          }}>
+            <FormGroup>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                General Settings
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.emailEnabled}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, emailEnabled: e.target.checked })}
+                  />
+                }
+                label="Email Notifications"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.pushEnabled}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, pushEnabled: e.target.checked })}
+                  />
+                }
+                label="In-App Notifications"
+              />
+
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Job Notifications
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.jobAssigned}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, jobAssigned: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Job Assigned"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.jobStatusChanged}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, jobStatusChanged: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Job Status Changed"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.jobCompleted}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, jobCompleted: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Job Completed"
+              />
+
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Inspection Notifications
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.inspectionScheduled}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, inspectionScheduled: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Inspection Scheduled"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.inspectionCompleted}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, inspectionCompleted: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Inspection Completed"
+              />
+
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Service Request Notifications
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.serviceRequestCreated}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, serviceRequestCreated: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Service Request Created"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.serviceRequestApproved}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, serviceRequestApproved: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Service Request Approved"
+              />
+
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Subscription & Payment
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.trialExpiring}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, trialExpiring: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Trial Expiring"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.paymentFailed}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, paymentFailed: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Payment Failed"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={notificationForm.paymentSucceeded}
+                    onChange={(e) => setNotificationForm({ ...notificationForm, paymentSucceeded: e.target.checked })}
+                    disabled={!notificationForm.pushEnabled && !notificationForm.emailEnabled}
+                  />
+                }
+                label="Payment Succeeded"
+              />
+
+              {notificationForm.emailEnabled && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <FormControl fullWidth sx={{ mt: 2 }}>
+                    <InputLabel>Email Digest Frequency</InputLabel>
+                    <Select
+                      value={notificationForm.emailDigestFrequency}
+                      onChange={(e) => setNotificationForm({ ...notificationForm, emailDigestFrequency: e.target.value })}
+                      label="Email Digest Frequency"
+                    >
+                      <MenuItem value="NONE">No Digest</MenuItem>
+                      <MenuItem value="DAILY">Daily</MenuItem>
+                      <MenuItem value="WEEKLY">Weekly</MenuItem>
+                      <MenuItem value="MONTHLY">Monthly</MenuItem>
+                    </Select>
+                  </FormControl>
+                </>
+              )}
+
+              <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={<Save />}
+                  disabled={updateNotificationPreferencesMutation.isPending}
+                >
+                  {updateNotificationPreferencesMutation.isPending ? 'Saving...' : 'Save Preferences'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setEditingNotifications(false);
+                    if (notificationPreferences) {
+                      setNotificationForm({
+                        emailEnabled: notificationPreferences.emailEnabled ?? true,
+                        pushEnabled: notificationPreferences.pushEnabled ?? true,
+                        jobAssigned: notificationPreferences.jobAssigned ?? true,
+                        jobStatusChanged: notificationPreferences.jobStatusChanged ?? true,
+                        jobCompleted: notificationPreferences.jobCompleted ?? true,
+                        inspectionScheduled: notificationPreferences.inspectionScheduled ?? true,
+                        inspectionCompleted: notificationPreferences.inspectionCompleted ?? true,
+                        serviceRequestCreated: notificationPreferences.serviceRequestCreated ?? true,
+                        serviceRequestApproved: notificationPreferences.serviceRequestApproved ?? true,
+                        paymentFailed: notificationPreferences.paymentFailed ?? true,
+                        paymentSucceeded: notificationPreferences.paymentSucceeded ?? true,
+                        trialExpiring: notificationPreferences.trialExpiring ?? true,
+                        emailDigestFrequency: notificationPreferences.emailDigestFrequency || 'DAILY',
+                      });
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </FormGroup>
+          </form>
+        ) : (
+          <Typography color="text.secondary">
+            Click "Edit" to manage your notification preferences
+          </Typography>
+        )}
+      </Paper>
 
       {/* Blog Admin Link (only for ADMIN users) */}
       {profile?.role === 'ADMIN' && (
