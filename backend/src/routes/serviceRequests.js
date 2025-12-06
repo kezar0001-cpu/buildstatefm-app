@@ -383,9 +383,8 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
     // (Property managers are already blocked above, so this only applies to owners/tenants)
     const manager = property.manager;
 
-      if (!manager || !isSubscriptionActive(manager)) {
-        return sendError(res, 403, 'This property\'s subscription has expired. Please contact your property manager.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
-      }
+    if (!manager || !isSubscriptionActive(manager)) {
+      return sendError(res, 403, 'This property\'s subscription has expired. Please contact your property manager.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
     }
 
     // Determine initial status based on user role
