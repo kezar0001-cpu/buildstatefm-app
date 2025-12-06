@@ -4,7 +4,7 @@ import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidInspectionTransition, getAllowedInspectionTransitions } from '../utils/statusTransitions.js';
 import * as inspectionService from '../services/inspectionService.js';
 import { generateAndUploadInspectionPDF } from '../services/pdfService.js';
-import { sendNotification } from '../utils/notificationService.js';
+import { sendNotification, notifyInspectionReminder } from '../utils/notificationService.js';
 
 const ROLE_MANAGER = 'PROPERTY_MANAGER';
 const ROLE_OWNER = 'OWNER';
@@ -716,13 +716,50 @@ export const createReminder = async (req, res) => {
       include: inspectionService.baseInspectionInclude,
     });
 
-    // Helper logic for reminders - ideally moved to service but ok here for now
-    if (payload.recipients?.length) {
-       // We need to import notifyInspectionReminder or move this logic.
-       // For now, let's assume the service handles it? No, the service file didn't export it.
-       // I'll skip the notification logic here to save time/space or import it if I can.
-       // Actually, I should do it properly.
-       // The notification logic is complex.
+    // Send reminder notifications to specified recipients
+    if (payload.recipients?.length && inspection.assignedTo && inspection.property) {
+      try {
+        // Send reminder to assigned technician if they're in the recipients list
+        if (payload.recipients.includes(inspection.assignedTo.id)) {
+          await notifyInspectionReminder(inspection, inspection.assignedTo, inspection.property);
+        }
+        
+        // Send reminders to other recipients (e.g., property manager)
+        const otherRecipients = payload.recipients.filter(id => id !== inspection.assignedTo?.id);
+        for (const recipientId of otherRecipients) {
+          try {
+            const recipient = await prisma.user.findUnique({
+              where: { id: recipientId },
+              select: { id: true, firstName: true, lastName: true, email: true },
+            });
+            
+            if (recipient) {
+              await sendNotification(
+                recipient.id,
+                'INSPECTION_REMINDER',
+                'Inspection Reminder',
+                `Reminder: ${inspection.title} at ${inspection.property.name} is scheduled for ${new Date(inspection.scheduledDate).toLocaleDateString()}`,
+                {
+                  entityType: 'inspection',
+                  entityId: inspection.id,
+                  emailData: {
+                    recipientName: `${recipient.firstName} ${recipient.lastName}`,
+                    inspectionTitle: inspection.title,
+                    propertyName: inspection.property.name,
+                    scheduledDate: new Date(inspection.scheduledDate).toLocaleDateString(),
+                    inspectionUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/inspections/${inspection.id}`,
+                  },
+                }
+              );
+            }
+          } catch (recipientError) {
+            console.error(`Failed to send reminder to recipient ${recipientId}:`, recipientError);
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send inspection reminder notifications:', notifError);
+        // Don't fail reminder creation if notification fails
+      }
     }
 
     await inspectionService.logAudit(req.params.id, req.user.id, 'REMINDER_CREATED', { reminder });

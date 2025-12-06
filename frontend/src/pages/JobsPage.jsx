@@ -278,6 +278,39 @@ const JobsPage = () => {
       const response = await apiClient.post('/jobs/bulk-assign', { jobIds, technicianId });
       return response.data;
     },
+    // Phase 2: Add optimistic update for better UX
+    onMutate: async ({ jobIds, technicianId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.jobs.list(queryFilters) });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(queryKeys.jobs.list(queryFilters));
+      
+      // Optimistically update jobs in cache
+      queryClient.setQueryData(queryKeys.jobs.list(queryFilters), (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items.map(job => 
+              jobIds.includes(job.id) 
+                ? { ...job, assignedToId: technicianId, status: job.status === 'OPEN' ? 'ASSIGNED' : job.status }
+                : job
+            ),
+          })),
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.jobs.list(queryFilters), context.previousData);
+      }
+      toast.error(err?.response?.data?.message || 'Failed to assign jobs');
+    },
     onSuccess: () => {
       toast.success('Jobs assigned successfully');
       setSelectedJobIds([]);

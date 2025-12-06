@@ -1,11 +1,40 @@
 import express from 'express';
+import { z } from 'zod';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
+import validate from '../middleware/validate.js';
 import blogAutomationService from '../services/blogAutomationService.js';
 import { processDailyBlogPost } from '../cron/blogAutomation.js';
 
 const router = express.Router();
+
+// Validation schemas
+const blogPostCreateSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  content: z.string().min(1, 'Content is required'),
+  htmlContent: z.string().optional(),
+  excerpt: z.string().max(500, 'Excerpt must be less than 500 characters').optional(),
+  coverImage: z.string().url().optional().nullable(),
+  status: z.enum(['DRAFT', 'PUBLISHED', 'SCHEDULED']).optional().default('DRAFT'),
+  featured: z.boolean().optional().default(false),
+  metaTitle: z.string().max(60, 'Meta title must be less than 60 characters').optional(),
+  metaDescription: z.string().max(160, 'Meta description must be less than 160 characters').optional(),
+  metaKeywords: z.array(z.string()).optional().default([]),
+  ogImage: z.string().url().optional().nullable(),
+  categoryIds: z.array(z.string().min(1)).optional().default([]),
+  tagIds: z.array(z.string().min(1)).optional().default([]),
+  media: z.array(z.object({
+    url: z.string().url(),
+    type: z.enum(['IMAGE', 'VIDEO']).optional().default('IMAGE'),
+    caption: z.string().optional(),
+    altText: z.string().optional(),
+    mimeType: z.string().optional(),
+    size: z.number().optional(),
+  })).optional().default([]),
+});
+
+const blogPostUpdateSchema = blogPostCreateSchema.partial();
 
 /**
  * Helper function to generate URL-friendly slug
@@ -411,7 +440,7 @@ router.get('/admin/posts/:id', requireAuth, requireRole('ADMIN'), async (req, re
  * POST /api/blog/admin/posts
  * Create new blog post (admin only)
  */
-router.post('/admin/posts', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.post('/admin/posts', requireAuth, requireRole('ADMIN'), validate(blogPostCreateSchema), async (req, res) => {
   try {
     const {
       title,
@@ -423,17 +452,12 @@ router.post('/admin/posts', requireAuth, requireRole('ADMIN'), async (req, res) 
       featured = false,
       metaTitle,
       metaDescription,
-      metaKeywords,
+      metaKeywords = [],
       ogImage,
       categoryIds = [],
       tagIds = [],
       media = []
     } = req.body;
-
-    // Validation
-    if (!title || !content) {
-      return sendError(res, 400, 'Title and content are required', ErrorCodes.VAL_MISSING_FIELD);
-    }
 
     // Generate slug
     const baseSlug = generateSlug(title);
@@ -516,7 +540,7 @@ router.post('/admin/posts', requireAuth, requireRole('ADMIN'), async (req, res) 
  * PUT /api/blog/admin/posts/:id
  * Update blog post (admin only)
  */
-router.put('/admin/posts/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.put('/admin/posts/:id', requireAuth, requireRole('ADMIN'), validate(blogPostUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const {

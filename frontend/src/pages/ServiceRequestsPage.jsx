@@ -205,17 +205,56 @@ const ServiceRequestsPage = () => {
     setRequestToDelete(null);
   };
 
+  // Phase 2: Add optimistic delete mutation with better UX
+  const deleteMutation = useMutation({
+    mutationFn: async (requestId) => {
+      const response = await apiClient.delete(`/service-requests/${requestId}`);
+      return response.data;
+    },
+    onMutate: async (requestId) => {
+      // Cancel outgoing refetches for all service request queries
+      const queryKey = queryKeys.serviceRequests.list({ ...filters, search: debouncedSearch });
+      await queryClient.cancelQueries({ queryKey });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(queryKey);
+      
+      // Optimistically remove from cache
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items?.filter(item => item.id !== requestId) || [],
+            total: Math.max(0, (page.total || 0) - 1),
+          })),
+        };
+      });
+      
+      return { previousData, queryKey };
+    },
+    onError: (err, requestId, context) => {
+      // Rollback on error
+      if (context?.previousData && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
+      toast.error(err?.response?.data?.message || 'Failed to delete service request');
+    },
+    onSuccess: () => {
+      toast.success('Service request deleted successfully');
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+    },
+  });
+
   const handleDeleteConfirm = async () => {
     if (!requestToDelete) return;
-
     setIsDeleting(true);
     try {
-      await apiClient.delete(`/service-requests/${requestToDelete.id}`);
-      toast.success('Service request deleted successfully');
+      await deleteMutation.mutateAsync(requestToDelete.id);
       handleDeleteConfirmClose();
-      refetch();
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to delete service request');
+      // Error already handled in mutation
     } finally {
       setIsDeleting(false);
     }
