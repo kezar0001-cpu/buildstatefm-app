@@ -8,35 +8,50 @@ import './index.css';  // Tailwind entry point
 import './i18n.js';
 import { UserProvider } from './context/UserContext.jsx';
 import LightThemeWrapper from './components/LightThemeWrapper.jsx';
+import { isRetryableError } from './utils/errorMessages.js';
 
-// ✅ Query Client with enhanced retry logic and mutation defaults
+// Phase 7: Query Client with enhanced retry logic using isRetryableError utility
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 mins
       refetchOnWindowFocus: false,
       retry: (failureCount, error) => {
-        // Don't retry on 4xx errors (except 408, 429)
-        const status = error?.response?.status;
-        if (status >= 400 && status < 500 && ![408, 429].includes(status)) {
+        // Use centralized retry logic
+        if (!isRetryableError(error)) {
           return false;
         }
-        // Retry up to 3 times for network errors and 5xx errors
+        // Retry up to 3 times for retryable errors
         return failureCount < 3;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff with jitter for 429 errors
+        const baseDelay = 1000 * 2 ** attemptIndex;
+        const jitter = Math.random() * 1000;
+        return Math.min(baseDelay + jitter, 30000);
+      },
     },
     mutations: {
       retry: (failureCount, error) => {
-        // Don't retry mutations on 4xx errors
-        const status = error?.response?.status;
-        if (status >= 400 && status < 500) {
+        // Use centralized retry logic for mutations
+        if (!isRetryableError(error)) {
           return false;
         }
-        // Retry once for network errors
+        // Retry once for retryable errors (network issues, 5xx, 429)
         return failureCount < 1;
       },
-      retryDelay: 1000,
+      retryDelay: (attemptIndex, error) => {
+        // Special handling for 429 (rate limit) errors
+        if (error?.response?.status === 429) {
+          const retryAfter = error?.response?.headers?.['retry-after'];
+          if (retryAfter) {
+            return parseInt(retryAfter, 10) * 1000;
+          }
+          // Exponential backoff for rate limits
+          return Math.min(1000 * 2 ** attemptIndex, 30000);
+        }
+        return 1000;
+      },
     },
   },
 });
