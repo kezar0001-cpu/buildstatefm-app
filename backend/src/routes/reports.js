@@ -9,7 +9,17 @@ const router = express.Router();
 router.use(requireAuth);
 
 const reportSchema = z.object({
-  reportType: z.enum(['MAINTENANCE_HISTORY', 'UNIT_LEDGER']),
+  reportType: z.enum([
+    'MAINTENANCE_HISTORY',
+    'UNIT_LEDGER',
+    'MAINTENANCE_SUMMARY',
+    'FINANCIAL_SUMMARY',
+    'INSPECTION_TRENDS',
+    'JOB_COMPLETION_TIMELINE',
+    'ASSET_CONDITION_HISTORY',
+    'PLANNED_VS_EXECUTED',
+    'TENANT_ISSUE_HISTORY',
+  ]),
   propertyId: z.string().min(1),
   unitId: z.string().optional().nullable(),
   fromDate: z.string().datetime(),

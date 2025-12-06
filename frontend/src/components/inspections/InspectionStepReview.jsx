@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import SignatureCapture from '../SignatureCapture';
 import { apiClient } from '../../api/client';
 
-export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, isCompleting }) => {
+export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, isCompleting, isMobile = false }) => {
   const [signaturePreview, setSignaturePreview] = useState(null);
   const [signatureBlob, setSignatureBlob] = useState(null);
   
@@ -37,30 +37,36 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Review & Complete Inspection</Typography>
-      <Alert severity="success" sx={{ mb: 3 }}>
+      <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>Review & Complete Inspection</Typography>
+      <Alert severity="success" sx={{ mb: isMobile ? 2 : 3 }}>
         Review all the data below and click "Complete Inspection" when ready.
       </Alert>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h3" color="primary">{rooms.length}</Typography>
-            <Typography variant="body2" color="text.secondary">Rooms Inspected</Typography>
+      <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: isMobile ? 2 : 3 }}>
+        <Grid item xs={4}>
+          <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
+            <Typography variant={isMobile ? 'h4' : 'h3'} color="primary">{rooms.length}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : undefined }}>
+              Rooms Inspected
+            </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h3" color="warning.main">{issues.length}</Typography>
-            <Typography variant="body2" color="text.secondary">Issues Found</Typography>
+        <Grid item xs={4}>
+          <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
+            <Typography variant={isMobile ? 'h4' : 'h3'} color="warning.main">{issues.length}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : undefined }}>
+              Issues Found
+            </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h3" color="info.main">
+        <Grid item xs={4}>
+          <Paper sx={{ p: isMobile ? 1.5 : 2, textAlign: 'center' }}>
+            <Typography variant={isMobile ? 'h4' : 'h3'} color="info.main">
               {rooms.reduce((sum, r) => sum + (r.photos?.length || 0), 0)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">Photos Taken</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : undefined }}>
+              Photos Taken
+            </Typography>
           </Paper>
         </Grid>
       </Grid>
@@ -103,13 +109,18 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
         </Box>
       )}
 
-      <Box sx={{ mt: 4, textAlign: 'center' }}>
+      <Box sx={{ mt: isMobile ? 3 : 4, textAlign: 'center' }}>
         <Button
           variant="contained"
           size="large"
           color="success"
           onClick={handleComplete}
           disabled={isCompleting || (signatureRequired && !signaturePreview && !inspection.tenantSignature)}
+          fullWidth={isMobile}
+          sx={{
+            minHeight: isMobile ? 48 : undefined,
+            py: isMobile ? 1.5 : undefined,
+          }}
         >
           {isCompleting ? <CircularProgress size={24} /> : 'Complete Inspection'}
         </Button>
