@@ -813,11 +813,22 @@ export default function RecommendationsPage() {
                               opacity: isSelected ? 1 : 0,
                               transition: 'opacity 0.3s ease-in-out',
                             },
-                            '&:hover::before': {
-                              opacity: 1,
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: 6,
+                              borderColor: 'primary.main',
+                              '&::before': {
+                                opacity: 1,
+                              },
                             },
                           }}
-                          onClick={() => handleViewDetails(recommendation)}
+                          onClick={(e) => {
+                            // Don't open modal if clicking on checkbox or its container
+                            if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                              return;
+                            }
+                            handleViewDetails(recommendation);
+                          }}
                         >
                           <CardContent 
                             sx={{ 
@@ -1235,12 +1246,32 @@ export default function RecommendationsPage() {
                       <Card 
                         key={recommendation.id} 
                         sx={{ 
-                          boxShadow: 2, 
-                          borderRadius: 2,
+                          boxShadow: isSelected ? 4 : 2, 
+                          borderRadius: 3,
                           border: '1px solid',
                           borderColor: isSelected ? 'primary.main' : 'divider',
-                          outline: isSelected ? '2px solid' : 'none',
-                          outlineColor: 'primary.main',
+                          overflow: 'hidden',
+                          position: 'relative',
+                          transition: 'all 0.3s ease-in-out',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                            opacity: isSelected ? 1 : 0,
+                            transition: 'opacity 0.3s ease-in-out',
+                          },
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: 6,
+                            borderColor: 'primary.main',
+                            '&::before': {
+                              opacity: 1,
+                            },
+                          },
                         }}
                         onClick={(e) => {
                           // Don't open modal if clicking on checkbox or its container
