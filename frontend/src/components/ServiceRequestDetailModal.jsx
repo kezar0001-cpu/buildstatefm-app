@@ -377,6 +377,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const statusIndex = data ? statusSteps.findIndex((step) => step.key === data.status) : 0;
   const activeStep = statusIndex >= 0 ? statusIndex : 0;
   const isRejectedStatus = data?.status === 'REJECTED' || data?.status === 'REJECTED_BY_OWNER';
+  const isArchived = data?.status === 'ARCHIVED';
   const linkedJobs = data?.jobs || [];
   const linkedJob = linkedJobs[0]; // Assuming only one job can be linked for simplicity
 
@@ -440,6 +441,11 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                       );
                     })}
                   </Stepper>
+                  {isArchived && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      This service request has been archived and is read-only.
+                    </Alert>
+                  )}
                   {isRejectedStatus && (data.status === 'REJECTED') && (
                     <Alert severity="error" sx={{ mt: 2 }}>
                       This request was rejected. Review notes are available below.
@@ -825,7 +831,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
       </DialogContent>
 
       <DialogActions>
-        {data && !showReviewInput && (
+        {data && !showReviewInput && !isArchived && (
           <>
             {/* Property Manager actions for pending requests */}
             {['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'].includes(data.status) && userRole === 'PROPERTY_MANAGER' && (

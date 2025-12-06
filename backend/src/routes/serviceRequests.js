@@ -61,12 +61,17 @@ router.get('/', requireAuth, async (req, res) => {
       ];
     }
 
-    // By default, exclude archived items unless explicitly requested
-    if (includeArchived !== 'true' && !status) {
-      where.status = { not: 'ARCHIVED' };
-    } else if (includeArchived !== 'true' && status && status !== 'ARCHIVED') {
-      // If filtering by specific status, ensure it's not archived
+    // By default, exclude archived items unless explicitly requested via status filter
+    // If status is ARCHIVED, show only archived items
+    // If status is set to something else, show only that status (which implicitly excludes archived)
+    // If no status filter, exclude archived items
+    if (status === 'ARCHIVED') {
+      where.status = 'ARCHIVED';
+    } else if (status) {
       where.status = status;
+    } else {
+      // No status filter - exclude archived by default
+      where.status = { not: 'ARCHIVED' };
     }
 
     // Add role-based access control
@@ -334,11 +339,14 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
     }
     
     // Verify user has access to create requests for this property
+    // Property managers do NOT create service requests - they only review and manage them
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      return sendError(res, 403, 'Property managers cannot create service requests. Only owners and tenants can submit requests.', ErrorCodes.ACC_ROLE_REQUIRED);
+    }
+    
     let hasAccess = false;
     
-    if (req.user.role === 'PROPERTY_MANAGER') {
-      hasAccess = property.managerId === req.user.id;
-    } else if (req.user.role === 'OWNER') {
+    if (req.user.role === 'OWNER') {
       hasAccess = property.owners.some(o => o.ownerId === req.user.id);
     } else if (req.user.role === 'TENANT') {
       // Verify tenant has active lease for the unit
@@ -372,12 +380,8 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
     }
 
     // Verify the relevant subscription is active
-    if (req.user.role === 'PROPERTY_MANAGER') {
-      if (!isSubscriptionActive(req.user)) {
-        return sendError(res, 403, 'Your trial period has expired. Please upgrade your plan to continue.', ErrorCodes.SUB_TRIAL_EXPIRED);
-      }
-    } else {
-      const manager = property.manager;
+    // (Property managers are already blocked above, so this only applies to owners/tenants)
+    const manager = property.manager;
 
       if (!manager || !isSubscriptionActive(manager)) {
         return sendError(res, 403, 'This property\'s subscription has expired. Please contact your property manager.', ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED);
@@ -497,6 +501,11 @@ router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(r
     
     if (!existing) {
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+    
+    // Archived requests are read-only
+    if (existing.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
     }
     
     // Verify user has access to update this request
@@ -679,6 +688,11 @@ router.post('/:id/estimate', requireAuth, requireRole('PROPERTY_MANAGER'), async
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
     }
 
+    // Archived requests cannot be modified
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
     // Verify it's the property manager
     if (serviceRequest.property.managerId !== req.user.id) {
       return sendError(res, 403, 'Only the property manager can add cost estimates', ErrorCodes.ACC_ROLE_REQUIRED);
@@ -787,6 +801,11 @@ router.post('/:id/approve', requireAuth, requireRole('OWNER'), async (req, res) 
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
     }
 
+    // Archived requests cannot be approved
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
     // Verify owner has access
     const isOwner = serviceRequest.property.owners.some(o => o.ownerId === req.user.id);
     if (!isOwner) {
@@ -888,6 +907,11 @@ router.post('/:id/reject', requireAuth, requireRole('OWNER'), async (req, res) =
 
     if (!serviceRequest) {
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+
+    // Archived requests cannot be rejected
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
     }
 
     // Verify owner has access
@@ -992,6 +1016,11 @@ router.post('/:id/manager-approve', requireAuth, requireRole('PROPERTY_MANAGER')
 
     if (!serviceRequest) {
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+
+    // Archived requests cannot be approved
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
     }
 
     // Verify it's the property manager
@@ -1118,6 +1147,11 @@ router.post('/:id/manager-reject', requireAuth, requireRole('PROPERTY_MANAGER'),
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
     }
 
+    // Archived requests cannot be rejected
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
     // Verify it's the property manager
     if (serviceRequest.property.managerId !== req.user.id) {
       return sendError(res, 403, 'Only the property manager can reject service requests', ErrorCodes.ACC_ROLE_REQUIRED);
@@ -1218,6 +1252,11 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
 
     if (!serviceRequest) {
       return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
+    }
+
+    // Archived requests cannot be converted
+    if (serviceRequest.status === 'ARCHIVED') {
+      return sendError(res, 403, 'Archived service requests cannot be converted to jobs', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
     }
 
     // Authorization check: Verify the requesting manager owns the property
