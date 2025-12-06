@@ -11,7 +11,7 @@ import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
 import { InspectionPhotoUpload } from './InspectionPhotoUpload';
 
-export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved }) => {
+export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved, isMobile = false }) => {
   const queryClient = useQueryClient();
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [newIssue, setNewIssue] = useState({ roomId: '', title: '', description: '', severity: 'MEDIUM' });
@@ -82,25 +82,45 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack 
+        direction={isMobile ? 'column' : 'row'} 
+        justifyContent="space-between" 
+        alignItems={isMobile ? 'stretch' : 'center'} 
+        spacing={isMobile ? 2 : 0}
+        sx={{ mb: isMobile ? 2 : 3 }}
+      >
         <Box>
-          <Typography variant="h6">Conduct Inspection</Typography>
+          <Typography variant={isMobile ? 'subtitle1' : 'h6'}>Conduct Inspection</Typography>
           {lastSaved && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
               {formatLastSaved(lastSaved)}
             </Typography>
           )}
         </Box>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setIssueDialogOpen(true)}>
+        <Button 
+          variant="outlined" 
+          startIcon={<AddIcon />} 
+          onClick={() => setIssueDialogOpen(true)}
+          fullWidth={isMobile}
+          sx={{
+            minHeight: isMobile ? 44 : undefined,
+          }}
+        >
           Add Issue
         </Button>
       </Stack>
 
       {rooms.map((room) => (
-        <Card key={room.id} sx={{ mb: 3 }}>
-          <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-              <Typography variant="h6">{room.name}</Typography>
+        <Card key={room.id} sx={{ mb: isMobile ? 2 : 3, boxShadow: isMobile ? 1 : 2 }}>
+          <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+            <Stack 
+              direction={isMobile ? 'column' : 'row'} 
+              justifyContent="space-between" 
+              alignItems={isMobile ? 'flex-start' : 'center'} 
+              spacing={isMobile ? 1 : 0}
+              sx={{ mb: 2 }}
+            >
+              <Typography variant={isMobile ? 'subtitle1' : 'h6'}>{room.name}</Typography>
               <Chip label={room.roomType || 'Not specified'} size="small" />
             </Stack>
             <Divider sx={{ my: 2 }} />
@@ -111,20 +131,44 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
                 Mark each item as passed or failed. Failed items will become repair recommendations.
               </Typography>
             </Typography>
-            <List>
+            <List sx={{ py: 0 }}>
               {room.checklistItems?.map((item) => (
-                <ListItem key={item.id} disablePadding sx={{ py: 1 }}>
+                <ListItem key={item.id} disablePadding sx={{ py: isMobile ? 1.5 : 1 }}>
                   <Box sx={{ width: '100%' }}>
-                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                      <Typography variant="body2" sx={{ flex: 1 }}>{item.description}</Typography>
-                      <Stack direction="row" spacing={1}>
+                    <Stack 
+                      direction={isMobile ? 'column' : 'row'} 
+                      spacing={isMobile ? 1.5 : 1} 
+                      alignItems={isMobile ? 'stretch' : 'center'} 
+                      justifyContent="space-between"
+                    >
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          flex: 1,
+                          fontSize: isMobile ? '0.875rem' : undefined,
+                        }}
+                      >
+                        {item.description}
+                      </Typography>
+                      <Stack 
+                        direction="row" 
+                        spacing={1}
+                        sx={{ 
+                          width: isMobile ? '100%' : 'auto',
+                          justifyContent: isMobile ? 'stretch' : 'flex-end',
+                        }}
+                      >
                         {['PASSED', 'FAILED', 'NA'].map((status) => (
                           <Button
                             key={status}
-                            size="small"
+                            size={isMobile ? 'medium' : 'small'}
                             variant={item.status === status ? 'contained' : 'outlined'}
                             color={status === 'PASSED' ? 'success' : status === 'FAILED' ? 'error' : 'inherit'}
                             onClick={() => actions.updateChecklistItem(room.id, item.id, status, item.notes)}
+                            sx={{
+                              flex: isMobile ? 1 : 'none',
+                              minHeight: isMobile ? 44 : undefined,
+                            }}
                           >
                             {status === 'NA' ? 'N/A' : status.charAt(0) + status.slice(1).toLowerCase()}
                           </Button>
@@ -132,7 +176,7 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
                       </Stack>
                     </Stack>
                     {item.status === 'FAILED' && (
-                      <Typography variant="caption" color="error" sx={{ ml: 2, mt: 0.5, display: 'block' }}>
+                      <Typography variant="caption" color="error" sx={{ ml: 0, mt: 0.5, display: 'block' }}>
                         This will be added to recommendations for the property owner
                       </Typography>
                     )}
@@ -146,12 +190,19 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
               inspectionId={inspection.id}
               roomId={room.id}
               onUploadComplete={actions.refetchRooms}
+              isMobile={isMobile}
             />
           </CardContent>
         </Card>
       ))}
 
-      <Dialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={issueDialogOpen} 
+        onClose={() => setIssueDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Add Issue</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -193,9 +244,20 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved })
               </TextField>
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddIssue} variant="contained">Add Issue</Button>
+        <DialogActions sx={{ p: isMobile ? 2 : undefined }}>
+          <Button 
+            onClick={() => setIssueDialogOpen(false)}
+            sx={{ minHeight: isMobile ? 44 : undefined }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAddIssue} 
+            variant="contained"
+            sx={{ minHeight: isMobile ? 44 : undefined }}
+          >
+            Add Issue
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

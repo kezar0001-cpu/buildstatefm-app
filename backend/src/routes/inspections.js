@@ -117,7 +117,8 @@ router.get('/analytics', inspectionController.getAnalytics);
 router.get('/calendar', inspectionController.getCalendar);
 router.get('/overdue', hydrateInspectionUser, inspectionController.getOverdueInspections);
 
-router.get('/', requireAuth, hydrateInspectionUser, inspectionController.listInspections);
+// Inspections are only accessible to Property Managers and Technicians
+router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), hydrateInspectionUser, inspectionController.listInspections);
 router.post(
   '/',
   requireRole(ROLE_MANAGER),

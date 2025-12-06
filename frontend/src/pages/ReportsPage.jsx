@@ -55,11 +55,25 @@ const reportSchema = z.object({
 const REPORT_TYPES = {
   MAINTENANCE_HISTORY: 'Maintenance History',
   UNIT_LEDGER: 'Unit Ledger',
+  MAINTENANCE_SUMMARY: 'Maintenance Summary',
+  FINANCIAL_SUMMARY: 'Financial Summary',
+  INSPECTION_TRENDS: 'Inspection Trends',
+  JOB_COMPLETION_TIMELINE: 'Job Completion Timeline',
+  ASSET_CONDITION_HISTORY: 'Asset Condition History',
+  PLANNED_VS_EXECUTED: 'Planned vs Executed',
+  TENANT_ISSUE_HISTORY: 'Tenant Issue History',
 };
 
 const REPORT_SECTIONS = {
-  MAINTENANCE_HISTORY: ['Audit Trail', 'Inspections', 'Jobs', 'Service Requests', 'Upcoming'],
-  UNIT_LEDGER: ['Audit Trail', 'Payments', 'Unit Updates', 'Upcoming'],
+  MAINTENANCE_HISTORY: ['Service Requests', 'Maintenance Jobs', 'Summary'],
+  UNIT_LEDGER: ['Tenant Information', 'Maintenance Costs', 'Summary'],
+  MAINTENANCE_SUMMARY: ['Overview', 'Status Breakdown', 'Priority Breakdown'],
+  FINANCIAL_SUMMARY: ['Financial Overview', 'Monthly Breakdown'],
+  INSPECTION_TRENDS: ['Overview', 'Status Breakdown', 'Type Breakdown', 'Monthly Trend'],
+  JOB_COMPLETION_TIMELINE: ['Completion Timeline', 'Performance Metrics'],
+  ASSET_CONDITION_HISTORY: ['Inspection Findings', 'Recommendations'],
+  PLANNED_VS_EXECUTED: ['Planned Maintenance', 'Execution Summary'],
+  TENANT_ISSUE_HISTORY: ['Service Requests', 'Category Breakdown', 'Status Breakdown'],
 };
 
 const STATUS_OPTIONS = [

@@ -617,16 +617,18 @@ const JobsPage = () => {
         <PageShell
           title="Jobs"
           subtitle="Manage maintenance jobs and assignments"
-          actions={(
-            <GradientButton
-              startIcon={<AddIcon />}
-              disabled
-              size="large"
-              sx={{ width: { xs: '100%', md: 'auto' } }}
-            >
-              Create Job
-            </GradientButton>
-          )}
+          actions={
+            user?.role === 'PROPERTY_MANAGER' ? (
+              <GradientButton
+                startIcon={<AddIcon />}
+                disabled
+                size="large"
+                sx={{ width: { xs: '100%', md: 'auto' } }}
+              >
+                Create Job
+              </GradientButton>
+            ) : null
+          }
         >
           <Box sx={{ mt: 3 }}>
             {view === 'card' && <LoadingSkeleton variant="card" count={6} height={200} />}
@@ -655,16 +657,18 @@ const JobsPage = () => {
       <PageShell
         title="Jobs"
         subtitle="Manage and track maintenance jobs"
-        actions={(
-          <GradientButton
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-            size="large"
-            sx={{ width: { xs: '100%', md: 'auto' } }}
-          >
-            Create Job
-          </GradientButton>
-        )}
+        actions={
+          user?.role === 'PROPERTY_MANAGER' ? (
+            <GradientButton
+              startIcon={<AddIcon />}
+              onClick={handleCreate}
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              Create Job
+            </GradientButton>
+          ) : null
+        }
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
@@ -917,8 +921,8 @@ const JobsPage = () => {
               ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all jobs, or create a new one to get started.'
               : 'Get started by creating your first maintenance job. Track work orders, assign technicians, and monitor progress all in one place.'
           }
-          actionLabel="Create Job"
-          onAction={handleCreate}
+          actionLabel={user?.role === 'PROPERTY_MANAGER' ? 'Create Job' : undefined}
+          onAction={user?.role === 'PROPERTY_MANAGER' ? handleCreate : undefined}
           helperText={
             hasActiveFilters
               ? 'Filters are still applied. Clear them to view all jobs or create a new job from here.'

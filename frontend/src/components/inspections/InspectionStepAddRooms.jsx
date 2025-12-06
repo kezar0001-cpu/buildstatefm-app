@@ -59,7 +59,7 @@ const ROOM_SPECIFIC_ITEMS = {
   KITCHEN: ['Appliances functioning', 'Cabinets and drawers', 'Countertops condition', 'Sink and faucet', 'Ventilation'],
 };
 
-export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
+export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = false }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
   const [formData, setFormData] = useState({ name: '', roomType: '', notes: '' });
@@ -135,9 +135,23 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h6">Add Rooms to Inspect</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+      <Stack 
+        direction={isMobile ? 'column' : 'row'} 
+        justifyContent="space-between" 
+        alignItems={isMobile ? 'stretch' : 'center'} 
+        spacing={isMobile ? 2 : 0}
+        sx={{ mb: isMobile ? 2 : 3 }}
+      >
+        <Typography variant={isMobile ? 'subtitle1' : 'h6'}>Add Rooms to Inspect</Typography>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />} 
+          onClick={() => handleOpenDialog()}
+          fullWidth={isMobile}
+          sx={{
+            minHeight: isMobile ? 44 : undefined,
+          }}
+        >
           Add Room
         </Button>
       </Stack>
@@ -147,9 +161,9 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
           No rooms added yet. Click "Add Room" to start adding rooms to inspect.
         </Alert>
       ) : (
-        <Grid container spacing={2}>
+        <Grid container spacing={isMobile ? 2 : 2}>
           {rooms.map((room) => (
-            <Grid item xs={12} sm={6} md={4} key={room.id}>
+            <Grid item xs={12} sm={isMobile ? 12 : 6} md={4} key={room.id}>
               <Card>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -184,7 +198,13 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions }) => {
         </Grid>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>{editingRoom ? 'Edit Room' : 'Add Room'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>

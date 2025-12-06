@@ -106,6 +106,18 @@ const InspectionsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser } = useCurrentUser();
 
+  // Inspections are only accessible to Property Managers and Technicians
+  useEffect(() => {
+    if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN'].includes(currentUser.role)) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
+
+  // Don't render if user doesn't have access
+  if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN'].includes(currentUser.role)) {
+    return null;
+  }
+
   // State management
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
