@@ -178,14 +178,51 @@ const RecommendationDetailModal = ({ recommendation, open, onClose, onUpdate, on
       const response = await apiClient.patch(`/recommendations/${recommendation.id}/comments/${commentId}`, { content });
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: commentsQueryKey });
+    onMutate: async ({ commentId, content }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: commentsQueryKey });
+
+      // Snapshot the previous value
+      const previousComments = queryClient.getQueryData(commentsQueryKey);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(commentsQueryKey, (old) => {
+        if (!old?.comments) return old;
+        return {
+          ...old,
+          comments: old.comments.map((comment) =>
+            comment.id === commentId ? { ...comment, content } : comment
+          ),
+        };
+      });
+
+      return { previousComments };
+    },
+    onSuccess: (data, variables) => {
+      // Update with server response
+      queryClient.setQueryData(commentsQueryKey, (old) => {
+        if (!old?.comments) return old;
+        return {
+          ...old,
+          comments: old.comments.map((comment) =>
+            comment.id === variables.commentId ? data.comment : comment
+          ),
+        };
+      });
       setEditingCommentId(null);
       setEditCommentText('');
       toast.success('Comment updated successfully');
     },
-    onError: () => {
+    onError: (err, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousComments) {
+        queryClient.setQueryData(commentsQueryKey, context.previousComments);
+      }
       toast.error('Failed to update comment');
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure consistency
+      queryClient.invalidateQueries({ queryKey: commentsQueryKey });
     },
   });
 
