@@ -209,7 +209,7 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
   }));
 
   const unitOptions = [
-    { value: '', label: 'No specific unit' },
+    { value: '', label: units.length > 0 ? 'Property-wide (no specific unit)' : 'Property-wide' },
     ...ensureArray(units).map((unit) => ({
       value: unit.id,
       label: `Unit ${unit.unitNumber}`,
@@ -297,9 +297,16 @@ const JobForm = ({ job, onSuccess, onCancel }) => {
             <FormSelect
               name="unitId"
               control={control}
-              label="Unit (Optional)"
+              label={units?.length > 0 ? "Unit (Optional)" : "Unit"}
               options={unitOptions}
               disabled={!propertyId || !units?.length}
+              helperText={
+                !propertyId 
+                  ? "Select a property first" 
+                  : !units?.length 
+                    ? "This property has no units - job will be property-wide"
+                    : undefined
+              }
             />
           </Grid>
 

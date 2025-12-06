@@ -345,6 +345,20 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
       return sendError(res, 403, 'Property managers cannot create service requests. Only owners and tenants can submit requests.', ErrorCodes.ACC_ROLE_REQUIRED);
     }
     
+    // Verify unit exists and belongs to property if provided
+    if (unitId) {
+      const unit = await prisma.unit.findFirst({
+        where: {
+          id: unitId,
+          propertyId: propertyId,
+        },
+      });
+
+      if (!unit) {
+        return sendError(res, 400, 'Unit not found or does not belong to this property', ErrorCodes.RES_UNIT_NOT_FOUND);
+      }
+    }
+    
     let hasAccess = false;
     
     if (req.user.role === 'OWNER') {
