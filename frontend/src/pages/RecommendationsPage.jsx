@@ -36,8 +36,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   Skeleton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -139,6 +141,8 @@ export default function RecommendationsPage() {
   const [modalEditMode, setModalEditMode] = useState(false);
   const [modalDeleteDialog, setModalDeleteDialog] = useState(false);
   const [selectedRecommendationIds, setSelectedRecommendationIds] = useState([]);
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [recommendationToDelete, setRecommendationToDelete] = useState(null);
 
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState(() => {
@@ -197,9 +201,9 @@ export default function RecommendationsPage() {
     invalidateKeys: [queryKeys.recommendations.all()],
   });
 
-  const archiveMutation = useApiMutation({
-    url: '/recommendations/:id/archive',
-    method: 'post',
+  const deleteMutation = useApiMutation({
+    url: '/recommendations/:id',
+    method: 'delete',
     invalidateKeys: [queryKeys.recommendations.all()],
   });
 
@@ -223,32 +227,8 @@ export default function RecommendationsPage() {
 
   const recommendations = normaliseArray(query.data);
 
-  // Auto-archive implemented recommendations after 24 hours
-  useEffect(() => {
-    if (!recommendations || recommendations.length === 0 || archiveMutation.isPending) return;
-
-    const now = new Date();
-    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
-
-    // Find recommendations that need archiving
-    const recommendationsToArchive = recommendations.filter((recommendation) => {
-      if (recommendation.status === 'IMPLEMENTED' && recommendation.updatedAt) {
-        const updatedAt = new Date(recommendation.updatedAt);
-        const timeSinceImplemented = now - updatedAt;
-        return timeSinceImplemented >= twentyFourHoursInMs;
-      }
-      return false;
-    });
-
-    // Archive only the first one to prevent batch operations
-    if (recommendationsToArchive.length > 0) {
-      const recommendation = recommendationsToArchive[0];
-      archiveMutation.mutate({
-        url: `/recommendations/${recommendation.id}/archive`,
-        method: 'post'
-      });
-    }
-  }, [recommendations, archiveMutation]);
+  // Note: Archiving is handled by backend cron job, not frontend
+  // The backend automatically archives rejected recommendations after 24 hours
 
   // Filter recommendations client-side for search
   const filteredRecommendations = useMemo(() => {
@@ -404,10 +384,29 @@ export default function RecommendationsPage() {
   };
 
   const handleDeleteRecommendation = (recommendation) => {
-    setSelectedRecommendation(recommendation);
-    setModalEditMode(false);
-    setModalDeleteDialog(true);
-    setDetailModalOpen(true);
+    setRecommendationToDelete(recommendation);
+    setDeleteConfirmDialogOpen(true);
+  };
+
+  const handleDeleteConfirmClose = () => {
+    setDeleteConfirmDialogOpen(false);
+    setRecommendationToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!recommendationToDelete) return;
+
+    try {
+      await deleteMutation.mutateAsync({
+        url: `/recommendations/${recommendationToDelete.id}`,
+        method: 'delete',
+      });
+      toast.success('Recommendation deleted successfully');
+      handleDeleteConfirmClose();
+      query.refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to delete recommendation');
+    }
   };
 
   const handleDetailModalClose = () => {
@@ -1721,6 +1720,48 @@ export default function RecommendationsPage() {
         recommendation={convertingRecommendation}
         onConvert={handleConvertSuccess}
       />
+
+      {/* Standalone Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmDialogOpen}
+        onClose={deleteMutation.isPending ? undefined : handleDeleteConfirmClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Delete Recommendation</Typography>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={handleDeleteConfirmClose}
+              aria-label="close"
+              disabled={deleteMutation.isPending}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete the recommendation &quot;{recommendationToDelete?.title}&quot;? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleDeleteConfirmClose} variant="outlined" disabled={deleteMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleteMutation.isPending}
+            startIcon={deleteMutation.isPending ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Recommendation Detail Modal */}
       {selectedRecommendation && (

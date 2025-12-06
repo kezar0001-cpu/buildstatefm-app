@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Container,
   Grid,
@@ -17,17 +17,329 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
-  Button
+  Button,
+  AppBar,
+  Toolbar,
+  useTheme,
+  useMediaQuery,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Stack,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PersonIcon from '@mui/icons-material/Person';
+import MenuIcon from '@mui/icons-material/Menu';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import { getBlogPosts, getBlogCategories, getBlogTags } from '../api/blog';
 import SEO from '../components/SEO';
-import BlogPublicNav from '../components/BlogPublicNav';
+import GradientButton from '../components/GradientButton';
 import toast from 'react-hot-toast';
 import logger from '../utils/logger';
+
+// FadeIn animation component
+const FadeIn = ({ children, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.6, delay }}
+  >
+    {children}
+  </motion.div>
+);
+
+// Navbar component matching landing page
+const Navbar = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const navLinks = [
+    { label: 'Features', path: '/#features' },
+    { label: 'How It Works', path: '/#how-it-works' },
+    { label: 'Pricing', path: '/pricing' },
+    { label: 'Blog', path: '/blog' },
+  ];
+
+  return (
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
+      sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'rgba(255, 245, 245, 0.85)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+      }}
+    >
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 }, px: { xs: 2, md: 0 } }}>
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'scale(1.02)',
+              },
+            }}
+          >
+            BuildState FM
+          </Typography>
+
+          {isMobile ? (
+            <>
+              <IconButton onClick={() => setDrawerOpen(true)}>
+                <MenuIcon />
+              </IconButton>
+              <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+                <List sx={{ width: 250 }}>
+                  {navLinks.map((link) => (
+                    <ListItem key={link.label} disablePadding>
+                      <ListItemButton component={RouterLink} to={link.path} onClick={() => setDrawerOpen(false)}>
+                        <ListItemText primary={link.label} />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/signin" onClick={() => setDrawerOpen(false)}>
+                      <ListItemText primary="Sign In" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem sx={{ mt: 2 }}>
+                    <GradientButton fullWidth component={RouterLink} to="/signup">
+                      Get Started Free
+                    </GradientButton>
+                  </ListItem>
+                </List>
+              </Drawer>
+            </>
+          ) : (
+            <Stack direction="row" alignItems="center" spacing={4}>
+              <Stack direction="row" spacing={3}>
+                {navLinks.map((link) => (
+                  <Typography
+                    key={link.label}
+                    component={RouterLink}
+                    to={link.path}
+                    variant="body2"
+                    sx={{
+                      textDecoration: 'none',
+                      color: 'text.secondary',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'color 0.2s',
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                  >
+                    {link.label}
+                  </Typography>
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  component={RouterLink}
+                  to="/signin"
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    px: 2.5
+                  }}
+                >
+                  Sign In
+                </Button>
+                <GradientButton component={RouterLink} to="/signup">
+                  Get Started Free
+                </GradientButton>
+              </Stack>
+            </Stack>
+          )}
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
+};
+
+// Footer component matching landing page
+const Footer = () => (
+  <Box sx={{ py: 8, bgcolor: '#1a1a1a', color: 'grey.400' }}>
+    <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={4}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            fontWeight={800}
+            sx={{
+              background: 'linear-gradient(135deg, #f87171 0%, #fb923c 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              mb: 2
+            }}
+          >
+            BuildState FM
+          </Typography>
+          <Typography variant="body2" mb={2} sx={{ lineHeight: 1.7 }}>
+            The modern operating system for property management. Built for trust, speed, and compliance.
+          </Typography>
+          <Stack direction="row" spacing={1} mt={3}>
+            <Chip
+              label="Trusted"
+              size="small"
+              sx={{ bgcolor: 'rgba(185, 28, 28, 0.2)', color: 'white', fontWeight: 600 }}
+            />
+            <Chip
+              label="Secure"
+              size="small"
+              sx={{ bgcolor: 'rgba(249, 115, 22, 0.2)', color: 'white', fontWeight: 600 }}
+            />
+          </Stack>
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Product
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component="a"
+              href="/#features"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Features
+            </Typography>
+            <Typography
+              variant="body2"
+              component="a"
+              href="/#how-it-works"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              How It Works
+            </Typography>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/pricing"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Pricing
+            </Typography>
+          </Stack>
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Company
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/blog"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Blog
+            </Typography>
+          </Stack>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Get Started
+          </Typography>
+          <Typography variant="body2" mb={2} mt={2} sx={{ lineHeight: 1.7 }}>
+            Start your free 14-day trial today. No credit card required.
+          </Typography>
+          <GradientButton
+            size="small"
+            component={RouterLink}
+            to="/signup"
+            sx={{ mt: 1 }}
+          >
+            Sign Up Free
+          </GradientButton>
+        </Grid>
+      </Grid>
+      <Box mt={8} pt={4} borderTop="1px solid #333">
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" textAlign={{ xs: 'center', md: 'left' }}>
+              © {new Date().getFullYear()} BuildState FM. All rights reserved.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent={{ xs: 'center', md: 'flex-end' }}
+            >
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/privacy"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Privacy
+              </Typography>
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/terms"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Terms
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Box>
+    </Container>
+  </Box>
+);
 
 const BlogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -151,64 +463,92 @@ const BlogPage = () => {
         keywords={['property management', 'blog', 'real estate', 'maintenance', 'inspections']}
       />
 
-      <BlogPublicNav />
+      <Navbar />
 
       {/* Hero Section */}
       <Box
         sx={{
-          background:
-            'radial-gradient(circle at top left, rgba(249, 115, 22, 0.15), transparent 55%), radial-gradient(circle at top right, rgba(185, 28, 28, 0.12), transparent 50%), #ffffff',
-          pt: { xs: 6, md: 8 },
-          pb: 6
+          background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
+          pt: { xs: 8, md: 12 },
+          pb: { xs: 8, md: 12 },
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        <Container maxWidth="lg">
-          <Box sx={{
-            textAlign: 'center',
-            maxWidth: 760,
-            mx: 'auto'
-          }}>
-            {/* Eyebrow Label */}
-            <Typography
-              component="span"
-              sx={{
-                display: 'inline-block',
-                textTransform: 'uppercase',
-                letterSpacing: '0.2em',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                color: '#0f172a',
-                mb: 2
-              }}
-            >
-              Buildstate FM Insights
-            </Typography>
+        {/* Decorative gradient blobs */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -100,
+            right: -100,
+            width: 400,
+            height: 400,
+            background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: -100,
+            left: -100,
+            width: 400,
+            height: 400,
+            background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }}
+        />
 
-            {/* Main Heading */}
-            <Typography variant="h1" component="h1" sx={{
-              fontWeight: 800,
-              fontSize: { xs: '2.5rem', sm: '3.2rem', md: '3.5rem' },
-              color: '#0f172a',
-              mb: 2,
-              letterSpacing: '-0.04em',
-              lineHeight: 1.1
+        <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative' }}>
+          <FadeIn>
+            <Box sx={{
+              textAlign: 'center',
+              maxWidth: 760,
+              mx: 'auto'
             }}>
-              Property Management Insights & Best Practices
-            </Typography>
+              {/* Eyebrow Label */}
+              <Typography
+                variant="overline"
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                  letterSpacing: '0.1em',
+                  fontSize: '0.875rem',
+                  mb: 2
+                }}
+              >
+                BUILDSTATE FM INSIGHTS
+              </Typography>
 
-            {/* Subtitle */}
-            <Typography variant="h5" sx={{
-              maxWidth: 650,
-              mx: 'auto',
-              color: '#475569',
-              fontWeight: 400,
-              fontSize: { xs: '1.05rem', md: '1.1rem' },
-              lineHeight: 1.7,
-              opacity: 0.9
-            }}>
-              Expert advice, industry trends, and practical tips to help you manage properties more effectively
-            </Typography>
-          </Box>
+              {/* Main Heading */}
+              <Typography variant="h1" component="h1" sx={{
+                fontWeight: 800,
+                fontSize: { xs: '2.5rem', md: '3.5rem' },
+                mb: 2,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
+                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                Property Management Insights & Best Practices
+              </Typography>
+
+              {/* Subtitle */}
+              <Typography variant="h5" sx={{
+                maxWidth: 650,
+                mx: 'auto',
+                color: 'text.secondary',
+                fontWeight: 400,
+                fontSize: { xs: '1.1rem', md: '1.3rem' },
+                lineHeight: 1.7
+              }}>
+                Expert advice, industry trends, and practical tips to help you manage properties more effectively
+              </Typography>
+            </Box>
+          </FadeIn>
         </Container>
       </Box>
 
@@ -216,22 +556,24 @@ const BlogPage = () => {
       <Box
         sx={{
           minHeight: '100vh',
-          bgcolor: '#f8fafc',
+          bgcolor: 'background.paper',
           pt: 6,
           pb: 12
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
 
           {/* Filters */}
-          <Box sx={{
-            mb: 6,
-            p: 3,
-            borderRadius: 3,
-            bgcolor: 'white',
-            boxShadow: '0 18px 35px rgba(15, 23, 42, 0.05)',
-            border: '1px solid rgba(148, 163, 184, 0.2)'
-          }}>
+          <FadeIn delay={0.1}>
+            <Box sx={{
+              mb: 6,
+              p: 3,
+              borderRadius: 3,
+              bgcolor: 'white',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
             <form onSubmit={handleSearch}>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={4}>
@@ -328,28 +670,18 @@ const BlogPage = () => {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={2}>
-                  <Button
+                  <GradientButton
                     fullWidth
                     type="submit"
-                    variant="contained"
                     size="large"
                     sx={{
-                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                      color: '#ffffff',
-                      fontWeight: 600,
-                      textTransform: 'none',
                       fontSize: '0.95rem',
                       py: 1.2,
-                      borderRadius: '999px',
-                      boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 16px 40px rgba(185, 28, 28, 0.15)'
-                      }
+                      borderRadius: 2,
                     }}
                   >
                     Search
-                  </Button>
+                  </GradientButton>
                 </Grid>
 
                 {hasActiveFilters && (
@@ -382,6 +714,7 @@ const BlogPage = () => {
               </Grid>
             </form>
           </Box>
+          </FadeIn>
 
           {/* Active Filters Display */}
           {(tagFilter || categoryFilter) && (
@@ -463,31 +796,34 @@ const BlogPage = () => {
             <>
               {/* Blog Posts Grid */}
               <Grid container spacing={{ xs: 3, md: 4 }}>
-                {posts.map((post) => (
+                {posts.map((post, index) => (
                   <Grid item xs={12} sm={6} md={4} key={post.id}>
-                    <Card
-                      component={Link}
-                      to={`/blog/${post.slug}`}
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        bgcolor: 'white',
-                        border: '1px solid rgba(148, 163, 184, 0.2)',
-                        boxShadow: '0 18px 35px rgba(15, 23, 42, 0.05)',
-                        textDecoration: 'none',
-                        '&:hover': {
-                          boxShadow: '0 25px 50px rgba(15, 23, 42, 0.15)',
-                          transform: 'translateY(-6px)',
-                          '& .blog-card-image': {
-                            transform: 'scale(1.05)'
+                    <FadeIn delay={index * 0.1}>
+                      <Card
+                        component={RouterLink}
+                        to={`/blog/${post.slug}`}
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          transition: 'all 0.3s ease-in-out',
+                          bgcolor: 'white',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          boxShadow: 1,
+                          textDecoration: 'none',
+                          '&:hover': {
+                            boxShadow: 6,
+                            transform: 'translateY(-4px)',
+                            borderColor: 'primary.main',
+                            '& .blog-card-image': {
+                              transform: 'scale(1.05)'
+                            }
                           }
-                        }
-                      }}
-                    >
+                        }}
+                      >
                       {post.coverImage && (
                         <CardMedia
                           component="img"
@@ -577,6 +913,7 @@ const BlogPage = () => {
                         </Box>
                       </CardContent>
                     </Card>
+                    </FadeIn>
                   </Grid>
                 ))}
               </Grid>
@@ -622,6 +959,7 @@ const BlogPage = () => {
           )}
         </Container>
       </Box>
+      <Footer />
     </>
   );
 };

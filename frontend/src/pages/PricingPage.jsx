@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -16,16 +16,24 @@ import {
   Grid,
   Paper,
   Divider,
-  ToggleButtonGroup,
-  ToggleButton,
+  AppBar,
+  Toolbar,
+  useTheme,
+  useMediaQuery,
+  IconButton,
+  Drawer,
+  ListItemButton,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import StarIcon from '@mui/icons-material/Star';
 import BusinessIcon from '@mui/icons-material/Business';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import MenuIcon from '@mui/icons-material/Menu';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { motion } from 'framer-motion';
 import { useCurrentUser } from '../context/UserContext.jsx';
-import BlogPublicNav from '../components/BlogPublicNav';
+import GradientButton from '../components/GradientButton';
 
 const PRICING_TIERS = [
   {
@@ -115,29 +123,330 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-function PricingCard({ tier, billingCycle, onSelectPlan, isAuthenticated }) {
-  const Icon = tier.icon;
-  const price = billingCycle === 'yearly' ? tier.yearlyPrice : tier.price;
-  const monthlyEquivalent = billingCycle === 'yearly' ? tier.yearlyPrice / 12 : tier.price;
+// FadeIn animation component
+const FadeIn = ({ children, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.6, delay }}
+  >
+    {children}
+  </motion.div>
+);
+
+// Navbar component matching landing page
+const Navbar = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const navLinks = [
+    { label: 'Features', path: '/#features' },
+    { label: 'How It Works', path: '/#how-it-works' },
+    { label: 'Pricing', path: '/pricing' },
+    { label: 'Blog', path: '/blog' },
+  ];
 
   return (
-    <Card
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
       sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        border: tier.highlighted ? '2px solid' : '1px solid',
-        borderColor: tier.highlighted ? 'primary.main' : 'divider',
-        boxShadow: tier.highlighted ? 6 : 1,
-        transform: tier.highlighted ? 'scale(1.05)' : 'scale(1)',
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          boxShadow: tier.highlighted ? 8 : 3,
-          transform: tier.highlighted ? 'scale(1.06)' : 'scale(1.02)',
-        },
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'rgba(255, 245, 245, 0.85)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
       }}
     >
+      <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 }, px: { xs: 2, md: 0 } }}>
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'scale(1.02)',
+              },
+            }}
+          >
+            BuildState FM
+          </Typography>
+
+          {isMobile ? (
+            <>
+              <IconButton onClick={() => setDrawerOpen(true)}>
+                <MenuIcon />
+              </IconButton>
+              <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+                <List sx={{ width: 250 }}>
+                  {navLinks.map((link) => (
+                    <ListItem key={link.label} disablePadding>
+                      <ListItemButton component={RouterLink} to={link.path} onClick={() => setDrawerOpen(false)}>
+                        <ListItemText primary={link.label} />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                  <ListItem disablePadding>
+                    <ListItemButton component={RouterLink} to="/signin" onClick={() => setDrawerOpen(false)}>
+                      <ListItemText primary="Sign In" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem sx={{ mt: 2 }}>
+                    <GradientButton fullWidth component={RouterLink} to="/signup">
+                      Get Started Free
+                    </GradientButton>
+                  </ListItem>
+                </List>
+              </Drawer>
+            </>
+          ) : (
+            <Stack direction="row" alignItems="center" spacing={4}>
+              <Stack direction="row" spacing={3}>
+                {navLinks.map((link) => (
+                  <Typography
+                    key={link.label}
+                    component={RouterLink}
+                    to={link.path}
+                    variant="body2"
+                    sx={{
+                      textDecoration: 'none',
+                      color: 'text.secondary',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'color 0.2s',
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                  >
+                    {link.label}
+                  </Typography>
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  component={RouterLink}
+                  to="/signin"
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    px: 2.5
+                  }}
+                >
+                  Sign In
+                </Button>
+                <GradientButton component={RouterLink} to="/signup">
+                  Get Started Free
+                </GradientButton>
+              </Stack>
+            </Stack>
+          )}
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
+};
+
+// Footer component matching landing page
+const Footer = () => (
+  <Box sx={{ py: 8, bgcolor: '#1a1a1a', color: 'grey.400' }}>
+    <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={4}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            fontWeight={800}
+            sx={{
+              background: 'linear-gradient(135deg, #f87171 0%, #fb923c 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              mb: 2
+            }}
+          >
+            BuildState FM
+          </Typography>
+          <Typography variant="body2" mb={2} sx={{ lineHeight: 1.7 }}>
+            The modern operating system for property management. Built for trust, speed, and compliance.
+          </Typography>
+          <Stack direction="row" spacing={1} mt={3}>
+            <Chip
+              label="Trusted"
+              size="small"
+              sx={{ bgcolor: 'rgba(185, 28, 28, 0.2)', color: 'white', fontWeight: 600 }}
+            />
+            <Chip
+              label="Secure"
+              size="small"
+              sx={{ bgcolor: 'rgba(249, 115, 22, 0.2)', color: 'white', fontWeight: 600 }}
+            />
+          </Stack>
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Product
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component="a"
+              href="/#features"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Features
+            </Typography>
+            <Typography
+              variant="body2"
+              component="a"
+              href="/#how-it-works"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              How It Works
+            </Typography>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/pricing"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Pricing
+            </Typography>
+          </Stack>
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Company
+          </Typography>
+          <Stack spacing={1.5} mt={2}>
+            <Typography
+              variant="body2"
+              component={RouterLink}
+              to="/blog"
+              sx={{
+                color: 'inherit',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                '&:hover': { color: 'primary.light' }
+              }}
+            >
+              Blog
+            </Typography>
+          </Stack>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Typography variant="subtitle2" color="white" gutterBottom fontWeight={700}>
+            Get Started
+          </Typography>
+          <Typography variant="body2" mb={2} mt={2} sx={{ lineHeight: 1.7 }}>
+            Start your free 14-day trial today. No credit card required.
+          </Typography>
+          <GradientButton
+            size="small"
+            component={RouterLink}
+            to="/signup"
+            sx={{ mt: 1 }}
+          >
+            Sign Up Free
+          </GradientButton>
+        </Grid>
+      </Grid>
+      <Box mt={8} pt={4} borderTop="1px solid #333">
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" textAlign={{ xs: 'center', md: 'left' }}>
+              © {new Date().getFullYear()} BuildState FM. All rights reserved.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent={{ xs: 'center', md: 'flex-end' }}
+            >
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/privacy"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Privacy
+              </Typography>
+              <Typography
+                variant="body2"
+                component={RouterLink}
+                to="/terms"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  '&:hover': { color: 'primary.light' }
+                }}
+              >
+                Terms
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Box>
+    </Container>
+  </Box>
+);
+
+function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
+  const Icon = tier.icon;
+  const price = tier.price;
+
+  return (
+    <FadeIn delay={tier.highlighted ? 0.2 : 0.1}>
+      <Card
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          border: tier.highlighted ? '2px solid' : '1px solid',
+          borderColor: tier.highlighted ? 'primary.main' : 'divider',
+          boxShadow: tier.highlighted ? 6 : 1,
+          borderRadius: 3,
+          bgcolor: 'white',
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            boxShadow: tier.highlighted ? 8 : 3,
+            transform: 'translateY(-4px)',
+            borderColor: tier.highlighted ? 'primary.main' : 'primary.light',
+          },
+        }}
+      >
       {tier.highlighted && (
         <Box
           sx={{
@@ -160,15 +469,34 @@ function PricingCard({ tier, billingCycle, onSelectPlan, isAuthenticated }) {
           />
         </Box>
       )}
-      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 3, pt: tier.highlighted ? 4 : 3 }}>
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 4, pt: tier.highlighted ? 5 : 4 }}>
         <Stack spacing={3} sx={{ flexGrow: 1 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
-            <Icon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+            <Box
+              sx={{
+                mb: 2,
+                width: 64,
+                height: 64,
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                mx: 'auto',
+                transition: 'transform 0.3s',
+                '&:hover': {
+                  transform: 'rotate(5deg) scale(1.05)'
+                }
+              }}
+            >
+              <Icon sx={{ fontSize: 32, color: 'white' }} />
+            </Box>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
               {tier.name}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.7 }}>
               {tier.description}
             </Typography>
           </Box>
@@ -177,30 +505,15 @@ function PricingCard({ tier, billingCycle, onSelectPlan, isAuthenticated }) {
           <Box sx={{ textAlign: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
               <Typography variant="h3" sx={{ fontWeight: 700 }}>
-                {formatCurrency(monthlyEquivalent)}
+                {formatCurrency(price)}
               </Typography>
               <Typography variant="body1" color="text.secondary">
                 /month
               </Typography>
             </Box>
-            {billingCycle === 'yearly' && (
-              <>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  Billed as {formatCurrency(price)}/year
-                </Typography>
-                <Chip
-                  label="Save 17%"
-                  color="success"
-                  size="small"
-                  sx={{ mt: 1, fontWeight: 600 }}
-                />
-              </>
-            )}
-            {billingCycle === 'monthly' && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                Billed monthly
-              </Typography>
-            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Billed monthly
+            </Typography>
           </Box>
 
           <Divider />
@@ -229,21 +542,43 @@ function PricingCard({ tier, billingCycle, onSelectPlan, isAuthenticated }) {
 
           {/* CTA Button */}
           <Box sx={{ mt: 'auto', pt: 2 }}>
-            <Button
-              variant={tier.highlighted ? 'contained' : 'outlined'}
-              color="primary"
-              size="large"
-              fullWidth
-              onClick={() => onSelectPlan(tier.id)}
-              sx={{
-                py: 1.5,
-                fontSize: '1rem',
-                fontWeight: 600,
-                textTransform: 'none',
-              }}
-            >
-              {isAuthenticated ? 'Upgrade Now' : 'Start Free Trial'}
-            </Button>
+            {tier.highlighted ? (
+              <GradientButton
+                size="large"
+                fullWidth
+                onClick={() => onSelectPlan(tier.id)}
+                endIcon={<ArrowForwardIcon />}
+                sx={{
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                }}
+              >
+                {isAuthenticated ? 'Upgrade Now' : 'Start Free Trial'}
+              </GradientButton>
+            ) : (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="large"
+                fullWidth
+                onClick={() => onSelectPlan(tier.id)}
+                sx={{
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderWidth: 2,
+                  borderRadius: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    bgcolor: 'rgba(185, 28, 28, 0.04)'
+                  }
+                }}
+              >
+                {isAuthenticated ? 'Upgrade Now' : 'Start Free Trial'}
+              </Button>
+            )}
             <Typography
               variant="caption"
               color="text.secondary"
@@ -255,19 +590,13 @@ function PricingCard({ tier, billingCycle, onSelectPlan, isAuthenticated }) {
         </Stack>
       </CardContent>
     </Card>
+    </FadeIn>
   );
 }
 
 export default function PricingPage() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const [billingCycle, setBillingCycle] = useState('monthly');
-
-  const handleBillingCycleChange = (event, newCycle) => {
-    if (newCycle !== null) {
-      setBillingCycle(newCycle);
-    }
-  };
 
   const handleSelectPlan = (planId) => {
     if (user) {
@@ -280,70 +609,91 @@ export default function PricingPage() {
   };
 
   return (
-    <>
-      <BlogPublicNav />
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar />
       <Box
         sx={{
-          minHeight: '100vh',
-          background: 'linear-gradient(180deg, #fff7f7 0%, #ffffff 60%)',
-          py: 8,
+          flex: 1,
+          background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
+          pt: { xs: 8, md: 12 },
+          pb: { xs: 8, md: 12 },
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 } }}>
+        {/* Decorative gradient blobs */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -100,
+            right: -100,
+            width: 400,
+            height: 400,
+            background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: -100,
+            left: -100,
+            width: 400,
+            height: 400,
+            background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }}
+        />
+
+        <Container maxWidth="lg" sx={{ maxWidth: 1240, px: { xs: 2, sm: 3, md: 4 }, position: 'relative' }}>
         <Stack spacing={{ xs: 4, sm: 5, md: 6 }}>
           {/* Header */}
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography
-              variant="overline"
-              color="primary"
-              sx={{ fontWeight: 600, letterSpacing: 1.5 }}
-            >
-              Pricing
-            </Typography>
-            <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, mt: 1 }}>
-              Choose Your Plan
-            </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
-              Start with a 14-day free trial. No credit card required. Cancel anytime.
-            </Typography>
-          </Box>
-
-          {/* Billing Cycle Toggle */}
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <ToggleButtonGroup
-              value={billingCycle}
-              exclusive
-              onChange={handleBillingCycleChange}
-              aria-label="billing cycle"
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 1,
-                '& .MuiToggleButton-root': {
-                  px: 3,
-                  py: 1,
-                  border: 'none',
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="monthly">Monthly</ToggleButton>
-              <ToggleButton value="yearly">
-                Yearly
-                <Chip
-                  label="Save 17%"
-                  size="small"
-                  color="success"
-                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                />
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          <FadeIn>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography
+                variant="overline"
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                  letterSpacing: '0.1em',
+                  fontSize: '0.875rem'
+                }}
+              >
+                PRICING
+              </Typography>
+              <Typography 
+                variant="h1" 
+                sx={{ 
+                  fontWeight: 800, 
+                  mb: 2, 
+                  mt: 1,
+                  fontSize: { xs: '2.5rem', md: '3.5rem' },
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                Choose Your Plan
+              </Typography>
+              <Typography 
+                variant="h6" 
+                color="text.secondary" 
+                sx={{ 
+                  maxWidth: 700, 
+                  mx: 'auto',
+                  lineHeight: 1.7,
+                  fontWeight: 400,
+                  fontSize: { xs: '1.1rem', md: '1.3rem' }
+                }}
+              >
+                Start with a 14-day free trial. No credit card required. Cancel anytime.
+              </Typography>
+            </Box>
+          </FadeIn>
 
           {/* Pricing Cards */}
           <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch">
@@ -351,7 +701,6 @@ export default function PricingPage() {
               <Grid item xs={12} sm={12} md={4} key={tier.id}>
                 <PricingCard
                   tier={tier}
-                  billingCycle={billingCycle}
                   onSelectPlan={handleSelectPlan}
                   isAuthenticated={!!user}
                 />
@@ -429,44 +778,69 @@ export default function PricingPage() {
           </Paper>
 
           {/* CTA Section */}
-          <Paper
-            sx={{
-              p: { xs: 3, sm: 4, md: 5 },
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-              color: 'white',
-              borderRadius: 3,
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
-              Ready to get started?
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 3, opacity: 0.9, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-              Join 500+ property managers managing 10,000+ units worldwide
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              onClick={() => navigate(user ? '/subscriptions' : '/signup')}
+          <FadeIn delay={0.3}>
+            <Paper
               sx={{
-                bgcolor: 'white',
-                color: '#dc2626',
-                px: 4,
-                py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                '&:hover': {
-                  bgcolor: 'grey.100',
-                },
+                p: { xs: 3, sm: 4, md: 5 },
+                textAlign: 'center',
+                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                color: 'white',
+                borderRadius: 3,
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              {user ? 'View Plans' : 'Start Free Trial'}
-            </Button>
-          </Paper>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -50,
+                  right: -50,
+                  width: 300,
+                  height: 300,
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  pointerEvents: 'none'
+                }}
+              />
+              <Box sx={{ position: 'relative' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
+                  Ready to get started?
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 3, opacity: 0.95, fontSize: { xs: '0.9rem', sm: '1rem' }, fontWeight: 400 }}>
+                  Join 500+ property managers managing 10,000+ units worldwide
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => navigate(user ? '/subscriptions' : '/signup')}
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{
+                    bgcolor: 'white',
+                    color: 'primary.main',
+                    px: 5,
+                    py: 2,
+                    fontSize: '1.2rem',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+                    '&:hover': {
+                      bgcolor: 'grey.100',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 12px 24px rgba(0, 0, 0, 0.25)'
+                    },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {user ? 'View Plans' : 'Start Free Trial'}
+                </Button>
+              </Box>
+            </Paper>
+          </FadeIn>
         </Stack>
       </Container>
     </Box>
-    </>
+    <Footer />
+    </Box>
   );
 }
