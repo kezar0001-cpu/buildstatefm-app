@@ -27,8 +27,10 @@ export function getUserFriendlyErrorMessage(error, defaultMessage = 'An unexpect
     }
     
     // Check for error code and map to user-friendly message
-    if (data.errorCode) {
-      return getErrorMessageByCode(data.errorCode, data.message);
+    // Support both errorCode and code fields
+    const errorCode = data.errorCode || data.code;
+    if (errorCode) {
+      return getErrorMessageByCode(errorCode, data.message);
     }
     
     // Handle validation errors
@@ -107,6 +109,7 @@ function getErrorMessageByCode(errorCode, fallbackMessage) {
     // Validation errors
     'VAL_VALIDATION_ERROR': 'Please check your input and try again.',
     'VAL_INVALID_REQUEST': 'The request is invalid. Please check your input.',
+    'VAL_INVALID_INPUT': 'Invalid input provided. Please check your values and try again.',
     'VAL_MISSING_FIELD': 'Required fields are missing. Please fill in all required fields.',
     'VAL_INVALID_FORMAT': 'The format is invalid. Please check your input.',
     'VAL_INVALID_EMAIL': 'Please enter a valid email address.',
@@ -163,6 +166,7 @@ function getErrorMessageByCode(errorCode, fallbackMessage) {
     'BIZ_CANNOT_DELETE_SELF': 'You cannot delete your own account.',
     'BIZ_INVALID_STATUS_TRANSITION': 'This status change is not allowed. Please check the current status.',
     'BIZ_OPERATION_NOT_ALLOWED': 'This operation is not allowed in the current state.',
+    'BIZ_SCHEDULING_CONFLICT': 'This technician has conflicting jobs scheduled at the same time. Please adjust the scheduled dates.',
     
     // General errors
     'ERR_INTERNAL_SERVER': 'An internal error occurred. Please try again later or contact support.',

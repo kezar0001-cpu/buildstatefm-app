@@ -10,6 +10,90 @@ import { emitNotificationToUser } from '../websocket.js';
  */
 
 /**
+ * Get user notification preferences, with defaults if none exist
+ * @param {string} userId - User ID
+ * @returns {Promise<object>} User notification preferences
+ */
+async function getUserNotificationPreferences(userId) {
+  try {
+    let preferences = await prisma.notificationPreference.findUnique({
+      where: { userId },
+    });
+
+    // Return defaults if no preferences exist
+    if (!preferences) {
+      return {
+        emailEnabled: true,
+        pushEnabled: true,
+        jobAssigned: true,
+        jobStatusChanged: true,
+        jobCompleted: true,
+        inspectionScheduled: true,
+        inspectionCompleted: true,
+        serviceRequestCreated: true,
+        serviceRequestApproved: true,
+        paymentFailed: true,
+        paymentSucceeded: true,
+        trialExpiring: true,
+      };
+    }
+
+    return preferences;
+  } catch (error) {
+    logger.error(`Failed to fetch notification preferences for user ${userId}: ${error.message}`);
+    // Return defaults on error
+    return {
+      emailEnabled: true,
+      pushEnabled: true,
+      jobAssigned: true,
+      jobStatusChanged: true,
+      jobCompleted: true,
+      inspectionScheduled: true,
+      inspectionCompleted: true,
+      serviceRequestCreated: true,
+      serviceRequestApproved: true,
+      paymentFailed: true,
+      paymentSucceeded: true,
+      trialExpiring: true,
+    };
+  }
+}
+
+/**
+ * Check if a notification type should be sent based on user preferences
+ * @param {string} type - Notification type
+ * @param {object} preferences - User notification preferences
+ * @returns {boolean} Whether notification should be sent
+ */
+function shouldSendNotification(type, preferences) {
+  // Map notification types to preference fields
+  const typeToPreference = {
+    JOB_ASSIGNED: 'jobAssigned',
+    JOB_COMPLETED: 'jobCompleted',
+    JOB_STATUS_CHANGED: 'jobStatusChanged',
+    INSPECTION_SCHEDULED: 'inspectionScheduled',
+    INSPECTION_REMINDER: 'inspectionScheduled', // Use inspectionScheduled for reminders
+    INSPECTION_COMPLETED: 'inspectionCompleted',
+    INSPECTION_APPROVED: 'inspectionCompleted', // Use inspectionCompleted for approved
+    INSPECTION_REJECTED: 'inspectionCompleted', // Use inspectionCompleted for rejected
+    INSPECTION_OVERDUE: 'inspectionScheduled', // Use inspectionScheduled for overdue
+    SERVICE_REQUEST_UPDATE: 'serviceRequestCreated', // Use serviceRequestCreated for updates
+    SERVICE_REQUEST_APPROVED: 'serviceRequestApproved',
+    SUBSCRIPTION_EXPIRING: 'trialExpiring',
+    PAYMENT_FAILED: 'paymentFailed',
+    PAYMENT_SUCCEEDED: 'paymentSucceeded',
+  };
+
+  const preferenceField = typeToPreference[type];
+  if (!preferenceField) {
+    // Unknown notification type - allow by default
+    return true;
+  }
+
+  return preferences[preferenceField] !== false;
+}
+
+/**
  * Send a notification to a user
  * @param {string} userId - User ID to send notification to
  * @param {string} type - Notification type (from NotificationType enum)
@@ -20,33 +104,56 @@ import { emitNotificationToUser } from '../websocket.js';
  * @param {string} options.entityId - ID of the entity
  * @param {boolean} options.sendEmail - Whether to send email (default: true)
  * @param {object} options.emailData - Data for email template
+ * @param {boolean} options.bypassPreferences - Whether to bypass user preferences (default: false)
  */
 export async function sendNotification(userId, type, title, message, options = {}) {
   try {
-    // Create in-app notification
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        title,
-        message,
-        entityType: options.entityType || null,
-        entityId: options.entityId || null,
-      },
-    });
-
-    logger.info(`Created notification for user ${userId}: ${type}`);
-
-    // Emit real-time notification via WebSocket
-    try {
-      emitNotificationToUser(userId, notification);
-    } catch (wsError) {
-      // Log WebSocket error but don't fail the notification
-      logger.error(`Failed to emit WebSocket notification: ${wsError.message}`);
+    // Phase 3: Check user notification preferences
+    let shouldSend = true;
+    let preferences = null;
+    
+    if (!options.bypassPreferences) {
+      preferences = await getUserNotificationPreferences(userId);
+      shouldSend = shouldSendNotification(type, preferences);
+      
+      if (!shouldSend) {
+        logger.info(`Notification ${type} skipped for user ${userId} due to preferences`);
+        return null; // Don't send notification if user has disabled it
+      }
     }
 
-    // Send email if requested and user exists
-    if (options.sendEmail !== false) {
+    // Create in-app notification (always create if pushEnabled is true or bypassPreferences)
+    const shouldCreateInApp = options.bypassPreferences || (preferences?.pushEnabled !== false);
+    
+    let notification = null;
+    if (shouldCreateInApp) {
+      notification = await prisma.notification.create({
+        data: {
+          userId,
+          type,
+          title,
+          message,
+          entityType: options.entityType || null,
+          entityId: options.entityId || null,
+        },
+      });
+
+      logger.info(`Created notification for user ${userId}: ${type}`);
+
+      // Emit real-time notification via WebSocket
+      try {
+        emitNotificationToUser(userId, notification);
+      } catch (wsError) {
+        // Log WebSocket error but don't fail the notification
+        logger.error(`Failed to emit WebSocket notification: ${wsError.message}`);
+      }
+    }
+
+    // Send email if requested and user preferences allow it
+    const shouldSendEmail = options.sendEmail !== false && 
+                           (options.bypassPreferences || (preferences?.emailEnabled !== false));
+    
+    if (shouldSendEmail) {
       try {
         const user = await prisma.user.findUnique({
           where: { id: userId },
