@@ -67,27 +67,35 @@ function getTimezone() {
 function calculateNextDueDate(currentDueDate, frequency) {
   const baseDate = currentDueDate ? new Date(currentDueDate) : new Date();
   const nextDate = new Date(baseDate);
-  const normalizedFrequency = (frequency || '').trim().toLowerCase();
+  // Normalize frequency to handle both uppercase enum values and lowercase variations
+  const normalizedFrequency = (frequency || '').trim().toUpperCase();
 
   switch (normalizedFrequency) {
-    case 'daily':
+    case 'DAILY':
       nextDate.setDate(nextDate.getDate() + 1);
       break;
-    case 'weekly':
+    case 'WEEKLY':
       nextDate.setDate(nextDate.getDate() + 7);
       break;
-    case 'biweekly':
+    case 'BIWEEKLY':
       nextDate.setDate(nextDate.getDate() + 14);
       break;
-    case 'quarterly':
+    case 'MONTHLY':
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    case 'QUARTERLY':
       nextDate.setMonth(nextDate.getMonth() + 3);
       break;
-    case 'annually':
-    case 'yearly':
+    case 'SEMIANNUALLY':
+      nextDate.setMonth(nextDate.getMonth() + 6);
+      break;
+    case 'ANNUALLY':
+    case 'YEARLY':
       nextDate.setFullYear(nextDate.getFullYear() + 1);
       break;
-    case 'monthly':
     default:
+      // Default to monthly if frequency is not recognized
+      logger.warn(`Unknown frequency "${frequency}", defaulting to monthly`, { frequency });
       nextDate.setMonth(nextDate.getMonth() + 1);
       break;
   }
