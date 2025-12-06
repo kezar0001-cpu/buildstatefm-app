@@ -439,6 +439,7 @@ function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
           boxShadow: tier.highlighted ? 6 : 1,
           borderRadius: 3,
           bgcolor: 'white',
+          overflow: 'visible',
           transition: 'all 0.3s ease-in-out',
           '&:hover': {
             boxShadow: tier.highlighted ? 8 : 3,
@@ -451,10 +452,10 @@ function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
         <Box
           sx={{
             position: 'absolute',
-            top: -12,
+            top: -16,
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 1,
+            zIndex: 2,
           }}
         >
           <Chip
@@ -464,12 +465,13 @@ function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
               fontWeight: 700,
               fontSize: '0.75rem',
               px: 2,
+              py: 0.5,
               boxShadow: 2,
             }}
           />
         </Box>
       )}
-      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 4, pt: tier.highlighted ? 5 : 4 }}>
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 4, pt: tier.highlighted ? 6 : 4 }}>
         <Stack spacing={3} sx={{ flexGrow: 1 }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
@@ -554,7 +556,7 @@ function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
                   fontWeight: 600,
                 }}
               >
-                {isAuthenticated ? 'Upgrade Now' : 'Start Free Trial'}
+                {isAuthenticated ? 'Start Trial Today' : 'Start Free Trial'}
               </GradientButton>
             ) : (
               <Button
@@ -576,7 +578,7 @@ function PricingCard({ tier, onSelectPlan, isAuthenticated }) {
                   }
                 }}
               >
-                {isAuthenticated ? 'Upgrade Now' : 'Start Free Trial'}
+                {isAuthenticated ? 'Start Trial Today' : 'Start Free Trial'}
               </Button>
             )}
             <Typography
@@ -696,7 +698,7 @@ export default function PricingPage() {
           </FadeIn>
 
           {/* Pricing Cards */}
-          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch">
+          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch" sx={{ pt: 2 }}>
             {PRICING_TIERS.map((tier) => (
               <Grid item xs={12} sm={12} md={4} key={tier.id}>
                 <PricingCard

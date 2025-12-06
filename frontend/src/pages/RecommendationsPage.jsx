@@ -454,11 +454,33 @@ export default function RecommendationsPage() {
     }
   };
 
-  const handleBulkDelete = () => {
-    // TODO: Implement bulk delete
-    console.log('Bulk delete recommendations:', selectedRecommendationIds);
-    toast.success(`${selectedRecommendationIds.length} recommendations selected for deletion`);
-    setSelectedRecommendationIds([]);
+  const handleBulkDelete = async () => {
+    if (selectedRecommendationIds.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedRecommendationIds.length} recommendation(s)? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Delete all selected recommendations in parallel
+      const deletePromises = selectedRecommendationIds.map((id) =>
+        deleteMutation.mutateAsync({
+          url: `/recommendations/${id}`,
+          method: 'delete',
+        })
+      );
+
+      await Promise.all(deletePromises);
+      toast.success(`Successfully deleted ${selectedRecommendationIds.length} recommendation(s)`);
+      setSelectedRecommendationIds([]);
+      query.refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to delete some recommendations');
+      // Still clear selection even if some failed
+      setSelectedRecommendationIds([]);
+    }
   };
 
   const hasFilters = debouncedSearch || priorityFilter || statusFilter;
@@ -749,9 +771,10 @@ export default function RecommendationsPage() {
                         variant="outlined"
                         color="error"
                         onClick={handleBulkDelete}
-                        startIcon={<DeleteIcon />}
+                        disabled={deleteMutation.isPending}
+                        startIcon={deleteMutation.isPending ? <CircularProgress size={20} /> : <DeleteIcon />}
                       >
-                        Delete Selected
+                        {deleteMutation.isPending ? 'Deleting...' : 'Delete Selected'}
                       </Button>
                     </Stack>
                   </Stack>
@@ -764,6 +787,7 @@ export default function RecommendationsPage() {
                   {filteredRecommendations.map((recommendation) => {
                     const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
                     const propertyName = property?.name || 'N/A';
+                    const isSelected = selectedRecommendationIds.includes(recommendation.id);
                     return (
                       <Grid item xs={12} sm={6} md={4} key={recommendation.id}>
                         <Card
@@ -773,8 +797,8 @@ export default function RecommendationsPage() {
                             flexDirection: 'column',
                             borderRadius: 3,
                             border: '1px solid',
-                            borderColor: 'divider',
-                            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            boxShadow: isSelected ? 4 : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
@@ -786,7 +810,7 @@ export default function RecommendationsPage() {
                               right: 0,
                               height: '4px',
                               background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                              opacity: 0,
+                              opacity: isSelected ? 1 : 0,
                               transition: 'opacity 0.3s ease-in-out',
                             },
                             '&:hover::before': {
@@ -806,9 +830,21 @@ export default function RecommendationsPage() {
                             onClick={() => handleViewDetails(recommendation)}
                           >
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-                                {recommendation.title}
-                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleRecommendationSelection(recommendation.id);
+                                  }}
+                                  color="primary"
+                                  sx={{ p: 0.5 }}
+                                  inputProps={{ 'aria-label': `Select recommendation ${recommendation.title}` }}
+                                />
+                                <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                                  {recommendation.title}
+                                </Typography>
+                              </Box>
                               <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                                 {user?.role === 'PROPERTY_MANAGER' && (
                                   <>
@@ -1206,7 +1242,13 @@ export default function RecommendationsPage() {
                           outline: isSelected ? '2px solid' : 'none',
                           outlineColor: 'primary.main',
                         }}
-                        onClick={() => handleViewDetails(recommendation)}
+                        onClick={(e) => {
+                          // Don't open modal if clicking on checkbox or its container
+                          if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                            return;
+                          }
+                          handleViewDetails(recommendation);
+                        }}
                       >
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack spacing={2}>
@@ -1220,6 +1262,7 @@ export default function RecommendationsPage() {
                                       e.stopPropagation();
                                       handleToggleRecommendationSelection(recommendation.id);
                                     }}
+                                    onClick={(e) => e.stopPropagation()}
                                     color="primary"
                                     sx={{ p: 0.5 }}
                                     inputProps={{ 'aria-label': `Select recommendation ${recommendation.title}` }}

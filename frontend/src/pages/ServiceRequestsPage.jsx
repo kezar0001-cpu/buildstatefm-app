@@ -24,6 +24,15 @@ import {
   Checkbox,
   Paper,
   Divider,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TableContainer,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,6 +44,10 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
+  ViewKanban as ViewKanbanIcon,
+  TableChart as TableChartIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -70,6 +83,13 @@ const ServiceRequestsPage = () => {
   const [convertDialog, setConvertDialog] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('service-requests-view-mode') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
 
   // Get user role from auth context
   const userRole = user?.role || 'TENANT';
@@ -148,13 +168,34 @@ const ServiceRequestsPage = () => {
   };
 
   const handleEdit = (request) => {
-    // TODO: Implement edit functionality
-    console.log('Edit request:', request);
+    setSelectedRequest(request.id);
+    setOpenDialog(true);
   };
 
-  const handleDelete = (request) => {
-    // TODO: Implement delete functionality
-    console.log('Delete request:', request);
+  const handleDelete = async (request) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${request.title}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiClient.delete(`/service-requests/${request.id}`);
+      toast.success('Service request deleted successfully');
+      refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to delete service request');
+    }
+  };
+
+  const handleViewModeChange = (event, newViewMode) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      try {
+        localStorage.setItem('service-requests-view-mode', newViewMode);
+      } catch (err) {
+        // Ignore localStorage errors
+      }
+    }
   };
 
   const handleToggleRequestSelection = (requestId) => {
@@ -175,11 +216,30 @@ const ServiceRequestsPage = () => {
     }
   };
 
-  const handleBulkDelete = () => {
-    // TODO: Implement bulk delete
-    console.log('Bulk delete requests:', selectedRequestIds);
-    toast.success(`${selectedRequestIds.length} requests selected for deletion`);
-    setSelectedRequestIds([]);
+  const handleBulkDelete = async () => {
+    if (selectedRequestIds.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedRequestIds.length} service request(s)? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Delete all selected requests in parallel
+      const deletePromises = selectedRequestIds.map((id) =>
+        apiClient.delete(`/service-requests/${id}`)
+      );
+
+      await Promise.all(deletePromises);
+      toast.success(`Successfully deleted ${selectedRequestIds.length} service request(s)`);
+      setSelectedRequestIds([]);
+      refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to delete some service requests');
+      // Still clear selection even if some failed
+      setSelectedRequestIds([]);
+    }
   };
 
   const handleFilterChange = (field, value) => {
@@ -300,8 +360,8 @@ const ServiceRequestsPage = () => {
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreate}
-            size="medium"
-            sx={{ width: { xs: '100%', md: 'auto' } }}
+            size="large"
+            sx={{ width: { xs: '100%', md: 'auto' }, fontSize: '1rem', py: 1.5, px: 3 }}
           >
             {userRole === 'TENANT' ? 'Submit Request' : 'Create Request'}
           </GradientButton>
@@ -428,9 +488,66 @@ const ServiceRequestsPage = () => {
                 size="small"
                 onClick={handleClearFilters}
                 sx={{ textTransform: 'none', minWidth: 'auto' }}
+                startIcon={<CloseIcon />}
               >
                 Clear filters
               </Button>
+            )}
+
+            {/* View Toggle - Desktop only */}
+            {!isMobile && (
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={handleViewModeChange}
+                aria-label="View mode toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
+                  },
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  },
+                  '& .Mui-selected': {
+                    color: 'error.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="grid" aria-label="grid view">
+                  <Tooltip title="Grid View">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="list view">
+                  <Tooltip title="List View">
+                    <ViewListIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <Tooltip title="Table View">
+                    <TableChartIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
             )}
           </Stack>
         </Paper>
@@ -500,7 +617,7 @@ const ServiceRequestsPage = () => {
       ) : (
         <Stack spacing={3}>
           {/* Mobile Card View */}
-          {isMobile ? (
+          {isMobile || viewMode === 'list' ? (
             <Stack spacing={2}>
               {requestList.map((request) => {
                 const description = typeof request.description === 'string' ? request.description : '';
@@ -519,17 +636,52 @@ const ServiceRequestsPage = () => {
                   <Card
                     key={request.id}
                     sx={{
-                      boxShadow: 2,
-                      borderRadius: 2,
+                      boxShadow: isSelected ? 4 : 2,
+                      borderRadius: 3,
                       border: '1px solid',
                       borderColor: isSelected ? 'primary.main' : 'divider',
-                      outline: isSelected ? '2px solid' : 'none',
-                      outlineColor: 'primary.main',
                       cursor: 'pointer',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      transition: 'all 0.3s ease-in-out',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                        opacity: isSelected ? 1 : 0,
+                        transition: 'opacity 0.3s ease-in-out',
+                      },
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 6,
+                        borderColor: 'primary.main',
+                        '&::before': {
+                          opacity: 1,
+                        },
+                      },
                     }}
-                    onClick={() => handleViewDetails(request)}
+                    onClick={(e) => {
+                      // Don't open modal if clicking on checkbox or its container
+                      if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                        return;
+                      }
+                      handleViewDetails(request);
+                    }}
                   >
-                    <CardContent sx={{ p: 2.5 }}>
+                    <CardContent 
+                      sx={{ p: 2.5 }}
+                      onClick={(e) => {
+                        // Don't open modal if clicking on checkbox or its container
+                        if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                          return;
+                        }
+                        handleViewDetails(request);
+                      }}
+                    >
                       <Stack spacing={2}>
                         {/* Header Row */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
@@ -541,6 +693,7 @@ const ServiceRequestsPage = () => {
                                   e.stopPropagation();
                                   handleToggleRequestSelection(request.id);
                                 }}
+                                onClick={(e) => e.stopPropagation()}
                                 color="primary"
                                 sx={{ p: 0.5 }}
                                 inputProps={{ 'aria-label': `Select service request ${request.title}` }}
@@ -708,7 +861,7 @@ const ServiceRequestsPage = () => {
                 );
               })}
             </Stack>
-          ) : (
+          ) : viewMode === 'grid' ? (
             /* Desktop Grid View */
             <Grid container spacing={{ xs: 2, md: 3 }}>
               {requestList.map((request) => {
@@ -731,21 +884,43 @@ const ServiceRequestsPage = () => {
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
                         borderRadius: 3,
-                        cursor: 'pointer',
                         border: '1px solid',
                         borderColor: isSelected ? 'primary.main' : 'divider',
-                        outline: isSelected ? '2px solid' : 'none',
-                        outlineColor: 'primary.main',
+                        boxShadow: isSelected ? 4 : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease-in-out',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: '4px',
+                          background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                          opacity: isSelected ? 1 : 0,
+                          transition: 'opacity 0.3s ease-in-out',
+                        },
                         '&:hover': {
                           transform: 'translateY(-4px)',
-                          boxShadow: 4,
+                          boxShadow: 6,
+                          borderColor: 'primary.main',
+                          '&::before': {
+                            opacity: 1,
+                          },
                         },
-                      }}
-                      onClick={() => handleViewDetails(request)}
-                    >
-                      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    }}
+                    onClick={(e) => {
+                      // Don't open modal if clicking on checkbox or its container
+                      if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                        return;
+                      }
+                      handleViewDetails(request);
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
                             <Checkbox
@@ -754,6 +929,7 @@ const ServiceRequestsPage = () => {
                                 e.stopPropagation();
                                 handleToggleRequestSelection(request.id);
                               }}
+                              onClick={(e) => e.stopPropagation()}
                               color="primary"
                               sx={{ p: 0.5 }}
                               inputProps={{ 'aria-label': `Select service request ${request.title}` }}
@@ -909,7 +1085,123 @@ const ServiceRequestsPage = () => {
                 );
               })}
             </Grid>
-          )}
+          ) : viewMode === 'table' && !isMobile ? (
+            /* Table View - Desktop only */
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, md: 3 },
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          color="primary"
+                          checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
+                          indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
+                          onChange={handleToggleSelectAllVisible}
+                          inputProps={{ 'aria-label': 'Select all visible service requests' }}
+                        />
+                      </TableCell>
+                      <TableCell>Title</TableCell>
+                      <TableCell>Property</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Category</TableCell>
+                      <TableCell>Priority</TableCell>
+                      <TableCell>Submitted</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {requestList.map((request) => {
+                      const isSelected = selectedRequestIds.includes(request.id);
+                      const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                      const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                      const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+                      return (
+                        <TableRow
+                          key={request.id}
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => handleViewDetails(request)}
+                        >
+                          <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleRequestSelection(request.id);
+                              }}
+                              color="primary"
+                              inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                            />
+                          </TableCell>
+                          <TableCell>{request.title}</TableCell>
+                          <TableCell>{request.property?.name || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={statusLabel}
+                              color={getStatusColor(request.status)}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={categoryLabel}
+                              color={getCategoryColor(request.category)}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {priorityLabel && (
+                              <Chip
+                                label={priorityLabel}
+                                size="small"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell>{formatDate(request.createdAt)}</TableCell>
+                          <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                            {userRole === 'PROPERTY_MANAGER' && (
+                              <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(request);
+                                  }}
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(request);
+                                  }}
+                                  sx={{ color: 'error.main' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          ) : null}
 
           {/* Load More Button */}
           {hasNextPage && (
