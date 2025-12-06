@@ -82,7 +82,18 @@ function buildAccessWhere(user) {
 function buildInspectionWhere(query, user) {
   const filters = [];
   const accessFilter = buildAccessWhere(user);
-  if (accessFilter) filters.push(accessFilter);
+  if (accessFilter) {
+    // Check if accessFilter would result in no results (empty array)
+    if (accessFilter.propertyId?.in && accessFilter.propertyId.in.includes('__none__')) {
+      // User has no access - return a filter that matches nothing
+      return { id: { in: [] } };
+    }
+    if (accessFilter.unitId?.in && accessFilter.unitId.in.includes('__none__')) {
+      // User has no access - return a filter that matches nothing
+      return { id: { in: [] } };
+    }
+    filters.push(accessFilter);
+  }
 
   const { search, propertyId, unitId, status, inspectorId, inspector, assignedToId, dateFrom, dateTo, tags, tag, hasRejection } = query;
 
@@ -216,8 +227,20 @@ export const getOverdueInspections = async (req, res) => {
       scheduledDate: {
         lt: now,
       },
-      ...(accessFilter || {}),
     };
+
+    // Only add access filter if it's valid (not undefined and not an empty array filter)
+    if (accessFilter) {
+      // Check if accessFilter would result in no results (empty array)
+      if (accessFilter.propertyId?.in && accessFilter.propertyId.in.includes('__none__')) {
+        // User has no access - return empty result
+        return res.json({
+          inspections: [],
+          total: 0,
+        });
+      }
+      Object.assign(where, accessFilter);
+    }
 
     const inspections = await prisma.inspection.findMany({
       where,

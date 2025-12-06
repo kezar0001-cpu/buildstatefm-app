@@ -46,13 +46,14 @@ const steps = [
   { label: 'Recommendation Details', description: 'Provide details about the job recommendation.' },
 ];
 
-const initialState = {
-  propertyId: '',
+const getInitialState = (initialPropertyId, initialInspectionId) => ({
+  propertyId: initialPropertyId || '',
+  inspectionId: initialInspectionId || '',
   title: '',
   description: '',
   priority: 'MEDIUM',
   estimatedCost: '',
-};
+});
 
 const getErrorMessage = (error) => {
   if (!error) return 'Something went wrong while creating the recommendation.';
@@ -78,12 +79,12 @@ const getErrorMessage = (error) => {
   return 'Something went wrong while creating the recommendation.';
 };
 
-export default function RecommendationWizard({ open, onClose }) {
+export default function RecommendationWizard({ open, onClose, initialPropertyId, initialInspectionId }) {
   const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeStep, setActiveStep] = useState(0);
-  const [formState, setFormState] = useState(initialState);
+  const [formState, setFormState] = useState(() => getInitialState(initialPropertyId, initialInspectionId));
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,11 +108,15 @@ export default function RecommendationWizard({ open, onClose }) {
   useEffect(() => {
     if (!open) {
       setActiveStep(0);
-      setFormState(initialState);
+      setFormState(getInitialState(initialPropertyId, initialInspectionId));
       setErrors({});
       setIsSubmitting(false);
+    } else if (initialPropertyId) {
+      // If property is pre-selected, skip to step 1
+      setFormState(prev => ({ ...prev, propertyId: initialPropertyId, inspectionId: initialInspectionId || '' }));
+      setActiveStep(1);
     }
-  }, [open]);
+  }, [open, initialPropertyId, initialInspectionId]);
 
   const handleChange = (field) => (event) => {
     const { value } = event.target;
@@ -191,9 +196,6 @@ export default function RecommendationWizard({ open, onClose }) {
         return;
       }
 
-      // We need to find or create a report for this property
-      // For simplicity, we'll require the user to have an inspection report
-      // In a real scenario, we might create a report on the fly
       const payload = {
         propertyId: formState.propertyId,
         title: formState.title.trim(),
@@ -201,6 +203,11 @@ export default function RecommendationWizard({ open, onClose }) {
         priority: formState.priority,
         estimatedCost: formState.estimatedCost ? parseFloat(formState.estimatedCost) : null,
       };
+
+      // Include inspectionId if provided
+      if (formState.inspectionId) {
+        payload.inspectionId = formState.inspectionId;
+      }
 
       console.log('[RecommendationWizard] Creating recommendation with payload:', payload);
       
@@ -309,7 +316,7 @@ export default function RecommendationWizard({ open, onClose }) {
                 value={formState.propertyId}
                 label="Property"
                 onChange={handleChange('propertyId')}
-                disabled={loadingProperties || isSubmitting}
+                disabled={loadingProperties || isSubmitting || !!initialPropertyId}
               >
                 {properties.map((property) => (
                   <MenuItem key={property.id} value={property.id}>
@@ -320,6 +327,11 @@ export default function RecommendationWizard({ open, onClose }) {
               {errors.propertyId && (
                 <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
                   {errors.propertyId}
+                </Typography>
+              )}
+              {initialPropertyId && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                  Property is pre-selected from inspection
                 </Typography>
               )}
             </FormControl>
