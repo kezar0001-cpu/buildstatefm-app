@@ -116,6 +116,19 @@ router.get('/tags', inspectionController.getTags);
 router.get('/analytics', inspectionController.getAnalytics);
 router.get('/calendar', inspectionController.getCalendar);
 router.get('/overdue', requireAuth, hydrateInspectionUser, inspectionController.getOverdueInspections);
+router.get('/inspectors', requireAuth, async (req, res) => {
+  try {
+    const inspectors = await prisma.user.findMany({
+      where: { role: ROLE_TECHNICIAN },
+      select: { id: true, firstName: true, lastName: true, email: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
+    res.json({ inspectors });
+  } catch (error) {
+    console.error('Failed to load inspectors', error);
+    sendError(res, 500, 'Failed to load inspectors', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
 
 // Inspections are only accessible to Property Managers and Technicians
 router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), hydrateInspectionUser, inspectionController.listInspections);
@@ -181,21 +194,7 @@ router.patch('/:id/photos/:photoId', ensureInspectionAccess, inspectionDetailsCo
 router.delete('/:id/photos/:photoId', ensureInspectionAccess, inspectionDetailsController.deletePhoto);
 
 // --- Misc Routes (kept from original if needed, simplified) ---
-
-router.get('/inspectors', requireAuth, async (req, res) => {
-  try {
-    const inspectors = await prisma.user.findMany({
-      where: { role: ROLE_TECHNICIAN },
-      select: { id: true, firstName: true, lastName: true, email: true },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-    });
-    res.json({ inspectors });
-  } catch (error) {
-    console.error('Failed to load inspectors', error);
-    sendError(res, 500, 'Failed to load inspectors', ErrorCodes.ERR_INTERNAL_SERVER);
-  }
-});
-
+// Note: /inspectors route is defined above before /:id to avoid route conflicts
 // Note: Analytics and Calendar endpoints were in the original file. 
 // They should ideally be moved to the controller too, but for brevity in this refactor I'll skip re-implementing them 
 // *unless* they are critical for the core workflow. 
