@@ -519,28 +519,60 @@ export function useImageUpload(options = {}) {
       // Check if this is a rate limit error (429)
       const isRateLimitError = err.response?.status === 429;
       if (isRateLimitError) {
-        // Extract Retry-After header or calculate delay
+        // Extract Retry-After header
         const retryAfter = err.response?.headers?.['retry-after'] || 
-                          err.response?.headers?.['Retry-After'];
-        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
-        const delay = retryAfterSeconds * 1000; // Convert to milliseconds
+                          err.response?.headers?.['Retry-After'] ||
+                          err.response?.headers?.['x-ratelimit-reset'];
+        
+        // Parse retry delay (default to 60 seconds if not provided)
+        let retryAfterSeconds = 60;
+        if (retryAfter) {
+          // If it's a timestamp, calculate seconds until then
+          const retryAfterNum = parseInt(retryAfter, 10);
+          if (retryAfterNum > 1000000000) { // Likely a Unix timestamp
+            retryAfterSeconds = Math.max(1, Math.ceil((retryAfterNum * 1000 - Date.now()) / 1000));
+          } else {
+            retryAfterSeconds = retryAfterNum;
+          }
+        }
+        
+        // Ensure minimum wait time of 5 seconds
+        retryAfterSeconds = Math.max(5, retryAfterSeconds);
         
         console.log(`[useImageUpload] Rate limit exceeded, retrying in ${retryAfterSeconds}s (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
 
         if (retryCount < MAX_RETRY_ATTEMPTS) {
-          // Update retry count
+          // Update retry count and status
           updateImages(prev => prev.map(img =>
             img.id === image.id
-              ? { ...img, retryCount: retryCount + 1, status: 'pending', error: `Rate limited. Retrying in ${retryAfterSeconds}s...` }
+              ? { 
+                  ...img, 
+                  retryCount: retryCount + 1, 
+                  status: 'pending', 
+                  error: `Rate limited. Retrying in ${retryAfterSeconds}s...` 
+                }
               : img
           ));
 
-          // Wait for the retry-after period
-          await new Promise(resolve => setTimeout(resolve, delay));
+          // Wait for the retry-after period (add a small buffer to ensure window has reset)
+          await new Promise(resolve => setTimeout(resolve, (retryAfterSeconds + 2) * 1000));
 
           // Retry the upload
           const updatedImage = { ...image, retryCount: retryCount + 1 };
           return await uploadSingleImage(updatedImage);
+        } else {
+          // Max retries reached for rate limit
+          updateImages(prev => prev.map(img =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  status: 'error',
+                  error: 'Rate limit exceeded. Please wait a minute and try again.',
+                  progress: 0,
+                }
+              : img
+          ));
+          return false;
         }
       }
 
@@ -744,18 +776,62 @@ export function useImageUpload(options = {}) {
       // Check if rate limited
       const isRateLimitError = err.response?.status === 429;
       if (isRateLimitError) {
-        // Mark all images as rate limited
+        // Extract Retry-After header
+        const retryAfter = err.response?.headers?.['retry-after'] || 
+                          err.response?.headers?.['Retry-After'] ||
+                          err.response?.headers?.['x-ratelimit-reset'];
+        
+        // Parse retry delay (default to 60 seconds if not provided)
+        let retryAfterSeconds = 60;
+        if (retryAfter) {
+          // If it's a timestamp, calculate seconds until then
+          const retryAfterNum = parseInt(retryAfter, 10);
+          if (retryAfterNum > 1000000000) { // Likely a Unix timestamp
+            retryAfterSeconds = Math.max(1, Math.ceil((retryAfterNum * 1000 - Date.now()) / 1000));
+          } else {
+            retryAfterSeconds = retryAfterNum;
+          }
+        }
+        
+        // Ensure minimum wait time of 5 seconds
+        retryAfterSeconds = Math.max(5, retryAfterSeconds);
+        
+        console.log(`[useImageUpload] Rate limit exceeded. Waiting ${retryAfterSeconds}s before retry...`);
+        
+        // Mark all images as rate limited with retry info
         updateImages(prev => prev.map(img =>
           imagesToUpload.some(upload => upload.id === img.id)
             ? {
                 ...img,
-                status: 'error',
-                error: 'Rate limit exceeded. Please wait a moment and try again.',
+                status: 'pending',
+                error: `Rate limit exceeded. Retrying in ${retryAfterSeconds}s...`,
                 progress: 0,
               }
             : img
         ));
-        return false;
+        
+        // Wait for the retry-after period
+        await new Promise(resolve => setTimeout(resolve, retryAfterSeconds * 1000));
+        
+        // Retry the batch upload once
+        console.log(`[useImageUpload] Retrying batch upload after rate limit wait...`);
+        try {
+          return await uploadBatch(imagesToUpload);
+        } catch (retryErr) {
+          // If retry also fails, mark as error and return false to trigger fallback
+          console.error(`[useImageUpload] Batch upload retry also failed:`, retryErr);
+          updateImages(prev => prev.map(img =>
+            imagesToUpload.some(upload => upload.id === img.id)
+              ? {
+                  ...img,
+                  status: 'error',
+                  error: 'Rate limit exceeded. Please wait a minute and try again.',
+                  progress: 0,
+                }
+              : img
+          ));
+          return false;
+        }
       }
 
       // Mark all images as error
@@ -799,21 +875,37 @@ export function useImageUpload(options = {}) {
     const success = await uploadBatch(imagesToUpload);
     
     if (!success) {
-      // If batch upload failed (e.g., rate limited), fall back to individual uploads with delays
-      console.log(`[useImageUpload] Batch upload failed, falling back to individual uploads`);
-      const limit = pLimit(1); // Upload one at a time to avoid rate limits
+      // Check if any images are still pending (not rate-limited)
+      const stillPending = imagesToUpload.filter(img => {
+        const currentImage = images.find(i => i.id === img.id);
+        return currentImage?.status === 'pending' || currentImage?.status === 'error';
+      });
       
-      const uploadPromises = imagesToUpload.map((image, index) =>
-        limit(async () => {
-          // Add delay between uploads to avoid rate limiting
-          if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between uploads
-          }
-          return uploadSingleImage(image);
-        })
-      );
+      // Only fall back to individual uploads if there are pending images that aren't rate-limited
+      // Rate-limited images will be handled by their retry logic
+      const nonRateLimited = stillPending.filter(img => {
+        const currentImage = images.find(i => i.id === img.id);
+        return !currentImage?.error?.includes('Rate limit');
+      });
       
-      await Promise.all(uploadPromises);
+      if (nonRateLimited.length > 0) {
+        console.log(`[useImageUpload] Batch upload failed for non-rate-limit reasons, falling back to individual uploads for ${nonRateLimited.length} files`);
+        const limit = pLimit(1); // Upload one at a time to avoid rate limits
+        
+        const uploadPromises = nonRateLimited.map((image, index) =>
+          limit(async () => {
+            // Add delay between uploads to avoid rate limiting
+            if (index > 0) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between uploads
+            }
+            return uploadSingleImage(image);
+          })
+        );
+        
+        await Promise.all(uploadPromises);
+      } else {
+        console.log(`[useImageUpload] All images are rate-limited. Waiting for retry...`);
+      }
     }
 
     setIsUploading(false);
