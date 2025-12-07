@@ -197,9 +197,10 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
     // Add images array if there are uploaded images
     if (uploadedImages.length > 0) {
       payload.images = uploadedImages.map((image, index) => ({
-        imageUrl: image.url,
-        caption: image.altText || null,
-        isPrimary: coverImageUrl ? image.url === coverImageUrl : index === 0,
+        // Fix: Use imageUrl consistently (both url and imageUrl are set in transformedImages)
+        imageUrl: image.imageUrl || image.url,
+        caption: image.caption || image.altText || null,
+        isPrimary: coverImageUrl ? (image.imageUrl || image.url) === coverImageUrl : index === 0,
       }));
     }
 
