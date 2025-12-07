@@ -7,28 +7,37 @@ let io = null;
 
 /**
  * Initialize Socket.IO server
- * @param {http.Server} server - HTTP server instance
+ * @param {http.Server} server - HTTP server instance (must be the same instance used by Express)
  */
-export function initializeWebSocket(server) {
-  const allowlist = new Set(
-    (process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [])
-      .map((s) => s && s.trim())
-      .filter(Boolean)
-  );
-  if (process.env.FRONTEND_URL) allowlist.add(process.env.FRONTEND_URL.trim());
-  [
-    'https://www.buildstate.com.au',
+export function initWebsocket(server) {
+  if (!server) {
+    throw new Error('HTTP server instance is required to initialize Socket.IO');
+  }
+
+  // Build CORS origin list - start with required origins
+  const corsOrigins = [
     'https://buildstate.com.au',
-    'https://api.buildstate.com.au',
-    'https://agentfm.vercel.app',
-    'http://localhost:5173',
     'http://localhost:3000',
-  ].forEach((o) => allowlist.add(o));
-  const dynamicOriginMatchers = [
-    /https:\/\/.+\.vercel\.app$/,
+    'http://localhost:5173',
   ];
 
+  // Add environment-based origins
+  if (process.env.FRONTEND_URL) {
+    corsOrigins.push(process.env.FRONTEND_URL.trim());
+  }
+  if (process.env.CORS_ORIGINS) {
+    process.env.CORS_ORIGINS.split(',')
+      .map((s) => s && s.trim())
+      .filter(Boolean)
+      .forEach((origin) => corsOrigins.push(origin));
+  }
+
+  // Add common Vercel patterns
+  corsOrigins.push('https://agentfm.vercel.app');
+  const dynamicOriginMatchers = [/https:\/\/.+\.vercel\.app$/];
+
   io = new Server(server, {
+    path: '/api/socket.io',
     cors: {
       origin: (origin, callback) => {
         // No origin (same-origin requests, Postman, etc.)
@@ -37,8 +46,8 @@ export function initializeWebSocket(server) {
           return callback(null, true);
         }
 
-        // Check allowlist
-        if (allowlist.has(origin)) {
+        // Check static allowlist
+        if (corsOrigins.includes(origin)) {
           logger.debug(`WebSocket CORS: Origin ${origin} found in allowlist`);
           return callback(null, true);
         }
@@ -54,9 +63,8 @@ export function initializeWebSocket(server) {
         return callback(new Error('Not allowed by CORS'));
       },
       credentials: true,
-      methods: ['GET', 'POST'],
     },
-    transports: ['websocket', 'polling'], // Support both WebSocket and polling for fallback
+    transports: ['websocket', 'polling'],
   });
 
   // Authentication middleware
@@ -129,7 +137,7 @@ export function initializeWebSocket(server) {
     });
   });
 
-  logger.info('✅ WebSocket server initialized successfully');
+  logger.info('✅ WebSocket server initialized successfully at /api/socket.io');
   return io;
 }
 
@@ -139,7 +147,7 @@ export function initializeWebSocket(server) {
  */
 export function getIO() {
   if (!io) {
-    logger.warn('Socket.IO not initialized. Call initializeWebSocket first.');
+    logger.warn('Socket.IO not initialized. Call initWebsocket first.');
   }
   return io;
 }
@@ -188,8 +196,12 @@ export function emitNotificationCountToUser(userId, count) {
   }
 }
 
+// Export for backward compatibility
+export const initializeWebSocket = initWebsocket;
+
 export default {
-  initializeWebSocket,
+  initWebsocket,
+  initializeWebSocket: initWebsocket,
   getIO,
   emitNotificationToUser,
   emitNotificationCountToUser,
