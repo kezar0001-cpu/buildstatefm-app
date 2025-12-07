@@ -194,6 +194,10 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     }
   };
 
+  // Handle both camelCase and PascalCase formats
+  const checklistItems = room.checklistItems || room.InspectionChecklistItem || [];
+  const sortedItems = [...checklistItems].sort((a, b) => (a.order || 0) - (b.order || 0));
+
   const handleBulkDelete = () => {
     if (selectedItems.size === 0) return;
     
@@ -205,10 +209,6 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
 
   const isAllSelected = sortedItems.length > 0 && selectedItems.size === sortedItems.length;
   const isIndeterminate = selectedItems.size > 0 && selectedItems.size < sortedItems.length;
-
-  // Handle both camelCase and PascalCase formats
-  const checklistItems = room.checklistItems || room.InspectionChecklistItem || [];
-  const sortedItems = [...checklistItems].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
     <Box>
