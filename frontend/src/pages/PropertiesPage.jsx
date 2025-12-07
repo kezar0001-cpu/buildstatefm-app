@@ -34,6 +34,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useTheme,
+  useMediaQuery,
+  Checkbox,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -48,6 +52,7 @@ import {
   ViewList as ViewListIcon,
   TableChart as TableChartIcon,
   Close as CloseIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -90,6 +95,8 @@ export default function PropertiesPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Bug Fix #2: Use URL search params for search and filter state
   // This allows bookmarking, sharing, and proper back/forward navigation
@@ -101,6 +108,7 @@ export default function PropertiesPage() {
   const [localSearchInput, setLocalSearchInput] = useState(searchTerm);
 
   // Bug Fix #3: Persist view mode preference in localStorage
+  // On mobile, always use 'list' view as it's the only one that looks good
   const [viewMode, setViewMode] = useState(() => {
     try {
       const stored = localStorage.getItem('properties-view-mode');
@@ -110,12 +118,23 @@ export default function PropertiesPage() {
     }
   });
 
+  // Force list view on mobile
+  const effectiveViewMode = isMobile ? 'list' : viewMode;
+
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [paginationError, setPaginationError] = useState(null);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState([]);
+
+  // Handle property selection
+  const handleTogglePropertySelection = (propertyId) => {
+    setSelectedPropertyIds((prev) =>
+      prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
+    );
+  };
 
   // Sync local search input with URL search param (for back/forward navigation)
   useEffect(() => {
@@ -390,13 +409,19 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleEdit = () => {
+  const handleEdit = (property = null) => {
+    if (property) {
+      setSelectedProperty(property);
+    }
     setEditMode(true);
     setDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = (property = null) => {
+    if (property) {
+      setSelectedProperty(property);
+    }
     setDeleteDialogOpen(true);
     handleMenuClose();
   };
@@ -464,7 +489,7 @@ export default function PropertiesPage() {
         <Paper
           sx={{
             p: { xs: 2, sm: 2.5, md: 3.5 },
-            borderRadius: { xs: 2, md: 3 },
+            borderRadius: { xs: 2, md: 2 },
             border: '1px solid',
             borderColor: 'divider',
             boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
@@ -520,59 +545,61 @@ export default function PropertiesPage() {
               </Select>
             </FormControl>
 
-            {/* View Toggle */}
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={handleViewModeChange}
-              aria-label="View mode toggle"
-              size="small"
-              sx={{
-                backgroundColor: 'background.paper',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider',
-                '& .MuiToggleButtonGroup-grouped': {
-                  minWidth: 40,
-                  border: 'none',
-                  '&:not(:first-of-type)': {
-                    borderRadius: 2,
+            {/* View Toggle - Hidden on mobile */}
+            {!isMobile && (
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={handleViewModeChange}
+                aria-label="View mode toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
                   },
-                  '&:first-of-type': {
-                    borderRadius: 2,
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
                   },
-                },
-                '& .MuiToggleButton-root': {
-                  color: 'text.secondary',
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
+                  '& .Mui-selected': {
+                    color: 'error.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
                   },
-                },
-                '& .Mui-selected': {
-                  color: 'error.main',
-                  backgroundColor: 'transparent !important',
-                  '&:hover': {
-                    backgroundColor: 'action.hover !important',
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="grid" aria-label="grid view">
-                <Tooltip title="Grid View">
-                  <ViewModuleIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list" aria-label="list view">
-                <Tooltip title="List View">
-                  <ViewListIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="table" aria-label="table view">
-                <Tooltip title="Table View">
-                  <TableChartIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
+                }}
+              >
+                <ToggleButton value="grid" aria-label="grid view">
+                  <Tooltip title="Grid View">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="list view">
+                  <Tooltip title="List View">
+                    <ViewListIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <Tooltip title="Table View">
+                    <TableChartIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
           </Stack>
         </Paper>
 
@@ -591,9 +618,9 @@ export default function PropertiesPage() {
         {/* Loading State */}
         {isLoading ? (
           <Box sx={{ mt: 3 }}>
-            {viewMode === 'grid' && <LoadingSkeleton variant="card" count={6} height={300} />}
-            {viewMode === 'list' && <LoadingSkeleton variant="list" count={5} showAvatar={true} height={120} />}
-            {viewMode === 'table' && <LoadingSkeleton variant="table" count={5} />}
+            {effectiveViewMode === 'grid' && <LoadingSkeleton variant="card" count={6} height={300} />}
+            {effectiveViewMode === 'list' && <LoadingSkeleton variant="list" count={5} showAvatar={true} height={120} />}
+            {effectiveViewMode === 'table' && <LoadingSkeleton variant="table" count={5} />}
           </Box>
         ) : isError ? (
           <DataState
@@ -616,7 +643,7 @@ export default function PropertiesPage() {
           ) : (
             <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
               {/* Grid View */}
-              {viewMode === 'grid' && (
+              {effectiveViewMode === 'grid' && (
                 <Grid container spacing={3}>
                   {properties.map((property) => (
                     <Grid item xs={12} sm={6} md={4} key={property.id}>
@@ -742,157 +769,190 @@ export default function PropertiesPage() {
               )}
 
               {/* List View */}
-              {viewMode === 'list' && (
+              {effectiveViewMode === 'list' && (
                 <Stack spacing={2}>
-                  {properties.map((property) => (
-                    <Card
-                      key={property.id}
-                      sx={{
-                        display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' },
-                        cursor: 'pointer',
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        overflow: 'hidden',
-                        '&:hover': {
-                          boxShadow: 3,
-                        },
-                      }}
-                      onClick={() => handleCardClick(property.id)}
-                    >
-                      {/* Property Image */}
-                      <Box
+                  {properties.map((property) => {
+                    const isSelected = selectedPropertyIds.includes(property.id);
+                    return (
+                      <Card
+                        key={property.id}
                         sx={{
-                          width: { xs: '100%', md: 250 },
-                          height: { xs: 180, md: 'auto' },
-                          minHeight: { md: 200 },
-                          flexShrink: 0,
+                          borderRadius: 2,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            boxShadow: 3,
+                          },
+                        }}
+                        onClick={(e) => {
+                          // Don't open modal if clicking on checkbox or action buttons
+                          if (e.target.closest('input[type="checkbox"]') || 
+                              e.target.closest('.MuiCheckbox-root') ||
+                              e.target.closest('button')) {
+                            return;
+                          }
+                          handleCardClick(property.id);
                         }}
                       >
-                        <PropertyImageCarousel
-                          images={property.processedImages}
-                          fallbackText={property.name}
-                          height={{ xs: 180, md: '100%' }}
-                          showDots={property.hasMultipleImages}
-                          showArrows={property.hasMultipleImages}
-                          showCounter={property.hasMultipleImages}
-                          containerSx={listCarouselContainerSx}
-                        />
-                      </Box>
-
-                      {/* Property Content */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          flexGrow: 1,
-                          p: 2,
-                        }}
-                      >
-                        {/* Header */}
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            mb: 1.5,
-                          }}
-                        >
-                          <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                              {property.name}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                              <LocationIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary">
-                                {property.formattedAddress}
-                              </Typography>
+                        <CardContent sx={{ p: 2.5 }}>
+                          <Stack spacing={2}>
+                            {/* Header Row */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleTogglePropertySelection(property.id);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    color="primary"
+                                    sx={{ p: 0.5 }}
+                                    inputProps={{ 'aria-label': `Select property ${property.name}` }}
+                                  />
+                                  <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                    Property
+                                  </Typography>
+                                </Box>
+                                <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                                  {property.name}
+                                </Typography>
+                                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                                  <Chip
+                                    label={property.formattedStatus}
+                                    color={property.statusColor}
+                                    size="small"
+                                  />
+                                  {property.propertyType && (
+                                    <Chip
+                                      label={property.propertyType}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </Stack>
+                              </Box>
+                              <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCardClick(property.id);
+                                  }}
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(property);
+                                  }}
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(property);
+                                  }}
+                                  sx={{ color: 'error.main' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
                             </Box>
-                          </Box>
-                          {/* Bug Fix: Add ARIA label for accessibility */}
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, property)}
-                            aria-label={`Actions for ${property.name}`}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </Box>
+                            <Divider />
 
-                        {/* Description */}
-                        {property.description && (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{
-                              mb: 2,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {property.description}
-                          </Typography>
-                        )}
+                            {/* Details Section - Inner Gray Panel */}
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: 'action.hover',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                              }}
+                            >
+                              <Stack spacing={1.5}>
+                                {/* Address */}
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                    Address
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    <LocationIcon fontSize="small" color="action" />
+                                    <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                                      {property.formattedAddress || 'N/A'}
+                                    </Typography>
+                                  </Box>
+                                </Box>
 
-                        {/* Chips and Stats */}
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                          <Chip
-                            size="small"
-                            label={property.formattedStatus}
-                            color={property.statusColor}
-                          />
-                          <Chip
-                            size="small"
-                            icon={<ApartmentIcon />}
-                            label={`${property.totalUnits} units`}
-                            variant="outlined"
-                          />
-                          <Chip
-                            size="small"
-                            label={property.propertyType || 'N/A'}
-                            variant="outlined"
-                          />
-                        </Box>
+                                {/* Units */}
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                    Units
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    <ApartmentIcon fontSize="small" color="action" />
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      {property.totalUnits || 0} units
+                                    </Typography>
+                                  </Box>
+                                </Box>
 
-                        {/* Footer Stats */}
-                        {property._count && (
-                          <Typography variant="caption" color="text.secondary">
-                            {property._count.jobs ?? 0} active jobs • {property._count.inspections ?? 0} inspections
-                          </Typography>
-                        )}
-                      </Box>
+                                {/* Total Area */}
+                                {property.totalArea && (
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                      Total Area
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                      {property.totalArea} m²
+                                    </Typography>
+                                  </Box>
+                                )}
 
-                      {/* Occupancy Widget (List View Only) */}
-                      {/* Bug Fix: Only show occupancy widget if occupancyStats is available */}
-                      {/* occupancyStats is only calculated in detail view, not list view */}
-                      {property.occupancyStats && (
-                        <Box
-                          sx={{
-                            display: { xs: 'none', lg: 'flex' },
-                            alignItems: 'center',
-                            p: 2,
-                            borderLeft: '1px solid',
-                            borderColor: 'divider',
-                            minWidth: 200,
-                          }}
-                        >
-                          <PropertyOccupancyWidget
-                            occupancyStats={property.occupancyStats}
-                            totalUnits={property.totalUnits}
-                            compact={true}
-                          />
-                        </Box>
-                      )}
-                    </Card>
-                  ))}
+                                {/* Stats */}
+                                {property._count && (
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                      Activity
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                      {property._count.jobs ?? 0} jobs • {property._count.inspections ?? 0} inspections
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Stack>
+                            </Box>
+
+                            {/* Description */}
+                            {property.description && (
+                              <Box>
+                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                  Description
+                                </Typography>
+                                <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                                  {property.description}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </Stack>
               )}
 
               {/* Table View */}
-              {viewMode === 'table' && (
+              {effectiveViewMode === 'table' && (
                 <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                   <Table size="small" aria-label="properties table view">
                     <TableHead>
