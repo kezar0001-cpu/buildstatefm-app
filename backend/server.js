@@ -16,7 +16,7 @@ import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
 import scheduleOverdueInspectionCron from './src/cron/overdueInspections.js';
 import { initializeCronJobs } from './src/jobs/cronJobs.js';
-import { initializeWebSocket } from './src/websocket.js';
+import { initWebsocket } from './src/websocket.js';
 
 // ---- Load env
 dotenv.config();
@@ -492,8 +492,8 @@ async function startServer() {
       logger.info(`Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
     });
 
-    // Initialize WebSocket server
-    initializeWebSocket(server);
+    // Initialize WebSocket server (must use same httpServer instance as Express)
+    initWebsocket(server);
 
     let shuttingDown = false;
     const shutdown = async (signal) => {

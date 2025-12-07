@@ -21,66 +21,9 @@ import { apiClient } from '../api/client';
 import { format } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
-import io from 'socket.io-client';
-import { getAuthToken } from '../lib/auth';
+import { getSocket, isSocketConnected } from '../utils/socketClient';
 import { useNavigate } from 'react-router-dom';
 import logger from '../utils/logger';
-
-const SOCKET_DISABLED = String(import.meta.env.VITE_NOTIFICATIONS_DISABLE_SOCKET || '').toLowerCase() === 'true';
-
-function normalizePathPrefix(pathname) {
-  if (!pathname || pathname === '/') return '';
-  const trimmed = `${pathname}`.trim();
-  if (!trimmed) return '';
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeading.replace(/\/+$/, '');
-}
-
-function normalizeSocketPath(path) {
-  if (!path) return null;
-  const trimmed = `${path}`.trim();
-  if (!trimmed) return null;
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeading.replace(/\/+$/, '');
-}
-
-function resolveSocketConfiguration() {
-  const explicitWsBase =
-    import.meta.env.VITE_NOTIFICATIONS_WS_URL || import.meta.env.VITE_NOTIFICATIONS_SOCKET_URL;
-  const apiBase =
-    explicitWsBase ||
-    import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_API_BASE ||
-    (typeof window !== 'undefined' ? window.location.origin : '');
-
-  let resolvedUrl;
-  try {
-    resolvedUrl = new URL(apiBase, typeof window !== 'undefined' ? window.location.origin : undefined);
-  } catch (error) {
-    logger.warn('[NotificationBell] Failed to parse API base URL for WebSocket configuration:', error);
-  }
-
-  const protocol = resolvedUrl?.protocol === 'https:' ? 'wss:' : resolvedUrl?.protocol === 'http:' ? 'ws:' : null;
-  const wsUrl = resolvedUrl
-    ? `${protocol || 'ws:'}//${resolvedUrl.host}`.replace(/\/+$/, '')
-    : apiBase.replace(/^http/, 'ws').replace(/\/+$/, '');
-
-  const basePath = normalizePathPrefix(resolvedUrl?.pathname || '');
-  const envSocketPath = normalizeSocketPath(import.meta.env.VITE_NOTIFICATIONS_SOCKET_PATH);
-
-  const pathCandidates = [];
-  if (envSocketPath) pathCandidates.push(envSocketPath);
-  if (basePath) pathCandidates.push(normalizeSocketPath(`${basePath}/socket.io`));
-  pathCandidates.push('/socket.io');
-  pathCandidates.push('/api/socket.io');
-
-  const socketPaths = Array.from(new Set(pathCandidates.filter(Boolean)));
-
-  return {
-    wsUrl,
-    socketPaths,
-  };
-}
 
 const NOTIFICATION_TYPE_COLORS = {
   INSPECTION_SCHEDULED: 'info',
@@ -96,11 +39,6 @@ const NOTIFICATION_TYPE_COLORS = {
 export default function NotificationBell() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
-  const [forcePollingTransport, setForcePollingTransport] = useState(false);
-  const [disableSocketClient, setDisableSocketClient] = useState(false);
-  const { wsUrl, socketPaths } = useMemo(() => resolveSocketConfiguration(), []);
-  const [socketPathIndex, setSocketPathIndex] = useState(0);
-  const activeSocketPath = socketPaths[socketPathIndex] || '/socket.io';
   const queryClient = useQueryClient();
   const socketRef = useRef(null);
   const navigate = useNavigate();
@@ -119,142 +57,75 @@ export default function NotificationBell() {
     retry: 1,
   });
 
-  // WebSocket connection setup
+  // WebSocket connection setup using centralized socket client
   useEffect(() => {
-    if (SOCKET_DISABLED) {
-      logger.info('[NotificationBell] WebSocket connection disabled via configuration');
+    // Get socket instance from centralized client
+    const socket = getSocket();
+
+    if (!socket) {
+      logger.info('[NotificationBell] Socket.IO not available (disabled or no auth token)');
       setIsWebSocketConnected(false);
-      return undefined;
-    }
-
-    if (disableSocketClient) {
-      logger.info('[NotificationBell] WebSocket client disabled after repeated connection failures');
-      setIsWebSocketConnected(false);
-      return undefined;
-    }
-
-    if (!wsUrl) {
-      logger.warn('[NotificationBell] Unable to resolve WebSocket URL; relying on HTTP polling for notifications');
-      setIsWebSocketConnected(false);
-      return undefined;
-    }
-
-    const token = getAuthToken();
-
-    if (!token) {
-      logger.warn('[NotificationBell] No auth token available for WebSocket connection');
       return;
     }
 
-    // Initialize Socket.IO client
-    const transports = forcePollingTransport ? ['polling'] : ['polling', 'websocket'];
-
-    logger.log('[NotificationBell] Connecting to WebSocket:', {
-      url: wsUrl,
-      path: activeSocketPath,
-      transports,
-    });
-
-    const socket = io(wsUrl, {
-      auth: {
-        token,
-      },
-      path: activeSocketPath,
-      transports,
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-    });
-
     socketRef.current = socket;
 
+    // Update connection state based on current socket status
+    setIsWebSocketConnected(socket.connected);
+
     // Connection event handlers
-    socket.on('connect', () => {
-      logger.log('[NotificationBell] WebSocket connected:', socket.id);
+    const handleConnect = () => {
+      logger.log('[NotificationBell] Socket.IO connected:', socket.id);
       setIsWebSocketConnected(true);
-    });
+    };
 
-    socket.on('disconnect', (reason) => {
-      logger.log('[NotificationBell] WebSocket disconnected:', reason);
+    const handleDisconnect = (reason) => {
+      logger.log('[NotificationBell] Socket.IO disconnected:', reason);
       setIsWebSocketConnected(false);
-    });
+    };
 
-    socket.on('connect_error', (error) => {
-      logger.error(
-        `[NotificationBell] WebSocket connection error on path ${activeSocketPath}:`,
-        error?.message || error
-      );
+    const handleConnectError = (error) => {
+      logger.error('[NotificationBell] Socket.IO connection error:', error?.message || error);
       setIsWebSocketConnected(false);
-
-      if (!forcePollingTransport) {
-        if (socketPathIndex + 1 < socketPaths.length) {
-          const nextPath = socketPaths[socketPathIndex + 1];
-          logger.warn('[NotificationBell] Retrying WebSocket connection with alternate path:', nextPath);
-          setSocketPathIndex((prev) => (prev + 1 < socketPaths.length ? prev + 1 : prev));
-          return;
-        }
-
-        if (error?.message === 'websocket error' || error?.message === 'xhr poll error') {
-          logger.warn('[NotificationBell] Falling back to HTTP polling transport for notifications');
-          setForcePollingTransport(true);
-          return;
-        }
-      }
-
-      const statusCode =
-        error?.description?.status ||
-        error?.context?.status ||
-        error?.context?.response?.status ||
-        error?.status;
-
-      logger.warn(
-        `[NotificationBell] Disabling WebSocket after repeated connection failures${
-          statusCode ? ` (status ${statusCode})` : ''
-        }; relying on HTTP polling.`
-      );
-      setDisableSocketClient(true);
-      setForcePollingTransport(false);
-      setSocketPathIndex(0);
-    });
+    };
 
     // Listen for new notifications
-    socket.on('notification:new', (notification) => {
+    const handleNotificationNew = (notification) => {
       logger.log('[NotificationBell] Received new notification:', notification);
-
       // Invalidate and refetch notification queries to update the UI
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.count() });
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list() });
-    });
+    };
 
     // Listen for notification count updates
-    socket.on('notification:count', ({ count }) => {
+    const handleNotificationCount = ({ count }) => {
       logger.log('[NotificationBell] Received notification count update:', count);
-
       // Update the count in the query cache
       queryClient.setQueryData(queryKeys.notifications.count(), { count });
-    });
+    };
+
+    // Subscribe to events only after connection is established
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('notification:new', handleNotificationNew);
+    socket.on('notification:count', handleNotificationCount);
 
     // Cleanup on unmount
     return () => {
-      logger.log('[NotificationBell] Cleaning up WebSocket connection');
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('connect_error');
-      socket.off('notification:new');
-      socket.off('notification:count');
-      socket.disconnect();
+      logger.log('[NotificationBell] Cleaning up Socket.IO event listeners');
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('notification:new', handleNotificationNew);
+      socket.off('notification:count', handleNotificationCount);
       socketRef.current = null;
     };
-  }, [
-    activeSocketPath,
-    disableSocketClient,
-    forcePollingTransport,
-    queryClient,
-    socketPathIndex,
-    socketPaths,
-    wsUrl,
-  ]);
+  }, [queryClient]);
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({

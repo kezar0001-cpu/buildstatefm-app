@@ -1417,6 +1417,9 @@ router.post(
   requireUsage('properties', async (userId) => await getPropertyCount(userId)),
   async (req, res) => {
   try {
+    // Fix: Extract units BEFORE parsing propertySchema (since units is not in propertySchema)
+    const unitsData = Array.isArray(req.body?.units) ? req.body.units : [];
+
     const parsed = applyLegacyAliases(propertySchema.parse(req.body ?? {}));
     // Remove legacy alias fields (they've been converted to standard fields)
     // Keep the converted fields: zipCode, propertyType, imageUrl
@@ -1474,8 +1477,7 @@ router.post(
       ...(coverImageUrl ? { imageUrl: coverImageUrl } : {}),
     };
 
-    // Fix: Extract and validate units from request body
-    const unitsData = Array.isArray(req.body.units) ? req.body.units : [];
+    // Fix: Validate and process units (extracted earlier before propertySchema.parse)
     let validUnits = [];
     if (unitsData.length > 0) {
       try {
