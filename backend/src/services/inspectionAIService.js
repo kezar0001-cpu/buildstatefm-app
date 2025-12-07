@@ -3,8 +3,14 @@ import logger from '../utils/logger.js';
 
 class InspectionAIService {
   constructor() {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      logger.error('ANTHROPIC_API_KEY environment variable is not set');
+      throw new Error('AI service configuration error: API key not configured');
+    }
+    
     this.client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: apiKey,
     });
 
     // Use the same working models as blogAIService
@@ -61,47 +67,122 @@ class InspectionAIService {
   }
 
   /**
-   * Parse AI JSON response safely
+   * Parse AI JSON response safely with multiple fallback strategies
    */
   _parseAIJsonResponse(responseText, operationName = 'parseJSON') {
+    const originalText = responseText;
+    
     try {
-      // First, try to extract JSON from markdown code blocks
-      let jsonString = responseText;
+      // Strategy 1: Try direct parsing first (in case it's already valid JSON)
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        // Not valid JSON, continue with extraction
+      }
+
+      // Strategy 2: Extract JSON from markdown code blocks
+      let jsonString = responseText.trim();
       
       // Remove markdown code block markers if present
-      jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      jsonString = jsonString
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
       
-      // Try to find JSON object - use non-greedy match
-      let jsonMatch = jsonString.match(/\{[\s\S]*?\}/);
+      // Strategy 3: Find JSON object using balanced braces
+      let jsonMatch = null;
+      
+      // Try to find the outermost JSON object by counting braces
+      let braceCount = 0;
+      let startIndex = -1;
+      for (let i = 0; i < jsonString.length; i++) {
+        if (jsonString[i] === '{') {
+          if (startIndex === -1) startIndex = i;
+          braceCount++;
+        } else if (jsonString[i] === '}') {
+          braceCount--;
+          if (braceCount === 0 && startIndex !== -1) {
+            jsonMatch = jsonString.substring(startIndex, i + 1);
+            break;
+          }
+        }
+      }
+      
+      // Fallback to regex if brace counting didn't work
       if (!jsonMatch) {
-        // Try greedy match as fallback
         jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonMatch = jsonMatch[0];
+        }
       }
       
       if (!jsonMatch) {
-        logger.error(`${operationName}: No JSON object found in response`, { responseText: responseText.substring(0, 500) });
+        logger.error(`${operationName}: No JSON object found in response`, { 
+          responseText: originalText.substring(0, 1000),
+          responseLength: originalText.length
+        });
         throw new Error('Failed to find JSON object in AI response');
       }
 
-      jsonString = jsonMatch[0];
+      jsonString = jsonMatch;
 
-      // Clean control characters but preserve escaped sequences
-      jsonString = jsonString
-        .replace(/[\x00-\x1F]/g, (match) => {
-          // Preserve already escaped sequences
-          if (match === '\n' && jsonString.includes('\\n')) return match;
-          if (match === '\t' && jsonString.includes('\\t')) return match;
-          if (match === '\r' && jsonString.includes('\\r')) return match;
-          // Escape unescaped control characters
-          return '\\u' + ('0000' + match.charCodeAt(0).toString(16)).slice(-4);
+      // Strategy 4: Clean and fix common JSON issues
+      // Remove trailing commas before closing braces/brackets
+      jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Fix control characters in string values (but preserve escaped ones)
+      jsonString = jsonString.replace(/("(?:[^"\\]|\\.)*")|[\x00-\x1F]/g, (match, stringMatch) => {
+        // If it's inside a quoted string, keep it as is
+        if (stringMatch) return stringMatch;
+        // Otherwise, escape the control character
+        return '\\u' + ('0000' + match.charCodeAt(0).toString(16)).slice(-4);
+      });
+
+      // Strategy 5: Try parsing the cleaned JSON
+      try {
+        const parsed = JSON.parse(jsonString);
+        return parsed;
+      } catch (parseError) {
+        // Strategy 6: Try to extract just the items array if the full object fails
+        const itemsMatch = jsonString.match(/"items"\s*:\s*\[([\s\S]*)\]/);
+        if (itemsMatch) {
+          try {
+            // Try to parse as a simple array
+            const itemsArray = JSON.parse('[' + itemsMatch[1] + ']');
+            return { items: itemsArray };
+          } catch (e) {
+            // Last resort: try to manually extract items
+            const itemDescriptions = jsonString.match(/"description"\s*:\s*"([^"]+)"/g);
+            if (itemDescriptions && itemDescriptions.length > 0) {
+              const items = itemDescriptions.map(desc => {
+                const match = desc.match(/"description"\s*:\s*"([^"]+)"/);
+                return {
+                  description: match ? match[1] : desc.replace(/"/g, ''),
+                  priority: 'MEDIUM',
+                  category: 'OTHER'
+                };
+              });
+              logger.warn(`${operationName}: Using fallback extraction, parsed ${items.length} items`);
+              return { items };
+            }
+          }
+        }
+        
+        // If all strategies fail, log detailed error
+        logger.error(`${operationName}: JSON parsing failed after all strategies`, {
+          error: parseError.message,
+          jsonString: jsonString.substring(0, 500),
+          originalText: originalText.substring(0, 1000),
+          position: parseError.message.match(/position (\d+)/)?.[1]
         });
-
-      const parsed = JSON.parse(jsonString);
-      return parsed;
+        throw new Error(`Failed to parse JSON from AI response: ${parseError.message}`);
+      }
     } catch (error) {
       logger.error(`${operationName}: JSON parsing failed`, { 
         error: error.message,
-        responseText: responseText.substring(0, 500)
+        responseText: originalText.substring(0, 1000),
+        stack: error.stack
       });
       throw new Error(`Failed to parse JSON from AI response: ${error.message}`);
     }
@@ -156,16 +237,9 @@ Inspection type context:
 - EMERGENCY: Safety hazards, urgent repairs needed
 - COMPLIANCE: Building codes, safety regulations
 
-Respond with ONLY valid JSON (no markdown, no code blocks, no explanations):
-{
-  "items": [
-    {
-      "description": "Specific, actionable checklist item based on the description (e.g., 'Check for water damage on ceiling in northeast corner')",
-      "priority": "HIGH | MEDIUM | LOW",
-      "category": "SAFETY | FUNCTIONALITY | AESTHETICS | CLEANLINESS | STRUCTURAL | PLUMBING | ELECTRICAL"
-    }
-  ]
-}`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do NOT include markdown code blocks, explanations, or any other text. Start your response with { and end with }. Example format:
+
+{"items":[{"description":"Check for water damage on ceiling","priority":"HIGH","category":"STRUCTURAL"},{"description":"Inspect floor tiles for cracks","priority":"MEDIUM","category":"AESTHETICS"}]}`;
     } else {
       prompt = `You are an expert property inspector. Generate a comprehensive inspection checklist for a ${roomName} (${roomType}) during a ${inspectionType} inspection.
 
@@ -184,48 +258,147 @@ Inspection type considerations:
 - EMERGENCY: Safety hazards, urgent repairs needed
 - COMPLIANCE: Building codes, safety regulations
 
-Respond with ONLY valid JSON (no markdown, no code blocks, no explanations):
-{
-  "items": [
-    {
-      "description": "Clear, specific inspection point (e.g., 'Check walls for cracks, holes, or water damage')",
-      "priority": "HIGH | MEDIUM | LOW",
-      "category": "SAFETY | FUNCTIONALITY | AESTHETICS | CLEANLINESS"
-    }
-  ]
-}`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do NOT include markdown code blocks, explanations, or any other text. Start your response with { and end with }. Example format:
+
+{"items":[{"description":"Check walls for cracks, holes, or water damage","priority":"MEDIUM","category":"STRUCTURAL"},{"description":"Verify all electrical outlets are functioning","priority":"HIGH","category":"SAFETY"}]}`;
     }
 
     try {
-      const message = await this._callWithRetry(
-        async (model) => {
-          return await this.client.messages.create({
-            model: model,
-            max_tokens: 2048,
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
-          });
-        },
-        'generateChecklist'
-      );
+      let message;
+      try {
+        message = await this._callWithRetry(
+          async (model) => {
+            return await this.client.messages.create({
+              model: model,
+              max_tokens: 2048,
+              messages: [{
+                role: 'user',
+                content: prompt
+              }]
+            });
+          },
+          'generateChecklist'
+        );
+      } catch (apiError) {
+        logger.error('AI API call failed', {
+          error: apiError.message,
+          errorStatus: apiError.status,
+          errorCode: apiError.code,
+          roomType,
+          inspectionType
+        });
+        throw new Error(`AI service unavailable: ${apiError.message || 'Unknown error'}`);
+      }
 
-      const responseText = message.content[0].text;
-      const result = this._parseAIJsonResponse(responseText, 'generateChecklist');
+      // Validate message structure
+      if (!message || !message.content) {
+        logger.error('Invalid AI response structure - no content', { message });
+        throw new Error('AI service returned invalid response structure');
+      }
+
+      // Handle different content formats
+      let responseText;
+      if (Array.isArray(message.content)) {
+        if (message.content.length === 0) {
+          logger.error('Invalid AI response structure - empty content array', { message });
+          throw new Error('AI service returned empty response');
+        }
+        // Get text from first content block
+        const firstContent = message.content[0];
+        if (firstContent.type === 'text' && firstContent.text) {
+          responseText = firstContent.text;
+        } else if (typeof firstContent === 'string') {
+          responseText = firstContent;
+        } else if (firstContent.text) {
+          responseText = firstContent.text;
+        } else {
+          logger.error('Invalid AI response structure - cannot extract text', { 
+            message, 
+            firstContent,
+            contentTypes: message.content.map(c => typeof c === 'object' ? c.type : typeof c)
+          });
+          throw new Error('AI service returned response in unexpected format');
+        }
+      } else if (typeof message.content === 'string') {
+        responseText = message.content;
+      } else if (message.content.text) {
+        responseText = message.content.text;
+      } else {
+        logger.error('Invalid AI response structure - unknown format', { message });
+        throw new Error('AI service returned response in unknown format');
+      }
+      
+      if (!responseText || typeof responseText !== 'string') {
+        logger.error('AI response is not a string', { 
+          responseType: typeof responseText,
+          response: responseText 
+        });
+        throw new Error('AI service returned non-string response');
+      }
+      
+      // Log the raw response for debugging (first 500 chars)
+      logger.debug('AI response received', {
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 500),
+        startsWithBrace: responseText.trim().startsWith('{'),
+        hasMarkdown: responseText.includes('```')
+      });
+
+      let result;
+      try {
+        result = this._parseAIJsonResponse(responseText, 'generateChecklist');
+      } catch (parseError) {
+        logger.error('JSON parsing failed', {
+          parseError: parseError.message,
+          responsePreview: responseText.substring(0, 1000),
+          roomType,
+          inspectionType
+        });
+        throw new Error(`Failed to parse AI response: ${parseError.message}`);
+      }
+
+      // Validate result structure
+      if (!result || typeof result !== 'object') {
+        logger.error('Parsed result is not an object', { result });
+        throw new Error('AI service returned invalid data format');
+      }
+
+      const items = result.items || result.issues || [];
+      
+      if (!Array.isArray(items)) {
+        logger.error('Items is not an array', { items, result });
+        throw new Error('AI service did not return a valid items array');
+      }
+
+      // Filter out invalid items
+      const validItems = items.filter(item => {
+        if (!item || typeof item !== 'object') return false;
+        if (!item.description || typeof item.description !== 'string' || item.description.trim().length === 0) {
+          return false;
+        }
+        return true;
+      });
+
+      if (validItems.length === 0) {
+        logger.warn('No valid items found after filtering', { items, result });
+        throw new Error('AI service did not return any valid checklist items');
+      }
 
       logger.info('Generated checklist', {
         roomType,
         roomName,
         inspectionType,
         hasDescription,
-        itemCount: result.items?.length || 0
+        itemCount: validItems.length,
+        totalItems: items.length
       });
 
-      return result.items || [];
+      return validItems;
     } catch (error) {
       logger.error('Error generating checklist', {
         error: error.message,
+        errorStack: error.stack,
+        errorName: error.name,
         roomType,
         inspectionType,
         hasDescription
