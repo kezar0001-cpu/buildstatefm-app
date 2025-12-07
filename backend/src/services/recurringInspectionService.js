@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import cron from 'node-cron';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -112,6 +113,7 @@ export async function generateRecurringInspections() {
             for (const templateRoom of recurring.template.rooms) {
               const room = await prisma.inspectionRoom.create({
                 data: {
+                  id: randomUUID(),
                   inspectionId: inspection.id,
                   name: templateRoom.name,
                   roomType: templateRoom.roomType,
