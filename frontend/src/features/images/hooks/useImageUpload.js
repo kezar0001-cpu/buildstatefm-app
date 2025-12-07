@@ -166,6 +166,7 @@ export function useImageUpload(options = {}) {
   const abortControllersRef = useRef(new Map());
   const lastProgressRefs = useRef({}); // Track last progress update per image
   const mountedRef = useRef(false);
+  const processingLockRef = useRef(false); // Prevent race conditions in processQueue
 
   // Get the current images (controlled or uncontrolled)
   const images = isControlled ? controlledImages : internalImages;
@@ -854,62 +855,70 @@ export function useImageUpload(options = {}) {
    * Process upload queue with batched uploads
    */
   const processQueue = useCallback(async () => {
-    if (isUploading) return;
-
-    setIsUploading(true);
-    logger.log('[useImageUpload] Starting queue processing');
-
-    const imagesToUpload = images.filter(img =>
-      queue.includes(img.id) && img.status === 'pending'
-    );
-
-    if (imagesToUpload.length === 0) {
-      setIsUploading(false);
-      setQueue([]);
+    // Prevent race conditions with ref-based lock
+    if (processingLockRef.current) {
+      console.log('[useImageUpload] processQueue already running, skipping duplicate call');
+      return;
+    }
+    
+    if (isUploading) {
+      console.log('[useImageUpload] Already uploading, skipping processQueue');
       return;
     }
 
-    // Batch upload all files in a single request (more efficient, reduces rate limiting)
-    console.log(`[useImageUpload] Batch uploading ${imagesToUpload.length} files in a single request`);
-    
-    const success = await uploadBatch(imagesToUpload);
-    
-    if (!success) {
-      // Check if any images are still pending (not rate-limited)
-      const stillPending = imagesToUpload.filter(img => {
-        const currentImage = images.find(i => i.id === img.id);
-        return currentImage?.status === 'pending' || currentImage?.status === 'error';
-      });
-      
-      // Only fall back to individual uploads if there are pending images that aren't rate-limited
-      // Rate-limited images will be handled by their retry logic
-      const nonRateLimited = stillPending.filter(img => {
-        const currentImage = images.find(i => i.id === img.id);
-        return !currentImage?.error?.includes('Rate limit');
-      });
-      
-      if (nonRateLimited.length > 0) {
-        console.log(`[useImageUpload] Batch upload failed for non-rate-limit reasons, falling back to individual uploads for ${nonRateLimited.length} files`);
-        const limit = pLimit(1); // Upload one at a time to avoid rate limits
-        
-        const uploadPromises = nonRateLimited.map((image, index) =>
-          limit(async () => {
-            // Add delay between uploads to avoid rate limiting
-            if (index > 0) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between uploads
-            }
-            return uploadSingleImage(image);
-          })
-        );
-        
-        await Promise.all(uploadPromises);
-      } else {
-        console.log(`[useImageUpload] All images are rate-limited. Waiting for retry...`);
-      }
-    }
+    // Set lock immediately to prevent concurrent execution
+    processingLockRef.current = true;
+    setIsUploading(true);
+    logger.log('[useImageUpload] Starting queue processing');
 
-    setIsUploading(false);
-    logger.log('[useImageUpload] Queue processing complete');
+    try {
+      const imagesToUpload = images.filter(img =>
+        queue.includes(img.id) && img.status === 'pending'
+      );
+
+      if (imagesToUpload.length === 0) {
+        setQueue([]);
+        return;
+      }
+
+      // Batch upload all files in a single request (more efficient, reduces rate limiting)
+      console.log(`[useImageUpload] Batch uploading ${imagesToUpload.length} files in a single request`);
+      
+      const success = await uploadBatch(imagesToUpload);
+      
+      if (!success) {
+        // Check if any images are still pending (not rate-limited)
+        const stillPending = imagesToUpload.filter(img => {
+          const currentImage = images.find(i => i.id === img.id);
+          return currentImage?.status === 'pending' || currentImage?.status === 'error';
+        });
+        
+        // Only fall back to individual uploads if there are pending images that aren't rate-limited
+        // Rate-limited images will be handled by their retry logic
+        const nonRateLimited = stillPending.filter(img => {
+          const currentImage = images.find(i => i.id === img.id);
+          return !currentImage?.error?.includes('Rate limit');
+        });
+        
+        if (nonRateLimited.length > 0) {
+          console.log(`[useImageUpload] Batch upload failed for non-rate-limit reasons, falling back to individual uploads for ${nonRateLimited.length} files`);
+          const limit = pLimit(1); // Upload one at a time to avoid rate limits
+          
+          const uploadPromises = nonRateLimited.map((image, index) =>
+            limit(async () => {
+              // Add delay between uploads to avoid rate limiting
+              if (index > 0) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between uploads
+              }
+              return uploadSingleImage(image);
+            })
+          );
+          
+          await Promise.all(uploadPromises);
+        } else {
+          console.log(`[useImageUpload] All images are rate-limited. Waiting for retry...`);
+        }
+      }
 
     // Clear localStorage when all uploads are complete
     if (persistenceKey) {
@@ -945,6 +954,15 @@ export function useImageUpload(options = {}) {
       if (onSuccess) {
         onSuccess(completedImages);
       }
+    }
+    } catch (error) {
+      console.error('[useImageUpload] Error in processQueue:', error);
+      logger.error('[useImageUpload] Queue processing failed:', error);
+    } finally {
+      // Always release lock and reset uploading state
+      setIsUploading(false);
+      processingLockRef.current = false;
+      logger.log('[useImageUpload] Queue processing complete');
     }
 
   }, [isUploading, images, queue, uploadBatch, uploadSingleImage, persistenceKey, onSuccess]);

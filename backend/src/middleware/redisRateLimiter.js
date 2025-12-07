@@ -47,7 +47,18 @@ export function createRedisRateLimiter(options = {}) {
     points = 30,
     duration = 60,
     errorMessage,
-    keyGenerator = (req) => req.user?.id || req.ip,
+    keyGenerator = (req) => {
+      // For authenticated requests, always use user ID
+      // Only fall back to IP if user is not authenticated (shouldn't happen with requireAuth)
+      if (req.user?.id) {
+        return `user:${req.user.id}`;
+      }
+      // Fallback to IP only if no user (for unauthenticated endpoints)
+      if (req.ip) {
+        return `ip:${req.ip}`;
+      }
+      return null;
+    },
   } = options;
 
   let rateLimiter = null;
@@ -95,7 +106,13 @@ export function createRedisRateLimiter(options = {}) {
 
       if (!key) {
         // No key available (e.g., unauthenticated request with no IP), allow the request
+        console.warn(`[RateLimiter:${keyPrefix}] No key generated for request - allowing (req.user: ${req.user?.id || 'none'}, req.ip: ${req.ip || 'none'})`);
         return next();
+      }
+
+      // Log rate limit key for debugging (only in development or when explicitly enabled)
+      if (process.env.LOG_RATE_LIMIT_KEYS === 'true' || process.env.NODE_ENV === 'development') {
+        console.log(`[RateLimiter:${keyPrefix}] Consuming 1 point for key: ${key} (user: ${req.user?.id || 'none'}, ip: ${req.ip || 'none'})`);
       }
 
       // Consume 1 point
@@ -105,7 +122,11 @@ export function createRedisRateLimiter(options = {}) {
       next();
     } catch (rateLimiterRes) {
       // Rate limit exceeded
+      const key = keyGenerator(req);
       const message = errorMessage || `Too many requests. Maximum ${points} requests per ${duration} seconds.`;
+
+      // Log rate limit exceeded for debugging
+      console.warn(`[RateLimiter:${keyPrefix}] Rate limit exceeded for key: ${key} (user: ${req.user?.id || 'none'}, ip: ${req.ip || 'none'}, msBeforeNext: ${rateLimiterRes?.msBeforeNext || 'unknown'})`);
 
       // Add rate limit headers
       if (rateLimiterRes?.msBeforeNext) {
@@ -113,6 +134,7 @@ export function createRedisRateLimiter(options = {}) {
         res.set('X-RateLimit-Limit', points);
         res.set('X-RateLimit-Remaining', 0);
         res.set('X-RateLimit-Reset', new Date(Date.now() + rateLimiterRes.msBeforeNext).toISOString());
+        res.set('X-RateLimit-Key', key); // Include key in response for debugging
       }
 
       return sendError(res, 429, message, ErrorCodes.RATE_LIMIT_EXCEEDED);
