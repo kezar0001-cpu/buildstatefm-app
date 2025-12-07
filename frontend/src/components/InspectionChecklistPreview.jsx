@@ -27,9 +27,10 @@ import {
 export default function InspectionChecklistPreview({ inspection }) {
   const rooms = inspection?.rooms || [];
 
-  // Calculate total checklist items
+  // Calculate total checklist items (handle both camelCase and PascalCase)
   const totalItems = rooms.reduce((sum, room) => {
-    return sum + (room.checklistItems?.length || 0);
+    const items = room.checklistItems || room.InspectionChecklistItem || [];
+    return sum + (items.length || 0);
   }, 0);
 
   // Estimate completion time (2 minutes per item on average)
@@ -40,12 +41,25 @@ export default function InspectionChecklistPreview({ inspection }) {
     ? `${hours}h ${minutes}m`
     : `${minutes} minutes`;
 
-  if (rooms.length === 0) {
+  // Show message only if there are no rooms AND no checklist items
+  if (rooms.length === 0 && totalItems === 0) {
     return (
       <Alert severity="info">
         <Typography variant="body2">
-          No checklist items configured for this inspection. You can add rooms
+          No rooms or checklist items configured yet. You can add rooms
           and items as you conduct the inspection.
+        </Typography>
+      </Alert>
+    );
+  }
+
+  // Show message if there are rooms but no checklist items
+  if (rooms.length > 0 && totalItems === 0) {
+    return (
+      <Alert severity="info">
+        <Typography variant="body2">
+          Rooms have been added but no checklist items yet. Generate AI checklists
+          for each room or add items manually.
         </Typography>
       </Alert>
     );
@@ -111,7 +125,7 @@ export default function InspectionChecklistPreview({ inspection }) {
                       {room.name}
                     </Typography>
                     <Chip
-                      label={`${room.checklistItems?.length || 0} items`}
+                      label={`${(room.checklistItems || room.InspectionChecklistItem || []).length} items`}
                       size="small"
                       color="default"
                     />
@@ -125,9 +139,11 @@ export default function InspectionChecklistPreview({ inspection }) {
                   </Stack>
                 </AccordionSummary>
                 <AccordionDetails>
-                  {room.checklistItems && room.checklistItems.length > 0 ? (
-                    <List dense>
-                      {room.checklistItems
+                  {(() => {
+                    const items = room.checklistItems || room.InspectionChecklistItem || [];
+                    return items.length > 0 ? (
+                      <List dense>
+                        {items
                         .sort((a, b) => (a.order || 0) - (b.order || 0))
                         .map((item, itemIndex) => (
                           <ListItem key={item.id || itemIndex}>
@@ -143,11 +159,12 @@ export default function InspectionChecklistPreview({ inspection }) {
                           </ListItem>
                         ))}
                     </List>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No checklist items for this room
-                    </Typography>
-                  )}
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No checklist items for this room
+                      </Typography>
+                    );
+                  })()}
                 </AccordionDetails>
               </Accordion>
             ))}

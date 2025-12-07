@@ -15,6 +15,7 @@ export const addRoom = async (req, res) => {
 
     const room = await prisma.inspectionRoom.create({
       data: {
+        id: randomUUID(),
         inspectionId,
         name,
         roomType,
