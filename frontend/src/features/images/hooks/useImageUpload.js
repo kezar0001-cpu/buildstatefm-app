@@ -4,6 +4,7 @@ import pLimit from 'p-limit';
 import { compressImage, createPreview } from '../utils/imageCompression';
 import { validateFiles } from '../utils/imageValidation';
 import { computeFileHashes, findDuplicates } from '../utils/fileHashing';
+import { expandUploadQueue } from '../components/UploadQueue';
 import apiClient from '../../../api/client';
 import logger from '../../../utils/logger';
 
@@ -515,6 +516,34 @@ export function useImageUpload(options = {}) {
         return false;
       }
 
+      // Check if this is a rate limit error (429)
+      const isRateLimitError = err.response?.status === 429;
+      if (isRateLimitError) {
+        // Extract Retry-After header or calculate delay
+        const retryAfter = err.response?.headers?.['retry-after'] || 
+                          err.response?.headers?.['Retry-After'];
+        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+        const delay = retryAfterSeconds * 1000; // Convert to milliseconds
+        
+        console.log(`[useImageUpload] Rate limit exceeded, retrying in ${retryAfterSeconds}s (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
+
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+          // Update retry count
+          updateImages(prev => prev.map(img =>
+            img.id === image.id
+              ? { ...img, retryCount: retryCount + 1, status: 'pending', error: `Rate limited. Retrying in ${retryAfterSeconds}s...` }
+              : img
+          ));
+
+          // Wait for the retry-after period
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          // Retry the upload
+          const updatedImage = { ...image, retryCount: retryCount + 1 };
+          return await uploadSingleImage(updatedImage);
+        }
+      }
+
       // Check if this is a network error that should be retried
       const isNetworkError =
         err.code === 'ERR_NETWORK' ||
@@ -603,7 +632,150 @@ export function useImageUpload(options = {}) {
   }, [compressImages, endpoint, onError, persistenceKey, queue, updateImages]);
 
   /**
-   * Process upload queue with concurrent uploads
+   * Batch upload multiple images in a single request
+   * This is more efficient and reduces rate limiting issues
+   */
+  const uploadBatch = useCallback(async (imagesToUpload) => {
+    try {
+      // Update all images to uploading status
+      updateImages(prev => prev.map(img =>
+        imagesToUpload.some(upload => upload.id === img.id)
+          ? { ...img, status: 'uploading', progress: 0 }
+          : img
+      ));
+
+      // Compress all images if enabled
+      const filesToUpload = await Promise.all(
+        imagesToUpload.map(async (image) => {
+          let fileToUpload = image.file;
+          if (compressImages && image.file) {
+            console.log(`[useImageUpload] Compressing ${image.file.name}...`);
+            fileToUpload = await compressImage(image.file);
+          }
+          return { file: fileToUpload, imageId: image.id, originalImage: image };
+        })
+      );
+
+      // Create FormData with all files
+      const formData = new FormData();
+      filesToUpload.forEach(({ file }) => {
+        formData.append('files', file);
+      });
+
+      // Create abort controller for the batch
+      const batchId = `batch-${Date.now()}`;
+      const abortController = new AbortController();
+      abortControllersRef.current.set(batchId, abortController);
+
+      // Upload batch
+      const response = await apiClient.post(endpoint, formData, {
+        signal: abortController.signal,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          // Calculate overall progress for the batch
+          const overallProgress = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          
+          // Distribute progress evenly across all images in batch
+          updateImages(prev => prev.map(img =>
+            imagesToUpload.some(upload => upload.id === img.id)
+              ? { ...img, progress: Math.min(overallProgress, 95) } // Cap at 95% until complete
+              : img
+          ));
+        },
+      });
+
+      abortControllersRef.current.delete(batchId);
+
+      // Extract files from response - support both new standardized format and legacy format
+      let uploadedFiles = [];
+      if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
+        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+        uploadedFiles = response.data.files;
+      } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
+        // Legacy format: { success: true, urls: ["url1", "url2"] }
+        uploadedFiles = response.data.urls.map((url, index) => ({
+          url,
+          key: null,
+          size: filesToUpload[index]?.file?.size || 0,
+          type: filesToUpload[index]?.file?.type || 'image/jpeg',
+          originalName: filesToUpload[index]?.file?.name || 'unknown',
+        }));
+      }
+
+      if (uploadedFiles.length !== filesToUpload.length) {
+        throw new Error(`Upload mismatch: expected ${filesToUpload.length} files, got ${uploadedFiles.length}`);
+      }
+
+      // Map uploaded files back to images
+      updateImages(prev => prev.map(img => {
+        const uploadIndex = imagesToUpload.findIndex(upload => upload.id === img.id);
+        if (uploadIndex === -1) return img;
+
+        const uploadedFile = uploadedFiles[uploadIndex];
+        if (!uploadedFile) return img;
+
+        return {
+          ...img,
+          remoteUrl: uploadedFile.url,
+          status: 'complete',
+          progress: 100,
+          error: null,
+          retryCount: 0,
+          // Store metadata if available
+          fileSize: uploadedFile.size || img.file?.size,
+          fileType: uploadedFile.type || img.file?.type,
+          dimensions: uploadedFile.width && uploadedFile.height 
+            ? { width: uploadedFile.width, height: uploadedFile.height }
+            : img.dimensions,
+        };
+      }));
+
+      // Remove from queue
+      setQueue(prev => prev.filter(id => !imagesToUpload.some(upload => upload.id === id)));
+
+      return true;
+    } catch (err) {
+      console.error(`[useImageUpload] Batch upload failed:`, err);
+
+      // Check if rate limited
+      const isRateLimitError = err.response?.status === 429;
+      if (isRateLimitError) {
+        // Mark all images as rate limited
+        updateImages(prev => prev.map(img =>
+          imagesToUpload.some(upload => upload.id === img.id)
+            ? {
+                ...img,
+                status: 'error',
+                error: 'Rate limit exceeded. Please wait a moment and try again.',
+                progress: 0,
+              }
+            : img
+        ));
+        return false;
+      }
+
+      // Mark all images as error
+      updateImages(prev => prev.map(img =>
+        imagesToUpload.some(upload => upload.id === img.id)
+          ? {
+              ...img,
+              status: 'error',
+              error: err.response?.data?.message || err.message || 'Upload failed',
+              progress: 0,
+            }
+          : img
+      ));
+
+      return false;
+    }
+  }, [compressImages, endpoint, updateImages, images]);
+
+  /**
+   * Process upload queue with batched uploads
    */
   const processQueue = useCallback(async () => {
     if (isUploading) return;
@@ -621,17 +793,28 @@ export function useImageUpload(options = {}) {
       return;
     }
 
-    // Upload files concurrently with rate limiting
-    console.log(`[useImageUpload] Uploading ${imagesToUpload.length} files with maxConcurrent=${maxConcurrent}`);
-    const limit = pLimit(maxConcurrent);
-
-    // Create array of limited upload promises
-    const uploadPromises = imagesToUpload.map(image =>
-      limit(() => uploadSingleImage(image))
-    );
-
-    // Wait for all uploads to complete
-    await Promise.all(uploadPromises);
+    // Batch upload all files in a single request (more efficient, reduces rate limiting)
+    console.log(`[useImageUpload] Batch uploading ${imagesToUpload.length} files in a single request`);
+    
+    const success = await uploadBatch(imagesToUpload);
+    
+    if (!success) {
+      // If batch upload failed (e.g., rate limited), fall back to individual uploads with delays
+      console.log(`[useImageUpload] Batch upload failed, falling back to individual uploads`);
+      const limit = pLimit(1); // Upload one at a time to avoid rate limits
+      
+      const uploadPromises = imagesToUpload.map((image, index) =>
+        limit(async () => {
+          // Add delay between uploads to avoid rate limiting
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between uploads
+          }
+          return uploadSingleImage(image);
+        })
+      );
+      
+      await Promise.all(uploadPromises);
+    }
 
     setIsUploading(false);
     logger.log('[useImageUpload] Queue processing complete');
@@ -672,7 +855,7 @@ export function useImageUpload(options = {}) {
       }
     }
 
-  }, [isUploading, images, queue, uploadSingleImage, persistenceKey, onSuccess, maxConcurrent]);
+  }, [isUploading, images, queue, uploadBatch, uploadSingleImage, persistenceKey, onSuccess]);
 
   /**
    * Auto-process queue when items are added
