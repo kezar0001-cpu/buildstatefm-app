@@ -117,7 +117,8 @@ export async function generateRecurringInspections() {
                   inspectionId: inspection.id,
                   name: templateRoom.name,
                   roomType: templateRoom.roomType,
-                  order: templateRoom.order
+                  order: templateRoom.order,
+                  updatedAt: new Date(),
                 }
               });
 

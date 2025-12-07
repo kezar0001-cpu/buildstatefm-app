@@ -21,6 +21,7 @@ export const addRoom = async (req, res) => {
         roomType,
         notes,
         order: roomCount,
+        updatedAt: new Date(),
       },
       include: { InspectionChecklistItem: true, InspectionIssue: true, InspectionPhoto: true },
     });
@@ -56,7 +57,13 @@ export const updateRoom = async (req, res) => {
     const { name, roomType, notes, order } = req.body;
     const room = await prisma.inspectionRoom.update({
       where: { id: req.params.roomId },
-      data: { name, roomType, notes, order },
+      data: { 
+        name, 
+        roomType, 
+        notes, 
+        order,
+        updatedAt: new Date(),
+      },
       include: { InspectionChecklistItem: true, InspectionIssue: true, InspectionPhoto: true },
     });
 
