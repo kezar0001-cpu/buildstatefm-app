@@ -142,7 +142,8 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     }
   };
 
-  const checklistItems = room.checklistItems || [];
+  // Handle both camelCase and PascalCase formats
+  const checklistItems = room.checklistItems || room.InspectionChecklistItem || [];
   const sortedItems = [...checklistItems].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (

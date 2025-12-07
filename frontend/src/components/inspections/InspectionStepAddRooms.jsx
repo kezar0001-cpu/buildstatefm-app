@@ -5,9 +5,10 @@ import {
   TextField, MenuItem, CircularProgress, Collapse
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { apiClient } from '../../api/client';
+import { queryKeys } from '../../utils/queryKeys';
 import { ChecklistManager } from './ChecklistManager';
 
 const ROOM_TYPES = [
@@ -66,6 +67,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
   const [formData, setFormData] = useState({ name: '', roomType: '', notes: '' });
   const [generatingMap, setGeneratingMap] = useState({});
   const [expandedRooms, setExpandedRooms] = useState({});
+  const queryClient = useQueryClient();
 
   const handleOpenDialog = (room = null) => {
     if (room) {
@@ -123,7 +125,8 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
     onSuccess: (data, room) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
       toast.success(`Generated ${data.count || 0} checklist items`);
-      // Trigger refetch to update the checklist items count
+      // Invalidate and refetch rooms to update the checklist items count
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
       if (actions.refetchRooms) {
         actions.refetchRooms();
       }

@@ -181,6 +181,14 @@ export function useInspectionConduct(inspection, onComplete) {
     }
   });
 
+  // Transform rooms data to use camelCase for checklistItems
+  const transformedRooms = (roomsData?.rooms || []).map(room => ({
+    ...room,
+    checklistItems: room.InspectionChecklistItem || room.checklistItems || [],
+    InspectionIssue: room.InspectionIssue || room.issues || [],
+    InspectionPhoto: room.InspectionPhoto || room.photos || [],
+  }));
+
   return {
     activeStep,
     setActiveStep,
@@ -192,7 +200,7 @@ export function useInspectionConduct(inspection, onComplete) {
     setSnackbar,
     lastSaved,
 
-    rooms: roomsData?.rooms || [],
+    rooms: transformedRooms,
     issues: issuesData?.issues || [],
 
     roomDialog,
