@@ -215,7 +215,11 @@ const unitCreateSchema = z.object({
     .preprocess((value) => (value === '' || value == null ? null : Number(value)), z.number().nullable())
     .optional(),
   area: z
-    .preprocess((value) => (value === '' || value == null ? null : Number(value)), z.number().nullable())
+    .preprocess((value) => {
+      if (value === '' || value == null) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? Math.round(num) : null;
+    }, z.number().int().nullable())
     .optional(),
   rentAmount: z
     .preprocess((value) => (value === '' || value == null ? null : Number(value)), z.number().nullable())
@@ -497,6 +501,7 @@ router.get(
     const nextOffset = offset + limit < total ? offset + limit : null;
 
     res.json({
+      success: true,
       items,
       total,
       limit,
@@ -523,7 +528,7 @@ router.get(
       );
     }
 
-    res.json({ unit: toPublicUnit(access.unit) });
+    res.json({ success: true, unit: toPublicUnit(access.unit) });
   })
 );
 
@@ -561,7 +566,8 @@ router.post(
           floor: data.floor ?? null,
           bedrooms: data.bedrooms ?? null,
           bathrooms: data.bathrooms ?? null,
-          area: data.area ?? null,
+          // Fix: Ensure area is converted to integer (sqm) - schema expects Int
+          area: data.area != null ? Math.round(Number(data.area)) : null,
           rentAmount: data.rentAmount ?? null,
           status: data.status ?? 'AVAILABLE',
           description: data.description ?? null,
@@ -590,7 +596,7 @@ router.post(
       return createdUnit;
     });
 
-    res.status(201).json({ unit: toPublicUnit(unit) });
+    res.status(201).json({ success: true, unit: toPublicUnit(unit) });
   })
 );
 
@@ -632,7 +638,8 @@ router.patch(
           ...(data.floor !== undefined && { floor: data.floor ?? null }),
           ...(data.bedrooms !== undefined && { bedrooms: data.bedrooms ?? null }),
           ...(data.bathrooms !== undefined && { bathrooms: data.bathrooms ?? null }),
-          ...(data.area !== undefined && { area: data.area ?? null }),
+          // Fix: Ensure area is converted to integer (sqm) - schema expects Int
+          ...(data.area !== undefined && { area: data.area != null ? Math.round(Number(data.area)) : null }),
           ...(data.rentAmount !== undefined && { rentAmount: data.rentAmount ?? null }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.description !== undefined && { description: data.description ?? null }),
@@ -663,7 +670,7 @@ router.patch(
       return updatedUnit;
     });
 
-    res.json({ unit: toPublicUnit(unit) });
+    res.json({ success: true, unit: toPublicUnit(unit) });
   })
 );
 

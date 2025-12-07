@@ -56,7 +56,7 @@ const InspectionAttachmentManager = ({ inspectionId, attachments = [], canEdit =
     completedCount,
     errorCount,
   } = useImageUpload({
-    endpoint: '/upload/multiple',
+    endpoint: '/api/uploads/multiple',
     compressImages: true,
     maxConcurrent: 3,
     initialImages: existingImages,

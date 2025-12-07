@@ -45,7 +45,8 @@ export const unitSchema = z.object({
     .transform((val) => {
       if (!val || val === '') return null;
       const num = typeof val === 'string' ? parseFloat(val) : val;
-      return isNaN(num) ? null : num;
+      // Fix: Convert to integer to match backend schema (Int type)
+      return isNaN(num) ? null : Math.round(num);
     })
     .refine((val) => val === null || !isNaN(val), {
       message: 'Must be a valid number',

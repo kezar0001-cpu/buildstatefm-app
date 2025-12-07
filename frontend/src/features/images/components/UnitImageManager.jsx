@@ -65,7 +65,7 @@ export function UnitImageManager({
     replaceDuplicates,
     cancelDuplicateDialog,
   } = useImageUpload({
-    endpoint: '/upload/multiple',
+    endpoint: '/api/uploads/multiple',
     compressImages: true,
     maxConcurrent: 3,
     defaultImages: preparedInitialImages,
