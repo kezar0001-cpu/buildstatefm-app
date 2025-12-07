@@ -122,12 +122,22 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
           },
         });
 
-        if (!uploadRes.data.success || !uploadRes.data.urls?.length) {
+        // Support both new standardized format and legacy format
+        let uploadedUrls = [];
+        if (uploadRes.data?.files && Array.isArray(uploadRes.data.files) && uploadRes.data.files.length > 0) {
+          // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+          uploadedUrls = uploadRes.data.files.map(f => f.url);
+        } else if (uploadRes.data?.urls && Array.isArray(uploadRes.data.urls) && uploadRes.data.urls.length > 0) {
+          // Legacy format: { success: true, urls: ["url1", "url2"] }
+          uploadedUrls = uploadRes.data.urls;
+        }
+
+        if (!uploadRes.data.success || uploadedUrls.length === 0) {
           throw new Error('Failed to upload photos');
         }
 
         // Step 2: Link all photos to inspection
-        const linkPromises = uploadRes.data.urls.map((url, index) => {
+        const linkPromises = uploadedUrls.map((url, index) => {
           const { originalFile } = compressedFiles[index];
           return apiClient.post(`/inspections/${inspectionId}/photos`, {
             roomId,

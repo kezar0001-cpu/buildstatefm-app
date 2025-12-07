@@ -16,14 +16,21 @@ export async function uploadPropertyDocument(file) {
   formData.append('files', file);
 
   try {
-    const response = await apiClient.post('/uploads/documents', formData);
+    const response = await apiClient.post('/api/uploads/documents', formData);
 
     if (!response || !response.data) {
       throw new Error('Invalid response from upload endpoint');
     }
 
-    const urls = Array.isArray(response.data.urls) ? response.data.urls : [];
-    const url = urls[0];
+    // Support both new standardized format and legacy format
+    let url = null;
+    if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
+      // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+      url = response.data.files[0].url;
+    } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
+      // Legacy format: { success: true, urls: ["url1", "url2"] }
+      url = response.data.urls[0];
+    }
 
     if (!url) {
       throw new Error('Document upload failed - no URL returned from server');

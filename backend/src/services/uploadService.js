@@ -135,9 +135,31 @@ if (isCloudStorageConfigured) {
   });
 }
 
+// Create dynamic S3 storage for different entity types
+const createDynamicS3Storage = (folder = 'properties') => {
+  if (!isCloudStorageConfigured) return null;
+  
+  return multerS3({
+    s3: s3Client,
+    bucket: bucketName,
+    acl: 'public-read',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (_req, file, cb) => {
+      cb(null, { originalName: file.originalname });
+    },
+    key: (_req, file, cb) => {
+      const key = generateS3Key(folder, file.originalname, true);
+      cb(null, key);
+    },
+  });
+};
+
 // Create multer upload instance based on configuration
 export const createUploadMiddleware = (options = {}) => {
-  const storage = isCloudStorageConfigured ? s3ImageStorage : localDiskStorage;
+  // Support dynamic folder via options, default to 'properties'
+  const folder = options.folder || 'properties';
+  const dynamicStorage = isCloudStorageConfigured ? createDynamicS3Storage(folder) : null;
+  const storage = dynamicStorage || (isCloudStorageConfigured ? s3ImageStorage : localDiskStorage);
 
   const allowedMimeTypes = (options.allowedMimeTypes ?? [
     'image/jpeg',
@@ -296,11 +318,59 @@ export const getUploadedFileUrl = (file) => {
 };
 
 /**
+ * Extract file metadata from an uploaded file
+ * Returns standardized file object with url, key, size, type, etc.
+ */
+export const getUploadedFileMetadata = (file) => {
+  if (!file) return null;
+
+  const url = getUploadedFileUrl(file);
+  if (!url) return null;
+
+  // Extract S3 key if available
+  let key = null;
+  if (file.key) {
+    key = file.key;
+  } else if (file.location && file.location.includes('.amazonaws.com')) {
+    // Extract from S3 URL
+    const match = file.location.match(/\.s3\.[^.]+\.amazonaws\.com\/(.+?)(?:\?|$)/);
+    if (match) key = match[1];
+  } else if (file.location && process.env.AWS_CLOUDFRONT_DOMAIN && file.location.includes(process.env.AWS_CLOUDFRONT_DOMAIN)) {
+    // Extract from CloudFront URL
+    const match = file.location.match(new RegExp(`https://${process.env.AWS_CLOUDFRONT_DOMAIN.replace('.', '\\.')}/(.+?)(?:\\?|$)`));
+    if (match) key = match[1];
+  } else if (isLocalUploadUrl(url)) {
+    // For local files, use the filename as the key
+    key = extractLocalUploadFilename(url);
+  }
+
+  return {
+    url,
+    key: key || null,
+    size: file.size || 0,
+    type: file.mimetype || 'application/octet-stream',
+    originalName: file.originalname || 'unknown',
+    // Image-specific metadata (if available)
+    width: file.width || null,
+    height: file.height || null,
+  };
+};
+
+/**
  * Extract URLs from multiple uploaded files
  */
 export const getUploadedFileUrls = (files) => {
   if (!Array.isArray(files)) return [];
   return files.map(getUploadedFileUrl).filter(Boolean);
+};
+
+/**
+ * Extract metadata from multiple uploaded files
+ * Returns array of standardized file objects
+ */
+export const getUploadedFilesMetadata = (files) => {
+  if (!Array.isArray(files)) return [];
+  return files.map(getUploadedFileMetadata).filter(Boolean);
 };
 
 /**

@@ -140,14 +140,23 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
         formData.append('files', photo.file);
       });
 
-      const response = await apiClient.post('/uploads/multiple', formData, {
+      const response = await apiClient.post('/api/uploads/multiple', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      // Response format: { success: true, urls: [...] }
-      return response.data.urls || [];
+      // Support both new standardized format and legacy format
+      let uploadedUrls = [];
+      if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
+        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+        uploadedUrls = response.data.files.map(f => f.url);
+      } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
+        // Legacy format: { success: true, urls: ["url1", "url2"] }
+        uploadedUrls = response.data.urls;
+      }
+      
+      return uploadedUrls;
     } catch (error) {
       console.error('Error uploading photos:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';

@@ -745,7 +745,7 @@ model InspectionIssue {
   severity                IssueSeverity            @default(MEDIUM)
   status                  IssueStatus              @default(OPEN)
   createdAt               DateTime                 @default(now())
-  updatedAt               DateTime
+  updatedAt               DateTime                 @updatedAt
   InspectionChecklistItem InspectionChecklistItem? @relation(fields: [checklistItemId], references: [id])
   Inspection              Inspection               @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   InspectionRoom          InspectionRoom?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -766,6 +766,7 @@ model InspectionPhoto {
   order           Int              @default(0)
   uploadedById    String?
   createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   Inspection      Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   InspectionIssue InspectionIssue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
   InspectionRoom  InspectionRoom?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -911,7 +912,7 @@ model PropertyDocument {
   accessLevel PropertyDocumentAccessLevel
   uploaderId  String
   uploadedAt  DateTime                    @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime                    @updatedAt
   unitId      String?
   Property    Property                    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   Unit        Unit?                       @relation(fields: [unitId], references: [id], onDelete: Cascade)

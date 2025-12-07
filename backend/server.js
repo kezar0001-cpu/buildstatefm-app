@@ -323,7 +323,7 @@ import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
 import reportsRoutes from './src/routes/reports.js';
-import { createUploadMiddleware, getUploadedFileUrls, isUsingCloudStorage } from './src/services/uploadService.js';
+import { createUploadMiddleware, getUploadedFileUrls, getUploadedFilesMetadata, isUsingCloudStorage } from './src/services/uploadService.js';
 import { requireAuth, requireActiveSubscription } from './src/middleware/auth.js';
 import { uploadRateLimiter } from './src/middleware/redisRateLimiter.js';
 import { sendError, ErrorCodes } from './src/utils/errorHandler.js';
@@ -408,10 +408,20 @@ app.post('/api/upload/multiple', requireAuth, requireActiveSubscription, uploadR
       }
     }
 
-    const urls = getUploadedFileUrls(req.files);
+    const filesMetadata = getUploadedFilesMetadata(req.files);
+    if (filesMetadata.length === 0) {
+      return sendError(res, 500, 'Failed to process uploaded files', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
     const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} files to ${storageType} by user ${req.user.id}`);
-    res.status(201).json({ success: true, urls });
+    
+    // Standardized response format - maintain backward compatibility with urls array
+    res.status(201).json({
+      success: true,
+      files: filesMetadata,
+      urls: filesMetadata.map(f => f.url), // Backward compatibility
+    });
   } catch (error) {
     console.error('Multiple upload error:', error);
     return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);

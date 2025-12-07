@@ -491,11 +491,19 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
     setUploading(true);
 
     try {
-      const uploadResponse = await apiClient.post('/uploads/documents', formData, {
+      const uploadResponse = await apiClient.post('/api/uploads/documents', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const [url] = uploadResponse.data?.urls || [];
+      // Support both new standardized format and legacy format
+      let url = null;
+      if (uploadResponse.data?.files && Array.isArray(uploadResponse.data.files) && uploadResponse.data.files.length > 0) {
+        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+        url = uploadResponse.data.files[0].url;
+      } else if (uploadResponse.data?.urls && Array.isArray(uploadResponse.data.urls) && uploadResponse.data.urls.length > 0) {
+        // Legacy format: { success: true, urls: ["url1", "url2"] }
+        url = uploadResponse.data.urls[0];
+      }
 
       if (!url) {
         throw new Error('Upload failed');
