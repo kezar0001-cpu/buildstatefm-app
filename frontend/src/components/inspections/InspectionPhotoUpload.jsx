@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Stack, Typography, Button, IconButton, Grid, Card, CardMedia,
   Collapse, LinearProgress, Alert, List, ListItem, ListItemText, ListItemAvatar,
@@ -32,7 +32,10 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState(null);
   const [uploadQueue, setUploadQueue] = useState([]); // Track all uploads in queue
+  const [isUploading, setIsUploading] = useState(false); // Track if upload is in progress
+  const [pendingBatches, setPendingBatches] = useState([]); // Queue of pending upload batches
   const queryClient = useQueryClient();
+  const uploadMutationRef = useRef(null);
 
   // Fetch room data to get photos
   const { data: roomsData } = useQuery({
@@ -193,8 +196,35 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
           }
         });
       }
-      console.error('Photo upload error:', err);
-      setError(err.response?.data?.message || 'Failed to upload photos. Please try again.');
+      
+      // Handle rate limit errors specifically
+      if (err.response?.status === 429) {
+        const retryAfter = err.response?.headers?.['retry-after'] || 60;
+        const errorMessage = err.response?.data?.message || `Too many uploads. Please wait ${retryAfter} seconds before trying again.`;
+        setError(errorMessage);
+        
+        // Mark queue items as rate limited
+        setUploadQueue(prev => prev.map(item =>
+          queueIds.includes(item.id)
+            ? { ...item, status: 'error', error: errorMessage }
+            : item
+        ));
+      } else {
+        console.error('Photo upload error:', err);
+        setError(err.response?.data?.message || 'Failed to upload photos. Please try again.');
+        
+        // Mark queue items as error
+        setUploadQueue(prev => prev.map(item =>
+          queueIds.includes(item.id)
+            ? { ...item, status: 'error', error: err.response?.data?.message || 'Upload failed' }
+            : item
+        ));
+      }
+    },
+    onSettled: () => {
+      // Process next batch in queue after current upload completes
+      setIsUploading(false);
+      setPendingBatches(prev => prev.slice(1));
     },
     onSuccess: (results, _, context) => {
       // Revoke all blob URLs after successful upload
@@ -262,6 +292,19 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
     },
   });
 
+  // Store mutation reference
+  uploadMutationRef.current = uploadMutation;
+
+  // Process pending batches sequentially
+  useEffect(() => {
+    if (!isUploading && pendingBatches.length > 0 && uploadMutationRef.current) {
+      const nextBatch = pendingBatches[0];
+      setIsUploading(true);
+      uploadMutationRef.current.mutate(nextBatch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isUploading, pendingBatches.length]);
+
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files || []);
 
@@ -297,12 +340,10 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
 
       setUploadQueue(prev => [...prev, ...newQueueItems]);
 
-      // Upload all files in a single batch request to reduce API calls
+      // Queue the upload batch instead of uploading immediately
+      // This prevents multiple simultaneous uploads that could hit rate limits
       const queueIds = newQueueItems.map(item => item.id);
-      uploadMutation.mutate({
-        files: validFiles,
-        queueIds
-      });
+      setPendingBatches(prev => [...prev, { files: validFiles, queueIds }]);
     }
 
     // Reset input

@@ -369,6 +369,49 @@ app.use('/api/inspection-templates', inspectionTemplatesRoutes);
 app.use('/api/recurring-inspections', recurringInspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+// Alias route for backward compatibility: /api/upload/multiple -> /api/uploads/multiple
+const uploadAlias = createUploadMiddleware();
+app.post('/api/upload/multiple', requireAuth, requireActiveSubscription, uploadRateLimiter, uploadAlias.array('files', 50), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
+    }
+
+    // Optimize images before upload
+    for (const file of req.files) {
+      if (isImage(file.mimetype)) {
+        try {
+          const settings = getOptimizationSettings(file.mimetype);
+          if (settings) {
+            const optimized = await optimizeImage(file.buffer, settings);
+            if (optimized.buffer && !optimized.error) {
+              file.buffer = optimized.buffer;
+              file.size = optimized.buffer.length;
+              if (optimized.format && optimized.format !== 'original') {
+                const ext = optimized.format === 'webp' ? '.webp' : 
+                           optimized.format === 'jpeg' ? '.jpg' : 
+                           optimized.format === 'png' ? '.png' : '';
+                if (ext) {
+                  file.originalname = file.originalname.replace(/\.[^.]+$/, ext);
+                }
+              }
+            }
+          }
+        } catch (optError) {
+          console.warn(`Image optimization failed for ${file.originalname}:`, optError.message);
+        }
+      }
+    }
+
+    const urls = getUploadedFileUrls(req.files);
+    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
+    console.log(`✅ Uploaded ${req.files.length} files to ${storageType} by user ${req.user.id}`);
+    res.status(201).json({ success: true, urls });
+  } catch (error) {
+    console.error('Multiple upload error:', error);
+    return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
+  }
+});
 app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);

@@ -41,18 +41,6 @@ export default function InspectionChecklistPreview({ inspection }) {
     ? `${hours}h ${minutes}m`
     : `${minutes} minutes`;
 
-  // Show message only if there are no rooms AND no checklist items
-  if (rooms.length === 0 && totalItems === 0) {
-    return (
-      <Alert severity="info">
-        <Typography variant="body2">
-          No rooms or checklist items configured yet. You can add rooms
-          and items as you conduct the inspection.
-        </Typography>
-      </Alert>
-    );
-  }
-
   // Show message if there are rooms but no checklist items
   if (rooms.length > 0 && totalItems === 0) {
     return (
