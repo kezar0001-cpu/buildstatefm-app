@@ -155,7 +155,7 @@ model Property {
   propertyType        String
   yearBuilt           Int?
   totalUnits          Int                   @default(0)
-  totalArea           Float?
+  totalArea           Int?
   status              PropertyStatus        @default(ACTIVE)
   description         String?
   imageUrl            String?
@@ -240,7 +240,7 @@ model Unit {
   floor               Int?
   bedrooms            Int?
   bathrooms           Float?
-  area                Float?
+  area                Int?
   rentAmount          Float?
   status              UnitStatus            @default(AVAILABLE)
   description         String?
@@ -801,7 +801,7 @@ model InspectionRoom {
   notes                   String?
   order                   Int                       @default(0)
   createdAt               DateTime                  @default(now())
-  updatedAt               DateTime
+  updatedAt               DateTime                  @updatedAt
   InspectionChecklistItem InspectionChecklistItem[]
   InspectionIssue         InspectionIssue[]
   InspectionPhoto         InspectionPhoto[]

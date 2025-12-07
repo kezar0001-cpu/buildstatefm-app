@@ -365,11 +365,28 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         country: basicInfo.country,
         propertyType: basicInfo.propertyType,
         yearBuilt: basicInfo.yearBuilt ? parseInt(basicInfo.yearBuilt, 10) : null,
-        totalArea: basicInfo.totalArea ? parseFloat(basicInfo.totalArea) : null,
+        // Fix: Convert totalArea to integer (sqm) - round to nearest integer
+        totalArea: basicInfo.totalArea ? Math.round(parseFloat(basicInfo.totalArea)) : null,
         status: basicInfo.status,
         description: basicInfo.description.trim() || null,
         imageUrl: basicInfo.imageUrl.trim() || null,
       };
+
+      // Fix: Include units in the payload
+      const unitsPayload = formState.units
+        .filter((unit) => unit.label && unit.label.trim())
+        .map((unit) => ({
+          unitNumber: unit.label.trim(),
+          bedrooms: unit.bedrooms ? parseInt(unit.bedrooms, 10) : null,
+          bathrooms: unit.bathrooms ? parseFloat(unit.bathrooms) : null,
+          // Fix: Convert area to integer (sqm) - round to nearest integer
+          area: unit.area ? Math.round(parseFloat(unit.area)) : null,
+          rentAmount: unit.rent ? parseFloat(unit.rent) : null,
+        }));
+
+      if (unitsPayload.length > 0) {
+        payload.units = unitsPayload;
+      }
 
       // Images are already in standardized API format from PropertyImageManager
       const imagePayload = uploadedImages

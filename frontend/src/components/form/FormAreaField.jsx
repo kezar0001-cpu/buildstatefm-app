@@ -29,8 +29,16 @@ export default function FormAreaField({
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => {
-        // Convert the stored value (in sq ft) to the selected unit for display
-        const displayValue = field.value ? fromSquareFeet(field.value, unit) : '';
+        // Fix: Convert the stored value (in sqm as integer) to the selected unit for display
+        const displayValue = field.value ? (() => {
+          const sqmValue = parseFloat(field.value);
+          if (unit === AREA_UNITS.SQ_M) {
+            return sqmValue;
+          } else {
+            // Convert from sqm to sq ft
+            return sqmValue * 10.7639;
+          }
+        })() : '';
 
         const handleValueChange = (e) => {
           const inputValue = e.target.value;
@@ -41,9 +49,18 @@ export default function FormAreaField({
 
           const numericValue = parseFloat(inputValue);
           if (!isNaN(numericValue)) {
-            // Convert to square feet for storage
-            const sqFtValue = toSquareFeet(numericValue, unit);
-            field.onChange(sqFtValue);
+            // Fix: Store as integer sqm (not sq ft) to avoid precision issues
+            // Convert input to sqm, then round to nearest integer
+            let sqmValue;
+            if (unit === AREA_UNITS.SQ_M) {
+              sqmValue = numericValue;
+            } else {
+              // Convert from sq ft to sq m
+              sqmValue = numericValue / 10.7639;
+            }
+            // Round to nearest integer
+            const integerSqm = Math.round(sqmValue);
+            field.onChange(integerSqm);
           }
         };
 

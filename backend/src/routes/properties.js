@@ -665,7 +665,7 @@ const basePropertySchema = z.object({
       maxMessage: `Year cannot be later than ${new Date().getFullYear()}`,
     }),
     totalUnits: optionalInt({ min: 0, minMessage: 'Total units cannot be negative' }).default(0),
-    totalArea: optionalFloat(),
+    totalArea: optionalInt({ min: 0, minMessage: 'Total area cannot be negative' }),
     description: optionalString(),
     imageUrl: optionalImageLocation(),
     managerId: optionalString(),
@@ -715,6 +715,9 @@ const unitSchema = z.object({
   unitNumber: requiredString('Unit number is required'),
   address: optionalString(),
   bedrooms: optionalInt({ min: 0, minMessage: 'Bedrooms cannot be negative' }),
+  bathrooms: optionalFloat(),
+  area: optionalInt({ min: 0, minMessage: 'Area cannot be negative' }),
+  rentAmount: optionalFloat(),
   status: optionalString(),
 });
 
@@ -1471,11 +1474,49 @@ router.post(
       ...(coverImageUrl ? { imageUrl: coverImageUrl } : {}),
     };
 
+    // Fix: Extract and validate units from request body
+    const unitsData = Array.isArray(req.body.units) ? req.body.units : [];
+    let validUnits = [];
+    if (unitsData.length > 0) {
+      try {
+        validUnits = z.array(unitSchema).parse(unitsData).map((unit) => ({
+          unitNumber: unit.unitNumber.trim(),
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          // Fix: Convert area to integer (sqm) - ensure it's an integer
+          area: unit.area != null ? Math.round(parseFloat(unit.area)) : null,
+          rentAmount: unit.rentAmount,
+          status: unit.status || 'AVAILABLE',
+        }));
+      } catch (unitError) {
+        if (unitError instanceof z.ZodError) {
+          return sendError(res, 400, 'Unit validation error', ErrorCodes.VAL_VALIDATION_ERROR, unitError.flatten());
+        }
+        throw unitError;
+      }
+    }
+
     const { property, propertyWithImages } = await withPropertyImagesSupport(async (includeImages) => {
       const createdProperty = await prisma.$transaction(async (tx) => {
+        // Fix: Convert totalArea to integer (sqm) if provided
+        const propertyDataWithIntArea = {
+          ...propertyData,
+          totalArea: propertyData.totalArea != null ? Math.round(parseFloat(propertyData.totalArea)) : null,
+        };
+
         const newProperty = await tx.property.create({
-          data: propertyData,
+          data: propertyDataWithIntArea,
         });
+
+        // Fix: Create units if provided
+        if (validUnits.length > 0) {
+          await tx.unit.createMany({
+            data: validUnits.map((unit) => ({
+              ...unit,
+              propertyId: newProperty.id,
+            })),
+          });
+        }
 
         if (includeImages && initialImages.length) {
           const records = buildPropertyImageRecords({

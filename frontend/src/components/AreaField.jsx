@@ -30,8 +30,16 @@ export default function AreaField({
 }) {
   const [unit, setUnit] = useState(AREA_UNITS.SQ_FT);
 
-  // Convert the stored value (in sq ft) to the selected unit for display
-  const displayValue = value ? fromSquareFeet(parseFloat(value), unit) : '';
+  // Fix: Convert the stored value (in sqm as integer) to the selected unit for display
+  const displayValue = value ? (() => {
+    const sqmValue = parseFloat(value);
+    if (unit === AREA_UNITS.SQ_M) {
+      return sqmValue;
+    } else {
+      // Convert from sqm to sq ft
+      return sqmValue * 10.7639;
+    }
+  })() : '';
 
   const handleValueChange = (e) => {
     const inputValue = e.target.value;
@@ -42,9 +50,18 @@ export default function AreaField({
 
     const numericValue = parseFloat(inputValue);
     if (!isNaN(numericValue)) {
-      // Convert to square feet for storage
-      const sqFtValue = toSquareFeet(numericValue, unit);
-      onChange({ target: { value: sqFtValue.toString() } });
+      // Fix: Store as integer sqm (not sq ft) to avoid precision issues
+      // Convert input to sqm, then round to nearest integer
+      let sqmValue;
+      if (unit === AREA_UNITS.SQ_M) {
+        sqmValue = numericValue;
+      } else {
+        // Convert from sq ft to sq m
+        sqmValue = numericValue / 10.7639;
+      }
+      // Round to nearest integer
+      const integerSqm = Math.round(sqmValue);
+      onChange({ target: { value: integerSqm.toString() } });
     }
   };
 
