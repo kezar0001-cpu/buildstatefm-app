@@ -188,11 +188,8 @@ const DashboardPage = () => {
             <GradientButton
               startIcon={<AddIcon />}
               onClick={() => navigate('/properties', { state: { openCreateDialog: true } })}
-              size="medium"
-              sx={{
-                maxWidth: { xs: '100%', md: 'auto' },
-                minWidth: { md: 150 },
-              }}
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
             >
               Add Property
             </GradientButton>
