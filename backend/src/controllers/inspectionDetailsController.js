@@ -99,13 +99,10 @@ export const generateAIChecklist = async (req, res) => {
       return sendError(res, 404, 'Inspection or room not found', ErrorCodes.ERR_NOT_FOUND);
     }
 
-    // Check if checklist already exists
+    // Get existing count to determine starting order
     const existingCount = await prisma.inspectionChecklistItem.count({ where: { roomId } });
-    if (existingCount > 0) {
-      return sendError(res, 400, 'Checklist already exists for this room', ErrorCodes.ERR_VALIDATION);
-    }
 
-    // Generate AI checklist
+    // Generate AI checklist (reads description/notes to identify issues)
     const aiItems = await inspectionAIService.generateChecklist({
       roomType: room.roomType,
       roomName: room.name,
@@ -113,7 +110,7 @@ export const generateAIChecklist = async (req, res) => {
       inspectionType: inspection.type
     });
 
-    // Create checklist items in database
+    // Create checklist items in database (append to existing if any)
     const createdItems = [];
     for (let i = 0; i < aiItems.length; i++) {
       const item = await prisma.inspectionChecklistItem.create({
@@ -123,7 +120,7 @@ export const generateAIChecklist = async (req, res) => {
           description: aiItems[i].description,
           status: 'PENDING',
           notes: aiItems[i].category ? `Category: ${aiItems[i].category}, Priority: ${aiItems[i].priority}` : '',
-          order: i,
+          order: existingCount + i,
         },
       });
       createdItems.push(item);
@@ -131,7 +128,8 @@ export const generateAIChecklist = async (req, res) => {
 
     await logAudit(inspectionId, req.user.id, 'AI_CHECKLIST_GENERATED', {
       roomId,
-      itemCount: createdItems.length
+      itemCount: createdItems.length,
+      appended: existingCount > 0
     });
 
     res.status(201).json({
@@ -154,7 +152,7 @@ export const addChecklistItem = async (req, res) => {
 
     const item = await prisma.inspectionChecklistItem.create({
       data: {
-        id: `checklist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        id: randomUUID(),
         roomId,
         description,
         status: status || 'PENDING',

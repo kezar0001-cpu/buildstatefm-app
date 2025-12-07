@@ -65,37 +65,55 @@ class InspectionAIService {
    */
   _parseAIJsonResponse(responseText, operationName = 'parseJSON') {
     try {
-      let jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      // First, try to extract JSON from markdown code blocks
+      let jsonString = responseText;
+      
+      // Remove markdown code block markers if present
+      jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Try to find JSON object - use non-greedy match
+      let jsonMatch = jsonString.match(/\{[\s\S]*?\}/);
       if (!jsonMatch) {
-        logger.error(`${operationName}: No JSON object found in response`);
+        // Try greedy match as fallback
+        jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      }
+      
+      if (!jsonMatch) {
+        logger.error(`${operationName}: No JSON object found in response`, { responseText: responseText.substring(0, 500) });
         throw new Error('Failed to find JSON object in AI response');
       }
 
-      let jsonString = jsonMatch[0];
+      jsonString = jsonMatch[0];
 
-      // Clean control characters
+      // Clean control characters but preserve escaped sequences
       jsonString = jsonString
-        .replace(/\\n/g, '\\n')
-        .replace(/\\t/g, '\\t')
-        .replace(/\\r/g, '\\r')
-        .replace(/("(?:[^"\\]|\\.)*")|[\x00-\x1F]/g, (match, stringMatch) => {
-          if (stringMatch) return stringMatch;
+        .replace(/[\x00-\x1F]/g, (match) => {
+          // Preserve already escaped sequences
+          if (match === '\n' && jsonString.includes('\\n')) return match;
+          if (match === '\t' && jsonString.includes('\\t')) return match;
+          if (match === '\r' && jsonString.includes('\\r')) return match;
+          // Escape unescaped control characters
           return '\\u' + ('0000' + match.charCodeAt(0).toString(16)).slice(-4);
         });
 
-      return JSON.parse(jsonString);
+      const parsed = JSON.parse(jsonString);
+      return parsed;
     } catch (error) {
-      logger.error(`${operationName}: JSON parsing failed`, { error: error.message });
+      logger.error(`${operationName}: JSON parsing failed`, { 
+        error: error.message,
+        responseText: responseText.substring(0, 500)
+      });
       throw new Error(`Failed to parse JSON from AI response: ${error.message}`);
     }
   }
 
   /**
    * Generate inspection checklist for a room based on type, notes, and inspection type
+   * Reads the description/notes to identify specific issues and creates separate checklist items for each
    * @param {Object} options
    * @param {string} options.roomType - Type of room (BEDROOM, BATHROOM, etc.)
    * @param {string} options.roomName - Name of the room
-   * @param {string} options.notes - Additional notes about the room
+   * @param {string} options.notes - Additional notes/description about the room
    * @param {string} options.inspectionType - Type of inspection (ROUTINE, MOVE_IN, MOVE_OUT, etc.)
    * @returns {Promise<Array>} Array of checklist items with descriptions and priorities
    */
@@ -107,9 +125,49 @@ class InspectionAIService {
       inspectionType = 'ROUTINE'
     } = options;
 
-    const prompt = `You are an expert property inspector. Generate a comprehensive inspection checklist for a ${roomName} (${roomType}) during a ${inspectionType} inspection.
+    // If notes/description is provided, extract issues from it
+    // Otherwise, generate a standard checklist
+    const hasDescription = notes && notes.trim().length > 0;
 
-${notes ? `Additional context: ${notes}` : ''}
+    let prompt;
+    if (hasDescription) {
+      prompt = `You are an expert property inspector. Analyze the following room description and identify ALL specific issues that need to be checked during a ${inspectionType} inspection.
+
+Room: ${roomName} (${roomType})
+Description: "${notes}"
+
+Your task:
+1. Read the description carefully
+2. Identify EACH individual issue mentioned (e.g., "water damage on ceiling" = one issue, "cracked tiles" = another issue)
+3. Create a SEPARATE checklist item for EACH issue you identify
+4. If the description mentions general areas to check (e.g., "check walls"), create specific checklist items for those areas
+5. Each checklist item should be actionable and specific
+
+Important:
+- Each issue gets its own checklist item (don't combine multiple issues into one item)
+- Be specific: "Check for water damage on ceiling" not just "Check ceiling"
+- Include standard inspection items for this room type if the description doesn't cover everything
+- Minimum 3 items, but create as many as needed to cover all issues mentioned
+
+Inspection type context:
+- ROUTINE: General condition, wear and tear, maintenance needs
+- MOVE_IN: Document existing condition, verify cleanliness and functionality
+- MOVE_OUT: Compare to move-in condition, document damages, verify cleaning
+- EMERGENCY: Safety hazards, urgent repairs needed
+- COMPLIANCE: Building codes, safety regulations
+
+Respond with ONLY valid JSON (no markdown, no code blocks, no explanations):
+{
+  "items": [
+    {
+      "description": "Specific, actionable checklist item based on the description (e.g., 'Check for water damage on ceiling in northeast corner')",
+      "priority": "HIGH | MEDIUM | LOW",
+      "category": "SAFETY | FUNCTIONALITY | AESTHETICS | CLEANLINESS | STRUCTURAL | PLUMBING | ELECTRICAL"
+    }
+  ]
+}`;
+    } else {
+      prompt = `You are an expert property inspector. Generate a comprehensive inspection checklist for a ${roomName} (${roomType}) during a ${inspectionType} inspection.
 
 Requirements:
 1. Create 5-10 specific, actionable checklist items
@@ -126,7 +184,7 @@ Inspection type considerations:
 - EMERGENCY: Safety hazards, urgent repairs needed
 - COMPLIANCE: Building codes, safety regulations
 
-Respond with a JSON object containing an array of checklist items:
+Respond with ONLY valid JSON (no markdown, no code blocks, no explanations):
 {
   "items": [
     {
@@ -136,6 +194,7 @@ Respond with a JSON object containing an array of checklist items:
     }
   ]
 }`;
+    }
 
     try {
       const message = await this._callWithRetry(
@@ -159,6 +218,7 @@ Respond with a JSON object containing an array of checklist items:
         roomType,
         roomName,
         inspectionType,
+        hasDescription,
         itemCount: result.items?.length || 0
       });
 
@@ -167,7 +227,8 @@ Respond with a JSON object containing an array of checklist items:
       logger.error('Error generating checklist', {
         error: error.message,
         roomType,
-        inspectionType
+        inspectionType,
+        hasDescription
       });
       throw error;
     }
