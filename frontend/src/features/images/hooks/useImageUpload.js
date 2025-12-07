@@ -668,7 +668,7 @@ export function useImageUpload(options = {}) {
    * Batch upload multiple images in a single request
    * This is more efficient and reduces rate limiting issues
    */
-  const uploadBatch = useCallback(async (imagesToUpload) => {
+  const uploadBatch = useCallback(async (imagesToUpload, retryAttempt = 0) => {
     try {
       // Update all images to uploading status
       updateImages(prev => prev.map(img =>
@@ -777,11 +777,28 @@ export function useImageUpload(options = {}) {
       // Check if rate limited
       const isRateLimitError = err.response?.status === 429;
       if (isRateLimitError) {
+        // Check if we've exceeded max retries
+        if (retryAttempt >= MAX_RETRY_ATTEMPTS) {
+          console.log(`[useImageUpload] Rate limit exceeded max retries (${MAX_RETRY_ATTEMPTS}). Marking as error.`);
+          updateImages(prev => prev.map(img =>
+            imagesToUpload.some(upload => upload.id === img.id)
+              ? {
+                  ...img,
+                  status: 'error',
+                  error: 'Rate limit exceeded after multiple retries. Please wait a few minutes and try again.',
+                  progress: 0,
+                  retryCount: retryAttempt,
+                }
+              : img
+          ));
+          return false;
+        }
+
         // Extract Retry-After header
-        const retryAfter = err.response?.headers?.['retry-after'] || 
+        const retryAfter = err.response?.headers?.['retry-after'] ||
                           err.response?.headers?.['Retry-After'] ||
                           err.response?.headers?.['x-ratelimit-reset'];
-        
+
         // Parse retry delay (default to 60 seconds if not provided)
         let retryAfterSeconds = 60;
         if (retryAfter) {
@@ -793,46 +810,35 @@ export function useImageUpload(options = {}) {
             retryAfterSeconds = retryAfterNum;
           }
         }
-        
-        // Ensure minimum wait time of 5 seconds
-        retryAfterSeconds = Math.max(5, retryAfterSeconds);
-        
-        console.log(`[useImageUpload] Rate limit exceeded. Waiting ${retryAfterSeconds}s before retry...`);
-        
+
+        // Add exponential backoff for subsequent retries
+        const backoffMultiplier = Math.pow(1.5, retryAttempt);
+        retryAfterSeconds = Math.ceil(retryAfterSeconds * backoffMultiplier);
+
+        // Ensure minimum wait time of 5 seconds, max of 5 minutes
+        retryAfterSeconds = Math.max(5, Math.min(300, retryAfterSeconds));
+
+        console.log(`[useImageUpload] Rate limit exceeded. Waiting ${retryAfterSeconds}s before retry (attempt ${retryAttempt + 1}/${MAX_RETRY_ATTEMPTS})...`);
+
         // Mark all images as rate limited with retry info
         updateImages(prev => prev.map(img =>
           imagesToUpload.some(upload => upload.id === img.id)
             ? {
                 ...img,
                 status: 'pending',
-                error: `Rate limit exceeded. Retrying in ${retryAfterSeconds}s...`,
+                error: `Rate limited. Retrying in ${retryAfterSeconds}s (attempt ${retryAttempt + 1}/${MAX_RETRY_ATTEMPTS})...`,
                 progress: 0,
+                retryCount: retryAttempt + 1,
               }
             : img
         ));
-        
-        // Wait for the retry-after period
-        await new Promise(resolve => setTimeout(resolve, retryAfterSeconds * 1000));
-        
-        // Retry the batch upload once
-        console.log(`[useImageUpload] Retrying batch upload after rate limit wait...`);
-        try {
-          return await uploadBatch(imagesToUpload);
-        } catch (retryErr) {
-          // If retry also fails, mark as error and return false to trigger fallback
-          console.error(`[useImageUpload] Batch upload retry also failed:`, retryErr);
-          updateImages(prev => prev.map(img =>
-            imagesToUpload.some(upload => upload.id === img.id)
-              ? {
-                  ...img,
-                  status: 'error',
-                  error: 'Rate limit exceeded. Please wait a minute and try again.',
-                  progress: 0,
-                }
-              : img
-          ));
-          return false;
-        }
+
+        // Wait for the retry-after period (add small buffer)
+        await new Promise(resolve => setTimeout(resolve, (retryAfterSeconds + 2) * 1000));
+
+        // Retry the batch upload with incremented retry count
+        console.log(`[useImageUpload] Retrying batch upload after rate limit wait (attempt ${retryAttempt + 1}/${MAX_RETRY_ATTEMPTS})...`);
+        return await uploadBatch(imagesToUpload, retryAttempt + 1);
       }
 
       // Mark all images as error
@@ -887,37 +893,10 @@ export function useImageUpload(options = {}) {
       const success = await uploadBatch(imagesToUpload);
       
       if (!success) {
-        // Check if any images are still pending (not rate-limited)
-        const stillPending = imagesToUpload.filter(img => {
-          const currentImage = images.find(i => i.id === img.id);
-          return currentImage?.status === 'pending' || currentImage?.status === 'error';
-        });
-        
-        // Only fall back to individual uploads if there are pending images that aren't rate-limited
-        // Rate-limited images will be handled by their retry logic
-        const nonRateLimited = stillPending.filter(img => {
-          const currentImage = images.find(i => i.id === img.id);
-          return !currentImage?.error?.includes('Rate limit');
-        });
-        
-        if (nonRateLimited.length > 0) {
-          console.log(`[useImageUpload] Batch upload failed for non-rate-limit reasons, falling back to individual uploads for ${nonRateLimited.length} files`);
-          const limit = pLimit(1); // Upload one at a time to avoid rate limits
-          
-          const uploadPromises = nonRateLimited.map((image, index) =>
-            limit(async () => {
-              // Add delay between uploads to avoid rate limiting
-              if (index > 0) {
-                await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between uploads
-              }
-              return uploadSingleImage(image);
-            })
-          );
-          
-          await Promise.all(uploadPromises);
-        } else {
-          console.log(`[useImageUpload] All images are rate-limited. Waiting for retry...`);
-        }
+        // Batch upload failed - images are already marked as error by uploadBatch
+        // Rate limits are handled with retries inside uploadBatch, so if we get here
+        // either retries were exhausted or it was a different error type
+        console.log(`[useImageUpload] Batch upload failed. Images marked as error - user can retry manually.`);
       }
 
     // Clear localStorage when all uploads are complete
