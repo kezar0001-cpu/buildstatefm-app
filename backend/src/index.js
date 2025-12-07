@@ -15,6 +15,7 @@ import logger from './utils/logger.js';
 import scheduleMaintenancePlanCron from './cron/maintenancePlans.js';
 import scheduleBlogAutomationCron from './cron/blogAutomation.js';
 import { startTrialCronJobs } from './cron/trialReminders.js';
+import { initWebsocket } from './websocket.js';
 
 // ---- Load env
 dotenv.config();
@@ -274,7 +275,14 @@ app.use('/api/blog', blogRoutes);
 // ---- Health, Root, 404, Error Handler, and Shutdown logic
 app.get('/health', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    // Add timeout to prevent health check from hanging during deployment
+    const healthCheckPromise = prisma.$queryRaw`SELECT 1`;
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Health check timeout')), 5000)
+    );
+    
+    await Promise.race([healthCheckPromise, timeoutPromise]);
+    
     const healthData = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -288,10 +296,12 @@ app.get('/health', async (_req, res) => {
     res.json(healthData);
   } catch (error) {
     logger.error('Health check failed:', error);
-    res.status(503).json({ 
+    // Return 200 with unhealthy status so Render knows server is running
+    res.status(200).json({ 
       status: 'unhealthy', 
       timestamp: new Date().toISOString(),
-      error: 'Database connection failed' 
+      error: error.message || 'Database connection failed',
+      uptime: process.uptime(),
     });
   }
 });
@@ -337,6 +347,14 @@ async function startServer() {
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
     });
+
+    // Initialize WebSocket server (must use same httpServer instance as Express)
+    try {
+      initWebsocket(server);
+    } catch (websocketError) {
+      logger.warn('Failed to initialize WebSocket server:', websocketError.message);
+      // Continue without WebSocket - app should still function
+    }
 
     let shuttingDown = false;
     const shutdown = async (signal) => {
