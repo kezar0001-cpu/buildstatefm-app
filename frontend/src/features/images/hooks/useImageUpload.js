@@ -114,7 +114,7 @@ export function useImageUpload(options = {}) {
     initialImages,
     onSuccess,
     onError,
-    endpoint = '/upload/multiple',
+    endpoint = '/api/uploads/multiple',
     compressImages = true,
     maxConcurrent = 3,
     storageKey,
@@ -369,7 +369,7 @@ export function useImageUpload(options = {}) {
 
     // Show toast notification
     const fileWord = newImages.length === 1 ? 'file' : 'files';
-    toast.info(`Uploading ${newImages.length} ${fileWord}...`, {
+    toast(`Uploading ${newImages.length} ${fileWord}...`, {
       icon: '📤',
       duration: 3000,
     });

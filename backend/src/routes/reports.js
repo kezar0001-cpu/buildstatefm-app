@@ -135,12 +135,12 @@ router.get('/', async (req, res) => {
     
     if (req.user.role === 'PROPERTY_MANAGER') {
       // Property managers see reports for their properties
-      where.property = {
+      where.Property = {
         managerId: req.user.id,
       };
     } else if (req.user.role === 'OWNER') {
       // Owners see reports for properties they own
-      where.property = {
+      where.Property = {
         owners: {
           some: {
             ownerId: req.user.id,
