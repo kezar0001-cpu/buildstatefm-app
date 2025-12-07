@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import {
   Box, Stack, Typography, Button, Alert, Grid, Card, CardContent,
   IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, CircularProgress
+  TextField, MenuItem, CircularProgress, Collapse
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { apiClient } from '../../api/client';
+import { ChecklistManager } from './ChecklistManager';
 
 const ROOM_TYPES = [
   { value: 'BEDROOM', label: 'Bedroom' },
@@ -64,6 +65,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
   const [editingRoom, setEditingRoom] = useState(null);
   const [formData, setFormData] = useState({ name: '', roomType: '', notes: '' });
   const [generatingMap, setGeneratingMap] = useState({});
+  const [expandedRooms, setExpandedRooms] = useState({});
 
   const handleOpenDialog = (room = null) => {
     if (room) {
@@ -120,6 +122,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
     },
     onSuccess: (data, room) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
+      toast.success(`Generated ${data.count || 0} checklist items`);
       // Trigger refetch to update the checklist items count
       if (actions.refetchRooms) {
         actions.refetchRooms();
@@ -132,6 +135,13 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
       toast.error(errorMessage);
     }
   });
+
+  const handleToggleExpand = (roomId) => {
+    setExpandedRooms(prev => ({
+      ...prev,
+      [roomId]: !prev[roomId]
+    }));
+  };
 
   return (
     <Box>
@@ -163,7 +173,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
       ) : (
         <Grid container spacing={isMobile ? 2 : 2}>
           {rooms.map((room) => (
-            <Grid item xs={12} sm={isMobile ? 12 : 6} md={4} key={room.id}>
+            <Grid item xs={12} sm={isMobile ? 12 : 6} md={isMobile ? 12 : 6} key={room.id}>
               <Card>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -177,20 +187,56 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
                     size="small"
                     sx={{ mb: 1 }}
                   />
-                  <Typography variant="body2" color="text.secondary">
-                    {room.checklistItems?.length || 0} checklist items
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant={room.checklistItems?.length > 0 ? 'outlined' : 'contained'}
-                    onClick={() => generateChecklistMutation.mutate(room)}
-                    sx={{ mt: 1 }}
-                    disabled={generatingMap[room.id] || (room.checklistItems?.length > 0)}
-                    startIcon={generatingMap[room.id] ? <CircularProgress size={16} /> : null}
-                  >
-                    {generatingMap[room.id] ? 'Generating AI Checklist...' :
-                     room.checklistItems?.length > 0 ? 'Checklist Generated' : 'Generate AI Checklist'}
-                  </Button>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {room.checklistItems?.length || 0} checklist items
+                    </Typography>
+                    {room.checklistItems && room.checklistItems.length > 0 && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleToggleExpand(room.id)}
+                        sx={{ ml: 'auto' }}
+                      >
+                        {expandedRooms[room.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                    )}
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => generateChecklistMutation.mutate(room)}
+                      disabled={generatingMap[room.id]}
+                      startIcon={generatingMap[room.id] ? <CircularProgress size={16} /> : null}
+                      sx={{ flex: 1 }}
+                    >
+                      {generatingMap[room.id] ? 'Generating...' : 'Generate AI Checklist'}
+                    </Button>
+                    {room.checklistItems && room.checklistItems.length > 0 && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleToggleExpand(room.id)}
+                        startIcon={expandedRooms[room.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      >
+                        {expandedRooms[room.id] ? 'Hide' : 'Manage'}
+                      </Button>
+                    )}
+                  </Stack>
+                  <Collapse in={expandedRooms[room.id]}>
+                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <ChecklistManager
+                        inspection={inspection}
+                        room={room}
+                        onUpdate={() => {
+                          if (actions.refetchRooms) {
+                            actions.refetchRooms();
+                          }
+                        }}
+                        isMobile={isMobile}
+                      />
+                    </Box>
+                  </Collapse>
                 </CardContent>
               </Card>
             </Grid>
