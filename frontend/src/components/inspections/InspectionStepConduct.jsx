@@ -126,9 +126,9 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved, i
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Inspection Checklist
+              Issues Found
               <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                Mark each item as passed or failed. Failed items will become repair recommendations.
+                These issues require repair or attention. Add photos and notes for each issue.
               </Typography>
             </Typography>
             <List sx={{ py: 0 }}>
@@ -138,7 +138,7 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved, i
                     <Stack 
                       direction={isMobile ? 'column' : 'row'} 
                       spacing={isMobile ? 1.5 : 1} 
-                      alignItems={isMobile ? 'stretch' : 'center'} 
+                      alignItems={isMobile ? 'stretch' : 'flex-start'} 
                       justifyContent="space-between"
                     >
                       <Typography 
@@ -150,34 +150,10 @@ export const InspectionStepConduct = ({ inspection, rooms, actions, lastSaved, i
                       >
                         {item.description}
                       </Typography>
-                      <Stack 
-                        direction="row" 
-                        spacing={1}
-                        sx={{ 
-                          width: isMobile ? '100%' : 'auto',
-                          justifyContent: isMobile ? 'stretch' : 'flex-end',
-                        }}
-                      >
-                        {['PASSED', 'FAILED', 'NA'].map((status) => (
-                          <Button
-                            key={status}
-                            size={isMobile ? 'medium' : 'small'}
-                            variant={item.status === status ? 'contained' : 'outlined'}
-                            color={status === 'PASSED' ? 'success' : status === 'FAILED' ? 'error' : 'inherit'}
-                            onClick={() => actions.updateChecklistItem(room.id, item.id, status, item.notes)}
-                            sx={{
-                              flex: isMobile ? 1 : 'none',
-                              minHeight: isMobile ? 44 : undefined,
-                            }}
-                          >
-                            {status === 'NA' ? 'N/A' : status.charAt(0) + status.slice(1).toLowerCase()}
-                          </Button>
-                        ))}
-                      </Stack>
                     </Stack>
-                    {item.status === 'FAILED' && (
-                      <Typography variant="caption" color="error" sx={{ ml: 0, mt: 0.5, display: 'block' }}>
-                        This will be added to recommendations for the property owner
+                    {item.notes && (
+                      <Typography variant="caption" color="text.secondary" sx={{ ml: 0, mt: 0.5, display: 'block' }}>
+                        {item.notes}
                       </Typography>
                     )}
                   </Box>

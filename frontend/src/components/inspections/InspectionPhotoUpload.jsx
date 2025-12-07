@@ -49,148 +49,182 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
   const photos = currentRoom?.photos || [];
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, queueId }) => {
-      // Update queue status to compressing
+    retry: false, // Disable automatic retries to prevent rate limit issues
+    mutationFn: async ({ files, queueIds }) => {
+      // Update all queue items to compressing
       setUploadQueue(prev => prev.map(item =>
-        item.id === queueId ? { ...item, status: 'compressing' } : item
+        queueIds.includes(item.id) ? { ...item, status: 'compressing' } : item
       ));
 
-      // Compress image before upload
-      let fileToUpload = file;
-      const originalSize = file.size / 1024 / 1024;
+      // Compress all images before upload
+      const compressedFiles = await Promise.all(
+        files.map(async (file, index) => {
+          const queueId = queueIds[index];
+          let fileToUpload = file;
+          const originalSize = file.size / 1024 / 1024;
 
-      if (originalSize > 0.5) { // Compress if larger than 500KB
-        try {
-          fileToUpload = await compressImage(file, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 2000,
-            useWebWorker: true,
-          });
+          if (originalSize > 0.5) { // Compress if larger than 500KB
+            try {
+              fileToUpload = await compressImage(file, {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 2000,
+                useWebWorker: true,
+              });
 
-          const compressedSize = fileToUpload.size / 1024 / 1024;
-          const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(0);
+              const compressedSize = fileToUpload.size / 1024 / 1024;
+              const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(0);
 
-          // Update queue with compression info
-          setUploadQueue(prev => prev.map(item =>
-            item.id === queueId ? {
-              ...item,
-              compressed: true,
-              compressionRatio: `${reduction}%`,
-              status: 'uploading'
-            } : item
-          ));
-        } catch (compressionError) {
-          console.warn('Compression failed, uploading original:', compressionError);
-          setUploadQueue(prev => prev.map(item =>
-            item.id === queueId ? { ...item, status: 'uploading' } : item
-          ));
-        }
-      } else {
-        setUploadQueue(prev => prev.map(item =>
-          item.id === queueId ? { ...item, status: 'uploading' } : item
-        ));
-      }
+              // Update queue with compression info
+              setUploadQueue(prev => prev.map(item =>
+                item.id === queueId ? {
+                  ...item,
+                  compressed: true,
+                  compressionRatio: `${reduction}%`,
+                  status: 'uploading'
+                } : item
+              ));
+            } catch (compressionError) {
+              console.warn('Compression failed, uploading original:', compressionError);
+              setUploadQueue(prev => prev.map(item =>
+                item.id === queueId ? { ...item, status: 'uploading' } : item
+              ));
+            }
+          } else {
+            setUploadQueue(prev => prev.map(item =>
+              item.id === queueId ? { ...item, status: 'uploading' } : item
+            ));
+          }
+
+          return { file: fileToUpload, queueId, originalFile: file };
+        })
+      );
 
       try {
-        // Step 1: Upload to storage
+        // Step 1: Upload all files to storage in one request
         const formData = new FormData();
-        formData.append('photos', fileToUpload);
+        compressedFiles.forEach(({ file }) => {
+          formData.append('photos', file);
+        });
 
         const uploadRes = await apiClient.post('/uploads/inspection-photos', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (e) => {
             const progress = Math.round((e.loaded * 100) / e.total);
+            // Update all uploading items with same progress
             setUploadQueue(prev => prev.map(item =>
-              item.id === queueId ? { ...item, progress } : item
+              queueIds.includes(item.id) && item.status === 'uploading' 
+                ? { ...item, progress } 
+                : item
             ));
           },
         });
 
         if (!uploadRes.data.success || !uploadRes.data.urls?.length) {
-          throw new Error('Failed to upload photo');
+          throw new Error('Failed to upload photos');
         }
 
-        // Step 2: Link to inspection
-        const linkRes = await apiClient.post(`/inspections/${inspectionId}/photos`, {
-          roomId,
-          issueId: checklistItemId,
-          url: uploadRes.data.urls[0],
+        // Step 2: Link all photos to inspection
+        const linkPromises = uploadRes.data.urls.map((url, index) => {
+          const { originalFile } = compressedFiles[index];
+          return apiClient.post(`/inspections/${inspectionId}/photos`, {
+            roomId,
+            issueId: checklistItemId,
+            url,
+          }).then(res => ({ photo: res.data.photo, queueId: queueIds[index], originalFile }));
         });
 
-        return { photo: linkRes.data.photo, queueId, originalFile: file };
+        const results = await Promise.all(linkPromises);
+        return results;
       } catch (err) {
+        // Mark all as error
         setUploadQueue(prev => prev.map(item =>
-          item.id === queueId ? { ...item, status: 'error', error: err.message } : item
+          queueIds.includes(item.id) 
+            ? { ...item, status: 'error', error: err.response?.data?.message || err.message } 
+            : item
         ));
         throw err;
       }
     },
-    onMutate: async ({ file, queueId }) => {
+    onMutate: async ({ files, queueIds }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.inspections.rooms(inspectionId) });
 
       // Snapshot the previous value for rollback
       const previousRooms = queryClient.getQueryData(queryKeys.inspections.rooms(inspectionId));
 
-      // Create optimistic photo with temporary ID and blob URL for immediate preview
-      const optimisticPhoto = {
-        id: `temp-${queueId}`,
+      // Create optimistic photos with temporary IDs and blob URLs for immediate preview
+      const optimisticPhotos = files.map((file, index) => ({
+        id: `temp-${queueIds[index]}`,
         url: URL.createObjectURL(file),
         roomId,
         issueId: checklistItemId,
         caption: null,
-        order: photos.length,
+        order: photos.length + index,
         uploadedAt: new Date().toISOString(),
         _isOptimistic: true,
-        _queueId: queueId,
-      };
+        _queueId: queueIds[index],
+      }));
 
-      // Optimistically update the UI with thumbnail preview
+      // Optimistically update the UI with thumbnail previews
       queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), (old) => {
         if (!old?.rooms) return old;
         return {
           ...old,
           rooms: old.rooms.map(room =>
             room.id === roomId
-              ? { ...room, photos: [...(room.photos || []), optimisticPhoto] }
+              ? { ...room, photos: [...(room.photos || []), ...optimisticPhotos] }
               : room
           ),
         };
       });
 
-      return { previousRooms, optimisticPhoto };
+      return { previousRooms, optimisticPhotos };
     },
-    onError: (err, { queueId }, context) => {
+    onError: (err, { queueIds }, context) => {
       // Rollback to previous state on error
       if (context?.previousRooms) {
         queryClient.setQueryData(queryKeys.inspections.rooms(inspectionId), context.previousRooms);
       }
-      // Revoke the blob URL to prevent memory leaks
-      if (context?.optimisticPhoto?._isOptimistic) {
-        URL.revokeObjectURL(context.optimisticPhoto.url);
+      // Revoke all blob URLs to prevent memory leaks
+      if (context?.optimisticPhotos) {
+        context.optimisticPhotos.forEach(photo => {
+          if (photo._isOptimistic) {
+            URL.revokeObjectURL(photo.url);
+          }
+        });
       }
       console.error('Photo upload error:', err);
-      setError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
+      setError(err.response?.data?.message || 'Failed to upload photos. Please try again.');
     },
-    onSuccess: ({ photo, queueId, originalFile }, _, context) => {
-      // Revoke the blob URL after successful upload
-      if (context?.optimisticPhoto?._isOptimistic) {
-        URL.revokeObjectURL(context.optimisticPhoto.url);
+    onSuccess: (results, _, context) => {
+      // Revoke all blob URLs after successful upload
+      if (context?.optimisticPhotos) {
+        context.optimisticPhotos.forEach(photo => {
+          if (photo._isOptimistic) {
+            URL.revokeObjectURL(photo.url);
+          }
+        });
       }
 
-      // Update queue status to completed
-      setUploadQueue(prev => prev.map(item =>
-        item.id === queueId ? { ...item, status: 'completed', progress: 100 } : item
-      ));
+      // Update queue status to completed for all
+      results.forEach(({ queueId }) => {
+        setUploadQueue(prev => prev.map(item =>
+          item.id === queueId ? { ...item, status: 'completed', progress: 100 } : item
+        ));
+      });
 
       // Remove from queue after 2 seconds
       setTimeout(() => {
-        setUploadQueue(prev => prev.filter(item => item.id !== queueId));
+        setUploadQueue(prev => prev.filter(item => 
+          !results.some(r => r.queueId === item.id)
+        ));
       }, 2000);
 
       queryClient.invalidateQueries(queryKeys.inspections.rooms(inspectionId));
       if (onUploadComplete) {
-        onUploadComplete(photo);
+        results.forEach(({ photo }) => {
+          onUploadComplete(photo);
+        });
       }
     },
   });
@@ -263,12 +297,11 @@ export const InspectionPhotoUpload = ({ inspectionId, roomId, checklistItemId, o
 
       setUploadQueue(prev => [...prev, ...newQueueItems]);
 
-      // Start uploading files
-      validFiles.forEach((file, index) => {
-        uploadMutation.mutate({
-          file,
-          queueId: newQueueItems[index].id
-        });
+      // Upload all files in a single batch request to reduce API calls
+      const queueIds = newQueueItems.map(item => item.id);
+      uploadMutation.mutate({
+        files: validFiles,
+        queueIds
       });
     }
 

@@ -127,9 +127,9 @@ export function useInspectionConduct(inspection, onComplete) {
   });
 
   const updateChecklistItemMutation = useMutation({
-    mutationFn: ({ roomId, itemId, status, notes }) =>
-      apiClient.patch(`/inspections/${inspection.id}/rooms/${roomId}/checklist/${itemId}`, { status, notes }),
-    onMutate: async ({ roomId, itemId, status, notes }) => {
+    mutationFn: ({ roomId, itemId, notes }) =>
+      apiClient.patch(`/inspections/${inspection.id}/rooms/${roomId}/checklist/${itemId}`, { notes }),
+    onMutate: async ({ roomId, itemId, notes }) => {
       await queryClient.cancelQueries(queryKeys.inspections.rooms(inspection.id));
       const previousData = queryClient.getQueryData(queryKeys.inspections.rooms(inspection.id));
 
@@ -143,7 +143,7 @@ export function useInspectionConduct(inspection, onComplete) {
             return {
               ...room,
               checklistItems: room.checklistItems.map(item =>
-                item.id === itemId ? { ...item, status, notes } : item
+                item.id === itemId ? { ...item, notes } : item
               )
             };
           })
@@ -164,9 +164,9 @@ export function useInspectionConduct(inspection, onComplete) {
     }
   });
 
-  // Immediate update (no debounce)
-  const updateChecklistItem = useCallback((roomId, itemId, status, notes) => {
-    updateChecklistItemMutation.mutate({ roomId, itemId, status, notes });
+  // Update issue notes (no status updates - issues are issues)
+  const updateChecklistItem = useCallback((roomId, itemId, notes) => {
+    updateChecklistItemMutation.mutate({ roomId, itemId, notes });
   }, [updateChecklistItemMutation]);
 
   const completeInspectionMutation = useMutation({

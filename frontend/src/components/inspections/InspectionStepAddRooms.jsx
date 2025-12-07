@@ -124,8 +124,8 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
     },
     onSuccess: (data, room) => {
       setGeneratingMap(prev => ({ ...prev, [room.id]: false }));
-      toast.success(`Generated ${data.count || 0} checklist items`);
-      // Invalidate and refetch rooms to update the checklist items count
+      toast.success(`Generated ${data.count || 0} issues`);
+      // Invalidate and refetch rooms to update the issues count
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
       if (actions.refetchRooms) {
         actions.refetchRooms();
@@ -192,7 +192,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
                   />
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      {room.checklistItems?.length || 0} checklist items
+                      {room.checklistItems?.length || 0} issues
                     </Typography>
                     {room.checklistItems && room.checklistItems.length > 0 && (
                       <IconButton
@@ -213,7 +213,7 @@ export const InspectionStepAddRooms = ({ inspection, rooms, actions, isMobile = 
                       startIcon={generatingMap[room.id] ? <CircularProgress size={16} /> : null}
                       sx={{ flex: 1 }}
                     >
-                      {generatingMap[room.id] ? 'Generating...' : 'Generate AI Checklist'}
+                      {generatingMap[room.id] ? 'Generating...' : 'Generate AI Issues'}
                     </Button>
                     {room.checklistItems && room.checklistItems.length > 0 && (
                       <Button
