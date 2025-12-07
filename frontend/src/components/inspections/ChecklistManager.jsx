@@ -56,7 +56,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     setFormData({ description: '', notes: '' });
   };
 
-  // Add checklist item mutation
+  // Add issue mutation
   const addItemMutation = useMutation({
     mutationFn: async (data) => {
       const response = await apiClient.post(
@@ -66,19 +66,19 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Checklist item added');
+      toast.success('Issue added');
       handleCloseDialog();
       if (onUpdate) onUpdate();
-      // Refetch rooms to update checklist count
+      // Refetch rooms to update issues count
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || 'Failed to add checklist item';
+      const errorMessage = error.response?.data?.message || 'Failed to add issue';
       toast.error(errorMessage);
     }
   });
 
-  // Update checklist item mutation
+  // Update issue mutation
   const updateItemMutation = useMutation({
     mutationFn: async ({ itemId, data }) => {
       const response = await apiClient.patch(
@@ -88,18 +88,18 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Checklist item updated');
+      toast.success('Issue updated');
       handleCloseDialog();
       if (onUpdate) onUpdate();
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || 'Failed to update checklist item';
+      const errorMessage = error.response?.data?.message || 'Failed to update issue';
       toast.error(errorMessage);
     }
   });
 
-  // Delete checklist item mutation
+  // Delete issue mutation
   const deleteItemMutation = useMutation({
     mutationFn: async (itemId) => {
       await apiClient.delete(
@@ -108,7 +108,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       return itemId;
     },
     onSuccess: (itemId) => {
-      toast.success('Checklist item deleted');
+      toast.success('Issue deleted');
       // Remove from selection if it was selected
       setSelectedItems(prev => {
         const newSet = new Set(prev);
@@ -119,7 +119,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || 'Failed to delete checklist item';
+      const errorMessage = error.response?.data?.message || 'Failed to delete issue';
       toast.error(errorMessage);
     }
   });
@@ -134,13 +134,13 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       await Promise.all(deletePromises);
     },
     onSuccess: (_, itemIds) => {
-      toast.success(`Deleted ${itemIds.length} checklist item(s)`);
+      toast.success(`Deleted ${itemIds.length} issue(s)`);
       setSelectedItems(new Set());
       if (onUpdate) onUpdate();
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || 'Failed to delete checklist items';
+      const errorMessage = error.response?.data?.message || 'Failed to delete issues';
       toast.error(errorMessage);
     }
   });
@@ -169,7 +169,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
   };
 
   const handleDelete = (itemId) => {
-    if (window.confirm('Are you sure you want to delete this checklist item?')) {
+    if (window.confirm('Are you sure you want to delete this issue?')) {
       deleteItemMutation.mutate(itemId);
     }
   };
@@ -202,7 +202,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     if (selectedItems.size === 0) return;
     
     const count = selectedItems.size;
-    if (window.confirm(`Are you sure you want to delete ${count} checklist item(s)? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete ${count} issue(s)? This action cannot be undone.`)) {
       bulkDeleteMutation.mutate(Array.from(selectedItems));
     }
   };
@@ -214,7 +214,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="subtitle1">
-          Checklist Items ({checklistItems.length})
+          Issues ({checklistItems.length})
         </Typography>
         <Stack direction="row" spacing={1}>
           {selectedItems.size > 0 && (
@@ -262,7 +262,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
           <Typography variant="body2" sx={{ ml: 1, flexGrow: 1 }}>
             {selectedItems.size > 0
               ? `${selectedItems.size} of ${sortedItems.length} selected`
-              : 'Select items to delete'}
+              : 'Select issues to delete'}
           </Typography>
           {selectedItems.size > 0 && (
             <Button
@@ -278,7 +278,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
 
       {sortedItems.length === 0 ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No checklist items yet. Add items manually or generate an AI checklist.
+          No issues identified yet. Add issues manually or generate an AI list of issues.
         </Alert>
       ) : (
         <List sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
@@ -333,14 +333,6 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
                       <Stack direction="row" spacing={1} alignItems="center">
                         <CheckCircleIcon fontSize="small" color="action" />
                         <Typography variant="body2">{item.description}</Typography>
-                        {item.status && item.status !== 'PENDING' && (
-                          <Chip
-                            label={item.status}
-                            size="small"
-                            color={item.status === 'PASSED' ? 'success' : item.status === 'FAILED' ? 'error' : 'default'}
-                            sx={{ ml: 'auto' }}
-                          />
-                        )}
                       </Stack>
                     }
                     secondary={item.notes ? (
@@ -366,7 +358,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
         fullScreen={isMobile}
       >
         <DialogTitle>
-          {editingItem ? 'Edit Checklist Item' : 'Add Checklist Item'}
+          {editingItem ? 'Edit Issue' : 'Add Issue'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -378,7 +370,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
               required
               multiline
               rows={2}
-              helperText="Describe what needs to be checked"
+              helperText="Describe the issue that needs repair or attention"
               autoFocus
             />
             <TextField
@@ -388,7 +380,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
               fullWidth
               multiline
               rows={2}
-              helperText="Additional notes or context for this item"
+              helperText="Additional notes or context for this issue"
             />
           </Stack>
         </DialogContent>
@@ -399,7 +391,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
             variant="contained"
             disabled={!formData.description.trim() || addItemMutation.isLoading || updateItemMutation.isLoading}
           >
-            {editingItem ? 'Update' : 'Add'}
+            {editingItem ? 'Update Issue' : 'Add Issue'}
           </Button>
         </DialogActions>
       </Dialog>

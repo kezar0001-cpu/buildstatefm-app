@@ -189,14 +189,14 @@ class InspectionAIService {
   }
 
   /**
-   * Generate inspection checklist for a room based on type, notes, and inspection type
-   * Reads the description/notes to identify specific issues and creates separate checklist items for each
+   * Generate inspection issues for a room based on type, notes, and inspection type
+   * Reads the description/notes to identify specific issues that need repair
    * @param {Object} options
    * @param {string} options.roomType - Type of room (BEDROOM, BATHROOM, etc.)
    * @param {string} options.roomName - Name of the room
    * @param {string} options.notes - Additional notes/description about the room
    * @param {string} options.inspectionType - Type of inspection (ROUTINE, MOVE_IN, MOVE_OUT, etc.)
-   * @returns {Promise<Array>} Array of checklist items with descriptions and priorities
+   * @returns {Promise<Array>} Array of issues with descriptions and priorities
    */
   async generateChecklist(options = {}) {
     const {
@@ -212,55 +212,61 @@ class InspectionAIService {
 
     let prompt;
     if (hasDescription) {
-      prompt = `You are an expert property inspector. Analyze the following room description and identify ALL specific issues that need to be checked during a ${inspectionType} inspection.
+      prompt = `You are an expert property inspector. Analyze the following room description and identify ALL specific issues that require repair or attention.
 
 Room: ${roomName} (${roomType})
 Description: "${notes}"
 
 Your task:
 1. Read the description carefully
-2. Identify EACH individual issue mentioned (e.g., "water damage on ceiling" = one issue, "cracked tiles" = another issue)
-3. Create a SEPARATE checklist item for EACH issue you identify
-4. If the description mentions general areas to check (e.g., "check walls"), create specific checklist items for those areas
-5. Each checklist item should be actionable and specific
+2. Identify EACH individual issue mentioned that needs repair (e.g., "water damage on ceiling" = one issue, "cracked tiles" = another issue, "electrical points not working" = another issue)
+3. Create a SEPARATE issue item for EACH problem you identify
+4. ONLY identify actual issues/problems that need fixing - do NOT create general inspection items
+5. Each issue should be specific and actionable
 
 Important:
-- Each issue gets its own checklist item (don't combine multiple issues into one item)
-- Be specific: "Check for water damage on ceiling" not just "Check ceiling"
-- Include standard inspection items for this room type if the description doesn't cover everything
-- Minimum 3 items, but create as many as needed to cover all issues mentioned
+- Each issue gets its own item (don't combine multiple issues into one)
+- Be specific: "Water damage on ceiling in northeast corner" not just "Check ceiling"
+- ONLY list actual problems/issues that need repair - skip anything that's in good condition
+- If the description mentions something is working fine, do NOT include it
+- Minimum 3 issues if problems are found, but create as many as needed to cover all issues mentioned
 
 Inspection type context:
-- ROUTINE: General condition, wear and tear, maintenance needs
-- MOVE_IN: Document existing condition, verify cleanliness and functionality
-- MOVE_OUT: Compare to move-in condition, document damages, verify cleaning
+- ROUTINE: Maintenance issues, wear and tear, things needing repair
+- MOVE_IN: Document existing damage and issues
+- MOVE_OUT: Document damages and issues that need repair
 - EMERGENCY: Safety hazards, urgent repairs needed
-- COMPLIANCE: Building codes, safety regulations
+- COMPLIANCE: Code violations, safety issues
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do NOT include markdown code blocks, explanations, or any other text. Start your response with { and end with }. Example format:
 
-{"items":[{"description":"Check for water damage on ceiling","priority":"HIGH","category":"STRUCTURAL"},{"description":"Inspect floor tiles for cracks","priority":"MEDIUM","category":"AESTHETICS"}]}`;
+{"items":[{"description":"Water damage on ceiling in northeast corner requires repair","priority":"HIGH","category":"STRUCTURAL"},{"description":"11 loose floor tiles need retiling","priority":"MEDIUM","category":"STRUCTURAL"},{"description":"Electrical outlets not functioning properly - needs electrician","priority":"HIGH","category":"ELECTRICAL"}]}`;
     } else {
-      prompt = `You are an expert property inspector. Generate a comprehensive inspection checklist for a ${roomName} (${roomType}) during a ${inspectionType} inspection.
+      prompt = `You are an expert property inspector. For a ${roomName} (${roomType}) during a ${inspectionType} inspection, identify common issues that typically need repair or attention in this type of room.
 
 Requirements:
-1. Create 5-10 specific, actionable checklist items
-2. Each item should be a clear inspection point that can be marked as PASSED, FAILED, or N/A
-3. Focus on practical, observable issues
-4. For each issue, create a SEPARATE checklist item (don't combine multiple issues)
+1. Create 5-10 specific issues that commonly need repair in this room type
+2. Each item should be an actual problem/issue that requires fixing
+3. Focus on observable issues: damage, malfunctions, safety hazards, wear and tear
+4. For each issue, create a SEPARATE item (don't combine multiple issues)
 5. Include detailed descriptions for clarity
 6. Prioritize items based on safety, functionality, and aesthetics
 
+Important:
+- ONLY list actual issues/problems - do NOT create general "check" items
+- Focus on things that typically need repair in this room type
+- Each issue should be something that requires action/repair
+
 Inspection type considerations:
-- ROUTINE: General condition, wear and tear, maintenance needs
-- MOVE_IN: Document existing condition, verify cleanliness and functionality
-- MOVE_OUT: Compare to move-in condition, document damages, verify cleaning
+- ROUTINE: Maintenance issues, wear and tear, things needing repair
+- MOVE_IN: Common existing damage and issues to document
+- MOVE_OUT: Typical damages and issues that need repair
 - EMERGENCY: Safety hazards, urgent repairs needed
-- COMPLIANCE: Building codes, safety regulations
+- COMPLIANCE: Code violations, safety issues
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do NOT include markdown code blocks, explanations, or any other text. Start your response with { and end with }. Example format:
 
-{"items":[{"description":"Check walls for cracks, holes, or water damage","priority":"MEDIUM","category":"STRUCTURAL"},{"description":"Verify all electrical outlets are functioning","priority":"HIGH","category":"SAFETY"}]}`;
+{"items":[{"description":"Cracks in walls requiring patching and repainting","priority":"MEDIUM","category":"STRUCTURAL"},{"description":"Non-functional electrical outlets need repair","priority":"HIGH","category":"ELECTRICAL"}]}`;
     }
 
     try {
