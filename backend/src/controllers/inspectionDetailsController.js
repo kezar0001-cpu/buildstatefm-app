@@ -103,16 +103,48 @@ export const generateAIChecklist = async (req, res) => {
     const existingCount = await prisma.inspectionChecklistItem.count({ where: { roomId } });
 
     // Generate AI checklist (reads description/notes to identify issues)
-    const aiItems = await inspectionAIService.generateChecklist({
-      roomType: room.roomType,
-      roomName: room.name,
-      notes: room.notes || '',
-      inspectionType: inspection.type
-    });
+    let aiItems;
+    try {
+      aiItems = await inspectionAIService.generateChecklist({
+        roomType: room.roomType,
+        roomName: room.name,
+        notes: room.notes || '',
+        inspectionType: inspection.type
+      });
+    } catch (error) {
+      console.error('AI checklist generation failed:', error);
+      // Provide more helpful error messages based on error type
+      if (error.message?.includes('JSON') || error.message?.includes('parse')) {
+        return sendError(res, 500, 'AI service returned invalid response format. Please try again.', ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+      if (error.message?.includes('API key') || error.message?.includes('configuration')) {
+        return sendError(res, 500, 'AI service is not properly configured. Please contact support.', ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+      if (error.message?.includes('unavailable') || error.message?.includes('API')) {
+        return sendError(res, 500, 'AI service is temporarily unavailable. Please try again in a moment.', ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+      if (error.message?.includes('valid checklist items') || error.message?.includes('No valid')) {
+        return sendError(res, 500, 'AI service did not generate valid checklist items. Please try again or add items manually.', ErrorCodes.ERR_INTERNAL_SERVER);
+      }
+      // Re-throw to be caught by outer try-catch for unknown errors
+      throw error;
+    }
+
+    // Validate that we got items
+    if (!aiItems || !Array.isArray(aiItems) || aiItems.length === 0) {
+      console.error('AI returned no items or invalid format:', aiItems);
+      return sendError(res, 500, 'AI service did not return any checklist items. Please try again.', ErrorCodes.ERR_INTERNAL_SERVER);
+    }
 
     // Create checklist items in database (append to existing if any)
     const createdItems = [];
     for (let i = 0; i < aiItems.length; i++) {
+      // Ensure each item has required fields
+      if (!aiItems[i].description) {
+        console.warn(`Skipping item ${i} - missing description:`, aiItems[i]);
+        continue;
+      }
+
       const item = await prisma.inspectionChecklistItem.create({
         data: {
           id: randomUUID(),
@@ -124,6 +156,10 @@ export const generateAIChecklist = async (req, res) => {
         },
       });
       createdItems.push(item);
+    }
+
+    if (createdItems.length === 0) {
+      return sendError(res, 500, 'No valid checklist items could be created. Please try again.', ErrorCodes.ERR_INTERNAL_SERVER);
     }
 
     await logAudit(inspectionId, req.user.id, 'AI_CHECKLIST_GENERATED', {
@@ -139,7 +175,10 @@ export const generateAIChecklist = async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to generate AI checklist', error);
-    sendError(res, 500, error.message || 'Failed to generate AI checklist', ErrorCodes.ERR_INTERNAL_SERVER);
+    // If error was already handled above, it won't reach here
+    // This catches any unexpected errors
+    const errorMessage = error.message || 'Failed to generate AI checklist';
+    sendError(res, 500, errorMessage, ErrorCodes.ERR_INTERNAL_SERVER);
   }
 };
 
