@@ -166,7 +166,7 @@ const DashboardPage = () => {
           <Stack
             direction="row"
             spacing={1}
-            sx={{ width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}
+            alignItems="center"
           >
             <IconButton
               onClick={handleRefresh}
