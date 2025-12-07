@@ -153,6 +153,7 @@ export const generateAIChecklist = async (req, res) => {
           status: 'PENDING',
           notes: aiItems[i].category ? `Category: ${aiItems[i].category}, Priority: ${aiItems[i].priority}` : '',
           order: existingCount + i,
+          updatedAt: new Date(),
         },
       });
       createdItems.push(item);
@@ -197,6 +198,7 @@ export const addChecklistItem = async (req, res) => {
         status: status || 'PENDING',
         notes,
         order: itemCount,
+        updatedAt: new Date(),
       },
     });
 
@@ -213,7 +215,13 @@ export const updateChecklistItem = async (req, res) => {
     const { description, status, notes, order } = req.body;
     const item = await prisma.inspectionChecklistItem.update({
       where: { id: req.params.itemId },
-      data: { description, status, notes, order },
+      data: { 
+        description, 
+        status, 
+        notes, 
+        order,
+        updatedAt: new Date(),
+      },
     });
 
     await logAudit(req.params.id, req.user.id, 'CHECKLIST_ITEM_UPDATED', { itemId: item.id, status });
