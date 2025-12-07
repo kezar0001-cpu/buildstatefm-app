@@ -7,6 +7,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  ListItemIcon,
   IconButton,
   Dialog,
   DialogTitle,
@@ -15,7 +16,9 @@ import {
   TextField,
   Alert,
   Chip,
-  Divider
+  Divider,
+  Checkbox,
+  Toolbar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,6 +35,7 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ description: '', notes: '' });
+  const [selectedItems, setSelectedItems] = useState(new Set());
   const queryClient = useQueryClient();
 
   const handleOpenAddDialog = () => {
@@ -101,14 +105,42 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
       await apiClient.delete(
         `/inspections/${inspection.id}/rooms/${room.id}/checklist/${itemId}`
       );
+      return itemId;
     },
-    onSuccess: () => {
+    onSuccess: (itemId) => {
       toast.success('Checklist item deleted');
+      // Remove from selection if it was selected
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
       if (onUpdate) onUpdate();
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
     },
     onError: (error) => {
       const errorMessage = error.response?.data?.message || 'Failed to delete checklist item';
+      toast.error(errorMessage);
+    }
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (itemIds) => {
+      // Delete all items in parallel
+      const deletePromises = itemIds.map(itemId =>
+        apiClient.delete(`/inspections/${inspection.id}/rooms/${room.id}/checklist/${itemId}`)
+      );
+      await Promise.all(deletePromises);
+    },
+    onSuccess: (_, itemIds) => {
+      toast.success(`Deleted ${itemIds.length} checklist item(s)`);
+      setSelectedItems(new Set());
+      if (onUpdate) onUpdate();
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.message || 'Failed to delete checklist items';
       toast.error(errorMessage);
     }
   });
@@ -142,6 +174,38 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
     }
   };
 
+  const handleToggleSelect = (itemId) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedItems(new Set(sortedItems.map(item => item.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedItems.size === 0) return;
+    
+    const count = selectedItems.size;
+    if (window.confirm(`Are you sure you want to delete ${count} checklist item(s)? This action cannot be undone.`)) {
+      bulkDeleteMutation.mutate(Array.from(selectedItems));
+    }
+  };
+
+  const isAllSelected = sortedItems.length > 0 && selectedItems.size === sortedItems.length;
+  const isIndeterminate = selectedItems.size > 0 && selectedItems.size < sortedItems.length;
+
   // Handle both camelCase and PascalCase formats
   const checklistItems = room.checklistItems || room.InspectionChecklistItem || [];
   const sortedItems = [...checklistItems].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -152,15 +216,65 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
         <Typography variant="subtitle1">
           Checklist Items ({checklistItems.length})
         </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleOpenAddDialog}
-        >
-          Add Item
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {selectedItems.size > 0 && (
+            <Button
+              size="small"
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isLoading}
+            >
+              Delete ({selectedItems.size})
+            </Button>
+          )}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleOpenAddDialog}
+          >
+            Add Item
+          </Button>
+        </Stack>
       </Stack>
+
+      {sortedItems.length > 0 && (
+        <Toolbar
+          variant="dense"
+          sx={{
+            minHeight: '48px !important',
+            px: '8px !important',
+            bgcolor: selectedItems.size > 0 ? 'action.selected' : 'transparent',
+            borderTop: '1px solid',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            mb: 1
+          }}
+        >
+          <Checkbox
+            checked={isAllSelected}
+            indeterminate={isIndeterminate}
+            onChange={handleSelectAll}
+            size="small"
+          />
+          <Typography variant="body2" sx={{ ml: 1, flexGrow: 1 }}>
+            {selectedItems.size > 0
+              ? `${selectedItems.size} of ${sortedItems.length} selected`
+              : 'Select items to delete'}
+          </Typography>
+          {selectedItems.size > 0 && (
+            <Button
+              size="small"
+              onClick={() => setSelectedItems(new Set())}
+              sx={{ minWidth: 'auto' }}
+            >
+              Clear
+            </Button>
+          )}
+        </Toolbar>
+      )}
 
       {sortedItems.length === 0 ? (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -168,62 +282,78 @@ export const ChecklistManager = ({ inspection, room, onUpdate, isMobile = false 
         </Alert>
       ) : (
         <List sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          {sortedItems.map((item, index) => (
-            <React.Fragment key={item.id}>
-              <ListItem
-                sx={{
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: 'action.hover'
-                  }
-                }}
-                secondaryAction={
-                  <Stack direction="row" spacing={0.5}>
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => handleOpenEditDialog(item)}
-                      aria-label="edit"
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => handleDelete(item.id)}
-                      aria-label="delete"
-                      color="error"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                }
-              >
-                <ListItemText
-                  primary={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <CheckCircleIcon fontSize="small" color="action" />
-                      <Typography variant="body2">{item.description}</Typography>
-                      {item.status && item.status !== 'PENDING' && (
-                        <Chip
-                          label={item.status}
-                          size="small"
-                          color={item.status === 'PASSED' ? 'success' : item.status === 'FAILED' ? 'error' : 'default'}
-                          sx={{ ml: 'auto' }}
-                        />
-                      )}
+          {sortedItems.map((item, index) => {
+            const isSelected = selectedItems.has(item.id);
+            return (
+              <React.Fragment key={item.id}>
+                <ListItem
+                  sx={{
+                    py: 1.5,
+                    bgcolor: isSelected ? 'action.selected' : 'transparent',
+                    '&:hover': {
+                      bgcolor: isSelected ? 'action.selected' : 'action.hover'
+                    }
+                  }}
+                  secondaryAction={
+                    <Stack direction="row" spacing={0.5}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleOpenEditDialog(item)}
+                        aria-label="edit"
+                        disabled={isSelected}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDelete(item.id)}
+                        aria-label="delete"
+                        color="error"
+                        disabled={isSelected}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </Stack>
                   }
-                  secondary={item.notes ? (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                      {item.notes}
-                    </Typography>
-                  ) : null}
-                />
-              </ListItem>
-              {index < sortedItems.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
+                >
+                  <ListItemIcon>
+                    <Checkbox
+                      edge="start"
+                      checked={isSelected}
+                      onChange={() => handleToggleSelect(item.id)}
+                      tabIndex={-1}
+                      disableRipple
+                      size="small"
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CheckCircleIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{item.description}</Typography>
+                        {item.status && item.status !== 'PENDING' && (
+                          <Chip
+                            label={item.status}
+                            size="small"
+                            color={item.status === 'PASSED' ? 'success' : item.status === 'FAILED' ? 'error' : 'default'}
+                            sx={{ ml: 'auto' }}
+                          />
+                        )}
+                      </Stack>
+                    }
+                    secondary={item.notes ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {item.notes}
+                      </Typography>
+                    ) : null}
+                  />
+                </ListItem>
+                {index < sortedItems.length - 1 && <Divider />}
+              </React.Fragment>
+            );
+          })}
         </List>
       )}
 
