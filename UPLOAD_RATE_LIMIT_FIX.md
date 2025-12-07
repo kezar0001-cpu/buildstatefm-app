@@ -41,37 +41,49 @@ The `useImageUpload` hook was uploading files **individually** (one request per 
 - More efficient network usage
 - Faster uploads
 
-### 2. 429 Error Handling ✅
+### 2. Enhanced 429 Error Handling ✅
 
 **Added:**
-- Detection of 429 (rate limit) errors
-- Extraction of `Retry-After` header
-- Proper delay before retry (respects server's retry-after time)
-- User-friendly error messages
+- Detection of 429 (rate limit) errors in both batch and individual uploads
+- Extraction of `Retry-After` header with proper parsing (handles both seconds and timestamps)
+- Proper delay before retry (respects server's retry-after time + 2 second buffer)
+- Automatic retry for batch uploads (waits and retries once before falling back)
+- Prevents immediate fallback to individual uploads when rate-limited
+- User-friendly error messages with countdown
 
-**Code:**
+**Batch Upload 429 Handling:**
 ```javascript
-// Check if this is a rate limit error (429)
-const isRateLimitError = err.response?.status === 429;
-if (isRateLimitError) {
-  // Extract Retry-After header or calculate delay
-  const retryAfter = err.response?.headers?.['retry-after'] || 
-                    err.response?.headers?.['Retry-After'];
-  const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
-  const delay = retryAfterSeconds * 1000; // Convert to milliseconds
-  
-  // Wait for the retry-after period before retrying
-  await new Promise(resolve => setTimeout(resolve, delay));
+// If batch gets 429, wait for Retry-After and retry batch once
+// Only falls back to individual uploads if retry also fails
+const retryAfter = err.response?.headers?.['retry-after'] || 
+                  err.response?.headers?.['Retry-After'];
+let retryAfterSeconds = 60;
+if (retryAfter) {
+  const retryAfterNum = parseInt(retryAfter, 10);
+  if (retryAfterNum > 1000000000) { // Unix timestamp
+    retryAfterSeconds = Math.max(1, Math.ceil((retryAfterNum * 1000 - Date.now()) / 1000));
+  } else {
+    retryAfterSeconds = retryAfterNum;
+  }
 }
+retryAfterSeconds = Math.max(5, retryAfterSeconds); // Minimum 5 seconds
+await new Promise(resolve => setTimeout(resolve, retryAfterSeconds * 1000));
 ```
 
-### 3. Fallback Strategy ✅
+**Individual Upload 429 Handling:**
+```javascript
+// Waits for Retry-After + 2 second buffer to ensure window has reset
+await new Promise(resolve => setTimeout(resolve, (retryAfterSeconds + 2) * 1000));
+```
 
-If batch upload fails (e.g., rate limited), the hook now:
-1. Falls back to individual uploads
-2. Uploads one at a time (not concurrently)
-3. Adds 1-second delay between uploads
-4. Prevents further rate limiting
+### 3. Smart Fallback Strategy ✅
+
+If batch upload fails, the hook now:
+1. **For 429 errors:** Waits for Retry-After, retries batch once, only falls back if retry also fails
+2. **For other errors:** Falls back to individual uploads
+3. **Individual uploads:** Upload one at a time with 2-second delays
+4. **Rate-limited images:** Not included in fallback (handled by their own retry logic)
+5. Prevents cascading rate limit errors
 
 ---
 
@@ -109,9 +121,12 @@ export const uploadRateLimiter = createRedisRateLimiter({
 ## Files Changed
 
 1. **`frontend/src/features/images/hooks/useImageUpload.js`**
-   - Added `uploadBatch()` function
-   - Modified `processQueue()` to use batch upload
-   - Added 429 error handling with retry-after support
+   - Added `uploadBatch()` function with 429 handling
+   - Modified `processQueue()` to use batch upload with smart fallback
+   - Enhanced 429 error handling in both batch and individual uploads
+   - Improved Retry-After parsing (handles seconds and timestamps)
+   - Added 2-second buffer to retry delays to ensure rate limit window has reset
+   - Prevents fallback to individual uploads for rate-limited images
    - Fixed import for `expandUploadQueue`
 
 ---
@@ -138,9 +153,19 @@ export const uploadRateLimiter = createRedisRateLimiter({
 To verify the fix works:
 
 1. **Upload 2 images** → Should use 1 request (check network tab)
-2. **Hit rate limit** → Should show retry message with countdown
-3. **Automatic retry** → Should retry after the retry-after period
-4. **Batch upload** → All files should upload together
+2. **Hit rate limit** → Should show retry message with countdown, wait for Retry-After period
+3. **Automatic retry** → Should retry batch once, then fall back only if needed
+4. **Batch upload** → All files should upload together in single request
+5. **Rate limit recovery** → Should wait full Retry-After period + buffer before retrying
+6. **No cascading errors** → Rate-limited images don't trigger immediate fallback
+
+### Expected Behavior When Rate Limited:
+
+1. Batch upload gets 429 → Shows "Rate limit exceeded. Retrying in Xs..."
+2. Waits for Retry-After period (e.g., 60 seconds)
+3. Retries batch upload once
+4. If retry succeeds → Uploads complete
+5. If retry also fails → Marks as error, user can manually retry later
 
 ---
 
