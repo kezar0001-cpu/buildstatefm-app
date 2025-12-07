@@ -8,6 +8,7 @@ import {
   createDocumentUploadMiddleware,
   getUploadedFileUrl,
   getUploadedFileUrls,
+  getUploadedFilesMetadata,
   isUsingCloudStorage,
 } from '../services/uploadService.js';
 import { uploadResponsiveImage, getPrimaryImageUrl, buildSrcSet } from '../services/responsiveImageService.js';
@@ -25,12 +26,14 @@ const router = express.Router();
 const rateLimitUpload = uploadRateLimiter;
 
 // Create upload middleware (uses S3 if configured, local storage otherwise)
-const upload = createUploadMiddleware();
+// Default folder: 'properties' for general image uploads
+const upload = createUploadMiddleware({ folder: 'properties' });
 const documentUpload = createDocumentUploadMiddleware();
 
 // Create specific upload middleware for inspection photos
-// Restricted to: image/jpeg, image/png, image/webp; max 10MB
+// Uses 'inspections' folder, restricted to: image/jpeg, image/png, image/webp; max 10MB
 const inspectionPhotoUpload = createUploadMiddleware({
+  folder: 'inspections',
   allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
   maxFileSize: 10 * 1024 * 1024, // 10MB
   maxFiles: 20,
@@ -72,10 +75,19 @@ router.post('/single', requireAuth, requireActiveSubscription, rateLimitUpload, 
       }
     }
 
-    const url = getUploadedFileUrl(req.file);
+    const fileMetadata = getUploadedFilesMetadata([req.file])[0];
+    if (!fileMetadata) {
+      return sendError(res, 500, 'Failed to process uploaded file', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
     const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
-    console.log(`✅ Uploaded to ${storageType} by user ${req.user.id}: ${req.file.originalname} -> ${url}`);
-    res.status(201).json({ success: true, url });
+    console.log(`✅ Uploaded to ${storageType} by user ${req.user.id}: ${req.file.originalname} -> ${fileMetadata.url}`);
+    
+    // Standardized response format
+    res.status(201).json({
+      success: true,
+      files: [fileMetadata],
+    });
   } catch (error) {
     console.error('Upload error:', error);
     return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
@@ -120,10 +132,20 @@ router.post('/multiple', requireAuth, requireActiveSubscription, rateLimitUpload
       }
     }
 
-    const urls = getUploadedFileUrls(req.files);
+    const filesMetadata = getUploadedFilesMetadata(req.files);
+    if (filesMetadata.length === 0) {
+      return sendError(res, 500, 'Failed to process uploaded files', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
     const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} files to ${storageType} by user ${req.user.id}`);
-    res.status(201).json({ success: true, urls });
+    
+    // Standardized response format - maintain backward compatibility with urls array
+    res.status(201).json({
+      success: true,
+      files: filesMetadata,
+      urls: filesMetadata.map(f => f.url), // Backward compatibility
+    });
   } catch (error) {
     console.error('Multiple upload error:', error);
     return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
@@ -143,10 +165,20 @@ router.post('/documents', requireAuth, requireActiveSubscription, rateLimitUploa
       return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
     }
 
-    const urls = getUploadedFileUrls(req.files);
+    const filesMetadata = getUploadedFilesMetadata(req.files);
+    if (filesMetadata.length === 0) {
+      return sendError(res, 500, 'Failed to process uploaded documents', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
     const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} document(s) to ${storageType} by user ${req.user.id}`);
-    res.status(201).json({ success: true, urls });
+    
+    // Standardized response format - maintain backward compatibility with urls array
+    res.status(201).json({
+      success: true,
+      files: filesMetadata,
+      urls: filesMetadata.map(f => f.url), // Backward compatibility
+    });
   } catch (error) {
     console.error('Document upload error:', error);
     return sendError(res, 500, 'Document upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
@@ -192,10 +224,20 @@ router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoU
       }
     }
 
-    const urls = getUploadedFileUrls(req.files);
+    const filesMetadata = getUploadedFilesMetadata(req.files);
+    if (filesMetadata.length === 0) {
+      return sendError(res, 500, 'Failed to process uploaded photos', ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
     const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
     console.log(`✅ Uploaded ${req.files.length} inspection photo(s) to ${storageType} by user ${req.user.id}`);
-    res.status(201).json({ success: true, urls });
+    
+    // Standardized response format - maintain backward compatibility with urls array
+    res.status(201).json({
+      success: true,
+      files: filesMetadata,
+      urls: filesMetadata.map(f => f.url), // Backward compatibility
+    });
   } catch (error) {
     console.error('Inspection photo upload error:', error);
     return sendError(res, 500, 'Inspection photo upload failed', ErrorCodes.FILE_UPLOAD_FAILED);

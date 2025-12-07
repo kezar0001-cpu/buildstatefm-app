@@ -18,7 +18,7 @@ export function useDocumentUpload(options = {}) {
   const {
     onSuccess,
     onError,
-    endpoint = '/uploads/documents',
+    endpoint = '/api/uploads/documents',
     maxConcurrent = 3,
     initialDocuments = [],
   } = options;
@@ -225,8 +225,21 @@ export function useDocumentUpload(options = {}) {
 
         abortControllersRef.current.delete(document.id);
 
-        // Extract URL from response
-        const uploadedUrl = response.data?.urls?.[0] || response.data?.url;
+        // Extract URL from response - support both new standardized format and legacy format
+        let uploadedUrl = null;
+        let fileMetadata = null;
+
+        if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
+          // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+          fileMetadata = response.data.files[0];
+          uploadedUrl = fileMetadata.url;
+        } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
+          // Legacy format: { success: true, urls: ["url1", "url2"] }
+          uploadedUrl = response.data.urls[0];
+        } else if (response.data?.url) {
+          // Legacy single file format: { success: true, url: "url" }
+          uploadedUrl = response.data.url;
+        }
 
         if (!uploadedUrl) {
           throw new Error('No URL returned from server');
@@ -239,7 +252,7 @@ export function useDocumentUpload(options = {}) {
           )}...`
         );
 
-        // Update document with remote URL
+        // Update document with remote URL and metadata if available
         setDocuments((prev) =>
           prev.map((doc) =>
             doc.id === document.id
@@ -249,6 +262,11 @@ export function useDocumentUpload(options = {}) {
                   status: 'complete',
                   progress: 100,
                   error: null,
+                  // Store metadata if available from new format
+                  ...(fileMetadata && {
+                    fileSize: fileMetadata.size || doc.fileSize,
+                    mimeType: fileMetadata.type || doc.mimeType,
+                  }),
                 }
               : doc
           )

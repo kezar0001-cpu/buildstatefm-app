@@ -451,8 +451,21 @@ export function useImageUpload(options = {}) {
 
       abortControllersRef.current.delete(image.id);
 
-      // Extract URL from response
-      const uploadedUrl = response.data?.urls?.[0] || response.data?.url;
+      // Extract URL from response - support both new standardized format and legacy format
+      let uploadedUrl = null;
+      let fileMetadata = null;
+
+      if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
+        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
+        fileMetadata = response.data.files[0];
+        uploadedUrl = fileMetadata.url;
+      } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
+        // Legacy format: { success: true, urls: ["url1", "url2"] }
+        uploadedUrl = response.data.urls[0];
+      } else if (response.data?.url) {
+        // Legacy single file format: { success: true, url: "url" }
+        uploadedUrl = response.data.url;
+      }
 
       if (!uploadedUrl) {
         throw new Error('No URL returned from server');
@@ -460,7 +473,7 @@ export function useImageUpload(options = {}) {
 
       console.log(`[useImageUpload] Upload complete: ${uploadedUrl.substring(0, 80)}...`);
 
-      // Update image with remote URL
+      // Update image with remote URL and metadata if available
       updateImages(prev => prev.map(img =>
         img.id === image.id
           ? {
@@ -470,6 +483,14 @@ export function useImageUpload(options = {}) {
               progress: 100,
               error: null,
               retryCount: 0,
+              // Store metadata if available from new format
+              ...(fileMetadata && {
+                fileSize: fileMetadata.size || img.file?.size,
+                fileType: fileMetadata.type || img.file?.type,
+                dimensions: fileMetadata.width && fileMetadata.height 
+                  ? { width: fileMetadata.width, height: fileMetadata.height }
+                  : img.dimensions,
+              }),
             }
           : img
       ));
