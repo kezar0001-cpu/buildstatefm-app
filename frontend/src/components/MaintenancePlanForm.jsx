@@ -22,6 +22,7 @@ import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { FormTextField, FormSelect, FormDatePicker } from './form';
 import { toISOString } from '../utils/date';
+import toast from 'react-hot-toast';
 
 const FREQUENCY_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
@@ -110,6 +111,19 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
       onSuccess?.();
     } catch (error) {
       console.error('Error saving maintenance plan:', error);
+
+      // Display user-friendly error message
+      const errorMessage = error?.response?.data?.message || 'Failed to save maintenance plan';
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 403) {
+        toast.error('You do not have permission to create a maintenance plan for this property. Please ensure you are the property manager.');
+      } else if (statusCode === 404) {
+        toast.error('The selected property was not found. Please select a valid property.');
+      } else {
+        toast.error(errorMessage);
+      }
+
       throw error;
     }
   };

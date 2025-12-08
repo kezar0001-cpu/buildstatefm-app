@@ -25,6 +25,7 @@ import {
   InputAdornment,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +40,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Edit as EditIcon,
   Visibility as VisibilityIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -361,59 +363,62 @@ export default function PlansPage() {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={handleViewChange}
-              fullWidth
-              size="small"
-              aria-label="maintenance plan view toggle"
-              sx={{
-                backgroundColor: 'background.paper',
-                borderRadius: 999,
-                boxShadow: 1,
-                p: 0.5,
-                '& .MuiToggleButton-root': {
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                  minHeight: { xs: 42, md: 40 },
-                  border: 'none',
-                  borderRadius: '999px !important',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: { xs: 1.5, md: 1.75 },
-                  py: { xs: 1, md: 0.75 },
-                },
-                '& .Mui-selected': {
-                  color: 'primary.main',
-                  backgroundColor: 'rgba(185, 28, 28, 0.08)',
-                },
-              }}
-            >
-              <ToggleButton value="card">
-                <ViewModuleIcon fontSize="small" />
-                <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                  Card
-                </Typography>
-              </ToggleButton>
-              <ToggleButton value="table">
-                <TableChartIcon fontSize="small" />
-                <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                  Table
-                </Typography>
-              </ToggleButton>
-              <ToggleButton value="calendar">
-                <CalendarMonthIcon fontSize="small" />
-                <Typography variant="button" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                  Calendar
-                </Typography>
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Grid>
+          {!isMobile && (
+            <Grid item>
+              <ToggleButtonGroup
+                value={view}
+                exclusive
+                onChange={handleViewChange}
+                aria-label="View mode toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
+                  },
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  },
+                  '& .Mui-selected': {
+                    color: 'error.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="card" aria-label="card view">
+                  <Tooltip title="Card View">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <Tooltip title="Table View">
+                    <TableChartIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="calendar" aria-label="calendar view">
+                  <Tooltip title="Calendar View">
+                    <CalendarMonthIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Grid>
+          )}
         </Grid>
       </Paper>
 
@@ -553,6 +558,13 @@ export default function PlansPage() {
         onClose={() => setIsCreateDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
       >
         <MaintenancePlanForm
           onSuccess={handleCreateSuccess}
@@ -566,6 +578,13 @@ export default function PlansPage() {
         onClose={() => setIsEditDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
       >
         <MaintenancePlanForm
           plan={selectedPlan}

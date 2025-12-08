@@ -29,6 +29,8 @@ import {
   DialogTitle,
   DialogContent,
   Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -45,6 +47,7 @@ import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon,
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import { useCurrentUser } from '../context/UserContext';
+import toast from 'react-hot-toast';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -90,6 +93,8 @@ export default function ReportsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user: currentUser } = useCurrentUser();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -185,6 +190,14 @@ export default function ReportsPage() {
       setSelectedPropertyId('');
       setActiveStep(0);
       setIsWizardOpen(false);
+      // Show success message
+      toast.success('Report generation started! Your report will be available in the table below once processing completes.');
+    },
+    onError: (error) => {
+      // Show error message
+      const errorMessage = error?.response?.data?.message || 'Failed to generate report. Please try again.';
+      toast.error(errorMessage);
+      console.error('Error generating report:', error);
     },
   });
 
@@ -315,29 +328,31 @@ export default function ReportsPage() {
       >
         {/* Filters Section */}
         <Paper
-          elevation={0}
           sx={{
-            p: { xs: 2, md: 3 },
-            borderRadius: 3,
+            mb: 3,
+            p: { xs: 2, md: 3.5 },
+            borderRadius: { xs: 2, md: 2 },
             border: '1px solid',
             borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
+            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+            animation: 'fade-in-up 0.6s ease-out',
           }}
         >
           <Stack
-            direction={{ xs: 'column', md: 'row' }}
+            direction={{ xs: 'column', lg: 'row' }}
             spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-            flexWrap="wrap"
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
           >
+            {/* Search */}
             <TextField
-              placeholder="Search reports by property, unit, type, or status"
+              placeholder="Search reports..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
+                    <SearchIcon />
                   </InputAdornment>
                 ),
                 endAdornment: searchInput && (
@@ -354,10 +369,11 @@ export default function ReportsPage() {
                 ),
               }}
               size="small"
-              sx={{ flexGrow: 1, minWidth: 260 }}
+              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
             />
 
-            <FormControl size="small" sx={{ minWidth: 160 }}>
+            {/* Report Type Filter */}
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
               <InputLabel>Report Type</InputLabel>
               <Select
                 value={typeFilter}
@@ -373,7 +389,8 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+            {/* Status Filter */}
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
@@ -388,7 +405,8 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 180 }}>
+            {/* Property Filter */}
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
               <InputLabel>Property</InputLabel>
               <Select
                 value={filterPropertyId}
@@ -404,6 +422,7 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
 
+            {/* Date Range Filters */}
             <TextField
               label="From Date"
               type="date"
@@ -411,7 +430,7 @@ export default function ReportsPage() {
               onChange={(e) => setDateFrom(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
+              sx={{ minWidth: { xs: '100%', sm: 150 } }}
             />
 
             <TextField
@@ -421,25 +440,29 @@ export default function ReportsPage() {
               onChange={(e) => setDateTo(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
+              sx={{ minWidth: { xs: '100%', sm: 150 } }}
             />
 
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<FilterListIcon />}
-              onClick={() => {
-                setSearchInput('');
-                setStatusFilter('');
-                setTypeFilter('');
-                setFilterPropertyId('');
-                setDateFrom('');
-                setDateTo('');
-              }}
-              sx={{ borderRadius: 2, textTransform: 'none' }}
-            >
-              Clear Filters
-            </Button>
+            {/* Clear Filters Button */}
+            {(searchInput || statusFilter || typeFilter || filterPropertyId || dateFrom || dateTo) && (
+              <Button
+                variant="text"
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setSearchInput('');
+                  setStatusFilter('');
+                  setTypeFilter('');
+                  setFilterPropertyId('');
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                sx={{ textTransform: 'none', minWidth: 'auto' }}
+                startIcon={<CloseIcon />}
+              >
+                Clear filters
+              </Button>
+            )}
           </Stack>
         </Paper>
 
@@ -574,14 +597,26 @@ export default function ReportsPage() {
         </Paper>
       </PageShell>
 
-      <Dialog open={isWizardOpen} onClose={handleCloseWizard} fullWidth maxWidth="md">
+      <Dialog
+        open={isWizardOpen}
+        onClose={handleCloseWizard}
+        fullWidth
+        maxWidth="md"
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
+      >
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
             <Box>
               <Typography variant="h6" fontWeight={700} gutterBottom>
                 Generate report
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
                 Follow the wizard to export an audit-ready report without missing details.
               </Typography>
             </Box>
@@ -593,7 +628,7 @@ export default function ReportsPage() {
         <Divider />
         <DialogContent dividers>
           <Stack spacing={3}>
-            <Stepper activeStep={activeStep} alternativeLabel sx={{ pb: 1 }}>
+            <Stepper activeStep={activeStep} alternativeLabel={!isMobile} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ pb: 1 }}>
               {steps.map((step) => (
                 <Step key={step.label}>
                   <StepLabel>{step.label}</StepLabel>
