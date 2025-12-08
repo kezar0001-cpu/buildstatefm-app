@@ -480,7 +480,10 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
   };
 
   const handleUploadAttachment = async (event) => {
-    const file = event.target.files?.[0];
+    const files = event.target.files;
+    console.log('Selected files count:', files?.length || 0, 'Names:', files ? Array.from(files).map(f => f.name) : []);
+
+    const file = files?.[0];
 
     if (!file) return;
 
@@ -525,7 +528,9 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
       setAttachmentError(uploadErr?.response?.data?.message || 'Failed to upload attachment');
     } finally {
       setUploading(false);
-      event.target.value = '';
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
