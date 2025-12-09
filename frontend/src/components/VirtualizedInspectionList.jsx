@@ -59,13 +59,22 @@ export default function VirtualizedInspectionList({
   }, [scrollPositionKey]);
 
   // Row renderer
-  const itemContent = useCallback((_index, inspection) => {
-    return (
-      <Box sx={{ px: 0, py: 1 }}>
-        {renderItem(inspection)}
-      </Box>
-    );
-  }, [renderItem]);
+  const itemContent = useCallback(
+    (_index, inspection) => {
+      return (
+        <Box sx={{ px: 0, py: 1 }}>
+          {renderItem
+            ? renderItem(inspection)
+            : (
+              <Box sx={{ px: 2, py: 1 }}>
+                {inspection?.title || inspection?.name || `Inspection ${inspection?.id ?? ''}`}
+              </Box>
+            )}
+        </Box>
+      );
+    },
+    [renderItem]
+  );
 
   // Footer for loading more
   const Footer = useCallback(() => {
