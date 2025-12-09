@@ -31,6 +31,12 @@ import {
   Divider,
   useMediaQuery,
   useTheme,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -43,7 +49,16 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { resolveFileUrl } from '../utils/fileUtils';
 import GradientButton from '../components/GradientButton';
 import PageHeader from '../components/PageHeader';
-import { Search as SearchIcon, Close as CloseIcon, FilterList as FilterListIcon, Add as AddIcon, Description as DescriptionIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  Close as CloseIcon,
+  FilterList as FilterListIcon,
+  Add as AddIcon,
+  Description as DescriptionIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
+  TableChart as TableChartIcon,
+} from '@mui/icons-material';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import { useCurrentUser } from '../context/UserContext';
@@ -102,8 +117,13 @@ export default function ReportsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('reports-view-mode') || 'table';
+    } catch {
+      return 'table';
+    }
+  });
 
   // Reports are only accessible to Property Managers and Owners
   useEffect(() => {
@@ -165,10 +185,6 @@ export default function ReportsPage() {
       const matchesStatus = statusFilter ? report.status === statusFilter : true;
       const matchesType = typeFilter ? report.reportType === typeFilter : true;
       const matchesProperty = filterPropertyId ? report.property?.id === filterPropertyId : true;
-      const createdAt = report.createdAt || report.created_at || report.createdDate;
-      const createdDate = createdAt ? new Date(createdAt) : null;
-      const matchesFrom = dateFrom && createdDate ? createdDate >= new Date(dateFrom) : true;
-      const matchesTo = dateTo && createdDate ? createdDate <= new Date(dateTo) : true;
       const searchTarget = `${report.property?.name || ''} ${report.unit?.unitNumber || ''} ${
         REPORT_TYPES[report.reportType] || report.reportType || ''
       } ${report.status || ''}`
@@ -178,9 +194,9 @@ export default function ReportsPage() {
         ? searchTarget.includes(searchInput.toLowerCase())
         : true;
 
-      return matchesStatus && matchesType && matchesProperty && matchesFrom && matchesTo && matchesSearch;
+      return matchesStatus && matchesType && matchesProperty && matchesSearch;
     });
-  }, [reportsData, statusFilter, typeFilter, filterPropertyId, dateFrom, dateTo, searchInput]);
+  }, [reportsData, statusFilter, typeFilter, filterPropertyId, searchInput]);
 
   const mutation = useMutation({
     mutationFn: (newReport) => apiClient.post('/reports', newReport),
@@ -194,10 +210,26 @@ export default function ReportsPage() {
       toast.success('Report generation started! Your report will be available in the table below once processing completes.');
     },
     onError: (error) => {
-      // Show error message
+      // Show error message with more details
       const errorMessage = error?.response?.data?.message || 'Failed to generate report. Please try again.';
-      toast.error(errorMessage);
-      console.error('Error generating report:', error);
+      const statusCode = error?.response?.status;
+
+      console.error('Error generating report:', {
+        message: errorMessage,
+        status: statusCode,
+        data: error?.response?.data,
+        error: error,
+      });
+
+      if (statusCode === 500) {
+        toast.error('Server error occurred while generating report. Please try again or contact support if the issue persists.');
+      } else if (statusCode === 400) {
+        toast.error(errorMessage || 'Invalid report parameters. Please check your selections and try again.');
+      } else if (statusCode === 403) {
+        toast.error('You do not have permission to generate reports for this property.');
+      } else {
+        toast.error(errorMessage);
+      }
     },
   });
 
@@ -255,12 +287,35 @@ export default function ReportsPage() {
   ];
 
   const onSubmit = handleSubmit((data) => {
-    const payload = {
-      ...data,
-      fromDate: new Date(data.fromDate).toISOString(),
-      toDate: new Date(data.toDate).toISOString(),
-    };
-    mutation.mutate(payload);
+    try {
+      // Validate dates before conversion
+      const fromDate = new Date(data.fromDate);
+      const toDate = new Date(data.toDate);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        toast.error('Invalid date format. Please check your dates and try again.');
+        return;
+      }
+
+      if (fromDate > toDate) {
+        toast.error('Start date must be before end date.');
+        return;
+      }
+
+      const payload = {
+        reportType: data.reportType,
+        propertyId: data.propertyId,
+        unitId: data.unitId || null,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+      };
+
+      console.log('Generating report with payload:', payload);
+      mutation.mutate(payload);
+    } catch (error) {
+      console.error('Error preparing report payload:', error);
+      toast.error('Failed to prepare report data. Please check your inputs and try again.');
+    }
   });
 
   const handleNext = async () => {
@@ -297,6 +352,17 @@ export default function ReportsPage() {
 
   const handleCloseWizard = () => {
     setIsWizardOpen(false);
+  };
+
+  const handleViewModeChange = (event, newViewMode) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      try {
+        localStorage.setItem('reports-view-mode', newViewMode);
+      } catch (err) {
+        // Ignore localStorage errors
+      }
+    }
   };
 
   const selectedReportSections =
@@ -342,7 +408,7 @@ export default function ReportsPage() {
             direction={{ xs: 'column', lg: 'row' }}
             spacing={2}
             alignItems={{ xs: 'stretch', lg: 'center' }}
-            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+            sx={{ flexWrap: 'nowrap', gap: { xs: 1.5, lg: 2 } }}
           >
             {/* Search */}
             <TextField
@@ -369,11 +435,11 @@ export default function ReportsPage() {
                 ),
               }}
               size="small"
-              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
+              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 280 } }}
             />
 
             {/* Report Type Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140, lg: 140 } }}>
               <InputLabel>Report Type</InputLabel>
               <Select
                 value={typeFilter}
@@ -390,7 +456,7 @@ export default function ReportsPage() {
             </FormControl>
 
             {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130, lg: 130 } }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
@@ -406,7 +472,7 @@ export default function ReportsPage() {
             </FormControl>
 
             {/* Property Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130, lg: 130 } }}>
               <InputLabel>Property</InputLabel>
               <Select
                 value={filterPropertyId}
@@ -422,29 +488,8 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
 
-            {/* Date Range Filters */}
-            <TextField
-              label="From Date"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: { xs: '100%', sm: 150 } }}
-            />
-
-            <TextField
-              label="To Date"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: { xs: '100%', sm: 150 } }}
-            />
-
             {/* Clear Filters Button */}
-            {(searchInput || statusFilter || typeFilter || filterPropertyId || dateFrom || dateTo) && (
+            {(searchInput || statusFilter || typeFilter || filterPropertyId) && (
               <Button
                 variant="text"
                 color="inherit"
@@ -454,14 +499,68 @@ export default function ReportsPage() {
                   setStatusFilter('');
                   setTypeFilter('');
                   setFilterPropertyId('');
-                  setDateFrom('');
-                  setDateTo('');
                 }}
-                sx={{ textTransform: 'none', minWidth: 'auto' }}
+                sx={{ textTransform: 'none', minWidth: 'auto', whiteSpace: 'nowrap' }}
                 startIcon={<CloseIcon />}
               >
-                Clear filters
+                Clear
               </Button>
+            )}
+
+            {/* View Toggle - Desktop only */}
+            {!isMobile && (
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={handleViewModeChange}
+                aria-label="View mode toggle"
+                size="small"
+                sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    minWidth: 40,
+                    border: 'none',
+                    '&:not(:first-of-type)': {
+                      borderRadius: 2,
+                    },
+                    '&:first-of-type': {
+                      borderRadius: 2,
+                    },
+                  },
+                  '& .MuiToggleButton-root': {
+                    color: 'text.secondary',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  },
+                  '& .Mui-selected': {
+                    color: 'error.main',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': {
+                      backgroundColor: 'action.hover !important',
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="grid" aria-label="grid view">
+                  <Tooltip title="Grid View">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="list view">
+                  <Tooltip title="List View">
+                    <ViewListIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <Tooltip title="Table View">
+                    <TableChartIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
             )}
           </Stack>
         </Paper>
@@ -498,7 +597,164 @@ export default function ReportsPage() {
             actionLabel="Generate Report"
             onAction={handleStartNewReport}
           />
+        ) : viewMode === 'grid' ? (
+          /* Grid View */
+          <Grid container spacing={3}>
+            {filteredReports.map((report) => {
+              const createdAt = report.createdAt || report.created_at || report.createdDate;
+              const coverage = REPORT_SECTIONS[report.reportType] || ['Audit Trail'];
+              return (
+                <Grid item xs={12} sm={6} md={4} key={report.id}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 6,
+                      },
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Box>
+                          <Typography variant="h6" fontWeight={600} gutterBottom>
+                            {REPORT_TYPES[report.reportType] || report.reportType}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Tracks updates for properties, units, payments, and upcoming work.
+                          </Typography>
+                        </Box>
+                        <Divider />
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Scope
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            {report.property?.name || 'All Properties'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {report.unit?.unitNumber ? `Unit ${report.unit.unitNumber}` : 'All Units'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                            Coverage
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                            {coverage.slice(0, 3).map((section) => (
+                              <Chip key={section} label={section} size="small" variant="outlined" />
+                            ))}
+                            {coverage.length > 3 && (
+                              <Chip label={`+${coverage.length - 3}`} size="small" variant="outlined" />
+                            )}
+                          </Stack>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Created
+                          </Typography>
+                          <Typography variant="body2">
+                            {createdAt ? format(new Date(createdAt), 'PP p') : 'Pending'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          {getStatusChip(report.status)}
+                        </Box>
+                        {report.status === 'COMPLETED' && report.fileUrl && (
+                          <Button
+                            variant="contained"
+                            fullWidth
+                            href={resolveFileUrl(report.fileUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                          >
+                            Download
+                          </Button>
+                        )}
+                        {report.status === 'PROCESSING' && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={20} />
+                            <Typography variant="body2" color="text.secondary">
+                              Processing...
+                            </Typography>
+                          </Box>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        ) : viewMode === 'list' ? (
+          /* List View */
+          <Stack spacing={2}>
+            {filteredReports.map((report) => {
+              const createdAt = report.createdAt || report.created_at || report.createdDate;
+              const coverage = REPORT_SECTIONS[report.reportType] || ['Audit Trail'];
+              return (
+                <Card
+                  key={report.id}
+                  sx={{
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      boxShadow: 4,
+                    },
+                  }}
+                >
+                  <CardContent>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+                      <Box flex={1}>
+                        <Typography variant="h6" fontWeight={600}>
+                          {REPORT_TYPES[report.reportType] || report.reportType}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {report.property?.name || 'All Properties'} • {report.unit?.unitNumber ? `Unit ${report.unit.unitNumber}` : 'All Units'}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                        {coverage.slice(0, 2).map((section) => (
+                          <Chip key={section} label={section} size="small" variant="outlined" />
+                        ))}
+                        {coverage.length > 2 && (
+                          <Chip label={`+${coverage.length - 2}`} size="small" variant="outlined" />
+                        )}
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                        {createdAt ? format(new Date(createdAt), 'PP') : 'Pending'}
+                      </Typography>
+                      {getStatusChip(report.status)}
+                      {report.status === 'COMPLETED' && report.fileUrl && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          href={resolveFileUrl(report.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
+                        >
+                          Download
+                        </Button>
+                      )}
+                      {report.status === 'PROCESSING' && (
+                        <CircularProgress size={20} />
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
         ) : (
+          /* Table View */
           <Box sx={{ overflowX: 'auto' }}>
             <Table sx={{ minWidth: { xs: 900, md: 'auto' } }}>
               <TableHead>

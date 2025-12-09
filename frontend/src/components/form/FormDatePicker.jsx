@@ -1,6 +1,7 @@
 import { Controller } from 'react-hook-form';
 import { TextField } from '@mui/material';
 import { formatDateForInput } from '../../utils/date';
+import { RequiredIndicator } from './FormValidationHelper';
 
 /**
  * FormDatePicker - A reusable date picker component integrated with React Hook Form
@@ -38,8 +39,12 @@ export default function FormDatePicker({
             {...rest}
             fullWidth
             type="date"
-            label={label}
-            required={required}
+            label={
+              <>
+                {label}
+                {required && <RequiredIndicator required={required} />}
+              </>
+            }
             error={!!error}
             value={inputValue}
             onChange={(e) => {
@@ -54,6 +59,7 @@ export default function FormDatePicker({
             inputProps={{
               'aria-invalid': !!error,
               'aria-describedby': error ? `${name}-error` : undefined,
+              'aria-required': required,
             }}
             FormHelperTextProps={{
               id: error ? `${name}-error` : undefined,

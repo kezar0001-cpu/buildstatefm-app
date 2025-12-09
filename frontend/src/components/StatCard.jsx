@@ -51,7 +51,7 @@ export default function StatCard({
       onClick={onClick}
     >
       <CardContent sx={{ pt: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2.5}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
           <Box flex={1}>
             <Typography
               variant="body2"

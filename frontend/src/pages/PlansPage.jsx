@@ -423,14 +423,21 @@ export default function PlansPage() {
       </Paper>
 
       {/* Content */}
-      <DataState
-        isLoading={isLoading}
-        isError={error}
-        error={error}
-        isEmpty={!isLoading && !error && plans.length === 0}
-        onRetry={refetch}
-        emptyMessage="No maintenance plans found. Create your first plan to get started."
-      >
+      {isLoading ? (
+        <DataState isLoading={true} />
+      ) : error ? (
+        <DataState isError={true} error={error} onRetry={refetch} />
+      ) : plans.length === 0 ? (
+        <EmptyState
+          icon={CalendarMonthIcon}
+          iconColor="#dc2626"
+          title="No maintenance plans found. Create your first plan to get started."
+          description="There's nothing here yet. Start by adding your first item."
+          actionLabel="Create Plan"
+          onAction={handleCreateClick}
+        />
+      ) : (
+        <>
         {view === 'card' && (
           <Grid container spacing={3} sx={{ animation: 'fade-in 0.5s ease-out' }}>
             {plans.map((plan) => (
@@ -548,7 +555,8 @@ export default function PlansPage() {
             />
           </Paper>
         )}
-      </DataState>
+        </>
+      )}
 
       </PageShell>
 
