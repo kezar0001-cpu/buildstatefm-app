@@ -1940,7 +1940,7 @@ const RecommendationKanban = ({
                     key={recommendation.id}
                     sx={{
                       cursor: 'pointer',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      transition: 'all 0.3s ease-in-out',
                       borderRadius: 2,
                       border: '1px solid',
                       borderColor: 'divider',
@@ -1949,27 +1949,23 @@ const RecommendationKanban = ({
                       '&::before': {
                         content: '""',
                         position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        width: 0,
-                        height: 0,
-                        borderRadius: '50%',
-                        bgcolor: 'action.hover',
-                        transform: 'translate(-50%, -50%)',
-                        transition: 'width 0.3s ease-out, height 0.3s ease-out',
-                        zIndex: 0,
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                        opacity: 0,
+                        transition: 'opacity 0.3s ease-in-out',
                       },
-                      '&:hover::before': {
-                        width: '100%',
-                        height: '100%',
-                      },
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: 3,
-                      },
-                      '& > *': {
-                        position: 'relative',
-                        zIndex: 1,
+                      '@media (hover: hover)': {
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: 6,
+                          borderColor: 'primary.main',
+                          '&::before': {
+                            opacity: 1,
+                          },
+                        },
                       },
                     }}
                     onClick={() => onView(recommendation)}

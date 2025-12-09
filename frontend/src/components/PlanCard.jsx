@@ -67,12 +67,13 @@ const PlanCard = ({ plan, onClick, onEdit }) => {
         display: 'flex',
         flexDirection: 'column',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.3s ease-in-out',
         position: 'relative',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 4,
-        },
+        borderRadius: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        overflow: 'hidden',
+        opacity: plan.isActive ? 1 : 0.7,
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -80,11 +81,20 @@ const PlanCard = ({ plan, onClick, onEdit }) => {
           left: 0,
           right: 0,
           height: '4px',
-          background: plan.isActive
-            ? 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)'
-            : 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
+          background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+          opacity: 0,
+          transition: 'opacity 0.3s ease-in-out',
         },
-        opacity: plan.isActive ? 1 : 0.7,
+        '@media (hover: hover)': {
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: 6,
+            borderColor: 'primary.main',
+            '&::before': {
+              opacity: 1,
+            },
+          },
+        },
       }}
       onClick={onClick}
     >
