@@ -1,3 +1,4 @@
+
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
@@ -30,6 +31,8 @@ function RouteFallback() {
 }
 
 function NotFound() {
+  throw new Error("BuildStateFM Sentry Test Error");
+
   return (
     <Box
       sx={{
