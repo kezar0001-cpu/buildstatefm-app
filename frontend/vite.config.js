@@ -13,7 +13,7 @@ export default defineConfig({
     sentryVitePlugin({
       org: "buildstate-fm",               // Your Sentry Organization Slug
       project: "buildstatefm-frontend",                // <-- Replace with your actual Sentry Project Slug
-      authToken: process.env.SENTRY_AUTH_TOKEN
+      authToken: process.env.VITE_SENTRY_AUTH_TOKEN
     })
   ],
 
