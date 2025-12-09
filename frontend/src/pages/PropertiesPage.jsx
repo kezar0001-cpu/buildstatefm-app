@@ -409,9 +409,18 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleEdit = (property = null) => {
+  const handleEdit = async (property = null) => {
     if (property) {
-      setSelectedProperty(property);
+      // Fetch full property data to ensure all fields are available for editing
+      try {
+        const response = await apiClient.get(`/properties/${property.id}`);
+        const fullProperty = response.data?.property || response.data;
+        setSelectedProperty(fullProperty);
+      } catch (error) {
+        console.error('Failed to fetch property details:', error);
+        // Fallback to using the property from the list if fetch fails
+        setSelectedProperty(property);
+      }
     }
     setEditMode(true);
     setDialogOpen(true);

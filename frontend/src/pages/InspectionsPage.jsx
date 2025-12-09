@@ -51,6 +51,7 @@ import {
   Delete as DeleteIcon,
   ViewKanban as ViewKanbanIcon,
   ViewList as ViewListIcon,
+  TableChart as TableChartIcon,
   CalendarMonth as CalendarMonthIcon,
   Schedule as ScheduleIcon,
   PlayArrow as PlayArrowIcon,
@@ -127,8 +128,15 @@ const InspectionsPage = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
-  // View mode: always kanban (grid)
-  const viewMode = 'grid';
+  // View mode state
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem('inspections-view-mode');
+      return stored && ['grid', 'list', 'table'].includes(stored) ? stored : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
 
   // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
@@ -563,14 +571,53 @@ const InspectionsPage = () => {
         title="Inspections"
         subtitle="Schedule and manage property inspections"
         actions={(
-          <GradientButton
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-            size="large"
-            sx={{ width: { xs: '100%', md: 'auto' } }}
-          >
-            Schedule Inspection
-          </GradientButton>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              aria-label="View mode toggle"
+              size="small"
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                '& .MuiToggleButton-root': {
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="grid" aria-label="kanban view">
+                <Tooltip title="Kanban View">
+                  <ViewKanbanIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="list" aria-label="list view">
+                <Tooltip title="List View">
+                  <ViewListIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <Tooltip title="Table View">
+                  <TableChartIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <GradientButton
+              startIcon={<AddIcon />}
+              onClick={handleCreate}
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
+            >
+              Schedule Inspection
+            </GradientButton>
+          </Stack>
         )}
         contentSpacing={{ xs: 3, md: 3 }}
       >
@@ -745,21 +792,48 @@ const InspectionsPage = () => {
         />
       ) : (
         <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
-          {/* Kanban View */}
-          <InspectionKanban
-            inspections={inspectionsWithOverdue}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDeleteClick}
-            onStartInspection={handleStartInspection}
-            onCompleteInspection={handleCompleteInspection}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onCancel={handleCancelInspection}
-            getStatusColor={getStatusColor}
-            getStatusIcon={getStatusIcon}
-            formatStatusText={formatStatusText}
-          />
+          {/* Conditional rendering based on view mode */}
+          {viewMode === 'grid' && (
+            <InspectionKanban
+              inspections={inspectionsWithOverdue}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              onStartInspection={handleStartInspection}
+              onCompleteInspection={handleCompleteInspection}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onCancel={handleCancelInspection}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              formatStatusText={formatStatusText}
+            />
+          )}
+          {viewMode === 'list' && (
+            <VirtualizedInspectionList
+              inspections={inspectionsWithOverdue}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              formatStatusText={formatStatusText}
+            />
+          )}
+          {viewMode === 'table' && (
+            <InspectionTable
+              inspections={inspectionsWithOverdue}
+              selectedIds={selectedIds}
+              onSelectAll={handleSelectAll}
+              onSelect={handleSelect}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              formatStatusText={formatStatusText}
+            />
+          )}
 
 
 

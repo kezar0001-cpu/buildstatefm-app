@@ -100,8 +100,11 @@ const JobsPage = () => {
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
-  // Always use kanban view
-  const view = 'kanban';
+  // View state
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'kanban';
+    return localStorage.getItem('jobsViewPreference') || 'kanban';
+  }); // 'kanban', 'card', 'calendar'
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -646,16 +649,54 @@ const JobsPage = () => {
         title="Jobs"
         subtitle="Manage and track maintenance jobs"
         actions={
-          user?.role === 'PROPERTY_MANAGER' ? (
-            <GradientButton
-              startIcon={<AddIcon />}
-              onClick={handleCreate}
-              size="large"
-              sx={{ width: { xs: '100%', md: 'auto' } }}
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+            <ToggleButtonGroup
+              value={view}
+              exclusive
+              onChange={(event, newView) => {
+                if (newView !== null) {
+                  setView(newView);
+                  try {
+                    localStorage.setItem('jobsViewPreference', newView);
+                  } catch (error) {
+                    logger.warn('Failed to save view preference:', error);
+                  }
+                }
+              }}
+              aria-label="View mode toggle"
+              size="small"
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                '& .MuiToggleButton-root': {
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                  },
+                },
+              }}
             >
-              Create Job
-            </GradientButton>
-          ) : null
+              <ToggleButton value="kanban" aria-label="kanban view">
+                <Tooltip title="Kanban View">
+                  <ViewKanbanIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {user?.role === 'PROPERTY_MANAGER' && (
+              <GradientButton
+                startIcon={<AddIcon />}
+                onClick={handleCreate}
+                size="large"
+                sx={{ width: { xs: '100%', md: 'auto' } }}
+              >
+                Create Job
+              </GradientButton>
+            )}
+          </Stack>
         }
         contentSpacing={{ xs: 3, md: 3 }}
       >
@@ -867,7 +908,7 @@ const JobsPage = () => {
       ) : (
         <>
           {/* Kanban View */}
-          {(
+          {view === 'kanban' && (
             <DragDropContext onDragEnd={onDragEnd}>
               <Grid container spacing={2}>
                 {KANBAN_STATUSES.map((status) => (
@@ -1072,6 +1113,7 @@ const JobsPage = () => {
               </Grid>
             </DragDropContext>
           )}
+          {/* Add other view modes here when implemented */}
 
         </>
       )}
