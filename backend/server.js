@@ -19,21 +19,19 @@ import mongoSanitize from 'express-mongo-sanitize';
 import compression from 'compression';
 import prisma, { prisma as prismaInstance } from './src/config/prismaClient.js';
 import logger from './src/utils/logger.js';
+
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
 import scheduleOverdueInspectionCron from './src/cron/overdueInspections.js';
 import { initializeCronJobs } from './src/jobs/cronJobs.js';
 import { initWebsocket } from './src/websocket.js';
 
-// ----------------------
 // Load environment
-// ----------------------
 dotenv.config();
-
 logger.info('>>> STARTING Buildstate FM Backend <<<');
 
 // =======================================================
-//  SENTRY INITIALIZATION (MUST COME BEFORE ANY MIDDLEWARE)
+//  SENTRY INITIALIZATION (Must be before all middleware)
 // =======================================================
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -46,30 +44,24 @@ Sentry.init({
   profilesSampleRate: 1.0
 });
 
-// ----------------------
-// Validate environment
-// ----------------------
+// Validate environment variables
 import { validateEnvironment } from './src/utils/validateEnv.js';
 validateEnvironment(true);
 
-// ----------------------
 // Export Prisma instance
-// ----------------------
 export { prismaInstance as prisma };
 
-// ----------------------
-// Create Express App
-// ----------------------
+// Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Attach Express instance to Sentry AFTER app is created
-Sentry.getCurrentHub().getClient()?.getOptions().integrations?.forEach((integration) => {
-  if (integration.name === "Express") integration._app = app;
+// Attach Express instance to Sentry after app creation
+Sentry.getCurrentHub().getClient()?.getOptions().integrations?.forEach((intg) => {
+  if (intg.name === "Express") intg._app = app;
 });
 
 // ===================================================
-//  SENTRY REQUEST & TRACING HANDLERS (MUST BE FIRST)
+//  Sentry request + tracing handlers (FIRST MIDDLEWARE)
 // ===================================================
 app.use(Sentry.Handlers.requestHandler());
 app.use(Sentry.Handlers.tracingHandler());
@@ -77,13 +69,13 @@ app.use(Sentry.Handlers.tracingHandler());
 // ----------------------
 // Cron Jobs
 // ----------------------
-const maintenancePlanCronTask = scheduleMaintenancePlanCron();
+scheduleMaintenancePlanCron();
 startRecurringInspectionCron();
-const overdueInspectionCronTask = scheduleOverdueInspectionCron();
+scheduleOverdueInspectionCron();
 initializeCronJobs();
 
 // ----------------------
-// Trust proxy (Render)
+// Trust Proxy (Render)
 // ----------------------
 app.set('trust proxy', 1);
 
@@ -92,7 +84,7 @@ app.set('trust proxy', 1);
 // ----------------------
 const allowlist = new Set(
   (process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [])
-    .map((s) => s && s.trim())
+    .map(s => s.trim())
     .filter(Boolean)
 );
 
@@ -103,8 +95,7 @@ if (process.env.FRONTEND_URL) allowlist.add(process.env.FRONTEND_URL.trim());
   'https://buildstate.com.au',
   'https://api.buildstate.com.au',
   'https://agentfm.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
+  'http://localhost:5173'
 ].forEach((o) => allowlist.add(o));
 
 const dynamicOriginMatchers = [/https:\/\/.+\.vercel\.app$/];
@@ -113,46 +104,47 @@ const corsOptions = {
   origin(origin, cb) {
     if (!origin) return cb(null, true);
     if (allowlist.has(origin)) return cb(null, true);
-    if (dynamicOriginMatchers.some((r) => r.test(origin))) return cb(null, true);
+    if (dynamicOriginMatchers.some(r => r.test(origin))) return cb(null, true);
     logger.warn(`CORS Blocked: ${origin}`);
     return cb(null, false);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['set-cookie'],
-  optionsSuccessStatus: 204
+  credentials: true
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // ----------------------
-// Security (Helmet + CSP)
+// Security Headers
 // ----------------------
 app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
   })
 );
 
 // ----------------------
-// Rate Limiters
+// Basic API Rate Limiter (Not Redis-based)
 // ----------------------
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
-app.use('/api/', limiter);
+app.use(
+  '/api/',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200
+  })
+);
 
 // ----------------------
-// Sanitization, Compression
+// Sanitization, Compression, Cookies
 // ----------------------
 app.use(mongoSanitize());
 app.use(compression());
 app.use(cookieParser());
 
 // ----------------------
-// Static Uploads Folder
+// Static Uploads Folder (Local Fallback)
 // ----------------------
 const uploadPath = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
@@ -172,20 +164,20 @@ app.use(
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    }
   })
 );
 
 // ----------------------
-// Passport
+// Passport Auth
 // ----------------------
 import './src/config/passport.js';
 app.use(passport.initialize());
 app.use(passport.session());
 
 // ----------------------
-// Routes Imports
+// Routes
 // ----------------------
 import authRoutes from './src/routes/auth.js';
 import billingRoutes, { webhook as stripeWebhook } from './src/routes/billing.js';
@@ -198,6 +190,7 @@ import inspectionTemplatesRoutes from './src/routes/inspectionTemplates.js';
 import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
+import uploadsv2Routes from './src/routes/uploadsv2.js';
 import reportsRoutes from './src/routes/reports.js';
 import recommendationsRoutes from './src/routes/recommendations.js';
 import plansRoutes from './src/routes/plans.js';
@@ -210,19 +203,19 @@ import searchRoutes from './src/routes/search.js';
 import jobTemplatesRoutes from './src/routes/jobTemplates.js';
 import notificationPreferencesRoutes from './src/routes/notificationPreferences.js';
 
-// -------------------------------
-// Stripe Webhook (RAW BODY REQUIRED)
-// -------------------------------
+// ----------------------
+// Stripe Webhook (Raw Body required)
+// ----------------------
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
-// -------------------------------
-// Body Parsers (AFTER webhook)
-// -------------------------------
-app.use(express.json({ limit: '2mb' }));
+// ----------------------
+// Normal Body Parsers
+// ----------------------
+app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ----------------------
-// Mount API Routes
+// Mount Main Routes
 // ----------------------
 app.use('/api/auth', authRoutes);
 app.use('/api/billing', billingRoutes);
@@ -235,6 +228,10 @@ app.use('/api/inspection-templates', inspectionTemplatesRoutes);
 app.use('/api/recurring-inspections', recurringInspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+
+// New v2 Upload Engine
+app.use('/api/v2/uploads', uploadsv2Routes);
+
 app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
@@ -274,7 +271,7 @@ app.use('*', (req, res) => {
 });
 
 // ===================================================================
-//  SENTRY ERROR HANDLER (must come BEFORE your final error handler)
+//  Sentry Error Handler (before final error handler)
 // ===================================================================
 app.use(Sentry.Handlers.errorHandler());
 
@@ -284,9 +281,7 @@ app.use(Sentry.Handlers.errorHandler());
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error:', err);
 
-  const status = err.statusCode || 500;
-
-  res.status(status).json({
+  res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || "Internal server error",
     ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
@@ -294,16 +289,15 @@ app.use((err, req, res, _next) => {
 });
 
 // ----------------------
-// Server Start
+// Start Server
 // ----------------------
 async function startServer() {
   try {
-    const server = app.listen(PORT, () => {
-      logger.info(`Backend listening on port ${PORT}`);
-    });
+    const server = app.listen(PORT, () =>
+      logger.info(`Backend listening on port ${PORT}`)
+    );
 
     initWebsocket(server);
-
   } catch (error) {
     logger.error('❌ Failed to start server:', error);
     process.exit(1);

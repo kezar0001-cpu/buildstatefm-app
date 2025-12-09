@@ -48,17 +48,15 @@ export function createRedisRateLimiter(options = {}) {
     duration = 60,
     errorMessage,
     keyGenerator = (req) => {
-      // For authenticated requests, always use user ID
-      // Only fall back to IP if user is not authenticated (shouldn't happen with requireAuth)
-      if (req.user?.id) {
-        return `user:${req.user.id}`;
-      }
-      // Fallback to IP only if no user (for unauthenticated endpoints)
-      if (req.ip) {
-        return `ip:${req.ip}`;
-      }
-      return null;
-    },
+  // ALWAYS limit per-user, regardless of proxy IPs
+  if (req.user?.id) {
+    return `user:${req.user.id}`;
+  }
+
+  // If somehow not authenticated, allow instead of rate-limit by IP
+  console.warn(`[RateLimiter:${keyPrefix}] No user ID found. Allowing request (no IP fallback).`);
+  return null;
+},
   } = options;
 
   let rateLimiter = null;
