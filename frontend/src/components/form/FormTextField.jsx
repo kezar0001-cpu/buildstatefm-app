@@ -51,7 +51,6 @@ export default function FormTextField({
                 {required && <RequiredIndicator required={required} />}
               </>
             }
-            required={required}
             multiline={multiline}
             rows={rows}
             type={type}
@@ -64,6 +63,7 @@ export default function FormTextField({
             inputProps={{
               'aria-invalid': !!error && isTouched,
               'aria-describedby': error && isTouched ? `${name}-error` : undefined,
+              'aria-required': required,
               maxLength,
               ...inputProps,
             }}

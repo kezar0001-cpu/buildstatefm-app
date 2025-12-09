@@ -42,12 +42,12 @@ export default function FormSelect({
                 {required && <RequiredIndicator required={required} />}
               </>
             }
-            required={required}
             error={!!error && isTouched}
             helperText={error && isTouched ? error.message : helperText}
             SelectProps={{
               'aria-invalid': !!error && isTouched,
               'aria-describedby': error && isTouched ? `${name}-error` : undefined,
+              'aria-required': required,
               MenuProps: {
                 PaperProps: {
                   sx: {

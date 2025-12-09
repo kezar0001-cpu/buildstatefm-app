@@ -486,7 +486,7 @@ const ServiceRequestsPage = () => {
                 ),
               }}
               size="small"
-              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 250 } }}
+              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 300, lg: 400 } }}
             />
 
             {/* Status Filter */}
@@ -1694,21 +1694,9 @@ const ServiceRequestKanban = ({
           By Status
         </Typography>
         <Grid container spacing={2}>
-          {statusColumns.map(renderKanbanColumn)}
+          {columns.map(renderKanbanColumn)}
         </Grid>
       </Box>
-
-      {/* Priority Row */}
-      {priorityColumns.length > 0 && (
-        <Box>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            By Priority
-          </Typography>
-          <Grid container spacing={2}>
-            {priorityColumns.map(renderKanbanColumn)}
-          </Grid>
-        </Box>
-      )}
     </Stack>
   );
 };
