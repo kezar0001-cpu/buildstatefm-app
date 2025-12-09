@@ -35,6 +35,12 @@ import {
   LinearProgress,
   List,
   ListItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -47,6 +53,8 @@ import {
   Person as PersonIcon,
   ViewModule as ViewModuleIcon,
   ViewKanban as ViewKanbanIcon,
+  ViewList as ViewListIcon,
+  TableChart as TableChartIcon,
   CalendarMonth as CalendarMonthIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
@@ -104,7 +112,7 @@ const JobsPage = () => {
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'kanban';
     return localStorage.getItem('jobsViewPreference') || 'kanban';
-  }); // 'kanban', 'card', 'calendar'
+  }); // 'kanban', 'list', 'table'
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -212,6 +220,17 @@ const JobsPage = () => {
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
+  };
+
+  const handleViewChange = (_event, newView) => {
+    if (newView !== null) {
+      setView(newView);
+      try {
+        localStorage.setItem('jobsViewPreference', newView);
+      } catch (error) {
+        logger.warn('Failed to save view preference:', error);
+      }
+    }
   };
 
   const handleOpenDetailModal = (job) => {
@@ -649,54 +668,16 @@ const JobsPage = () => {
         title="Jobs"
         subtitle="Manage and track maintenance jobs"
         actions={
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={(event, newView) => {
-                if (newView !== null) {
-                  setView(newView);
-                  try {
-                    localStorage.setItem('jobsViewPreference', newView);
-                  } catch (error) {
-                    logger.warn('Failed to save view preference:', error);
-                  }
-                }
-              }}
-              aria-label="View mode toggle"
-              size="small"
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                '& .MuiToggleButton-root': {
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                  },
-                },
-              }}
+          user?.role === 'PROPERTY_MANAGER' ? (
+            <GradientButton
+              startIcon={<AddIcon />}
+              onClick={handleCreate}
+              size="large"
+              sx={{ width: { xs: '100%', md: 'auto' } }}
             >
-              <ToggleButton value="kanban" aria-label="kanban view">
-                <Tooltip title="Kanban View">
-                  <ViewKanbanIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
-            {user?.role === 'PROPERTY_MANAGER' && (
-              <GradientButton
-                startIcon={<AddIcon />}
-                onClick={handleCreate}
-                size="large"
-                sx={{ width: { xs: '100%', md: 'auto' } }}
-              >
-                Create Job
-              </GradientButton>
-            )}
-          </Stack>
+              Create Job
+            </GradientButton>
+          ) : null
         }
         contentSpacing={{ xs: 3, md: 3 }}
       >
@@ -712,12 +693,12 @@ const JobsPage = () => {
           animation: 'fade-in-up 0.6s ease-out',
         }}
       >
-        <Stack 
-          direction={{ xs: 'column', lg: 'row' }} 
-          spacing={2} 
-          alignItems={{ xs: 'stretch', lg: 'center' }}
-          sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
-        >
+          <Stack 
+            direction={{ xs: 'column', lg: 'row' }} 
+            spacing={2} 
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+          >
           {/* Search */}
           <TextField
             placeholder="Search jobs..."
@@ -803,6 +784,61 @@ const JobsPage = () => {
               <MenuItem value="unassigned">Unassigned</MenuItem>
             </TextField>
           </Stack>
+
+          {!isMobile && (
+            <ToggleButtonGroup
+              value={view}
+              exclusive
+              onChange={handleViewChange}
+              aria-label="View mode toggle"
+              size="small"
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                '& .MuiToggleButtonGroup-grouped': {
+                  minWidth: 40,
+                  border: 'none',
+                  '&:not(:first-of-type)': {
+                    borderRadius: 2,
+                  },
+                  '&:first-of-type': {
+                    borderRadius: 2,
+                  },
+                },
+                '& .MuiToggleButton-root': {
+                  color: 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                },
+                '& .Mui-selected': {
+                  color: 'error.main',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': {
+                    backgroundColor: 'action.hover !important',
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="kanban" aria-label="kanban view">
+                <Tooltip title="Kanban View">
+                  <ViewKanbanIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="list" aria-label="list view">
+                <Tooltip title="List View">
+                  <ViewListIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <Tooltip title="Table View">
+                  <TableChartIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
 
         </Stack>
       </Paper>
@@ -1113,6 +1149,207 @@ const JobsPage = () => {
               </Grid>
             </DragDropContext>
           )}
+
+          {view === 'list' && (
+            <Grid container spacing={2}>
+              {filteredJobs.map((job) => {
+                const isSelected = selectedJobIds.includes(job.id);
+                return (
+                  <Grid item xs={12} md={6} lg={4} key={job.id}>
+                    <Card
+                      sx={{
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => handleOpenDetailModal(job)}
+                    >
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
+                          <Checkbox
+                            checked={isSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => handleToggleJobSelection(job.id)}
+                            sx={{ mr: 1 }}
+                          />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              {job.title}
+                            </Typography>
+                            <Chip
+                              icon={getPriorityIcon(job.priority)}
+                              label={job.priority}
+                              size="small"
+                              color={getPriorityColor(job.priority)}
+                              sx={{ mt: 1 }}
+                            />
+                          </Box>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusMenuOpen(e, job);
+                            }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+
+                        <Grid container spacing={1.5}>
+                          <Grid item xs={12} sm={6}>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Property
+                            </Typography>
+                            <Typography variant="body2">
+                              {job.property?.name || 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Status
+                            </Typography>
+                            <Chip
+                              label={job.status}
+                              size="small"
+                              color={getStatusColor(job.status)}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Scheduled
+                            </Typography>
+                            <Typography variant="body2">
+                              {job.scheduledDate
+                                ? moment(job.scheduledDate).format('MMM D, YYYY')
+                                : 'Not scheduled'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Technician
+                            </Typography>
+                            <Typography variant="body2">
+                              {job.assignedTo
+                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                : 'Unassigned'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
+
+          {view === 'table' && (
+            <Paper>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          indeterminate={isSelectionIndeterminate}
+                          checked={allVisibleSelected}
+                          onChange={handleToggleSelectAllVisible}
+                          inputProps={{ 'aria-label': 'Select all visible jobs' }}
+                        />
+                      </TableCell>
+                      <TableCell>Title</TableCell>
+                      <TableCell>Property</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Priority</TableCell>
+                      <TableCell>Scheduled</TableCell>
+                      <TableCell>Technician</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredJobs.map((job) => {
+                      const isSelected = selectedJobIds.includes(job.id);
+                      return (
+                        <TableRow key={job.id} hover selected={isSelected}>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={() => handleToggleJobSelection(job.id)}
+                              inputProps={{ 'aria-label': `Select job ${job.title}` }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={500}>
+                              {job.title}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {job.property?.name || 'N/A'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={job.status}
+                              size="small"
+                              color={getStatusColor(job.status)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={getPriorityIcon(job.priority)}
+                              label={job.priority}
+                              size="small"
+                              color={getPriorityColor(job.priority)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {job.scheduledDate
+                                ? moment(job.scheduledDate).format('MMM D, YYYY')
+                                : 'Not scheduled'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {job.assignedTo
+                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                : 'Unassigned'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenDetailModal(job)}
+                              aria-label={`View details for ${job.title}`}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                            {job.status !== 'COMPLETED' && (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEdit(job)}
+                                aria-label={`Edit ${job.title}`}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteClick(job)}
+                              aria-label={`Delete ${job.title}`}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
           {/* Add other view modes here when implemented */}
 
         </>
