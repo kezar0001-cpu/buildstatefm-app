@@ -1,4 +1,3 @@
-
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
@@ -16,6 +15,7 @@ import AuthGate from './authGate';
 import ProtectedLayout from './components/ProtectedLayout';
 import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
+import * as Sentry from '@sentry/react';
 
 // Simple fallback
 function RouteFallback() {
@@ -80,6 +80,9 @@ function NotFound() {
   );
 }
 
+// ========================================================
+// ✨ FIXED ERROR BOUNDARY — now sends errors to Sentry
+// ========================================================
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -91,7 +94,6 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Generate a unique error ID for tracking
     const errorId = `ERR-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     return {
       hasError: true,
@@ -101,7 +103,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error with error ID for tracking
+    // Log locally
     logger.error('App Error:', {
       error,
       errorInfo,
@@ -110,6 +112,9 @@ class ErrorBoundary extends React.Component {
       userAgent: navigator.userAgent,
       url: window.location.href,
     });
+
+    // Send to Sentry (THIS FIXES YOUR ISSUE)
+    Sentry.captureException(error);
   }
 
   handleReload = () => {
@@ -124,10 +129,10 @@ class ErrorBoundary extends React.Component {
     const subject = encodeURIComponent(`Error Report - ${this.state.errorId || 'Unknown'}`);
     const body = encodeURIComponent(
       `I encountered an error while using Buildstate FM.\n\n` +
-      `Error ID: ${this.state.errorId || 'Unknown'}\n` +
-      `Time: ${new Date().toLocaleString()}\n` +
-      `Page: ${window.location.href}\n\n` +
-      `Please describe what you were doing when the error occurred:\n\n`
+        `Error ID: ${this.state.errorId || 'Unknown'}\n` +
+        `Time: ${new Date().toLocaleString()}\n` +
+        `Page: ${window.location.href}\n\n` +
+        `Please describe what you were doing when the error occurred:\n\n`
     );
     window.location.href = `mailto:admin@buildstate.com.au?subject=${subject}&body=${body}`;
   };
@@ -174,14 +179,15 @@ class ErrorBoundary extends React.Component {
                 <ErrorIcon sx={{ fontSize: 48, color: 'error.main' }} />
               </Box>
 
-              {/* Title and Description */}
+              {/* Title */}
               <Box>
                 <Typography variant="h4" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
                   Something went wrong
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-                  We encountered an unexpected error. Our team has been notified and is working to resolve it.
+                  We encountered an unexpected error. Our team has been notified.
                 </Typography>
+
                 {this.state.errorId && (
                   <Typography
                     variant="caption"
@@ -203,7 +209,7 @@ class ErrorBoundary extends React.Component {
 
               <Divider sx={{ width: '100%' }} />
 
-              {/* Action Buttons */}
+              {/* Buttons */}
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={2}
@@ -232,7 +238,7 @@ class ErrorBoundary extends React.Component {
                 </Button>
               </Stack>
 
-              {/* Support Section */}
+              {/* Support */}
               <Box sx={{ width: '100%', pt: 2 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   If the problem persists, please contact our support team:
@@ -257,7 +263,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ---- Lazy pages (Vite will code-split these) ----
+// Lazy-loaded pages
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 const PricingPage = lazy(() => import('./pages/PricingPage.jsx'));
 const SignIn = lazy(() => import('./pages/SignIn.jsx'));
@@ -266,7 +272,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.tsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.tsx'));
 const Dashboard = lazy(() => import('./pages/DashboardPage.jsx'));
-const PropertiesPage = lazy(() => import('./pages/PropertiesPage.jsx')); // wizard inside
+const PropertiesPage = lazy(() => import('./pages/PropertiesPage.jsx'));
 const PropertyDetailPage = lazy(() => import('./pages/PropertyDetailPage.jsx'));
 const EditPropertyPage = lazy(() => import('./pages/EditPropertyPage.jsx'));
 const UnitDetailPage = lazy(() => import('./pages/UnitDetailPage.jsx'));
@@ -300,13 +306,13 @@ const BlogPostEditorPage = lazy(() => import('./pages/admin/BlogPostEditorPage.j
 const CategoryEditorPage = lazy(() => import('./pages/admin/CategoryEditorPage.jsx'));
 const TagEditorPage = lazy(() => import('./pages/admin/TagEditorPage.jsx'));
 
-// NOTE: AddPropertyPage intentionally removed (wizard is in PropertiesPage)
-
 export default function App() {
   useEffect(() => {
     logger.log('App mounted successfully');
+
     const errorHandler = (event) => logger.error('Global error:', event.error);
     window.addEventListener('error', errorHandler);
+
     return () => window.removeEventListener('error', errorHandler);
   }, []);
 
@@ -314,6 +320,7 @@ export default function App() {
     <ErrorBoundary>
       <CssBaseline />
       <GlobalGuard />
+
       <Toaster
         position="top-right"
         toastOptions={{
@@ -360,6 +367,7 @@ export default function App() {
           },
         }}
       />
+
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public */}
@@ -377,54 +385,55 @@ export default function App() {
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
 
-          {/* Admin Setup (Public - only works if no admin exists) */}
+          {/* Admin Setup (Public) */}
           <Route path="/admin/setup" element={<AdminSetupPage />} />
 
-          {/* Blog Admin Login (Public) */}
+          {/* Blog Admin Login */}
           <Route path="/admin/blog/login" element={<BlogAdminLoginPage />} />
 
-          {/* Blog Admin (Admin only) */}
+          {/* Blog Admin */}
           <Route path="/admin/blog" element={<AuthGate><ProtectedLayout><BlogAdminPage /></ProtectedLayout></AuthGate>} />
           <Route path="/admin/blog/posts/:id" element={<AuthGate><ProtectedLayout><BlogPostEditorPage /></ProtectedLayout></AuthGate>} />
           <Route path="/admin/blog/categories/:id" element={<AuthGate><ProtectedLayout><CategoryEditorPage /></ProtectedLayout></AuthGate>} />
           <Route path="/admin/blog/tags/:id" element={<AuthGate><ProtectedLayout><TagEditorPage /></ProtectedLayout></AuthGate>} />
 
-          {/* Protected */}
+          {/* Protected Routes */}
           <Route path="/dashboard" element={<AuthGate><ProtectedLayout><Dashboard /></ProtectedLayout></AuthGate>} />
 
-          {/* Properties (no /properties/add route) */}
           <Route path="/properties" element={<AuthGate><ProtectedLayout><PropertiesPage /></ProtectedLayout></AuthGate>} />
           <Route path="/properties/:id" element={<AuthGate><ProtectedLayout><PropertyDetailPage /></ProtectedLayout></AuthGate>} />
           <Route path="/properties/:id/edit" element={<AuthGate><ProtectedLayout><EditPropertyPage /></ProtectedLayout></AuthGate>} />
 
-          {/* Units */}
           <Route path="/units/:id" element={<AuthGate><ProtectedLayout><UnitDetailPage /></ProtectedLayout></AuthGate>} />
 
-          {/* Other feature pages */}
           <Route path="/inspections" element={<AuthGate><ProtectedLayout><InspectionsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/inspections/:id" element={<AuthGate><ProtectedLayout><InspectionDetailPage /></ProtectedLayout></AuthGate>} />
           <Route path="/inspections/:id/conduct" element={<AuthGate><ProtectedLayout><InspectionConductPage /></ProtectedLayout></AuthGate>} />
           <Route path="/inspections/:id/sign" element={<AuthGate><ProtectedLayout><InspectionSignaturePage /></ProtectedLayout></AuthGate>} />
           <Route path="/inspections/:id/report" element={<AuthGate><ProtectedLayout><InspectionReportPage /></ProtectedLayout></AuthGate>} />
+
           <Route path="/jobs" element={<AuthGate><ProtectedLayout><JobsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/jobs/:id" element={<AuthGate><ProtectedLayout><JobDetailPage /></ProtectedLayout></AuthGate>} />
+
           <Route path="/plans" element={<AuthGate><ProtectedLayout><PlansPage /></ProtectedLayout></AuthGate>} />
+
           <Route path="/service-requests" element={<AuthGate><ProtectedLayout><ServiceRequestsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/recommendations" element={<AuthGate><ProtectedLayout><RecommendationsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/subscriptions" element={<AuthGate><ProtectedLayout><SubscriptionsPage /></ProtectedLayout></AuthGate>} />
+
           <Route path="/reports" element={<AuthGate><ProtectedLayout><ReportsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/reports/:id" element={<AuthGate><ProtectedLayout><ReportDetailPage /></ProtectedLayout></AuthGate>} />
           <Route path="/reports-new" element={<AuthGate><ProtectedLayout><NewReportsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/reports/generate/:reportType" element={<AuthGate><ProtectedLayout><ReportGenerator /></ProtectedLayout></AuthGate>} />
+
           <Route path="/profile" element={<AuthGate><ProtectedLayout><ProfilePage /></ProtectedLayout></AuthGate>} />
 
-          {/* Role-specific dashboards */}
           <Route path="/technician/dashboard" element={<AuthGate><ProtectedLayout><TechnicianDashboard /></ProtectedLayout></AuthGate>} />
           <Route path="/technician/jobs/:id" element={<AuthGate><ProtectedLayout><TechnicianJobDetail /></ProtectedLayout></AuthGate>} />
+
           <Route path="/owner/dashboard" element={<AuthGate><ProtectedLayout><OwnerDashboard /></ProtectedLayout></AuthGate>} />
           <Route path="/tenant/dashboard" element={<AuthGate><ProtectedLayout><TenantDashboard /></ProtectedLayout></AuthGate>} />
 
-          {/* Team Management (Property Manager only) */}
           <Route path="/team" element={<AuthGate><ProtectedLayout><TeamManagementPage /></ProtectedLayout></AuthGate>} />
 
           {/* 404 */}
