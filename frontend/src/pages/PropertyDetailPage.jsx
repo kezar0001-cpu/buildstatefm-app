@@ -683,24 +683,42 @@ export default function PropertyDetailPage() {
                 >
                   <ArrowBackIcon />
                 </IconButton>
-                <Box>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography 
+                    variant="h4" 
+                    sx={{ 
+                      fontWeight: 700,
+                      fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {property.name}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
                     <LocationIcon fontSize="small" color="action" />
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ 
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        wordBreak: 'break-word',
+                      }}
+                    >
                       {formatPropertyAddressLine(property)}
                     </Typography>
                   </Box>
                 </Box>
               </Stack>
-              <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                spacing={1} 
+                sx={{ width: { xs: '100%', md: 'auto' } }}
+              >
                 <Button
                   variant="contained"
                   startIcon={<CalendarIcon />}
                   onClick={() => setInspectionFormDialogOpen(true)}
-                  fullWidth
+                  fullWidth={isSmallScreen}
                   sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
                   aria-label="Schedule inspection for this property"
                 >
@@ -710,7 +728,7 @@ export default function PropertyDetailPage() {
                   variant="outlined"
                   startIcon={<PersonAddIcon />}
                   onClick={() => navigate('/team')}
-                  fullWidth
+                  fullWidth={isSmallScreen}
                   sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
                   aria-label="Manage team members for this property"
                 >
@@ -720,7 +738,7 @@ export default function PropertyDetailPage() {
                   variant="outlined"
                   startIcon={<EditIcon />}
                   onClick={handleEditProperty}
-                  fullWidth
+                  fullWidth={isSmallScreen}
                   sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
                 >
                   Edit Property
@@ -797,13 +815,13 @@ export default function PropertyDetailPage() {
                     />
                   </Paper>
 
-                  {/* 2x2 Grid of Thumbnails (desktop only) */}
+                  {/* 2x2 Grid of Thumbnails - Show on mobile too */}
                   {carouselImages.length > 1 && (
                     <Box
                       sx={{
-                        display: { xs: 'none', md: 'grid' },
-                        gridTemplateColumns: '1fr 1fr',
-                        gridTemplateRows: '1fr 1fr',
+                        display: 'grid',
+                        gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: '1fr 1fr' },
+                        gridTemplateRows: { xs: 'auto', md: '1fr 1fr' },
                         gap: 1,
                       }}
                     >
@@ -818,7 +836,8 @@ export default function PropertyDetailPage() {
                               position: 'relative',
                               overflow: 'hidden',
                               cursor: 'pointer',
-                              borderRadius: 0,
+                              borderRadius: { xs: 1, md: 0 },
+                              aspectRatio: { xs: '1', md: 'auto' },
                               transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                               '&:hover': {
                                 transform: 'scale(1.05)',

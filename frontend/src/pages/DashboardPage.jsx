@@ -205,20 +205,29 @@ const DashboardPage = () => {
           sx={{
             mb: 3,
             animation: 'fade-in-down 0.5s ease-out',
-            borderLeft: '4px solid #dc2626',
+            borderLeft: { xs: '3px solid #dc2626', sm: '4px solid #dc2626' },
+            '& .MuiAlert-action': {
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              pt: { xs: 0.5, sm: 0 },
+            },
           }}
           action={
             <Button
               color="inherit"
               size="small"
               onClick={() => navigate('/inspections', { state: { filter: 'overdue' } })}
-              sx={{ fontWeight: 600 }}
+              sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 1.5 },
+              }}
             >
               View All
             </Button>
           }
         >
-          <AlertTitle sx={{ fontWeight: 700 }}>
+          <AlertTitle sx={{ fontWeight: 700, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
             {overdueInspections.length} Overdue Inspection{overdueInspections.length > 1 ? 's' : ''}
           </AlertTitle>
           <Stack spacing={1} sx={{ mt: 1 }}>
@@ -227,8 +236,9 @@ const DashboardPage = () => {
                 key={inspection.id}
                 sx={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  gap: { xs: 0.75, sm: 1 },
                   cursor: 'pointer',
                   '&:hover': { textDecoration: 'underline' },
                 }}
@@ -238,16 +248,26 @@ const DashboardPage = () => {
                   label={`${inspection.daysOverdue} day${inspection.daysOverdue > 1 ? 's' : ''} overdue`}
                   size="small"
                   color="error"
-                  sx={{ fontWeight: 600 }}
+                  sx={{ 
+                    fontWeight: 600,
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                    height: { xs: 20, sm: 24 },
+                  }}
                 />
-                <Typography variant="body2">
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {inspection.title} - {inspection.property?.name}
                   {inspection.unit ? ` (Unit ${inspection.unit.unitNumber})` : ''}
                 </Typography>
               </Box>
             ))}
             {overdueInspections.length > 3 && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                 and {overdueInspections.length - 3} more...
               </Typography>
             )}

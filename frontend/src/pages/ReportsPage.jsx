@@ -394,7 +394,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 }, bgcolor: 'transparent' }}>
       <PageShell
         title="Reports"
         subtitle="Generate audit-ready outputs for inspections, jobs, payments, and service requests."
