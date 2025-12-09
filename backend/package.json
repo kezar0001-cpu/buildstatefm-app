@@ -18,6 +18,8 @@
     "@aws-sdk/client-s3": "^3.937.0",
     "@aws-sdk/s3-request-presigner": "^3.937.0",
     "@prisma/client": "^6.19.0",
+    "@sentry/node": "^10.29.0",
+    "@sentry/profiling-node": "^10.29.0",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "clamscan": "^2.4.0",

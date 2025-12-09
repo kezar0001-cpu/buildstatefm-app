@@ -1,3 +1,10 @@
+// ============================================
+//  Buildstate FM Backend – With Sentry Enabled
+// ============================================
+
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -12,284 +19,142 @@ import mongoSanitize from 'express-mongo-sanitize';
 import compression from 'compression';
 import prisma, { prisma as prismaInstance } from './src/config/prismaClient.js';
 import logger from './src/utils/logger.js';
+
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
 import scheduleOverdueInspectionCron from './src/cron/overdueInspections.js';
 import { initializeCronJobs } from './src/jobs/cronJobs.js';
 import { initWebsocket } from './src/websocket.js';
 
-// ---- Load env
+// Load environment
 dotenv.config();
-
 logger.info('>>> STARTING Buildstate FM Backend <<<');
 
-// ---- Validate Environment
-import { validateEnvironment } from './src/utils/validateEnv.js';
-validateEnvironment(true); // Fail fast if critical vars missing
+// =======================================================
+//  SENTRY INITIALIZATION (Must be before all middleware)
+// =======================================================
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [
+    new Sentry.Integrations.Http({ tracing: true }),
+    new Sentry.Integrations.Express({ app: undefined }),
+    nodeProfilingIntegration()
+  ],
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0
+});
 
-// ---- Prisma (re-exported for backwards compatibility)
+// Validate environment variables
+import { validateEnvironment } from './src/utils/validateEnv.js';
+validateEnvironment(true);
+
+// Export Prisma instance
 export { prismaInstance as prisma };
 
-// ---- App
+// Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---- Cron Jobs
-const maintenancePlanCronTask = scheduleMaintenancePlanCron();
-startRecurringInspectionCron();
-const overdueInspectionCronTask = scheduleOverdueInspectionCron();
-initializeCronJobs(); // Initialize recommendation archiving and other cron jobs
+// Attach Express instance to Sentry after app creation
+Sentry.getCurrentHub().getClient()?.getOptions().integrations?.forEach((intg) => {
+  if (intg.name === "Express") intg._app = app;
+});
 
-// Trust proxy so secure cookies & redirects work behind Render/CF
+// ===================================================
+//  Sentry request + tracing handlers (FIRST MIDDLEWARE)
+// ===================================================
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.tracingHandler());
+
+// ----------------------
+// Cron Jobs
+// ----------------------
+scheduleMaintenancePlanCron();
+startRecurringInspectionCron();
+scheduleOverdueInspectionCron();
+initializeCronJobs();
+
+// ----------------------
+// Trust Proxy (Render)
+// ----------------------
 app.set('trust proxy', 1);
 
-// ---- CORS (MUST come before rate limiters and other middleware)
+// ----------------------
+// CORS SETUP
+// ----------------------
 const allowlist = new Set(
   (process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [])
-    .map((s) => s && s.trim())
+    .map(s => s.trim())
     .filter(Boolean)
 );
+
 if (process.env.FRONTEND_URL) allowlist.add(process.env.FRONTEND_URL.trim());
+
 [
   'https://www.buildstate.com.au',
   'https://buildstate.com.au',
   'https://api.buildstate.com.au',
   'https://agentfm.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
+  'http://localhost:5173'
 ].forEach((o) => allowlist.add(o));
-const dynamicOriginMatchers = [
-  /https:\/\/.+\.vercel\.app$/,
-];
+
+const dynamicOriginMatchers = [/https:\/\/.+\.vercel\.app$/];
 
 const corsOptions = {
   origin(origin, cb) {
-    // No origin (same-origin requests, Postman, etc.)
-    if (!origin) {
-      logger.debug('CORS: No origin header, allowing request');
-      return cb(null, true);
-    }
-
-    // Check allowlist
-    if (allowlist.has(origin)) {
-      logger.debug(`CORS: Origin ${origin} found in allowlist`);
-      return cb(null, true);
-    }
-
-    // Check dynamic matchers (e.g., *.vercel.app)
-    if (dynamicOriginMatchers.some((regex) => regex.test(origin))) {
-      logger.debug(`CORS: Origin ${origin} matched dynamic pattern`);
-      return cb(null, true);
-    }
-
-    // Reject origin (but don't throw error - this ensures CORS headers are still sent)
-    logger.warn(`CORS: Blocked origin: ${origin}`);
+    if (!origin) return cb(null, true);
+    if (allowlist.has(origin)) return cb(null, true);
+    if (dynamicOriginMatchers.some(r => r.test(origin))) return cb(null, true);
+    logger.warn(`CORS Blocked: ${origin}`);
     return cb(null, false);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['set-cookie'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  credentials: true
 };
 
 app.use(cors(corsOptions));
-
-// Explicit OPTIONS handler for all routes to ensure preflight requests work
 app.options('*', cors(corsOptions));
 
-// ---- Security Middleware
-// Helmet helps secure Express apps by setting various HTTP headers
-const connectSrc = new Set(["'self'", 'https:', 'wss:']);
+// ----------------------
+// Security Headers
+// ----------------------
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 
-// Enhanced Content Security Policy
-const cspDirectives = {
-  defaultSrc: ["'self'"],
-  scriptSrc: [
-    "'self'",
-    "'unsafe-inline'", // Required for some MUI components
-    "'unsafe-eval'", // Required for some development tools (consider removing in production)
-    'https://js.stripe.com', // Stripe.js
-    'https://checkout.stripe.com', // Stripe checkout
-  ],
-  styleSrc: [
-    "'self'",
-    "'unsafe-inline'", // Required for MUI and inline styles
-    'https://fonts.googleapis.com', // Google Fonts
-  ],
-  fontSrc: [
-    "'self'",
-    'https://fonts.gstatic.com', // Google Fonts
-    'data:', // Base64 encoded fonts
-  ],
-  imgSrc: [
-    "'self'",
-    'data:', // Base64 images
-    'blob:', // Blob URLs for image previews
-    'https:', // External images (S3, CDN, etc.)
-  ],
-  connectSrc: [
-    "'self'",
-    'https:', // API calls
-    'wss:', // WebSocket connections
-    'https://api.stripe.com', // Stripe API
-  ],
-  frameSrc: [
-    "'self'",
-    'https://js.stripe.com', // Stripe elements
-    'https://hooks.stripe.com', // Stripe webhooks
-  ],
-  objectSrc: ["'none'"],
-  mediaSrc: ["'self'", 'blob:', 'https:'],
-  workerSrc: ["'self'", 'blob:'],
-  manifestSrc: ["'self'"],
-  baseUri: ["'self'"],
-  formAction: ["'self'"],
-  frameAncestors: ["'none'"], // Prevent clickjacking
-  upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null, // Upgrade HTTP to HTTPS in production
-};
+// ----------------------
+// Basic API Rate Limiter (Not Redis-based)
+// ----------------------
+app.use(
+  '/api/',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200
+  })
+);
 
-function normaliseOrigin(origin) {
-  if (!origin) return null;
-  return origin.trim().replace(/\/$/, '') || null;
-}
-
-function addOriginWithWebsocketVariants(origin) {
-  const normalised = normaliseOrigin(origin);
-  if (!normalised) return;
-  connectSrc.add(normalised);
-  if (normalised.startsWith('http')) {
-    connectSrc.add(normalised.replace(/^http/, 'ws'));
-  }
-}
-
-addOriginWithWebsocketVariants(process.env.API_URL);
-addOriginWithWebsocketVariants(process.env.APP_URL);
-addOriginWithWebsocketVariants(process.env.FRONTEND_URL);
-addOriginWithWebsocketVariants(process.env.VITE_API_BASE_URL);
-addOriginWithWebsocketVariants('https://agentfm-backend.onrender.com');
-addOriginWithWebsocketVariants('https://api.buildstate.com.au');
-
-for (const origin of allowlist) {
-  addOriginWithWebsocketVariants(origin);
-}
-
-// Enhanced Content Security Policy
-const contentSecurityPolicy = {
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: [
-      "'self'",
-      "'unsafe-inline'", // Required for some MUI components
-      "'unsafe-eval'", // Required for some development tools (consider removing in production)
-      'https://js.stripe.com', // Stripe.js
-      'https://checkout.stripe.com', // Stripe checkout
-    ],
-    styleSrc: [
-      "'self'",
-      "'unsafe-inline'", // Required for MUI and inline styles
-      'https://fonts.googleapis.com', // Google Fonts
-    ],
-    fontSrc: [
-      "'self'",
-      'https://fonts.gstatic.com', // Google Fonts
-      'data:', // Base64 encoded fonts
-    ],
-    imgSrc: [
-      "'self'",
-      'data:', // Base64 images
-      'blob:', // Blob URLs for image previews
-      'https:', // External images (S3, CDN, etc.)
-    ],
-    connectSrc: Array.from(connectSrc).concat([
-      'https://api.stripe.com', // Stripe API
-    ]),
-    frameSrc: [
-      "'self'",
-      'https://js.stripe.com', // Stripe elements
-      'https://hooks.stripe.com', // Stripe webhooks
-    ],
-    objectSrc: ["'none'"],
-    mediaSrc: ["'self'", 'blob:', 'https:'],
-    workerSrc: ["'self'", 'blob:'],
-    manifestSrc: ["'self'"],
-    baseUri: ["'self'"],
-    formAction: ["'self'"],
-    frameAncestors: ["'none'"], // Prevent clickjacking
-    upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null, // Upgrade HTTP to HTTPS in production
-  },
-  reportOnly: process.env.CSP_REPORT_ONLY === 'true', // Set to 'true' for testing
-};
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: cspDirectives,
-    reportOnly: process.env.CSP_REPORT_ONLY === 'true', // Set to 'true' for testing
-  },
-  crossOriginEmbedderPolicy: false, // Allow embedding for OAuth
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true,
-  },
-  noSniff: true, // Prevent MIME type sniffing
-  xssFilter: true, // Enable XSS filter
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-}));
-
-// Rate limiting to prevent brute force attacks
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting to all API routes
-app.use('/api/', limiter);
-
-// Stricter rate limiting for auth routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many authentication attempts, please try again later.',
-  skipSuccessfulRequests: true,
-  standardHeaders: true, // Add X-RateLimit-* headers
-  legacyHeaders: false,
-});
-
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  message: 'Too many password reset attempts, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/signup', authLimiter);
-app.use('/api/auth/forgot-password', forgotPasswordLimiter);
-
-// Data sanitization against NoSQL query injection
+// ----------------------
+// Sanitization, Compression, Cookies
+// ----------------------
 app.use(mongoSanitize());
-
-// Compression middleware
 app.use(compression());
 app.use(cookieParser());
 
-// ---- Serve Static Files ---
+// ----------------------
+// Static Uploads Folder (Local Fallback)
+// ----------------------
 const uploadPath = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
-// Mount at /api/uploads to match API route pattern (frontend API client prepends /api)
+if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+
 app.use('/api/uploads', express.static(uploadPath));
 app.use('/uploads', express.static(uploadPath));
 
-// ---- Session
+// ----------------------
+// Sessions
+// ----------------------
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'replace-this-session-secret',
@@ -299,22 +164,25 @@ app.use(
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    }
   })
 );
 
-// ---- Passport
+// ----------------------
+// Passport Auth
+// ----------------------
 import './src/config/passport.js';
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ---- Routes (Import all route handlers)
+// ----------------------
+// Routes
+// ----------------------
 import authRoutes from './src/routes/auth.js';
 import billingRoutes, { webhook as stripeWebhook } from './src/routes/billing.js';
 import propertiesRoutes from './src/routes/properties.js';
 import tenantsRoutes from './src/routes/tenants.js';
-// import maintenanceRoutes from './src/routes/maintenance.js'; // DISABLED: Uses non-existent models, use serviceRequests instead
 import unitsRoutes from './src/routes/units.js';
 import jobsRoutes from './src/routes/jobs.js';
 import inspectionsRoutes from './src/routes/inspections.js';
@@ -322,12 +190,8 @@ import inspectionTemplatesRoutes from './src/routes/inspectionTemplates.js';
 import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
+import uploadsv2Routes from './src/routes/uploadsv2.js';
 import reportsRoutes from './src/routes/reports.js';
-import { createUploadMiddleware, getUploadedFileUrls, getUploadedFilesMetadata, isUsingCloudStorage } from './src/services/uploadService.js';
-import { requireAuth, requireActiveSubscription } from './src/middleware/auth.js';
-import { uploadRateLimiter } from './src/middleware/redisRateLimiter.js';
-import { sendError, ErrorCodes } from './src/utils/errorHandler.js';
-import { isImage, getOptimizationSettings, optimizeImage } from './src/utils/imageOptimization.js';
 import recommendationsRoutes from './src/routes/recommendations.js';
 import plansRoutes from './src/routes/plans.js';
 import dashboardRoutes from './src/routes/dashboard.js';
@@ -339,34 +203,24 @@ import searchRoutes from './src/routes/search.js';
 import jobTemplatesRoutes from './src/routes/jobTemplates.js';
 import notificationPreferencesRoutes from './src/routes/notificationPreferences.js';
 
-// ===================================================================
-//
-// ⚠️ CRITICAL FIX: Stripe webhook MUST come before express.json()
-//    and before app.use('/api/billing', billingRoutes)
-//
-// ===================================================================
+// ----------------------
+// Stripe Webhook (Raw Body required)
+// ----------------------
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
-// ---- Body parsers (MUST come AFTER webhook but BEFORE other routes)
-app.use(express.json({ limit: '2mb' }));
+// ----------------------
+// Normal Body Parsers
+// ----------------------
+app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ---- CSRF Protection
-// Generate CSRF token for GET requests
-app.use('/api/', generateCSRFToken);
-
-// CSRF token endpoint
-app.get('/api/csrf-token', getCSRFTokenHandler);
-
-// Apply CSRF protection to state-changing routes (MUST come AFTER body parsers, BEFORE routes)
-app.use('/api/', csrfProtection);
-
-// ---- Mount routes (MUST come AFTER body parsers and CSRF protection)
+// ----------------------
+// Mount Main Routes
+// ----------------------
 app.use('/api/auth', authRoutes);
-app.use('/api/billing', billingRoutes); // This will now correctly ignore the webhook path
+app.use('/api/billing', billingRoutes);
 app.use('/api/properties', propertiesRoutes);
 app.use('/api/tenants', tenantsRoutes);
-// app.use('/api/maintenance', maintenanceRoutes); // DISABLED: Uses non-existent models, use /api/service-requests instead
 app.use('/api/units', unitsRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/inspections', inspectionsRoutes);
@@ -374,59 +228,10 @@ app.use('/api/inspection-templates', inspectionTemplatesRoutes);
 app.use('/api/recurring-inspections', recurringInspectionsRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/uploads', uploadsRoutes);
-// Alias route for backward compatibility: /api/upload/multiple -> /api/uploads/multiple
-const uploadAlias = createUploadMiddleware();
-app.post('/api/upload/multiple', requireAuth, requireActiveSubscription, uploadRateLimiter, uploadAlias.array('files', 50), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return sendError(res, 400, 'No files uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
-    }
 
-    // Optimize images before upload
-    for (const file of req.files) {
-      if (isImage(file.mimetype)) {
-        try {
-          const settings = getOptimizationSettings(file.mimetype);
-          if (settings) {
-            const optimized = await optimizeImage(file.buffer, settings);
-            if (optimized.buffer && !optimized.error) {
-              file.buffer = optimized.buffer;
-              file.size = optimized.buffer.length;
-              if (optimized.format && optimized.format !== 'original') {
-                const ext = optimized.format === 'webp' ? '.webp' : 
-                           optimized.format === 'jpeg' ? '.jpg' : 
-                           optimized.format === 'png' ? '.png' : '';
-                if (ext) {
-                  file.originalname = file.originalname.replace(/\.[^.]+$/, ext);
-                }
-              }
-            }
-          }
-        } catch (optError) {
-          console.warn(`Image optimization failed for ${file.originalname}:`, optError.message);
-        }
-      }
-    }
+// New v2 Upload Engine
+app.use('/api/v2/uploads', uploadsv2Routes);
 
-    const filesMetadata = getUploadedFilesMetadata(req.files);
-    if (filesMetadata.length === 0) {
-      return sendError(res, 500, 'Failed to process uploaded files', ErrorCodes.FILE_UPLOAD_FAILED);
-    }
-
-    const storageType = isUsingCloudStorage() ? 'AWS S3' : 'local';
-    console.log(`✅ Uploaded ${req.files.length} files to ${storageType} by user ${req.user.id}`);
-    
-    // Standardized response format - maintain backward compatibility with urls array
-    res.status(201).json({
-      success: true,
-      files: filesMetadata,
-      urls: filesMetadata.map(f => f.url), // Backward compatibility
-    });
-  } catch (error) {
-    console.error('Multiple upload error:', error);
-    return sendError(res, 500, 'Upload failed', ErrorCodes.FILE_UPLOAD_FAILED);
-  }
-});
 app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
@@ -439,129 +244,64 @@ app.use('/api/search', searchRoutes);
 app.use('/api/job-templates', jobTemplatesRoutes);
 app.use('/api/notification-preferences', notificationPreferencesRoutes);
 
-
-// ---- Health, Root, 404, Error Handler, and Shutdown logic
+// ----------------------
+// Health Check
+// ----------------------
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const healthData = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      database: 'connected',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-      }
-    };
-    res.json(healthData);
-  } catch (error) {
-    logger.error('Health check failed:', error);
-    res.status(503).json({ 
-      status: 'unhealthy', 
-      timestamp: new Date().toISOString(),
-      error: 'Database connection failed' 
-    });
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ status: 'unhealthy' });
   }
 });
 
+// ----------------------
+// Root
+// ----------------------
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', message: 'Buildstate FM API is running' });
 });
 
+// ----------------------
+// 404 Handler
+// ----------------------
 app.use('*', (req, res) => {
-  logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
 
+// ===================================================================
+//  Sentry Error Handler (before final error handler)
+// ===================================================================
+app.use(Sentry.Handlers.errorHandler());
+
+// ----------------------
+// Final Error Handler
+// ----------------------
 app.use((err, req, res, _next) => {
-  logger.error('Unhandled error:', {
-    error: err.message,
-    stack: err.stack,
-    url: req.originalUrl,
-    method: req.method,
-    ip: req.ip
-  });
-  
-  if (res.headersSent) {
-    return;
-  }
-  
-  const status = err.statusCode || err.status || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal server error' 
-    : err.message || 'Internal server error';
-    
-  res.status(status).json({
+  logger.error('Unhandled error:', err);
+
+  res.status(err.statusCode || 500).json({
     success: false,
-    message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
   });
 });
 
+// ----------------------
+// Start Server
+// ----------------------
 async function startServer() {
   try {
-    const server = app.listen(PORT, () => {
-      logger.info(`✅ Buildstate FM backend listening on port ${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
-    });
+    const server = app.listen(PORT, () =>
+      logger.info(`Backend listening on port ${PORT}`)
+    );
 
-    // Initialize WebSocket server (must use same httpServer instance as Express)
     initWebsocket(server);
-
-    let shuttingDown = false;
-    const shutdown = async (signal) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      logger.info(`Received ${signal}. Shutting down gracefully...`);
-      const closeServer = new Promise((resolve) => {
-        server.close(() => {
-          resolve();
-        });
-      });
-      if (maintenancePlanCronTask) {
-        try {
-          maintenancePlanCronTask.stop();
-        } catch (cronError) {
-          logger.error('Error stopping maintenance plan cron task:', cronError);
-        }
-      }
-      if (overdueInspectionCronTask) {
-        try {
-          overdueInspectionCronTask.stop();
-        } catch (cronError) {
-          logger.error('Error stopping overdue inspection cron task:', cronError);
-        }
-      }
-      try {
-        await Promise.allSettled([closeServer, prisma.$disconnect()]);
-        logger.info('Shutdown complete. Goodbye!');
-        process.exit(0);
-      } catch (error) {
-        logger.error('Error during shutdown:', error);
-        process.exit(1);
-      }
-    };
-
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
   } catch (error) {
-    logger.error('❌ Failed to start Buildstate FM backend:', error);
+    logger.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
 
 startServer();

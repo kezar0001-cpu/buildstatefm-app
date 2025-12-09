@@ -9,11 +9,11 @@ export default defineConfig({
   plugins: [
     react(),
 
-    // Sentry Vite plugin for source maps and performance tracing
+    // Sentry Vite Plugin for source maps and release tracking
     sentryVitePlugin({
-      org: "buildstate-fm",
-      project: "javascript-react",
-      authToken: process.env.SENTRY_AUTH_TOKEN
+      org: "buildstate-fm",               // Your Sentry Organization Slug
+      project: "buildstatefm-frontend",                // <-- Replace with your actual Sentry Project Slug
+      authToken: process.env.VITE_SENTRY_AUTH_TOKEN
     })
   ],
 
@@ -32,6 +32,6 @@ export default defineConfig({
   },
 
   build: {
-    sourcemap: true // Required for Sentry readable stack traces
+    sourcemap: true
   }
 });
