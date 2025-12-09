@@ -135,12 +135,12 @@ router.get('/', async (req, res) => {
     
     if (req.user.role === 'PROPERTY_MANAGER') {
       // Property managers see reports for their properties
-      where.Property = {
+      where.property = {
         managerId: req.user.id,
       };
     } else if (req.user.role === 'OWNER') {
       // Owners see reports for properties they own
-      where.Property = {
+      where.property = {
         owners: {
           some: {
             ownerId: req.user.id,
@@ -167,17 +167,20 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/reports/:id/data - Get report data (for viewing)
-router.get('/:id/data', async (req, res) => {
+// GET /api/reports/:id - Get a single report
+router.get('/:id', async (req, res) => {
   try {
+    // Only Property Managers and Owners can view reports
+    if (!['PROPERTY_MANAGER', 'OWNER'].includes(req.user.role)) {
+      return sendError(res, 403, 'Only Property Managers and Owners can view reports', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
     const report = await prisma.reportRequest.findUnique({
       where: { id: req.params.id },
       include: {
-        property: {
-          include: {
-            owners: { select: { ownerId: true } },
-          },
-        },
+        property: { select: { id: true, name: true, address: true } },
+        unit: { select: { id: true, unitNumber: true } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
     });
 
@@ -185,10 +188,66 @@ router.get('/:id/data', async (req, res) => {
       return sendError(res, 404, 'Report not found', ErrorCodes.RES_REPORT_NOT_FOUND);
     }
 
+    // Get property with owners for access check
+    const property = await prisma.property.findUnique({
+      where: { id: report.propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
     // Check access
     const hasAccess =
-      req.user.role === 'PROPERTY_MANAGER' && report.property.managerId === req.user.id ||
-      req.user.role === 'OWNER' && report.property.owners.some(o => o.ownerId === req.user.id) ||
+      req.user.role === 'PROPERTY_MANAGER' && property.managerId === req.user.id ||
+      req.user.role === 'OWNER' && property.owners.some(o => o.ownerId === req.user.id) ||
+      report.requestedById === req.user.id;
+
+    if (!hasAccess) {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    res.json({ success: true, report });
+  } catch (error) {
+    console.error('Failed to fetch report:', error);
+    return sendError(res, 500, 'Failed to fetch report', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// GET /api/reports/:id/data - Get report data (for viewing)
+router.get('/:id/data', async (req, res) => {
+  try {
+    const report = await prisma.reportRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        property: { select: { id: true, name: true, address: true, managerId: true } },
+        unit: { select: { id: true, unitNumber: true } },
+      },
+    });
+
+    if (!report) {
+      return sendError(res, 404, 'Report not found', ErrorCodes.RES_REPORT_NOT_FOUND);
+    }
+
+    // Get property with owners for access check
+    const property = await prisma.property.findUnique({
+      where: { id: report.propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    // Check access
+    const hasAccess =
+      req.user.role === 'PROPERTY_MANAGER' && property.managerId === req.user.id ||
+      req.user.role === 'OWNER' && property.owners.some(o => o.ownerId === req.user.id) ||
       report.requestedById === req.user.id;
 
     if (!hasAccess) {
@@ -200,7 +259,7 @@ router.get('/:id/data', async (req, res) => {
     }
 
     // Regenerate report data (in production, this would be cached/stored)
-    const reportData = await generateReport(report, report.property);
+    const reportData = await generateReport(report, property);
     
     res.json({ success: true, data: reportData.data });
   } catch (error) {
@@ -230,9 +289,20 @@ router.get('/:id/download', async (req, res) => {
     }
 
     // Check access
+    const property = await prisma.property.findUnique({
+      where: { id: report.propertyId },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
     const hasAccess =
-      req.user.role === 'PROPERTY_MANAGER' && report.property.managerId === req.user.id ||
-      req.user.role === 'OWNER' && report.property.owners.some(o => o.ownerId === req.user.id) ||
+      req.user.role === 'PROPERTY_MANAGER' && property.managerId === req.user.id ||
+      req.user.role === 'OWNER' && property.owners.some(o => o.ownerId === req.user.id) ||
       report.requestedById === req.user.id;
 
     if (!hasAccess) {
@@ -247,8 +317,8 @@ router.get('/:id/download', async (req, res) => {
       return sendError(res, 500, 'Report file is missing.', ErrorCodes.ERR_INTERNAL_SERVER);
     }
 
-    // In a real app, you would redirect to the fileUrl or stream the file
-    res.json({ success: true, message: 'Report downloaded (placeholder)', url: report.fileUrl });
+    // Return the file URL for download
+    res.json({ success: true, url: report.fileUrl });
   } catch (error) {
     console.error('Failed to download report:', error);
     return sendError(res, 500, 'Failed to download report', ErrorCodes.ERR_INTERNAL_SERVER);

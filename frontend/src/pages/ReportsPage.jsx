@@ -202,14 +202,25 @@ export default function ReportsPage() {
 
   const mutation = useMutation({
     mutationFn: (newReport) => apiClient.post('/reports', newReport),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all() });
       reset();
       setSelectedPropertyId('');
       setActiveStep(0);
       setIsWizardOpen(false);
-      // Show success message
-      toast.success('Report generation started! Your report will be available in the table below once processing completes.');
+      
+      // Navigate to report detail page if report is completed
+      const report = response.data?.report || response.data;
+      if (report?.id) {
+        if (report.status === 'COMPLETED') {
+          toast.success('Report generated successfully!');
+          navigate(`/reports/${report.id}`);
+        } else {
+          toast.success('Report generation started! Your report will be available once processing completes.');
+        }
+      } else {
+        toast.success('Report generation started! Your report will be available in the table below once processing completes.');
+      }
     },
     onError: (error) => {
       // Show error message with more details
@@ -728,17 +739,29 @@ export default function ReportsPage() {
                         <Box>
                           {getStatusChip(report.status)}
                         </Box>
-                        {report.status === 'COMPLETED' && report.fileUrl && (
-                          <Button
-                            variant="contained"
-                            fullWidth
-                            href={resolveFileUrl(report.fileUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-                          >
-                            Download
-                          </Button>
+                        {report.status === 'COMPLETED' && (
+                          <Stack spacing={1}>
+                            <Button
+                              variant="contained"
+                              fullWidth
+                              onClick={() => navigate(`/reports/${report.id}`)}
+                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                              View Report
+                            </Button>
+                            {report.fileUrl && (
+                              <Button
+                                variant="outlined"
+                                fullWidth
+                                href={resolveFileUrl(report.fileUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                              >
+                                Download PDF
+                              </Button>
+                            )}
+                          </Stack>
                         )}
                         {report.status === 'PROCESSING' && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -796,17 +819,29 @@ export default function ReportsPage() {
                         {createdAt ? format(new Date(createdAt), 'PP') : 'Pending'}
                       </Typography>
                       {getStatusChip(report.status)}
-                      {report.status === 'COMPLETED' && report.fileUrl && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          href={resolveFileUrl(report.fileUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
-                        >
-                          Download
-                        </Button>
+                      {report.status === 'COMPLETED' && (
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => navigate(`/reports/${report.id}`)}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
+                          >
+                            View
+                          </Button>
+                          {report.fileUrl && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              href={resolveFileUrl(report.fileUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
+                            >
+                              PDF
+                            </Button>
+                          )}
+                        </Stack>
                       )}
                       {report.status === 'PROCESSING' && (
                         <CircularProgress size={20} />
@@ -882,21 +917,37 @@ export default function ReportsPage() {
                       </TableCell>
                       <TableCell>{getStatusChip(report.status)}</TableCell>
                       <TableCell>
-                        {report.status === 'COMPLETED' && report.fileUrl && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            href={resolveFileUrl(report.fileUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Download
-                          </Button>
+                        {report.status === 'COMPLETED' && (
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => navigate(`/reports/${report.id}`)}
+                              sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 600,
+                              }}
+                            >
+                              View
+                            </Button>
+                            {report.fileUrl && (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                href={resolveFileUrl(report.fileUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  borderRadius: 2,
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                PDF
+                              </Button>
+                            )}
+                          </Stack>
                         )}
                         {report.status === 'PROCESSING' && (
                           <CircularProgress size={20} />

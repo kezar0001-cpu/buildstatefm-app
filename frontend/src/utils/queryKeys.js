@@ -98,6 +98,8 @@ export const queryKeys = {
   },
   reports: {
     all: () => ['reports'],
+    detail: (id) => ['reports', id],
+    data: (id) => ['reports', id, 'data'],
   },
   invites: {
     all: () => ['invites'],
