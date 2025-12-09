@@ -659,6 +659,7 @@ export default function PropertiesPage() {
                           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
                           overflow: 'hidden',
                           position: 'relative',
+                          transition: 'all 0.3s ease-in-out',
                           '&::before': {
                             content: '""',
                             position: 'absolute',
@@ -670,8 +671,15 @@ export default function PropertiesPage() {
                             opacity: 0,
                             transition: 'opacity 0.3s ease-in-out',
                           },
-                          '&:hover::before': {
-                            opacity: 1,
+                          '@media (hover: hover)': {
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: 6,
+                              borderColor: 'primary.main',
+                              '&::before': {
+                                opacity: 1,
+                              },
+                            },
                           },
                         }}
                         onClick={() => handleCardClick(property.id)}

@@ -46,6 +46,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys.js';
 import DataState from '../components/DataState.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import PlanCard from '../components/PlanCard.jsx';
 import PlanDetailModal from '../components/PlanDetailModal.jsx';
 import MaintenancePlanForm from '../components/MaintenancePlanForm.jsx';

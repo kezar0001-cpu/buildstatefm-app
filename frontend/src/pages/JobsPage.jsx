@@ -943,7 +943,7 @@ const JobsPage = () => {
                           height: '100%',
                           display: 'flex',
                           flexDirection: 'column',
-                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          transition: 'all 0.3s ease-in-out',
                           borderLeft: isOverdue(job) ? '4px solid' : 'none',
                           borderLeftColor: 'error.main',
                           borderRadius: 3,
@@ -952,9 +952,27 @@ const JobsPage = () => {
                           outlineColor: 'primary.main',
                           border: '1px solid',
                           borderColor: isSelected ? 'primary.main' : 'divider',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: 4,
+                          overflow: 'hidden',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                            opacity: isSelected ? 1 : 0,
+                            transition: 'opacity 0.3s ease-in-out',
+                          },
+                          '@media (hover: hover)': {
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: 6,
+                              borderColor: 'primary.main',
+                              '&::before': {
+                                opacity: 1,
+                              },
+                            },
                           },
                         }}
                       >

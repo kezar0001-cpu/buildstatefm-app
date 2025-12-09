@@ -1278,10 +1278,32 @@ const InspectionKanban = ({
                   key={inspection.id}
                   sx={{
                     cursor: 'pointer',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 3,
+                    transition: 'all 0.3s ease-in-out',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '4px',
+                      background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                      opacity: 0,
+                      transition: 'opacity 0.3s ease-in-out',
+                    },
+                    '@media (hover: hover)': {
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 6,
+                        borderColor: 'primary.main',
+                        '&::before': {
+                          opacity: 1,
+                        },
+                      },
                     },
                   }}
                   onClick={() => onView(inspection.id)}
