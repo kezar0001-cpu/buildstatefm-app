@@ -847,7 +847,7 @@ const InspectionsPage = () => {
               inspections={inspectionsWithOverdue}
               selectedIds={selectedIds}
               onSelectAll={handleSelectAll}
-              onSelect={handleSelect}
+              onSelect={handleSelectOne}
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
