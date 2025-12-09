@@ -100,10 +100,8 @@ const JobsPage = () => {
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [view, setView] = useState(() => {
-    if (typeof window === 'undefined') return 'card';
-    return localStorage.getItem('jobsViewPreference') || 'card';
-  }); // 'card', 'kanban', 'calendar'
+  // Always use kanban view
+  const view = 'kanban';
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -208,14 +206,6 @@ const JobsPage = () => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleViewChange = (event, nextView) => {
-    if (nextView !== null) {
-      setView(nextView);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('jobsViewPreference', nextView);
-      }
-    }
-  };
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -631,9 +621,7 @@ const JobsPage = () => {
           }
         >
           <Box sx={{ mt: 3 }}>
-            {view === 'card' && <LoadingSkeleton variant="card" count={6} height={200} />}
-            {view === 'kanban' && <LoadingSkeleton variant="card" count={9} height={150} />}
-            {view === 'calendar' && <LoadingSkeleton variant="table" count={5} />}
+            <LoadingSkeleton variant="card" count={9} height={150} />
           </Box>
         </PageShell>
       </Container>
@@ -775,63 +763,10 @@ const JobsPage = () => {
             </TextField>
           </Stack>
 
-          {/* View Toggle */}
-          <ToggleButtonGroup
-            value={view}
-            exclusive
-            onChange={handleViewChange}
-            aria-label="View mode toggle"
-            size="small"
-            sx={{
-              backgroundColor: 'background.paper',
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              '& .MuiToggleButtonGroup-grouped': {
-                minWidth: 40,
-                border: 'none',
-                '&:not(:first-of-type)': {
-                  borderRadius: 2,
-                },
-                '&:first-of-type': {
-                  borderRadius: 2,
-                },
-              },
-              '& .MuiToggleButton-root': {
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              },
-              '& .Mui-selected': {
-                color: 'error.main',
-                backgroundColor: 'transparent !important',
-                '&:hover': {
-                  backgroundColor: 'action.hover !important',
-                },
-              },
-            }}
-          >
-            <ToggleButton value="card" aria-label="grid view">
-              <Tooltip title="Grid View">
-                <ViewModuleIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="kanban" aria-label="kanban view">
-              <Tooltip title="Kanban View">
-                <ViewKanbanIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="calendar" aria-label="calendar view">
-              <Tooltip title="Calendar View">
-                <CalendarMonthIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-          </ToggleButtonGroup>
         </Stack>
       </Paper>
 
-      {view !== 'calendar' && selectedCount > 0 && (
+      {selectedCount > 0 && (
         <Paper
           elevation={2}
           sx={{
@@ -931,267 +866,8 @@ const JobsPage = () => {
         />
       ) : (
         <>
-          {view === 'card' && (
-            <Stack spacing={3}>
-              <Grid container spacing={{ xs: 2, md: 3 }}>
-                {filteredJobs.map((job) => {
-                  const isSelected = selectedJobIds.includes(job.id);
-                  return (
-                    <Grid item xs={12} sm={6} md={6} lg={4} key={job.id}>
-                      <Card
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          transition: 'all 0.3s ease-in-out',
-                          borderLeft: isOverdue(job) ? '4px solid' : 'none',
-                          borderLeftColor: 'error.main',
-                          borderRadius: 3,
-                          position: 'relative',
-                          outline: isSelected ? '2px solid' : 'none',
-                          outlineColor: 'primary.main',
-                          border: '1px solid',
-                          borderColor: isSelected ? 'primary.main' : 'divider',
-                          overflow: 'hidden',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                            opacity: isSelected ? 1 : 0,
-                            transition: 'opacity 0.3s ease-in-out',
-                          },
-                          '@media (hover: hover)': {
-                            '&:hover': {
-                              transform: 'translateY(-4px)',
-                              boxShadow: 6,
-                              borderColor: 'primary.main',
-                              '&::before': {
-                                opacity: 1,
-                              },
-                            },
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2, pt: 2, pb: 2, '&:last-child': { pb: 2 } }}>
-                      {/* Header with Checkbox */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: 1,
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                          <Checkbox
-                            checked={isSelected}
-                            onChange={() => handleToggleJobSelection(job.id)}
-                            color="primary"
-                            sx={{ p: 0.5 }}
-                            inputProps={{ 'aria-label': `Select job ${job.title}` }}
-                          />
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              fontSize: '1.125rem',
-                              fontWeight: 700,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              lineHeight: 1.3,
-                              mb: 0,
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            {job.title}
-                          </Typography>
-                        </Box>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleStatusMenuOpen(e, job)}
-                          aria-label={`Change status for ${job.title}`}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-
-                      {/* Status and Priority */}
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-                        <Chip
-                          label={job.status.replace('_', ' ')}
-                          color={getStatusColor(job.status)}
-                          size="small"
-                          sx={{ fontWeight: 500 }}
-                        />
-                        <Chip
-                          icon={getPriorityIcon(job.priority)}
-                          label={job.priority}
-                          color={getPriorityColor(job.priority)}
-                          size="small"
-                          sx={{ fontWeight: 500 }}
-                        />
-                      </Stack>
-
-                      {/* Overdue Alert */}
-                      {isOverdue(job) && (
-                        <Alert severity="error" sx={{ py: 0 }}>
-                          <Typography variant="caption">Overdue</Typography>
-                        </Alert>
-                      )}
-
-                      {/* Description */}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {job.description || 'No description provided'}
-                      </Typography>
-
-                      {/* Property Details - Grouped in subtle box */}
-                      <Box
-                        sx={{
-                          mt: 'auto',
-                          p: 1.5,
-                          borderRadius: 1.5,
-                          bgcolor: 'action.hover',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        }}
-                      >
-                        <Stack spacing={1.5}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Property
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                fontWeight: 500,
-                                mt: 0.5,
-                              }}
-                            >
-                              {job.property?.name || 'N/A'}
-                            </Typography>
-                          </Box>
-
-                          {job.scheduledDate && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                                Scheduled
-                              </Typography>
-                              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                {moment(job.scheduledDate).format('MMM D, YYYY')}
-                              </Typography>
-                            </Box>
-                          )}
-
-                          {job.assignedTo && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                                Assigned To
-                              </Typography>
-                              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                {job.assignedTo.firstName} {job.assignedTo.lastName}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Stack>
-                      </Box>
-
-                      {/* Actions - with divider */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 0.5,
-                          pt: 1.5,
-                          justifyContent: 'flex-end',
-                          borderTop: '1px solid',
-                          borderColor: 'divider',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenDetailModal(job);
-                            }}
-                            aria-label={`View details for ${job.title}`}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {job.status !== 'COMPLETED' && (
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEdit(job);
-                              }}
-                              aria-label={`Edit ${job.title}`}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteClick(job);
-                            }}
-                            aria-label={`Delete ${job.title}`}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-
-            {/* Load More Button */}
-            {hasNextPage && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
-                >
-                  {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                </Button>
-              </Box>
-            )}
-          </Stack>
-          )}
-
-          {view === 'kanban' && (
+          {/* Kanban View */}
+          {(
             <DragDropContext onDragEnd={onDragEnd}>
               <Grid container spacing={2}>
                 {KANBAN_STATUSES.map((status) => (
@@ -1397,41 +1073,6 @@ const JobsPage = () => {
             </DragDropContext>
           )}
 
-          {view === 'calendar' && (
-            <JobCalendarBoard
-              startDate={calendarStartDate}
-              events={filteredJobs
-                .filter((job) => job.scheduledDate)
-                .map((job) => ({
-                  id: job.id,
-                  title: job.title,
-                  start: job.scheduledDate,
-                  status: job.status,
-                  priority: job.priority,
-                  property: job.property?.name || null,
-                  assignedTo: job.assignedTo
-                    ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                    : null,
-                }))}
-              onChangeRange={(days) => {
-                const newStart = new Date(calendarStartDate);
-                newStart.setDate(newStart.getDate() + days);
-                setCalendarStartDate(newStart);
-              }}
-              onMove={async (jobId, newDate) => {
-                try {
-                  await apiClient.patch(`/jobs/${jobId}`, {
-                    scheduledDate: newDate.toISOString(),
-                  });
-                  refetch();
-                } catch (error) {
-                  logger.error('Failed to reschedule job:', error);
-                  toast.error('Failed to reschedule job');
-                }
-              }}
-              canDrag={true}
-            />
-          )}
         </>
       )}
 

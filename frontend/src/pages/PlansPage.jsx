@@ -26,6 +26,7 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -61,6 +62,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import toast from 'react-hot-toast';
 import { format, isPast, isToday, parseISO, addDays } from 'date-fns';
 import { useCurrentUser } from '../context/UserContext';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
 
 const localizer = momentLocalizer(moment);
 
@@ -425,7 +427,42 @@ export default function PlansPage() {
 
       {/* Content */}
       {isLoading ? (
-        <DataState isLoading={true} />
+        <Box sx={{ mt: 3 }}>
+          {view === 'card' ? (
+            <Grid container spacing={3}>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Grid item xs={12} sm={6} md={4} key={index}>
+                  <Card
+                    sx={{
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Skeleton variant="text" width="70%" height={32} />
+                        <Skeleton variant="text" width="50%" height={20} />
+                        <Skeleton variant="text" width="100%" height={16} />
+                        <Skeleton variant="text" width="80%" height={16} />
+                        <Stack direction="row" spacing={1}>
+                          <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 4 }} />
+                          <Skeleton variant="rounded" width={60} height={24} sx={{ borderRadius: 4 }} />
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : view === 'table' ? (
+            <TableSkeleton rows={5} columns={7} />
+          ) : (
+            <Box sx={{ height: 600 }}>
+              <Skeleton variant="rectangular" width="100%" height="100%" sx={{ borderRadius: 2 }} />
+            </Box>
+          )}
+        </Box>
       ) : error ? (
         <DataState isError={true} error={error} onRetry={refetch} />
       ) : plans.length === 0 ? (

@@ -74,7 +74,11 @@ const verifyPropertyAccess = async (propertyId, userId, userRole) => {
 
   // Check access based on role
   if (userRole === 'PROPERTY_MANAGER' && property.managerId !== userId) {
-    return { hasAccess: false, error: 'You do not have permission to access this property' };
+    return { 
+      hasAccess: false, 
+      error: 'You can only create maintenance plans for properties you manage. Please select a property where you are assigned as the property manager.',
+      property 
+    };
   }
 
   if (userRole === 'OWNER' && property.owners.length === 0) {

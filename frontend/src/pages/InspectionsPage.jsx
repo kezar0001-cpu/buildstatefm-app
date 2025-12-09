@@ -127,22 +127,8 @@ const InspectionsPage = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
-  // View mode: grid (kanban), list, calendar - persisted in localStorage
-  const [viewMode, setViewMode] = useState(() => {
-    try {
-      const stored = localStorage.getItem('inspections-view-mode');
-      return stored && ['grid', 'list', 'calendar'].includes(stored) ? stored : 'grid';
-    } catch {
-      return 'grid';
-    }
-  });
-
-  // Calendar navigation state
-  const [calendarStartDate, setCalendarStartDate] = useState(() => {
-    const today = new Date();
-    today.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-    return today;
-  });
+  // View mode: always kanban (grid)
+  const viewMode = 'grid';
 
   // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
@@ -550,9 +536,7 @@ const InspectionsPage = () => {
           </Box>
 
           {/* Skeleton based on view mode */}
-          {viewMode === 'grid' && <InspectionKanbanSkeleton cardsPerColumn={3} />}
-          {viewMode === 'list' && <InspectionListSkeleton items={6} />}
-          {viewMode === 'calendar' && <CardGridSkeleton cards={7} />}
+          <InspectionKanbanSkeleton cardsPerColumn={3} />
         </PageShell>
       </Container>
     );
@@ -666,49 +650,6 @@ const InspectionsPage = () => {
               </Select>
             </FormControl>
 
-            {/* Property Filter */}
-            {viewMode === 'calendar' && (
-              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                <InputLabel>Property</InputLabel>
-                <Select
-                  value={propertyFilter}
-                  label="Property"
-                  onChange={(e) => {
-                    setPropertyFilter(e.target.value);
-                    updateSearchParam('property', e.target.value);
-                  }}
-                >
-                  <MenuItem value="">All Properties</MenuItem>
-                  {properties.map((property) => (
-                    <MenuItem key={property.id} value={property.id}>
-                      {property.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {/* Technician Filter */}
-            {viewMode === 'calendar' && (
-              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                <InputLabel>Technician</InputLabel>
-                <Select
-                  value={technicianFilter}
-                  label="Technician"
-                  onChange={(e) => {
-                    setTechnicianFilter(e.target.value);
-                    updateSearchParam('technician', e.target.value);
-                  }}
-                >
-                  <MenuItem value="">All Technicians</MenuItem>
-                  {technicians.map((tech) => (
-                    <MenuItem key={tech.id} value={tech.id}>
-                      {tech.firstName} {tech.lastName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
 
             {/* Date From */}
             <TextField
@@ -739,64 +680,10 @@ const InspectionsPage = () => {
             />
           </Stack>
 
-          {/* View Toggle */}
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={handleViewModeChange}
-            aria-label="View mode toggle"
-            size="small"
-            sx={{
-              backgroundColor: 'background.paper',
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              '& .MuiToggleButtonGroup-grouped': {
-                minWidth: 40,
-                border: 'none',
-                '&:not(:first-of-type)': {
-                  borderRadius: 2,
-                },
-                '&:first-of-type': {
-                  borderRadius: 2,
-                },
-              },
-              '& .MuiToggleButton-root': {
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              },
-              '& .Mui-selected': {
-                color: 'error.main',
-                backgroundColor: 'transparent !important',
-                '&:hover': {
-                  backgroundColor: 'action.hover !important',
-                },
-              },
-            }}
-          >
-            <ToggleButton value="grid" aria-label="kanban view">
-              <Tooltip title="Kanban View">
-                <ViewKanbanIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="list" aria-label="list view">
-              <Tooltip title="List View">
-                <ViewListIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="calendar" aria-label="calendar view">
-              <Tooltip title="Calendar View">
-                <CalendarMonthIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-          </ToggleButtonGroup>
         </Stack>
       </Paper>
 
-      {/* Bulk Actions Toolbar (for list/table views with selections) */}
-      {selectedIds.length > 0 && (viewMode === 'list' || viewMode === 'table') && (
+      {/* Bulk Actions Toolbar - removed as we only use kanban view */}
         <Paper
           sx={{
             mb: 2,
@@ -858,94 +745,22 @@ const InspectionsPage = () => {
       ) : (
         <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
           {/* Kanban View */}
-          {viewMode === 'grid' && (
-            <InspectionKanban
-              inspections={inspectionsWithOverdue}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onStartInspection={handleStartInspection}
-              onCompleteInspection={handleCompleteInspection}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onCancel={handleCancelInspection}
-              getStatusColor={getStatusColor}
-              getStatusIcon={getStatusIcon}
-              formatStatusText={formatStatusText}
-            />
-          )}
+          <InspectionKanban
+            inspections={inspectionsWithOverdue}
+            onView={handleView}
+            onEdit={handleEdit}
+            onDelete={handleDeleteClick}
+            onStartInspection={handleStartInspection}
+            onCompleteInspection={handleCompleteInspection}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onCancel={handleCancelInspection}
+            getStatusColor={getStatusColor}
+            getStatusIcon={getStatusIcon}
+            formatStatusText={formatStatusText}
+          />
 
-          {/* List View with Virtual Scrolling */}
-          {viewMode === 'list' && (
-            <VirtualizedInspectionList
-              inspections={inspectionsWithOverdue}
-              renderItem={(inspection) => (
-                <InspectionListItem
-                  key={inspection.id}
-                  inspection={inspection}
-                  selected={selectedIds.includes(inspection.id)}
-                  onSelect={handleSelectOne}
-                  onView={handleView}
-                  onEdit={handleEdit}
-                  onDelete={handleDeleteClick}
-                  onStatusMenuOpen={handleStatusMenuOpen}
-                  getStatusColor={getStatusColor}
-                  getStatusIcon={getStatusIcon}
-                  formatStatusText={formatStatusText}
-                />
-              )}
-              onLoadMore={fetchNextPage}
-              hasMore={hasNextPage}
-              isLoadingMore={isFetchingNextPage}
-              scrollKey="inspections-list-scroll"
-            />
-          )}
 
-          {/* Calendar View */}
-          {viewMode === 'calendar' && (
-            <InspectionCalendarBoard
-              startDate={calendarStartDate}
-              events={inspectionsWithOverdue.map(inspection => ({
-                id: inspection.id,
-                title: inspection.title,
-                start: inspection.scheduledDate,
-                status: inspection.status,
-                inspection,
-              }))}
-              onChangeRange={(days) => {
-                const newStart = new Date(calendarStartDate);
-                newStart.setDate(newStart.getDate() + days);
-                setCalendarStartDate(newStart);
-              }}
-              onMove={async (inspectionId, newDate) => {
-                try {
-                  await apiClient.patch(`/inspections/${inspectionId}`, {
-                    scheduledDate: newDate.toISOString(),
-                  });
-                  queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
-                } catch (error) {
-                  logger.error('Failed to reschedule inspection:', error);
-                }
-              }}
-              canDrag={true}
-            />
-          )}
-
-          {/* Table View */}
-          {viewMode === 'table' && (
-            <InspectionTable
-              inspections={inspectionsWithOverdue}
-              selectedIds={selectedIds}
-              onSelectAll={handleSelectAll}
-              onSelectOne={handleSelectOne}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onStatusMenuOpen={handleStatusMenuOpen}
-              getStatusColor={getStatusColor}
-              formatStatusText={formatStatusText}
-            />
-          )}
 
           {/* Load More Button */}
           {hasNextPage && (

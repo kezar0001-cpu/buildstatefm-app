@@ -117,7 +117,8 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
       const statusCode = error?.response?.status;
 
       if (statusCode === 403) {
-        toast.error('You do not have permission to create a maintenance plan for this property. Only the assigned property manager for this specific property can create plans.');
+        const errorMessage = error?.response?.data?.message || 'You can only create maintenance plans for properties you manage. Please select a property where you are assigned as the property manager.';
+        toast.error(errorMessage);
       } else if (statusCode === 404) {
         toast.error('The selected property was not found. Please select a valid property.');
       } else {

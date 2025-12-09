@@ -10,6 +10,8 @@ import {
   Button,
   Stack,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -42,6 +44,8 @@ export default function NotificationBell() {
   const queryClient = useQueryClient();
   const socketRef = useRef(null);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Fetch unread count
   const { data: countData } = useQuery({
@@ -276,18 +280,23 @@ export default function NotificationBell() {
         onClose={handleClose}
         PaperProps={{
           sx: {
-            width: 400,
-            maxHeight: 500,
+            width: { xs: 'calc(100vw - 32px)', sm: 400 },
+            maxWidth: { xs: 'calc(100vw - 32px)', sm: 400 },
+            maxHeight: { xs: 'calc(100vh - 100px)', sm: 500 },
+            mt: { xs: 1, sm: 0 },
           },
         }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Notifications</Typography>
+        <Box sx={{ px: { xs: 1.5, sm: 2 }, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Notifications</Typography>
           {unreadCount > 0 && (
             <Button
               size="small"
               onClick={handleMarkAllRead}
               disabled={markAllReadMutation.isPending}
+              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
               Mark all read
             </Button>
@@ -319,12 +328,13 @@ export default function NotificationBell() {
             <MenuItem
               key={notification.id}
               sx={{
-                py: 1.5,
-                px: 2,
+                py: { xs: 1, sm: 1.5 },
+                px: { xs: 1.5, sm: 2 },
                 bgcolor: notification.isRead && !isDashboardAlert ? 'transparent' : 'action.hover',
                 '&:hover': {
                   bgcolor: 'action.selected',
                 },
+                whiteSpace: 'normal',
               }}
               onClick={() => {
                 if (!isDashboardAlert && !notification.isRead) {
@@ -336,21 +346,22 @@ export default function NotificationBell() {
               }}
             >
               <Stack spacing={1} sx={{ width: '100%' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" gutterBottom>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, wordBreak: 'break-word' }}>
                       {notification.title}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' }, wordBreak: 'break-word' }}>
                       {notification.message}
                     </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ flexWrap: 'wrap' }}>
                       <Chip
                         label={(notification.type || 'ALERT').replace(/_/g, ' ')}
                         size="small"
                         color={chipColor}
+                        sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, height: { xs: 20, sm: 24 } }}
                       />
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                         {format(new Date(notification.createdAt), 'MMM dd, HH:mm')}
                       </Typography>
                     </Stack>
@@ -360,6 +371,8 @@ export default function NotificationBell() {
                           variant="outlined"
                           size="small"
                           onClick={(event) => handleNavigate(notification.action.link, event)}
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' }, py: { xs: 0.5, sm: 0.75 } }}
+                          fullWidth={false}
                         >
                           {notification.action.label}
                         </Button>
@@ -367,12 +380,13 @@ export default function NotificationBell() {
                     )}
                   </Box>
                   {!isDashboardAlert && (
-                    <Stack direction="row" spacing={0.5}>
+                    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
                       {!notification.isRead && (
                         <IconButton
                           size="small"
                           onClick={(e) => handleMarkRead(notification.id, e)}
                           title="Mark as read"
+                          sx={{ padding: { xs: '4px', sm: '8px' } }}
                         >
                           <CheckCircleIcon fontSize="small" />
                         </IconButton>
@@ -381,6 +395,7 @@ export default function NotificationBell() {
                         size="small"
                         onClick={(e) => handleDelete(notification.id, e)}
                         title="Delete"
+                        sx={{ padding: { xs: '4px', sm: '8px' } }}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

@@ -37,6 +37,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Skeleton,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -63,6 +64,7 @@ import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import { useCurrentUser } from '../context/UserContext';
 import toast from 'react-hot-toast';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
 
 const reportSchema = z.object({
   reportType: z.string().min(1, 'forms.required'),
@@ -585,8 +587,70 @@ export default function ReportsPage() {
             </Typography>
           </Box>
         {isLoadingReports ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
+          <Box sx={{ mt: 3 }}>
+            {viewMode === 'grid' ? (
+              <Grid container spacing={3}>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Card
+                      sx={{
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <CardContent>
+                        <Stack spacing={2}>
+                          <Skeleton variant="text" width="70%" height={32} />
+                          <Skeleton variant="text" width="50%" height={20} />
+                          <Divider />
+                          <Skeleton variant="text" width="60%" height={20} />
+                          <Skeleton variant="text" width="40%" height={16} />
+                          <Skeleton variant="text" width="80%" height={16} />
+                          <Stack direction="row" spacing={1}>
+                            <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 4 }} />
+                            <Skeleton variant="rounded" width={60} height={24} sx={{ borderRadius: 4 }} />
+                          </Stack>
+                          <Skeleton variant="text" width="50%" height={16} />
+                          <Skeleton variant="rounded" width="100%" height={36} sx={{ borderRadius: 2 }} />
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : viewMode === 'list' ? (
+              <Stack spacing={2}>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Card
+                    key={index}
+                    sx={{
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <CardContent>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+                        <Box flex={1}>
+                          <Skeleton variant="text" width="60%" height={24} />
+                          <Skeleton variant="text" width="40%" height={20} sx={{ mt: 0.5 }} />
+                        </Box>
+                        <Stack direction="row" spacing={1}>
+                          <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 4 }} />
+                          <Skeleton variant="rounded" width={60} height={24} sx={{ borderRadius: 4 }} />
+                        </Stack>
+                        <Skeleton variant="text" width={100} height={20} />
+                        <Skeleton variant="rounded" width={60} height={24} sx={{ borderRadius: 4 }} />
+                        <Skeleton variant="rounded" width={100} height={36} sx={{ borderRadius: 2 }} />
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableSkeleton rows={5} columns={7} />
+            )}
           </Box>
         ) : filteredReports.length === 0 ? (
           <EmptyState
