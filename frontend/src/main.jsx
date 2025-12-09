@@ -13,9 +13,6 @@ import { UserProvider } from "./context/UserContext.jsx";
 import LightThemeWrapper from "./components/LightThemeWrapper.jsx";
 import { isRetryableError } from "./utils/errorMessages.js";
 
-// ----------------------
-// SENTRY INIT (correct for v8 SDK)
-// ----------------------
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [
@@ -29,9 +26,6 @@ Sentry.init({
 
 console.log("Sentry DSN used:", import.meta.env.VITE_SENTRY_DSN);
 
-// ----------------------
-// React Query
-// ----------------------
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -43,9 +37,6 @@ const queryClient = new QueryClient({
   }
 });
 
-// ----------------------
-// Mount React App
-// ----------------------
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
