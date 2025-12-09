@@ -578,25 +578,7 @@ export default function ReportsPage() {
           </Stack>
         </Paper>
 
-        {/* Generated Reports Section */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, md: 3 },
-            borderRadius: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.08)',
-          }}
-        >
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Generated Reports
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Keep track of processing and completed exports
-            </Typography>
-          </Box>
+        {/* Generated Reports Content */}
         {isLoadingReports ? (
           <Box sx={{ mt: 3 }}>
             {viewMode === 'grid' ? (
@@ -965,7 +947,6 @@ export default function ReportsPage() {
             </Table>
           </Box>
         )}
-        </Paper>
       </PageShell>
 
       <Dialog

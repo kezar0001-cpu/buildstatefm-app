@@ -43,6 +43,8 @@ import {
   LinearProgress,
   List,
   ListItem,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -106,6 +108,8 @@ const InspectionsPage = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser } = useCurrentUser();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Inspections are only accessible to Property Managers and Technicians
   useEffect(() => {
@@ -572,43 +576,6 @@ const InspectionsPage = () => {
         subtitle="Schedule and manage property inspections"
         actions={(
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={handleViewModeChange}
-              aria-label="View mode toggle"
-              size="small"
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                '& .MuiToggleButton-root': {
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="grid" aria-label="kanban view">
-                <Tooltip title="Kanban View">
-                  <ViewKanbanIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list" aria-label="list view">
-                <Tooltip title="List View">
-                  <ViewListIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="table" aria-label="table view">
-                <Tooltip title="Table View">
-                  <TableChartIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
             <GradientButton
               startIcon={<AddIcon />}
               onClick={handleCreate}
@@ -726,6 +693,61 @@ const InspectionsPage = () => {
               sx={{ minWidth: { xs: '100%', sm: 130 } }}
             />
           </Stack>
+
+          {!isMobile && (
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              aria-label="View mode toggle"
+              size="small"
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                '& .MuiToggleButtonGroup-grouped': {
+                  minWidth: 40,
+                  border: 'none',
+                  '&:not(:first-of-type)': {
+                    borderRadius: 2,
+                  },
+                  '&:first-of-type': {
+                    borderRadius: 2,
+                  },
+                },
+                '& .MuiToggleButton-root': {
+                  color: 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                },
+                '& .Mui-selected': {
+                  color: 'error.main',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': {
+                    backgroundColor: 'action.hover !important',
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="grid" aria-label="kanban view">
+                <Tooltip title="Kanban View">
+                  <ViewKanbanIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="list" aria-label="list view">
+                <Tooltip title="List View">
+                  <ViewListIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <Tooltip title="Table View">
+                  <TableChartIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
 
         </Stack>
       </Paper>
