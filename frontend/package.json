@@ -16,6 +16,8 @@
     "@mui/icons-material": "^5.15.10",
     "@mui/material": "^5.15.10",
     "@mui/x-date-pickers": "^8.14.1",
+    "@sentry/node": "^10.29.0",
+    "@sentry/profiling-node": "^10.29.0",
     "@sentry/react": "^10.22.0",
     "@sentry/replay": "^7.116.0",
     "@sentry/vite-plugin": "^4.6.1",
