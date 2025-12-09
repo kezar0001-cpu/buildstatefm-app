@@ -1,31 +1,37 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import resolveDevProxyTarget from './config/resolveDevProxyTarget.js';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import resolveDevProxyTarget from "./config/resolveDevProxyTarget.js";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 const devProxyTarget = resolveDevProxyTarget();
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+
+    // Sentry Vite plugin for source maps and performance tracing
+    sentryVitePlugin({
+      org: "buildstate-fm",
+      project: "javascript-react",
+      authToken: process.env.SENTRY_AUTH_TOKEN
+    })
+  ],
+
   server: {
     port: 5173,
     proxy: {
-      '/api': {
-        // Default to the local backend during development so we never send
-        // local test traffic to the production API by accident.
+      "/api": {
         target: devProxyTarget,
-        changeOrigin: true,
+        changeOrigin: true
       },
-      '/uploads': {
-        // Proxy /uploads to backend for document viewing/downloading
-        // This ensures iframes and direct file access work in development
+      "/uploads": {
         target: devProxyTarget,
-        changeOrigin: true,
+        changeOrigin: true
       }
     }
   },
+
   build: {
-    sourcemap: true, // Enable source maps for debugging production builds
+    sourcemap: true // Required for Sentry readable stack traces
   }
 });
-
-

@@ -1,3 +1,8 @@
+import * as Sentry from "@sentry/react";
+import { BrowserTracing } from "@sentry/react";
+import { Replay } from "@sentry/replay";
+
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -9,6 +14,21 @@ import './i18n.js';
 import { UserProvider } from './context/UserContext.jsx';
 import LightThemeWrapper from './components/LightThemeWrapper.jsx';
 import { isRetryableError } from './utils/errorMessages.js';
+
+
+Sentry.init({
+  dsn: "https://46403553ba31e65badcc95a4e142e35c@o4510503287390208.ingest.us.sentry.io/4510503295778816",
+
+  integrations: [
+    new BrowserTracing(),
+    new Replay()
+  ],
+
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0
+});
+
 
 // Phase 7: Query Client with enhanced retry logic using isRetryableError utility
 const queryClient = new QueryClient({
