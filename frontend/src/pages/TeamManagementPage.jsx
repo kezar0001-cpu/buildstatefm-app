@@ -450,10 +450,10 @@ export default function TeamManagementPage() {
 
   // Calculate team member limit info
   // Note: users array only contains OWNER, TECHNICIAN, TENANT (not PROPERTY_MANAGER)
-  // So we count all users as team members
+  // For quota purposes, only TECHNICIAN users are counted as team members
   const subscriptionPlan = currentUser?.subscriptionPlan || 'FREE_TRIAL';
   const teamMemberLimit = getTeamMemberLimit(subscriptionPlan);
-  const totalTeamMembers = users?.length || 0;
+  const totalTeamMembers = technicians.length;
   const canAddMore = teamMemberLimit === Infinity || totalTeamMembers < teamMemberLimit;
   const remainingSlots = teamMemberLimit === Infinity ? 'Unlimited' : Math.max(0, teamMemberLimit - totalTeamMembers);
 

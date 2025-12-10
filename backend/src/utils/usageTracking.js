@@ -23,7 +23,8 @@ export async function getPropertyCount(userId) {
 
 /**
  * Get current team member count for a property manager's organization
- * Counts all users (except the manager) who belong to the same org or are invited
+ * Counts only TECHNICIAN users (excluding the manager) in the same org.
+ * Owners and tenants are not considered team members for quota purposes.
  * @param {string} userId - Property manager user ID
  * @returns {Promise<number>} Number of team members
  */
@@ -38,12 +39,13 @@ export async function getTeamMemberCount(userId) {
     return 0;
   }
 
-  // Count all users in the org except the owner
+  // Count only technicians in the org (excluding the manager)
   const count = await prisma.user.count({
     where: {
       orgId: user.orgId,
       id: { not: userId },
       isActive: true,
+      role: 'TECHNICIAN',
     },
   });
 

@@ -84,14 +84,6 @@ export async function fetchUsersForManagedProperties(prismaClient, propertyIds, 
     return assignments.map(record => record.tenant).filter(Boolean);
   }
 
-  if (requestedRole === 'TECHNICIAN') {
-    const technicians = await prismaClient.user.findMany({
-      where: { role: requestedRole },
-      select: BASIC_USER_SELECT,
-    });
-    return technicians;
-  }
-
   return [];
 }
 
@@ -132,7 +124,29 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const propertyIds = managedProperties.map(p => p.id);
 
-  const rawUsers = await fetchUsersForManagedProperties(prisma, propertyIds, requestedRole);
+  let rawUsers;
+
+  if (requestedRole === 'TECHNICIAN') {
+    // Technicians should be scoped to the current manager's organization
+    const manager = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { orgId: true },
+    });
+
+    if (!manager?.orgId) {
+      rawUsers = [];
+    } else {
+      rawUsers = await prisma.user.findMany({
+        where: {
+          role: 'TECHNICIAN',
+          orgId: manager.orgId,
+        },
+        select: BASIC_USER_SELECT,
+      });
+    }
+  } else {
+    rawUsers = await fetchUsersForManagedProperties(prisma, propertyIds, requestedRole);
+  }
 
   // Remove duplicates (same owner/tenant might be associated with multiple properties)
   const uniqueUsers = Array.from(new Map(rawUsers.map(user => [user.id, user])).values());

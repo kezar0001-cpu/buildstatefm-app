@@ -205,8 +205,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST / - Create a new maintenance plan
-router.post('/', requireAuth, requireRole(['PROPERTY_MANAGER']), async (req, res) => {
+// POST / - Create a new maintenance plan (Property Manager only)
+router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
   try {
     const parsed = planSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -260,8 +260,8 @@ router.post('/', requireAuth, requireRole(['PROPERTY_MANAGER']), async (req, res
   }
 });
 
-// PATCH /:id - Update a maintenance plan
-router.patch('/:id', requireAuth, requireRole(['PROPERTY_MANAGER']), async (req, res) => {
+// PATCH /:id - Update a maintenance plan (Property Manager only)
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -332,8 +332,8 @@ router.patch('/:id', requireAuth, requireRole(['PROPERTY_MANAGER']), async (req,
   }
 });
 
-// DELETE /:id - Delete a maintenance plan
-router.delete('/:id', requireAuth, requireRole(['PROPERTY_MANAGER']), async (req, res) => {
+// DELETE /:id - Delete a maintenance plan (Property Manager only)
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
   try {
     const { id } = req.params;
 

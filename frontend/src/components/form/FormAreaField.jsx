@@ -29,16 +29,18 @@ export default function FormAreaField({
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => {
-        // Fix: Convert the stored value (in sqm as integer) to the selected unit for display
-        const displayValue = field.value ? (() => {
-          const sqmValue = parseFloat(field.value);
-          if (unit === AREA_UNITS.SQ_M) {
-            return sqmValue;
-          } else {
-            // Convert from sqm to sq ft
-            return sqmValue * 10.7639;
-          }
-        })() : '';
+        // Convert the stored value (in sqm) to the selected unit for display
+        const displayValue = field.value !== null && field.value !== undefined && field.value !== ''
+          ? (() => {
+              const sqmValue = parseFloat(field.value);
+              if (Number.isNaN(sqmValue)) return '';
+              if (unit === AREA_UNITS.SQ_M) {
+                return sqmValue;
+              }
+              // Convert from sqm to sq ft using shared utility
+              return fromSquareFeet(sqmValue, AREA_UNITS.SQ_FT); // underlying value is sqm
+            })()
+          : '';
 
         const handleValueChange = (e) => {
           const inputValue = e.target.value;
@@ -49,18 +51,15 @@ export default function FormAreaField({
 
           const numericValue = parseFloat(inputValue);
           if (!isNaN(numericValue)) {
-            // Fix: Store as integer sqm (not sq ft) to avoid precision issues
-            // Convert input to sqm, then round to nearest integer
+            // Store underlying value in sqm, but allow decimals (no aggressive rounding to 0)
             let sqmValue;
             if (unit === AREA_UNITS.SQ_M) {
               sqmValue = numericValue;
             } else {
-              // Convert from sq ft to sq m
+              // Convert from sq ft to sq m with full precision
               sqmValue = numericValue / 10.7639;
             }
-            // Round to nearest integer
-            const integerSqm = Math.round(sqmValue);
-            field.onChange(integerSqm);
+            field.onChange(sqmValue);
           }
         };
 
