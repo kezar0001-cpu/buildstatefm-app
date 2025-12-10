@@ -509,6 +509,130 @@ const InspectionsPage = () => {
     return displayStatus.replace(/_/g, ' ');
   };
 
+  const renderListItem = (inspection) => {
+    if (!inspection) return null;
+
+    const displayStatus = inspection.displayStatus || inspection.status;
+
+    return (
+      <Card
+        sx={{
+          mb: 1.5,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          transition: 'all 0.2s ease',
+          cursor: 'pointer',
+          '&:hover': {
+            boxShadow: 3,
+          },
+        }}
+        onClick={() => handleView(inspection.id)}
+      >
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'flex-start', md: 'center' }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {inspection.title || inspection.name || 'Inspection'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {inspection.property?.name || 'Unassigned property'}
+              </Typography>
+            </Box>
+
+            <Stack
+              direction={{ xs: 'row', md: 'row' }}
+              spacing={2}
+              alignItems="center"
+              sx={{ flexWrap: 'wrap', rowGap: 1 }}
+            >
+              <Stack spacing={0.5} sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Status
+                </Typography>
+                <Chip
+                  icon={getStatusIcon(displayStatus)}
+                  label={formatStatusText(displayStatus)}
+                  size="small"
+                  color={getStatusColor(displayStatus)}
+                />
+              </Stack>
+
+              <Stack spacing={0.5} sx={{ minWidth: 140 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Scheduled
+                </Typography>
+                <Typography variant="body2">
+                  {inspection.scheduledDate
+                    ? formatDate(inspection.scheduledDate)
+                    : 'Not scheduled'}
+                </Typography>
+              </Stack>
+
+              <Stack spacing={0.5} sx={{ minWidth: 140 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Inspector
+                </Typography>
+                <Typography variant="body2">
+                  {inspection.assignedTo
+                    ? `${inspection.assignedTo.firstName} ${inspection.assignedTo.lastName}`
+                    : 'Unassigned'}
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
+                <Tooltip title="View details">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleView(inspection.id);
+                    }}
+                    aria-label="View inspection"
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Edit">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(inspection);
+                    }}
+                    aria-label="Edit inspection"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(inspection);
+                    }}
+                    aria-label="Delete inspection"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Loading state with skeleton loaders
   if (isLoading) {
     return (
@@ -834,12 +958,8 @@ const InspectionsPage = () => {
           {viewMode === 'list' && (
             <VirtualizedInspectionList
               inspections={inspectionsWithOverdue}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              getStatusColor={getStatusColor}
-              getStatusIcon={getStatusIcon}
-              formatStatusText={formatStatusText}
+              renderItem={renderListItem}
+              scrollKey="inspections-list"
             />
           )}
           {viewMode === 'table' && (
