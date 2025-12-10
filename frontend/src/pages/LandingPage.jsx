@@ -857,14 +857,14 @@ const Navbar = () => {
 const Hero = () => (
   <Box
     sx={{
-      background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
-      pt: { xs: 8, md: 12 },
-      pb: { xs: 8, md: 12 },
-      overflow: 'hidden',
-      position: 'relative'
+      position: 'relative',
+      minHeight: { xs: '100vh', md: '90vh' },
+      display: 'flex',
+      alignItems: 'center',
+      overflow: 'hidden'
     }}
   >
-    {/* Background Video */}
+    {/* Full-screen Background Video */}
     <Box
       sx={{
         position: 'absolute',
@@ -872,18 +872,7 @@ const Hero = () => (
         left: 0,
         width: '100%',
         height: '100%',
-        zIndex: 0,
-        overflow: 'hidden',
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,247,242,0.9) 50%, rgba(255,247,242,0.85) 100%)',
-          zIndex: 1
-        }
+        zIndex: 0
       }}
     >
       <Box
@@ -892,156 +881,234 @@ const Hero = () => (
         loop
         muted
         playsInline
+        poster="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1920&q=80"
         sx={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
-          opacity: 0.3
+          objectFit: 'cover'
         }}
       >
-        <source src="https://assets.mixkit.co/videos/preview/mixkit-businessman-working-on-a-laptop-in-an-office-4629-large.mp4" type="video/mp4" />
-        <source src="https://assets.mixkit.co/videos/preview/mixkit-people-working-in-an-office-4640-large.mp4" type="video/mp4" />
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-city-at-night-11748-large.mp4" type="video/mp4" />
       </Box>
+      {/* Dark overlay for text readability */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.6) 100%)',
+          zIndex: 1
+        }}
+      />
     </Box>
 
-    {/* Decorative gradient blobs */}
-    <Box
-      sx={{
-        position: 'absolute',
-        top: -100,
-        right: -100,
-        width: 400,
-        height: 400,
-        background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
-        borderRadius: '50%',
-        pointerEvents: 'none',
-        zIndex: 1
-      }}
-    />
-    <Box
-      sx={{
-        position: 'absolute',
-        bottom: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
-        borderRadius: '50%',
-        pointerEvents: 'none',
-        zIndex: 1
-      }}
-    />
-
-    <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative', zIndex: 2 }}>
-      <Grid container spacing={6} alignItems="center">
-        <Grid item xs={12} md={6}>
+    {/* Hero Content */}
+    <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, py: { xs: 10, md: 8 } }}>
+      <Grid container spacing={4} alignItems="center" justifyContent="center">
+        <Grid item xs={12} md={10} lg={8}>
           <FadeIn>
-            <Chip
-              icon={<AutoAwesomeIcon />}
-              label="New: AI-Powered Inspection Workflows"
-              color="secondary"
-              sx={{
-                mb: 3,
-                fontWeight: 600,
-                px: 1,
-                background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                color: 'white'
-              }}
-            />
-            <Typography
-              variant="h1"
-              fontWeight={800}
-              sx={{
-                mb: 3,
-                fontSize: { xs: '2.5rem', md: '3.5rem' },
-                lineHeight: 1.1,
-                letterSpacing: '-0.02em',
-                background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}
-            >
-              Property Management Built for Trust
-            </Typography>
-            <Typography
-              variant="h5"
-              color="text.secondary"
-              sx={{
-                mb: 5,
-                lineHeight: 1.7,
-                fontWeight: 400,
-                fontSize: { xs: '1.1rem', md: '1.3rem' }
-              }}
-            >
-              Stop chasing paperwork. Start making data-driven decisions with immutable audit trails,
-              real-time sync, and a platform your entire team will love.
-            </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 5 }}>
-              <GradientButton
-                size="large"
-                component={RouterLink}
-                to="/signup"
-                endIcon={<ArrowForwardIcon />}
-                sx={{ px: 4, py: 1.5, fontSize: '1.1rem' }}
-              >
-                Start Free Trial
-              </GradientButton>
-              <Button
-                variant="outlined"
-                size="large"
-                component="a"
-                href="#how-it-works"
+            <Box sx={{ textAlign: 'center' }}>
+              <Chip
+                icon={<AutoAwesomeIcon sx={{ color: 'white !important' }} />}
+                label="New: AI-Powered Inspection Workflows"
                 sx={{
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1.1rem',
+                  mb: 3,
                   fontWeight: 600,
-                  textTransform: 'none',
-                  borderWidth: 2,
-                  borderRadius: 2,
-                  color: 'primary.main',
-                  borderColor: 'primary.main',
-                  '&:hover': {
-                    borderWidth: 2,
-                    borderColor: 'primary.dark',
-                    bgcolor: 'rgba(185, 28, 28, 0.04)'
-                  }
+                  px: 2,
+                  py: 2.5,
+                  fontSize: '0.9rem',
+                  background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  backdropFilter: 'blur(10px)'
+                }}
+              />
+              <Typography
+                variant="h1"
+                fontWeight={800}
+                sx={{
+                  mb: 3,
+                  fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem', lg: '4.5rem' },
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  color: 'white',
+                  textShadow: '0 2px 40px rgba(0,0,0,0.3)'
                 }}
               >
-                See How It Works
-              </Button>
-            </Stack>
-            <Box sx={{ mt: 5, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Stack direction="row" spacing={-1}>
-                {[11, 12, 13, 14, 15].map((i) => (
-                  <Avatar
-                    key={i}
-                    src={`https://i.pravatar.cc/100?img=${i}`}
-                    sx={{
-                      border: '3px solid white',
-                      width: 48,
-                      height: 48
-                    }}
-                  />
-                ))}
+                Property Management{' '}
+                <Box
+                  component="span"
+                  sx={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #fbbf24 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  Built for Trust
+                </Box>
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  mb: 5,
+                  lineHeight: 1.7,
+                  fontWeight: 400,
+                  fontSize: { xs: '1rem', sm: '1.15rem', md: '1.35rem' },
+                  color: 'rgba(255,255,255,0.9)',
+                  maxWidth: 700,
+                  mx: 'auto'
+                }}
+              >
+                Stop chasing paperwork. Start making data-driven decisions with immutable audit trails,
+                real-time sync, and a platform your entire team will love.
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ mb: 5 }}>
+                <GradientButton
+                  size="large"
+                  component={RouterLink}
+                  to="/signup"
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{ 
+                    px: { xs: 4, md: 5 }, 
+                    py: { xs: 1.5, md: 2 }, 
+                    fontSize: { xs: '1rem', md: '1.15rem' },
+                    boxShadow: '0 8px 32px rgba(249, 115, 22, 0.4)'
+                  }}
+                >
+                  Start Free Trial
+                </GradientButton>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  component="a"
+                  href="#how-it-works"
+                  sx={{
+                    px: { xs: 4, md: 5 },
+                    py: { xs: 1.5, md: 2 },
+                    fontSize: { xs: '1rem', md: '1.15rem' },
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderWidth: 2,
+                    borderRadius: 2,
+                    color: 'white',
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': {
+                      borderWidth: 2,
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  See How It Works
+                </Button>
               </Stack>
-              <Box>
-                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
-                  <Rating value={5} size="small" readOnly />
-                  <Typography variant="caption" fontWeight="bold">5.0</Typography>
+              
+              {/* Social Proof */}
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: { xs: 2, md: 3 }, 
+                  flexWrap: 'wrap',
+                  p: 3,
+                  borderRadius: 3,
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  maxWidth: 500,
+                  mx: 'auto'
+                }}
+              >
+                <Stack direction="row" spacing={-1.5}>
+                  {[11, 12, 13, 14, 15].map((i) => (
+                    <Avatar
+                      key={i}
+                      src={`https://i.pravatar.cc/100?img=${i}`}
+                      sx={{
+                        border: '3px solid rgba(255,255,255,0.3)',
+                        width: { xs: 40, md: 48 },
+                        height: { xs: 40, md: 48 }
+                      }}
+                    />
+                  ))}
                 </Stack>
-                <Typography variant="body2" fontWeight={600} color="text.primary">
-                  Trusted by 500+ Property Managers
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Managing 10,000+ units worldwide
-                </Typography>
+                <Box sx={{ textAlign: 'left' }}>
+                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                    <Rating value={5} size="small" readOnly sx={{ '& .MuiRating-iconFilled': { color: '#fbbf24' } }} />
+                    <Typography variant="caption" fontWeight="bold" sx={{ color: 'white' }}>5.0</Typography>
+                  </Stack>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: 'white' }}>
+                    Trusted by 500+ Property Managers
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Managing 10,000+ units worldwide
+                  </Typography>
+                </Box>
               </Box>
             </Box>
           </FadeIn>
         </Grid>
       </Grid>
     </Container>
+
+    {/* Scroll indicator */}
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 30,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 2,
+        display: { xs: 'none', md: 'block' }
+      }}
+    >
+      <Box
+        component="a"
+        href="#how-it-works"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: 'rgba(255,255,255,0.7)',
+          textDecoration: 'none',
+          transition: 'color 0.3s',
+          '&:hover': { color: 'white' }
+        }}
+      >
+        <Typography variant="caption" sx={{ mb: 1, letterSpacing: 2, textTransform: 'uppercase' }}>
+          Scroll
+        </Typography>
+        <Box
+          sx={{
+            width: 24,
+            height: 40,
+            border: '2px solid currentColor',
+            borderRadius: 12,
+            display: 'flex',
+            justifyContent: 'center',
+            pt: 1
+          }}
+        >
+          <Box
+            sx={{
+              width: 4,
+              height: 8,
+              bgcolor: 'currentColor',
+              borderRadius: 2,
+              animation: 'scrollBounce 2s infinite',
+              '@keyframes scrollBounce': {
+                '0%, 100%': { transform: 'translateY(0)', opacity: 1 },
+                '50%': { transform: 'translateY(12px)', opacity: 0.3 }
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    </Box>
   </Box>
 );
 
