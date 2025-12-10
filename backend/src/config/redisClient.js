@@ -56,9 +56,15 @@ function initialiseRedis() {
   }
 
   try {
+    // Upstash and other cloud Redis providers require TLS
+    // Detect if URL uses rediss:// (TLS) or contains upstash
+    const requiresTls = url.startsWith('rediss://') || url.includes('upstash');
+    
     redisClient = createRedisClient({
       url,
       socket: {
+        // Enable TLS for cloud Redis providers (Upstash, Redis Cloud, etc.)
+        tls: requiresTls ? true : undefined,
         reconnectStrategy: (retries) => {
           // Stop reconnecting after 5 attempts
           if (retries > 5) {
@@ -70,6 +76,10 @@ function initialiseRedis() {
         },
       },
     });
+    
+    if (requiresTls) {
+      console.log('[Redis] TLS enabled for secure connection');
+    }
 
     redisClient.on('error', (error) => {
       if (process.env.NODE_ENV !== 'test' && !connectionFailed) {
