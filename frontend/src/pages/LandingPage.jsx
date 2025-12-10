@@ -864,6 +864,38 @@ const Hero = () => (
       position: 'relative'
     }}
   >
+    {/* Background video */}
+    <Box
+      sx={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        overflow: 'hidden'
+      }}
+    >
+      <Box
+        component="video"
+        src="https://www.pexels.com/video/person-typing-on-a-laptop-7597602/"
+        autoPlay
+        loop
+        muted
+        playsInline
+        sx={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: 0.6
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(90deg, rgba(255,247,242,0.96) 0%, rgba(255,247,242,0.9) 55%, rgba(0,0,0,0.25) 100%)'
+        }}
+      />
+    </Box>
+
     {/* Decorative gradient blobs */}
     <Box
       sx={{
@@ -874,7 +906,8 @@ const Hero = () => (
         height: 400,
         background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
         borderRadius: '50%',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        zIndex: 1
       }}
     />
     <Box
@@ -886,11 +919,12 @@ const Hero = () => (
         height: 400,
         background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
         borderRadius: '50%',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        zIndex: 1
       }}
     />
 
-    <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative' }}>
+    <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative', zIndex: 2 }}>
       <Grid container spacing={6} alignItems="center">
         <Grid item xs={12} md={6}>
           <FadeIn>
@@ -998,11 +1032,6 @@ const Hero = () => (
             </Box>
           </FadeIn>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <FadeIn delay={0.2}>
-            <VideoPlaceholder />
-          </FadeIn>
-        </Grid>
       </Grid>
     </Container>
   </Box>
@@ -1061,13 +1090,14 @@ const HowItWorks = () => {
         return;
       }
 
-      // Use the position of the viewport center within the section to determine the active step
-      // Add buffer zones at top (30%) and bottom (10%) so steps don't change too quickly
-      const rawProgress = (scrollY + windowHeight / 2 - sectionTop) / sectionHeight;
-      // Map 0.3-0.9 range to 0-1 for step calculation (gives more scroll per step)
-      const adjustedProgress = (rawProgress - 0.3) / 0.6;
-      const clamped = Math.min(Math.max(adjustedProgress, 0), 0.999);
-      const index = Math.floor(clamped * steps.length);
+      // Use the position of the viewport center within the section to determine the active step.
+      // Divide the section height into equal vertical bands, one for each step.
+      const centerInSection = scrollY + windowHeight / 2 - sectionTop;
+      const stepHeight = sectionHeight / steps.length;
+      let index = Math.floor(centerInSection / stepHeight);
+
+      if (index < 0) index = 0;
+      if (index >= steps.length) index = steps.length - 1;
 
       setActiveStep((prev) => (index === prev ? prev : index));
     };
@@ -1603,6 +1633,7 @@ const formatCurrency = (amount) => {
 const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
   const Icon = tier.icon;
   const price = tier.price;
+  const [showFeatures, setShowFeatures] = useState(false);
 
   return (
     <FadeIn delay={tier.highlighted ? 0.2 : 0.1}>
@@ -1619,6 +1650,8 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
           bgcolor: 'white',
           overflow: 'visible',
           transition: 'all 0.3s ease-in-out',
+          maxWidth: { xs: 420, sm: 440, md: 'none' },
+          mx: { xs: 'auto', md: 0 },
           '&:hover': {
             boxShadow: tier.highlighted ? 8 : 3,
             transform: 'translateY(-4px)',
@@ -1649,7 +1682,15 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
             />
           </Box>
         )}
-        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 4, pt: tier.highlighted ? 6 : 4 }}>
+        <CardContent
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            p: { xs: 3, md: 4 },
+            pt: tier.highlighted ? { xs: 5, md: 6 } : { xs: 3, md: 4 }
+          }}
+        >
           <Stack spacing={3} sx={{ flexGrow: 1 }}>
             {/* Header */}
             <Box sx={{ textAlign: 'center' }}>
@@ -1700,7 +1741,7 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
 
             {/* Features */}
             <List dense sx={{ py: 0 }}>
-              {tier.features.map((feature, index) => (
+              {(showFeatures ? tier.features : tier.features.slice(0, 5)).map((feature, index) => (
                 <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     {feature.included ? (
@@ -1719,6 +1760,18 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
                 </ListItem>
               ))}
             </List>
+            {tier.features.length > 5 && (
+              <Box sx={{ textAlign: 'center', mt: 1 }}>
+                <Button
+                  size="small"
+                  color="primary"
+                  onClick={() => setShowFeatures((prev) => !prev)}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem' }}
+                >
+                  {showFeatures ? 'Hide features' : 'View all features'}
+                </Button>
+              </Box>
+            )}
 
             {/* CTA Button */}
             <Box sx={{ mt: 'auto', pt: 2 }}>
