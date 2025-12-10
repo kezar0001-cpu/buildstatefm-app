@@ -25,6 +25,8 @@ import {
   DialogActions,
   Tabs,
   Tab,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -81,6 +83,8 @@ export default function UnitDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -1366,8 +1370,25 @@ export default function UnitDetailPage() {
               onClose={() => setMoveInWizardOpen(false)}
               maxWidth="md"
               fullWidth
+              fullScreen={isMobile}
             >
-              <DialogTitle>Move In Wizard</DialogTitle>
+              <DialogTitle>
+                Move In Wizard
+                {isMobile && (
+                  <IconButton
+                    aria-label="close"
+                    onClick={() => setMoveInWizardOpen(false)}
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 8,
+                      color: (theme) => theme.palette.grey[500],
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
+              </DialogTitle>
               <DialogContent>
                 <MoveInWizard unitId={id} onComplete={() => setMoveInWizardOpen(false)} />
               </DialogContent>
@@ -1379,8 +1400,25 @@ export default function UnitDetailPage() {
               onClose={() => setMoveOutWizardOpen(false)}
               maxWidth="md"
               fullWidth
+              fullScreen={isMobile}
             >
-              <DialogTitle>Move Out Wizard</DialogTitle>
+              <DialogTitle>
+                Move Out Wizard
+                {isMobile && (
+                  <IconButton
+                    aria-label="close"
+                    onClick={() => setMoveOutWizardOpen(false)}
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 8,
+                      color: (theme) => theme.palette.grey[500],
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
+              </DialogTitle>
               <DialogContent>
                 <MoveOutWizard unitId={id} onComplete={() => setMoveOutWizardOpen(false)} />
               </DialogContent>

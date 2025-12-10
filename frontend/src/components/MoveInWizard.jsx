@@ -11,7 +11,11 @@ import {
   Stack,
   FormControlLabel,
   Checkbox,
+  MobileStepper,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
+import { KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
@@ -26,6 +30,8 @@ const steps = [
 
 const MoveInWizard = ({ unitId, onComplete }) => {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     email: '',
@@ -245,42 +251,109 @@ const MoveInWizard = ({ unitId, onComplete }) => {
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Stepper activeStep={activeStep}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+    <Box sx={{ width: '100%', px: { xs: 1, sm: 2 } }}>
+      {/* Desktop Stepper */}
+      {!isMobile && (
+        <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      )}
+
+      {/* Mobile Stepper */}
+      {isMobile && (
+        <MobileStepper
+          variant="progress"
+          steps={steps.length}
+          position="static"
+          activeStep={activeStep}
+          sx={{ mb: 2, flexGrow: 1, bgcolor: 'transparent' }}
+          nextButton={<Box />}
+          backButton={<Box />}
+        />
+      )}
+
       <React.Fragment>
-        <Typography sx={{ mt: 2, mb: 1 }}>Step {activeStep + 1}</Typography>
-        {getStepContent(activeStep)}
-        <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
-          <Button
-            color="inherit"
-            disabled={activeStep === 0 || moveInMutation.isPending}
-            onClick={handleBack}
-            sx={{ mr: 1 }}
-          >
-            Back
-          </Button>
-          <Box sx={{ flex: '1 1 auto' }} />
-          <Button
-            onClick={onComplete}
-            disabled={moveInMutation.isPending}
-            sx={{ mr: 1 }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={isNextDisabled()}
-          >
-            {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
-          </Button>
+        <Typography 
+          variant={isMobile ? 'h6' : 'body1'} 
+          sx={{ mt: 2, mb: 2, fontWeight: 600 }}
+        >
+          {steps[activeStep]}
+        </Typography>
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          sx={{ mb: 2 }}
+        >
+          Step {activeStep + 1} of {steps.length}
+        </Typography>
+        
+        <Box sx={{ minHeight: { xs: '200px', sm: '250px' }, mb: 3 }}>
+          {getStepContent(activeStep)}
         </Box>
+
+        {/* Mobile Button Layout - Stacked */}
+        {isMobile ? (
+          <Stack spacing={1.5}>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={isNextDisabled()}
+              fullWidth
+              size="large"
+              endIcon={activeStep < steps.length - 1 ? <KeyboardArrowRight /> : null}
+            >
+              {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+            <Button
+              color="inherit"
+              disabled={activeStep === 0 || moveInMutation.isPending}
+              onClick={handleBack}
+              fullWidth
+              startIcon={<KeyboardArrowLeft />}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={onComplete}
+              disabled={moveInMutation.isPending}
+              fullWidth
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+          </Stack>
+        ) : (
+          /* Desktop Button Layout - Horizontal */
+          <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
+            <Button
+              color="inherit"
+              disabled={activeStep === 0 || moveInMutation.isPending}
+              onClick={handleBack}
+              sx={{ mr: 1 }}
+            >
+              Back
+            </Button>
+            <Box sx={{ flex: '1 1 auto' }} />
+            <Button
+              onClick={onComplete}
+              disabled={moveInMutation.isPending}
+              sx={{ mr: 1 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={isNextDisabled()}
+            >
+              {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+          </Box>
+        )}
       </React.Fragment>
     </Box>
   );
