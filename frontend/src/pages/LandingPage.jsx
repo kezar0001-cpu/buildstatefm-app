@@ -1189,10 +1189,11 @@ const HowItWorks = () => {
     <Box
       id="how-it-works"
       ref={sectionRef}
-      sx={{ py: { xs: 8, md: 12 }, minHeight: { xs: '180vh', md: '200vh' }, bgcolor: 'background.paper' }}
+      sx={{ py: { xs: 6, md: 10 }, bgcolor: 'background.paper' }}
     >
       <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
-        <Box textAlign="center" mb={8}>
+        {/* Section Header */}
+        <Box textAlign="center" mb={{ xs: 6, md: 8 }}>
           <Typography
             variant="overline"
             sx={{
@@ -1204,7 +1205,7 @@ const HowItWorks = () => {
           >
             HOW IT WORKS
           </Typography>
-          <Typography variant="h3" fontWeight={800} mb={2} mt={1}>
+          <Typography variant="h3" fontWeight={800} mb={2} mt={1} sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
             From Setup to Success in 4 Steps
           </Typography>
           <Typography
@@ -1212,158 +1213,293 @@ const HowItWorks = () => {
             color="text.secondary"
             maxWidth={700}
             mx="auto"
-            sx={{ lineHeight: 1.7, fontWeight: 400 }}
+            sx={{ lineHeight: 1.7, fontWeight: 400, fontSize: { xs: '1rem', md: '1.15rem' } }}
           >
             BuildState FM streamlines your entire property management workflow.
             Here's how you'll transform your operations.
           </Typography>
         </Box>
 
-        <Stack spacing={4}>
-          {steps.map((step, index) => (
-            <Box key={step.label}>
-              {/* Step Header */}
-              <Box
-                onClick={() => setActiveStep(index)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  mb: 2,
-                  cursor: 'pointer',
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: activeStep === index ? 'primary.lighter' : 'transparent',
-                  transition: 'all 0.3s',
-                  '&:hover': {
-                    bgcolor: 'action.hover'
-                  }
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    bgcolor: activeStep === index ? 'primary.main' : 'action.selected',
-                    color: activeStep === index ? 'white' : 'text.secondary',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '1.2rem',
-                    transition: 'all 0.3s',
-                    transform: activeStep === index ? 'scale(1.1)' : 'scale(1)'
-                  }}
-                >
-                  {index + 1}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" fontWeight={700}>
-                    {step.label}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {step.description}
-                  </Typography>
-                </Box>
-                {React.cloneElement(step.icon, { 
-                  sx: { 
-                    fontSize: 32, 
-                    color: activeStep === index ? 'primary.main' : 'text.secondary',
-                    transition: 'all 0.3s'
-                  } 
-                })}
-              </Box>
-
-              {/* Expandable Content */}
-              <AnimatePresence mode="wait">
-                {activeStep === index && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
+        {/* Two-column layout: Steps navigation + Demo area */}
+        <Grid container spacing={{ xs: 3, md: 5 }}>
+          {/* Left Column: Step Navigation */}
+          <Grid item xs={12} md={4}>
+            <Box
+              sx={{
+                position: { xs: 'relative', md: 'sticky' },
+                top: { md: 100 },
+                pb: { xs: 2, md: 0 }
+              }}
+            >
+              <Stack spacing={1}>
+                {steps.map((step, index) => (
+                  <Box
+                    key={step.label}
+                    onClick={() => setActiveStep(index)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: { xs: 2, md: 2.5 },
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: activeStep === index ? 'primary.main' : 'transparent',
+                      bgcolor: activeStep === index ? 'primary.lighter' : 'grey.50',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        bgcolor: activeStep === index ? 'primary.lighter' : 'grey.100',
+                        transform: 'translateX(4px)'
+                      }
+                    }}
                   >
-                    <Box sx={{ pl: { xs: 0, md: 8 }, mb: 3 }}>
-                      {/* Features List */}
-                      <Stack spacing={1} sx={{ mb: 3 }}>
-                        {step.features.map((feature) => (
-                          <Stack key={feature} direction="row" spacing={1} alignItems="center">
-                            <CheckCircleIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {feature}
-                            </Typography>
-                          </Stack>
-                        ))}
-                      </Stack>
-
-                      {/* Demo Card */}
-                      <Card
-                        elevation={0}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 4,
-                          overflow: 'hidden',
-                          background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)'
+                    <Box
+                      sx={{
+                        width: { xs: 40, md: 48 },
+                        height: { xs: 40, md: 48 },
+                        borderRadius: '50%',
+                        bgcolor: activeStep === index ? 'primary.main' : 'white',
+                        color: activeStep === index ? 'white' : 'text.secondary',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: { xs: '1rem', md: '1.2rem' },
+                        transition: 'all 0.3s',
+                        boxShadow: activeStep === index ? 3 : 1,
+                        flexShrink: 0
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography 
+                        variant="subtitle1" 
+                        fontWeight={700} 
+                        sx={{ 
+                          color: activeStep === index ? 'primary.main' : 'text.primary',
+                          fontSize: { xs: '0.95rem', md: '1rem' }
                         }}
                       >
-                        <Box
-                          sx={{
-                            p: 3,
-                            background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 56,
-                              height: 56,
-                              borderRadius: 2,
-                              bgcolor: 'rgba(255, 255, 255, 0.2)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backdropFilter: 'blur(10px)'
-                            }}
-                          >
-                            {React.cloneElement(step.icon, { sx: { fontSize: 32 } })}
-                          </Box>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" fontWeight={700}>
-                              {step.title}
-                            </Typography>
-                          </Box>
-                          <Chip
-                            label="Interactive Demo"
-                            size="small"
-                            sx={{
-                              bgcolor: 'rgba(255, 255, 255, 0.25)',
-                              color: 'white',
-                              fontWeight: 600,
-                              fontSize: '0.7rem'
-                            }}
-                          />
-                        </Box>
-                        <CardContent sx={{ p: 3 }}>
-                          {React.createElement(DemoComponents[index])}
-                        </CardContent>
-                      </Card>
+                        {step.label}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ 
+                          display: { xs: 'none', md: 'block' },
+                          lineHeight: 1.4
+                        }}
+                      >
+                        {step.description.substring(0, 60)}...
+                      </Typography>
                     </Box>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    {React.cloneElement(step.icon, { 
+                      sx: { 
+                        fontSize: { xs: 24, md: 28 }, 
+                        color: activeStep === index ? 'primary.main' : 'text.disabled',
+                        transition: 'all 0.3s',
+                        display: { xs: 'none', sm: 'block' }
+                      } 
+                    })}
+                  </Box>
+                ))}
+              </Stack>
 
-              {/* Divider between steps */}
-              {index < steps.length - 1 && <Divider sx={{ my: 2 }} />}
+              {/* Progress indicator */}
+              <Box sx={{ mt: 3, display: { xs: 'none', md: 'block' } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">Progress</Typography>
+                  <Typography variant="caption" color="primary.main" fontWeight={600}>
+                    Step {activeStep + 1} of {steps.length}
+                  </Typography>
+                </Box>
+                <Box sx={{ height: 6, bgcolor: 'grey.200', borderRadius: 3, overflow: 'hidden' }}>
+                  <Box
+                    sx={{
+                      height: '100%',
+                      width: `${((activeStep + 1) / steps.length) * 100}%`,
+                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                      borderRadius: 3,
+                      transition: 'width 0.5s ease'
+                    }}
+                  />
+                </Box>
+              </Box>
             </Box>
-          ))}
-        </Stack>
+          </Grid>
 
-        <Box textAlign="center" mt={8}>
+          {/* Right Column: Demo Content */}
+          <Grid item xs={12} md={8}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeStep}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4 }}
+              >
+                {/* Demo Card */}
+                <Card
+                  elevation={0}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    minHeight: { xs: 'auto', md: 500 }
+                  }}
+                >
+                  {/* Demo Header */}
+                  <Box
+                    sx={{
+                      p: { xs: 2.5, md: 3 },
+                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                      color: 'white'
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Box
+                        sx={{
+                          width: { xs: 48, md: 56 },
+                          height: { xs: 48, md: 56 },
+                          borderRadius: 2,
+                          bgcolor: 'rgba(255, 255, 255, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backdropFilter: 'blur(10px)'
+                        }}
+                      >
+                        {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: { xs: 28, md: 32 }, color: 'white' } })}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h5" fontWeight={700} sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+                          {steps[activeStep].title}
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9, display: { xs: 'none', sm: 'block' } }}>
+                          {steps[activeStep].description}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label="Interactive"
+                        size="small"
+                        sx={{
+                          bgcolor: 'rgba(255, 255, 255, 0.25)',
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          display: { xs: 'none', sm: 'flex' }
+                        }}
+                      />
+                    </Stack>
+                  </Box>
+
+                  {/* Features Pills */}
+                  <Box sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {steps[activeStep].features.map((feature) => (
+                        <Chip
+                          key={feature}
+                          icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                          label={feature}
+                          size="small"
+                          sx={{
+                            bgcolor: 'white',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            fontWeight: 500,
+                            fontSize: '0.8rem',
+                            mb: 1
+                          }}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+
+                  {/* Demo Content */}
+                  <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 }, minHeight: { xs: 300, md: 350 } }}>
+                    {React.createElement(DemoComponents[activeStep])}
+                  </CardContent>
+                </Card>
+
+                {/* Navigation Buttons */}
+                <Stack 
+                  direction="row" 
+                  justifyContent="space-between" 
+                  alignItems="center"
+                  sx={{ mt: 3 }}
+                >
+                  <Button
+                    variant="outlined"
+                    startIcon={<ArrowForwardIcon sx={{ transform: 'rotate(180deg)' }} />}
+                    onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
+                    disabled={activeStep === 0}
+                    sx={{ 
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600
+                    }}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <Stack direction="row" spacing={1}>
+                    {steps.map((_, index) => (
+                      <Box
+                        key={index}
+                        onClick={() => setActiveStep(index)}
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: activeStep === index ? 'primary.main' : 'grey.300',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s',
+                          '&:hover': { bgcolor: activeStep === index ? 'primary.main' : 'grey.400' }
+                        }}
+                      />
+                    ))}
+                  </Stack>
+
+                  <Button
+                    variant={activeStep === steps.length - 1 ? 'contained' : 'outlined'}
+                    endIcon={<ArrowForwardIcon />}
+                    onClick={() => {
+                      if (activeStep === steps.length - 1) {
+                        window.location.href = '/signup';
+                      } else {
+                        setActiveStep(prev => Math.min(steps.length - 1, prev + 1));
+                      }
+                    }}
+                    sx={{ 
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      ...(activeStep === steps.length - 1 && {
+                        background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #991b1b 0%, #ea580c 100%)'
+                        }
+                      })
+                    }}
+                  >
+                    {activeStep === steps.length - 1 ? 'Start Free Trial' : 'Next Step'}
+                  </Button>
+                </Stack>
+              </motion.div>
+            </AnimatePresence>
+          </Grid>
+        </Grid>
+
+        {/* Bottom CTA */}
+        <Box textAlign="center" mt={{ xs: 6, md: 10 }} pt={6} borderTop="1px solid" borderColor="divider">
+          <Typography variant="h5" fontWeight={700} mb={2}>
+            Ready to transform your property management?
+          </Typography>
+          <Typography variant="body1" color="text.secondary" mb={4} maxWidth={500} mx="auto">
+            Join 500+ property managers who have streamlined their operations with BuildState FM.
+          </Typography>
           <GradientButton
             size="large"
             component={RouterLink}
