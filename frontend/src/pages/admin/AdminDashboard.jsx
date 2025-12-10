@@ -104,7 +104,7 @@ function SubscriptionCard({ data, loading }) {
               PROFESSIONAL: 'primary',
               ENTERPRISE: 'secondary',
             };
-            const color = planColors[item.subscriptionPlan] || 'default';
+            const color = planColors[item.subscriptionPlan] || 'primary';
 
             return (
               <Box key={`${item.subscriptionPlan}-${item.subscriptionStatus}`}>

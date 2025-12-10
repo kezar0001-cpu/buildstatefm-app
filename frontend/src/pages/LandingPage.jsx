@@ -864,39 +864,6 @@ const Hero = () => (
       position: 'relative'
     }}
   >
-    {/* Background video */}
-    <Box
-      sx={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 0,
-        overflow: 'hidden'
-      }}
-    >
-      <Box
-        component="video"
-        autoPlay
-        loop
-        muted
-        playsInline
-        sx={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          opacity: 0.15
-        }}
-      >
-        <source src="https://cdn.coverr.co/videos/coverr-modern-office-workspace-4166/1080p.mp4" type="video/mp4" />
-        <source src="https://cdn.coverr.co/videos/coverr-typing-on-laptop-keyboard-4165/1080p.mp4" type="video/mp4" />
-      </Box>
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(90deg, rgba(255,247,242,0.98) 0%, rgba(255,247,242,0.92) 55%, rgba(255,247,242,0.85) 100%)'
-        }}
-      />
-    </Box>
 
     {/* Decorative gradient blobs */}
     <Box
@@ -1146,135 +1113,149 @@ const HowItWorks = () => {
           </Typography>
         </Box>
 
-        <Grid container spacing={6} alignItems="center">
-          <Grid item xs={12}>
-            <Stepper activeStep={activeStep} orientation="vertical">
-              {steps.map((step, index) => (
-                <Step key={step.label} expanded>
-                  <StepLabel
-                    onClick={() => setActiveStep(index)}
-                    sx={{ cursor: 'pointer' }}
-                    StepIconProps={{
-                      sx: {
-                        fontSize: '2rem',
-                        '&.Mui-active': {
-                          color: 'primary.main',
-                          transform: 'scale(1.2)'
-                        },
-                        '&.Mui-completed': {
-                          color: 'secondary.main'
-                        }
-                      }
-                    }}
-                  >
-                    <Typography variant="h6" fontWeight={700}>
-                      {step.label}
-                    </Typography>
-                  </StepLabel>
-                  <AnimatePresence mode="wait">
-                    {activeStep === index && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <Box sx={{ pl: 4, pr: 2, pb: 3 }}>
-                          <Typography variant="body1" color="text.secondary" paragraph>
-                            {step.description}
-                          </Typography>
-                          <Stack spacing={1}>
-                            {step.features.map((feature) => (
-                              <Stack key={feature} direction="row" spacing={1} alignItems="center">
-                                <CheckCircleIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                                <Typography variant="body2" color="text.secondary">
-                                  {feature}
-                                </Typography>
-                              </Stack>
-                            ))}
-                          </Stack>
-                        </Box>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Step>
-              ))}
-            </Stepper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeStep}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.4 }}
+        <Stack spacing={4}>
+          {steps.map((step, index) => (
+            <Box key={step.label}>
+              {/* Step Header */}
+              <Box
+                onClick={() => setActiveStep(index)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  mb: 2,
+                  cursor: 'pointer',
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: activeStep === index ? 'primary.lighter' : 'transparent',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    bgcolor: 'action.hover'
+                  }
+                }}
               >
-                <Card
-                  elevation={0}
+                <Box
                   sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)'
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    bgcolor: activeStep === index ? 'primary.main' : 'action.selected',
+                    color: activeStep === index ? 'white' : 'text.secondary',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '1.2rem',
+                    transition: 'all 0.3s',
+                    transform: activeStep === index ? 'scale(1.1)' : 'scale(1)'
                   }}
                 >
-                  <Box
-                    sx={{
-                      p: 4,
-                      background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2
-                    }}
+                  {index + 1}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h6" fontWeight={700}>
+                    {step.label}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {step.description}
+                  </Typography>
+                </Box>
+                {React.cloneElement(step.icon, { 
+                  sx: { 
+                    fontSize: 32, 
+                    color: activeStep === index ? 'primary.main' : 'text.secondary',
+                    transition: 'all 0.3s'
+                  } 
+                })}
+              </Box>
+
+              {/* Expandable Content */}
+              <AnimatePresence mode="wait">
+                {activeStep === index && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
                   >
-                    <Box
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 2,
-                        bgcolor: 'rgba(255, 255, 255, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backdropFilter: 'blur(10px)'
-                      }}
-                    >
-                      {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: 36 } })}
+                    <Box sx={{ pl: { xs: 0, md: 8 }, mb: 3 }}>
+                      {/* Features List */}
+                      <Stack spacing={1} sx={{ mb: 3 }}>
+                        {step.features.map((feature) => (
+                          <Stack key={feature} direction="row" spacing={1} alignItems="center">
+                            <CheckCircleIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {feature}
+                            </Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
+
+                      {/* Demo Card */}
+                      <Card
+                        elevation={0}
+                        sx={{
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 4,
+                          overflow: 'hidden',
+                          background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)'
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            p: 3,
+                            background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 56,
+                              height: 56,
+                              borderRadius: 2,
+                              bgcolor: 'rgba(255, 255, 255, 0.2)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backdropFilter: 'blur(10px)'
+                            }}
+                          >
+                            {React.cloneElement(step.icon, { sx: { fontSize: 32 } })}
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" fontWeight={700}>
+                              {step.title}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label="Interactive Demo"
+                            size="small"
+                            sx={{
+                              bgcolor: 'rgba(255, 255, 255, 0.25)',
+                              color: 'white',
+                              fontWeight: 600,
+                              fontSize: '0.7rem'
+                            }}
+                          />
+                        </Box>
+                        <CardContent sx={{ p: 3 }}>
+                          {React.createElement(DemoComponents[index])}
+                        </CardContent>
+                      </Card>
                     </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h5" fontWeight={700}>
-                        {steps[activeStep].title}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label="Try it!"
-                      size="small"
-                      sx={{
-                        bgcolor: 'rgba(255, 255, 255, 0.25)',
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '0.7rem',
-                        animation: 'pulse 2s infinite',
-                        '@keyframes pulse': {
-                          '0%, 100%': { opacity: 1 },
-                          '50%': { opacity: 0.7 }
-                        }
-                      }}
-                    />
-                  </Box>
-                  <CardContent sx={{ p: 3 }}>
-                    {/* Interactive Demo */}
-                    {React.createElement(DemoComponents[activeStep])}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </AnimatePresence>
-          </Grid>
-        </Grid>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Divider between steps */}
+              {index < steps.length - 1 && <Divider sx={{ my: 2 }} />}
+            </Box>
+          ))}
+        </Stack>
 
         <Box textAlign="center" mt={8}>
           <GradientButton
@@ -1643,22 +1624,21 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
     <FadeIn delay={tier.highlighted ? 0.2 : 0.1}>
       <Card
         sx={{
-          height: '100%',
+          width: '100%',
+          maxWidth: { xs: '100%', sm: 450, md: 380 },
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           border: tier.highlighted ? '2px solid' : '1px solid',
           borderColor: tier.highlighted ? 'primary.main' : 'divider',
           boxShadow: tier.highlighted ? 6 : 1,
-          borderRadius: 3,
+          borderRadius: { xs: 2, md: 3 },
           bgcolor: 'white',
           overflow: 'visible',
           transition: 'all 0.3s ease-in-out',
-          maxWidth: { xs: 400, sm: 420, md: 'none' },
-          mx: 'auto',
           '&:hover': {
             boxShadow: tier.highlighted ? 8 : 3,
-            transform: 'translateY(-4px)',
+            transform: { xs: 'none', md: 'translateY(-4px)' },
             borderColor: tier.highlighted ? 'primary.main' : 'primary.light',
           },
         }}
@@ -1691,18 +1671,18 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
-            p: { xs: 3, md: 4 },
-            pt: tier.highlighted ? { xs: 5, md: 6 } : { xs: 3, md: 4 }
+            p: { xs: 2.5, sm: 3, md: 4 },
+            pt: tier.highlighted ? { xs: 4.5, sm: 5, md: 6 } : { xs: 2.5, sm: 3, md: 4 }
           }}
         >
-          <Stack spacing={3} sx={{ flexGrow: 1 }}>
+          <Stack spacing={{ xs: 2, md: 3 }} sx={{ flexGrow: 1 }}>
             {/* Header */}
             <Box sx={{ textAlign: 'center' }}>
               <Box
                 sx={{
-                  mb: 2,
-                  width: 64,
-                  height: 64,
+                  mb: { xs: 1.5, md: 2 },
+                  width: { xs: 56, md: 64 },
+                  height: { xs: 56, md: 64 },
                   borderRadius: 2,
                   background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
                   display: 'flex',
@@ -1712,16 +1692,16 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
                   mx: 'auto',
                   transition: 'transform 0.3s',
                   '&:hover': {
-                    transform: 'rotate(5deg) scale(1.05)'
+                    transform: { xs: 'none', md: 'rotate(5deg) scale(1.05)' }
                   }
                 }}
               >
-                <Icon sx={{ fontSize: 32, color: 'white' }} />
+                <Icon sx={{ fontSize: { xs: 28, md: 32 }, color: 'white' }} />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
                 {tier.name}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.7 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ minHeight: { xs: 'auto', md: 40 }, lineHeight: 1.6, fontSize: { xs: '0.875rem', md: '0.875rem' } }}>
                 {tier.description}
               </Typography>
             </Box>
@@ -1729,7 +1709,7 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
             {/* Pricing */}
             <Box sx={{ textAlign: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
-                <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                <Typography variant="h3" sx={{ fontWeight: 700, fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}>
                   {formatCurrency(price)}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
@@ -1928,9 +1908,9 @@ const Pricing = () => {
           </FadeIn>
 
           {/* Pricing Cards */}
-          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch" sx={{ pt: 2 }}>
+          <Grid container spacing={{ xs: 3, sm: 3, md: 4 }} alignItems="stretch" sx={{ pt: 2 }} justifyContent="center">
             {PRICING_TIERS.map((tier) => (
-              <Grid item xs={12} sm={12} md={4} key={tier.id}>
+              <Grid item xs={12} sm={10} md={4} key={tier.id} sx={{ display: 'flex', justifyContent: 'center' }}>
                 <PricingCard
                   tier={tier}
                   onSelectPlan={handleSelectPlan}
