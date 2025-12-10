@@ -2870,7 +2870,7 @@ propertyDocumentsRouter.get('/', requireAuth, async (req, res) => {
     const documents = await prisma.propertyDocument.findMany({
       where,
       include: {
-        uploader: {
+        User: {
           select: {
             id: true,
             firstName: true,
@@ -2878,7 +2878,7 @@ propertyDocumentsRouter.get('/', requireAuth, async (req, res) => {
             email: true,
           },
         },
-        unit: {
+        Unit: {
           select: {
             id: true,
             unitNumber: true,
@@ -3173,7 +3173,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActive
             uploaderId: req.user.id,
           },
           include: {
-            uploader: {
+            User: {
               select: {
                 id: true,
                 firstName: true,
@@ -3181,7 +3181,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActive
                 email: true,
               },
             },
-            unit: {
+            Unit: {
               select: {
                 id: true,
                 unitNumber: true,
