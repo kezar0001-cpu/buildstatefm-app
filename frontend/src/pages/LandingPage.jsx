@@ -864,6 +864,45 @@ const Hero = () => (
       position: 'relative'
     }}
   >
+    {/* Background Video */}
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        overflow: 'hidden',
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,247,242,0.9) 50%, rgba(255,247,242,0.85) 100%)',
+          zIndex: 1
+        }
+      }}
+    >
+      <Box
+        component="video"
+        autoPlay
+        loop
+        muted
+        playsInline
+        sx={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: 0.3
+        }}
+      >
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-businessman-working-on-a-laptop-in-an-office-4629-large.mp4" type="video/mp4" />
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-people-working-in-an-office-4640-large.mp4" type="video/mp4" />
+      </Box>
+    </Box>
 
     {/* Decorative gradient blobs */}
     <Box
