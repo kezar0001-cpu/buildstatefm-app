@@ -3284,8 +3284,9 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
 });
 
 // Property Notes helpers
+// Use Prisma relation name `User` (see PropertyNote model) and map it to an `author` object in responses
 const propertyNoteInclude = {
-  author: {
+  User: {
     select: {
       id: true,
       firstName: true,
@@ -3299,7 +3300,8 @@ const propertyNoteInclude = {
 const buildPropertyNoteResponse = (note) => {
   if (!note) return note;
 
-  const authorName = [note.author?.firstName, note.author?.lastName]
+  const user = note.User || note.author || null;
+  const authorName = [user?.firstName, user?.lastName]
     .filter(Boolean)
     .join(' ')
     .trim();
@@ -3311,11 +3313,11 @@ const buildPropertyNoteResponse = (note) => {
     content: note.content,
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
-    author: note.author
+    author: user
       ? {
-          id: note.author.id,
-          name: authorName || note.author.email || 'Unknown User',
-          role: note.author.role || 'UNKNOWN',
+          id: user.id,
+          name: authorName || user.email || 'Unknown User',
+          role: user.role || 'UNKNOWN',
         }
       : null,
   };
