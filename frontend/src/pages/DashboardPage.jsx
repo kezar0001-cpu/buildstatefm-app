@@ -35,6 +35,7 @@ import GradientButton from '../components/GradientButton';
 import AnalyticsCharts from '../components/AnalyticsCharts';
 import UpgradePromptModal from '../components/UpgradePromptModal';
 import PageShell from '../components/PageShell';
+import RoleRouter from '../components/RoleRouter';
 import { useCurrentUser } from '../context/UserContext.jsx'; // Hook to reactively read user data
 import { calculateDaysRemaining, formatDateTime } from '../utils/date.js';
 import { redirectToBillingPortal } from '../utils/billing.js';
@@ -241,12 +242,17 @@ const DashboardPage = () => {
   const activityItems = Array.isArray(activity) ? activity : [];
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-      <PageShell
-        title="Dashboard"
-        subtitle="Welcome back! Here's what's happening with your properties."
-        actions={(
-          <Stack
+    <>
+      <RoleRouter />
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+        <PageShell
+          title="Dashboard"
+          subtitle="Welcome back! Here's what's happening with your properties."
+          actions={(
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
             direction="row"
             spacing={1}
             alignItems="center"

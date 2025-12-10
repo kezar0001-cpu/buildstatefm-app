@@ -111,6 +111,51 @@ export function buildTenantAccessWhere(user) {
 }
 
 router.use(requireAuth);
+
+// GET /api/tenants/my-units - Get units for current tenant user
+router.get('/my-units', async (req, res) => {
+  try {
+    if (req.user.role !== 'TENANT') {
+      return sendError(res, 403, 'Only tenants can access this endpoint', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const unitTenants = await prisma.unitTenant.findMany({
+      where: {
+        tenantId: req.user.id,
+        isActive: true,
+      },
+      include: {
+        unit: {
+          include: {
+            property: {
+              select: PROPERTY_SELECT,
+            },
+          },
+        },
+      },
+      orderBy: {
+        leaseStart: 'desc',
+      },
+    });
+
+    const units = unitTenants.map(ut => ({
+      ...ut.unit,
+      leaseStart: ut.leaseStart,
+      leaseEnd: ut.leaseEnd,
+      rentAmount: ut.rentAmount,
+      depositAmount: ut.depositAmount,
+    }));
+
+    res.json({
+      success: true,
+      units,
+    });
+  } catch (error) {
+    console.error('Get tenant units error:', error);
+    return sendError(res, 500, 'Failed to fetch tenant units', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 router.use(requireRole('PROPERTY_MANAGER', 'OWNER'));
 
 // GET /api/tenants - Get all tenants for accessible properties
