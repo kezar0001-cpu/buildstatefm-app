@@ -683,9 +683,12 @@ const VideoPlaceholder = () => (
     }}
   >
     <Box
-      component="img"
-      src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
-      alt="App Demo"
+      component="video"
+      src="https://www.pexels.com/video/person-typing-on-a-laptop-7597602/"
+      autoPlay
+      loop
+      muted
+      playsInline
       sx={{
         position: 'absolute',
         top: 0,
@@ -693,7 +696,7 @@ const VideoPlaceholder = () => (
         width: '100%',
         height: '100%',
         objectFit: 'cover',
-        opacity: 0.6,
+        opacity: 0.8,
       }}
     />
     <Box
