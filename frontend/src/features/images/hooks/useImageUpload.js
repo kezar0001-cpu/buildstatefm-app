@@ -167,9 +167,59 @@ export function useImageUpload(options = {}) {
   const lastProgressRefs = useRef({}); // Track last progress update per image
   const mountedRef = useRef(false);
   const processingLockRef = useRef(false); // Prevent race conditions in processQueue
+  const initializedWithImagesRef = useRef(false); // Track if we've initialized with images
 
   // Get the current images (controlled or uncontrolled)
   const images = isControlled ? controlledImages : internalImages;
+
+  /**
+   * Bug Fix: Sync defaultImages when they change after initial mount
+   * This handles the case where PropertyForm loads property data asynchronously
+   * and passes it to PropertyImageManager after the component has mounted.
+   * 
+   * Only sync if:
+   * 1. We're in uncontrolled mode
+   * 2. We haven't initialized with images yet (internalImages is empty)
+   * 3. New defaultImages are provided
+   */
+  useEffect(() => {
+    // Skip if controlled mode
+    if (isControlled) return;
+    
+    // Skip if we already have images (user may have added new ones)
+    if (internalImages.length > 0) {
+      initializedWithImagesRef.current = true;
+      return;
+    }
+    
+    // Skip if no new images to sync
+    if (!initialImageData || initialImageData.length === 0) return;
+    
+    // Skip if we've already initialized with images
+    if (initializedWithImagesRef.current) return;
+    
+    console.log('[useImageUpload] Syncing defaultImages after mount:', initialImageData.length);
+    initializedWithImagesRef.current = true;
+    
+    // Transform and set the images
+    const transformedImages = initialImageData.map((img, index) => ({
+      id: img.id || `existing-${Date.now()}-${index}`,
+      file: null,
+      localPreview: null,
+      remoteUrl: img.imageUrl || img.url || img.remoteUrl,
+      status: 'complete',
+      progress: 100,
+      error: null,
+      isPrimary: img.isPrimary || false,
+      caption: img.caption || '',
+      category: img.category || 'OTHER',
+      displayOrder: img.displayOrder !== undefined ? img.displayOrder : index,
+      dimensions: img.dimensions || null,
+      retryCount: 0,
+    }));
+    
+    setInternalImages(transformedImages);
+  }, [isControlled, initialImageData, internalImages.length]);
 
   /**
    * Deduplicate images by remoteUrl

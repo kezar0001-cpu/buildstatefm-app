@@ -45,6 +45,16 @@ function initialiseRedis() {
     return redisClient;
   }
 
+  // Skip localhost URLs in production - they won't work on cloud platforms
+  const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1');
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isLocalhost && isProduction) {
+    console.warn('[Redis] Localhost URL detected in production environment. Using noop client instead.');
+    console.warn('[Redis] To enable Redis, set REDIS_URL to a remote Redis instance (e.g., Redis Cloud, Upstash).');
+    redisClient = getNoopClient();
+    return redisClient;
+  }
+
   try {
     redisClient = createRedisClient({
       url,

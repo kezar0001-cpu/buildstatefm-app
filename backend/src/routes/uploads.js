@@ -59,6 +59,52 @@ router.get('/rate-limit-status', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /uploads/storage-config
+ * Returns the current storage configuration (S3 vs local)
+ * Useful for debugging upload issues
+ */
+router.get('/storage-config', requireAuth, async (req, res) => {
+  try {
+    const usingS3 = isUsingCloudStorage();
+    const hasAwsRegion = !!process.env.AWS_REGION;
+    const hasAwsAccessKey = !!process.env.AWS_ACCESS_KEY_ID;
+    const hasAwsSecretKey = !!process.env.AWS_SECRET_ACCESS_KEY;
+    const hasAwsBucket = !!process.env.AWS_S3_BUCKET_NAME;
+    const hasCloudFront = !!process.env.AWS_CLOUDFRONT_DOMAIN;
+    
+    res.json({
+      success: true,
+      storage: {
+        type: usingS3 ? 'AWS S3' : 'Local Filesystem',
+        isS3Configured: usingS3,
+        awsConfig: {
+          region: hasAwsRegion ? process.env.AWS_REGION : 'NOT SET',
+          accessKeyId: hasAwsAccessKey ? '***configured***' : 'NOT SET',
+          secretAccessKey: hasAwsSecretKey ? '***configured***' : 'NOT SET',
+          bucketName: hasAwsBucket ? process.env.AWS_S3_BUCKET_NAME : 'NOT SET',
+          cloudFrontDomain: hasCloudFront ? process.env.AWS_CLOUDFRONT_DOMAIN : 'NOT SET',
+        },
+        missingConfig: [
+          !hasAwsRegion && 'AWS_REGION',
+          !hasAwsAccessKey && 'AWS_ACCESS_KEY_ID',
+          !hasAwsSecretKey && 'AWS_SECRET_ACCESS_KEY',
+          !hasAwsBucket && 'AWS_S3_BUCKET_NAME',
+        ].filter(Boolean),
+      },
+      message: usingS3 
+        ? 'Uploads will be stored in AWS S3' 
+        : 'Uploads will be stored locally (NOT RECOMMENDED FOR PRODUCTION)',
+    });
+  } catch (error) {
+    console.error('Storage config error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get storage configuration',
+    });
+  }
+});
+
 // Create upload middleware (uses S3 if configured, local storage otherwise)
 // Default folder: 'properties' for general image uploads
 const upload = createUploadMiddleware({ folder: 'properties' });
