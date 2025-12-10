@@ -1059,8 +1059,11 @@ const HowItWorks = () => {
       }
 
       // Use the position of the viewport center within the section to determine the active step
-      const progress = (scrollY + windowHeight / 2 - sectionTop) / sectionHeight;
-      const clamped = Math.min(Math.max(progress, 0), 0.999);
+      // Add buffer zones at top (30%) and bottom (10%) so steps don't change too quickly
+      const rawProgress = (scrollY + windowHeight / 2 - sectionTop) / sectionHeight;
+      // Map 0.3-0.9 range to 0-1 for step calculation (gives more scroll per step)
+      const adjustedProgress = (rawProgress - 0.3) / 0.6;
+      const clamped = Math.min(Math.max(adjustedProgress, 0), 0.999);
       const index = Math.floor(clamped * steps.length);
 
       setActiveStep((prev) => (index === prev ? prev : index));
@@ -1078,7 +1081,7 @@ const HowItWorks = () => {
     <Box
       id="how-it-works"
       ref={sectionRef}
-      sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}
+      sx={{ py: { xs: 8, md: 12 }, minHeight: { xs: '180vh', md: '200vh' }, bgcolor: 'background.paper' }}
     >
       <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
         <Box textAlign="center" mb={8}>
