@@ -787,7 +787,7 @@ export default function PropertiesPage() {
 
               {/* List View */}
               {effectiveViewMode === 'list' && (
-                <Stack spacing={2}>
+                <Stack spacing={1.5}>
                   {properties.map((property) => {
                     const isSelected = selectedPropertyIds.includes(property.id);
                     return (
@@ -797,186 +797,142 @@ export default function PropertiesPage() {
                           borderRadius: 2,
                           border: '1px solid',
                           borderColor: 'divider',
-                          overflow: 'hidden',
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer',
                           '&:hover': {
                             boxShadow: 3,
                           },
                         }}
-                        onClick={(e) => {
-                          // Don't open modal if clicking on checkbox or action buttons
-                          if (e.target.closest('input[type="checkbox"]') || 
-                              e.target.closest('.MuiCheckbox-root') ||
-                              e.target.closest('button')) {
-                            return;
-                          }
-                          handleCardClick(property.id);
-                        }}
+                        onClick={() => handleCardClick(property.id)}
                       >
-                        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
-                          {/* Property Image */}
-                          <Box sx={{ width: { xs: '100%', sm: 200 }, flexShrink: 0 }}>
-                            <PropertyImageCarousel
-                              images={property.processedImages}
-                              fallbackText={property.name}
-                              height={{ xs: 180, sm: 200 }}
-                              showDots={property.hasMultipleImages}
-                              showArrows={property.hasMultipleImages}
-                              showCounter={property.hasMultipleImages}
-                            />
-                          </Box>
-                          
-                          {/* Property Details */}
-                          <CardContent sx={{ p: 2.5, flex: 1 }}>
-                            <Stack spacing={2}>
-                              {/* Header Row */}
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                    <Checkbox
-                                      checked={isSelected}
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        handleTogglePropertySelection(property.id);
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      color="primary"
-                                      sx={{ p: 0.5 }}
-                                      inputProps={{ 'aria-label': `Select property ${property.name}` }}
-                                    />
-                                    <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                      Property
-                                    </Typography>
-                                  </Box>
-                                  <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
-                                    {property.name}
-                                  </Typography>
-                                  <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                                    <Chip
-                                      label={property.formattedStatus}
-                                      color={property.statusColor}
-                                      size="small"
-                                    />
-                                    {property.propertyType && (
-                                      <Chip
-                                        label={property.propertyType}
-                                        size="small"
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </Stack>
-                                </Box>
-                                <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCardClick(property.id);
-                                    }}
-                                    sx={{ color: 'text.secondary' }}
-                                  >
-                                    <VisibilityIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEdit(property);
-                                    }}
-                                    sx={{ color: 'text.secondary' }}
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(property);
-                                    }}
-                                    sx={{ color: 'error.main' }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Stack>
-                              </Box>
-                              <Divider />
-
-                              {/* Details Section - Inner Gray Panel */}
-                              <Box
-                                sx={{
-                                  p: 1.5,
-                                  borderRadius: 2,
-                                  bgcolor: 'action.hover',
-                                  border: '1px solid',
-                                  borderColor: 'divider',
-                                }}
-                              >
-                                <Stack spacing={1.5}>
-                                  {/* Address */}
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                      Address
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                      <LocationIcon fontSize="small" color="action" />
-                                      <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
-                                        {property.formattedAddress || 'N/A'}
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-
-                                  {/* Units */}
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                      Units
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                      <ApartmentIcon fontSize="small" color="action" />
-                                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                        {property.totalUnits || 0} units
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-
-                                  {/* Total Area */}
-                                  {property.totalArea && (
-                                    <Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                        Total Area
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                        {property.totalArea} m²
-                                      </Typography>
-                                    </Box>
-                                  )}
-
-                                  {/* Stats */}
-                                  {property._count && (
-                                    <Box>
-                                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                        Activity
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                        {property._count.jobs ?? 0} jobs • {property._count.inspections ?? 0} inspections
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                </Stack>
-                              </Box>
-
-                              {/* Description */}
-                              {property.description && (
-                                <Box>
-                                  <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                    Description
-                                  </Typography>
-                                  <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-                                    {property.description}
-                                  </Typography>
-                                </Box>
+                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                          <Stack
+                            direction={{ xs: 'column', md: 'row' }}
+                            spacing={2}
+                            alignItems={{ xs: 'flex-start', md: 'center' }}
+                          >
+                            {/* Property Image Thumbnail */}
+                            <Box
+                              sx={{
+                                width: { xs: '100%', md: 80 },
+                                height: 80,
+                                flexShrink: 0,
+                                borderRadius: 1.5,
+                                overflow: 'hidden',
+                                bgcolor: 'action.hover',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {property.processedImages && property.processedImages.length > 0 ? (
+                                <img
+                                  src={property.processedImages[0].imageUrl}
+                                  alt={property.name}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                  }}
+                                />
+                              ) : (
+                                <HomeIcon sx={{ fontSize: 32, color: 'text.disabled' }} />
                               )}
+                            </Box>
+
+                            {/* Property Name & Type */}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography
+                                variant="subtitle1"
+                                sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              >
+                                {property.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {property.propertyType || 'Property'}
+                              </Typography>
+                            </Box>
+
+                            {/* Address */}
+                            <Stack spacing={0.5} sx={{ minWidth: { xs: '100%', md: 200 } }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Address
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <LocationIcon fontSize="small" color="action" />
+                                <Typography variant="body2" noWrap>
+                                  {property.formattedAddress || 'N/A'}
+                                </Typography>
+                              </Box>
                             </Stack>
-                          </CardContent>
-                        </Box>
+
+                            {/* Units */}
+                            <Stack spacing={0.5} sx={{ minWidth: 100 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Units
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <ApartmentIcon fontSize="small" color="action" />
+                                <Typography variant="body2">
+                                  {property.totalUnits || 0}
+                                </Typography>
+                              </Box>
+                            </Stack>
+
+                            {/* Status */}
+                            <Stack spacing={0.5} sx={{ minWidth: 120 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Status
+                              </Typography>
+                              <Chip
+                                label={property.formattedStatus}
+                                color={property.statusColor}
+                                size="small"
+                              />
+                            </Stack>
+
+                            {/* Actions */}
+                            <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
+                              <Tooltip title="View details">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCardClick(property.id);
+                                  }}
+                                  aria-label="View property"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(property);
+                                  }}
+                                  aria-label="Edit property"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(property);
+                                  }}
+                                  aria-label="Delete property"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          </Stack>
+                        </CardContent>
                       </Card>
                     );
                   })}

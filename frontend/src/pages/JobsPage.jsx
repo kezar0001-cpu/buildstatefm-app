@@ -1151,94 +1151,139 @@ const JobsPage = () => {
           )}
 
           {view === 'list' && (
-            <Grid container spacing={2}>
+            <Stack spacing={1.5}>
               {filteredJobs.map((job) => {
                 const isSelected = selectedJobIds.includes(job.id);
                 return (
-                  <Grid item xs={12} md={6} lg={4} key={job.id}>
-                    <Card
-                      sx={{
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => handleOpenDetailModal(job)}
-                    >
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
-                          <Checkbox
-                            checked={isSelected}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => handleToggleJobSelection(job.id)}
-                            sx={{ mr: 1 }}
-                          />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                              {job.title}
-                            </Typography>
-                            <Chip
-                              icon={getPriorityIcon(job.priority)}
-                              label={job.priority}
-                              size="small"
-                              color={getPriorityColor(job.priority)}
-                              sx={{ mt: 1 }}
-                            />
-                          </Box>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStatusMenuOpen(e, job);
-                            }}
+                  <Card
+                    key={job.id}
+                    sx={{
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        boxShadow: 3,
+                      },
+                    }}
+                    onClick={() => handleOpenDetailModal(job)}
+                  >
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      <Stack
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={2}
+                        alignItems={{ xs: 'flex-start', md: 'center' }}
+                      >
+                        {/* Job Title & Property */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
                           >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
+                            {job.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" noWrap>
+                            {job.property?.name || 'No property assigned'}
+                          </Typography>
                         </Box>
 
-                        <Grid container spacing={1.5}>
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Property
-                            </Typography>
-                            <Typography variant="body2">
-                              {job.property?.name || 'N/A'}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Status
-                            </Typography>
-                            <Chip
-                              label={job.status}
+                        {/* Status */}
+                        <Stack spacing={0.5} sx={{ minWidth: 120 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Status
+                          </Typography>
+                          <Chip
+                            label={job.status}
+                            size="small"
+                            color={getStatusColor(job.status)}
+                          />
+                        </Stack>
+
+                        {/* Priority */}
+                        <Stack spacing={0.5} sx={{ minWidth: 120 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Priority
+                          </Typography>
+                          <Chip
+                            icon={getPriorityIcon(job.priority)}
+                            label={job.priority}
+                            size="small"
+                            color={getPriorityColor(job.priority)}
+                          />
+                        </Stack>
+
+                        {/* Scheduled */}
+                        <Stack spacing={0.5} sx={{ minWidth: 140 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Scheduled
+                          </Typography>
+                          <Typography variant="body2">
+                            {job.scheduledDate
+                              ? moment(job.scheduledDate).format('MMM D, YYYY')
+                              : 'Not scheduled'}
+                          </Typography>
+                        </Stack>
+
+                        {/* Technician */}
+                        <Stack spacing={0.5} sx={{ minWidth: 140 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Technician
+                          </Typography>
+                          <Typography variant="body2">
+                            {job.assignedTo
+                              ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                              : 'Unassigned'}
+                          </Typography>
+                        </Stack>
+
+                        {/* Actions */}
+                        <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
+                          <Tooltip title="View details">
+                            <IconButton
                               size="small"
-                              color={getStatusColor(job.status)}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Scheduled
-                            </Typography>
-                            <Typography variant="body2">
-                              {job.scheduledDate
-                                ? moment(job.scheduledDate).format('MMM D, YYYY')
-                                : 'Not scheduled'}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Technician
-                            </Typography>
-                            <Typography variant="body2">
-                              {job.assignedTo
-                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                                : 'Unassigned'}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDetailModal(job);
+                              }}
+                              aria-label="View job"
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          {job.status !== 'COMPLETED' && (
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(job);
+                                }}
+                                aria-label="Edit job"
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Change status">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusMenuOpen(e, job);
+                              }}
+                              aria-label="Change status"
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 );
               })}
-            </Grid>
+            </Stack>
           )}
 
           {view === 'table' && (
