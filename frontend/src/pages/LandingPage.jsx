@@ -1008,6 +1008,7 @@ const Hero = () => (
 // Workflow demonstration component
 const HowItWorks = () => {
   const [activeStep, setActiveStep] = useState(0);
+  const sectionRef = React.useRef(null);
 
   const steps = [
     {
@@ -1041,14 +1042,44 @@ const HowItWorks = () => {
   ];
 
   React.useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveStep((prev) => (prev + 1) % steps.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
+    const sectionEl = sectionRef.current;
+    if (!sectionEl) return;
+
+    const handleScroll = () => {
+      const sectionTop = sectionEl.offsetTop;
+      const sectionHeight = sectionEl.offsetHeight;
+      const scrollY = window.scrollY || window.pageYOffset;
+      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+      if (!sectionHeight) return;
+
+      // Only react when the section is at least partially in view
+      if (scrollY + windowHeight < sectionTop || scrollY > sectionTop + sectionHeight) {
+        return;
+      }
+
+      // Use the position of the viewport center within the section to determine the active step
+      const progress = (scrollY + windowHeight / 2 - sectionTop) / sectionHeight;
+      const clamped = Math.min(Math.max(progress, 0), 0.999);
+      const index = Math.floor(clamped * steps.length);
+
+      setActiveStep((prev) => (index === prev ? prev : index));
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [steps.length]);
 
   return (
-    <Box id="how-it-works" sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}>
+    <Box
+      id="how-it-works"
+      ref={sectionRef}
+      sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.paper' }}
+    >
       <Container maxWidth="lg" sx={{ maxWidth: 1240 }}>
         <Box textAlign="center" mb={8}>
           <Typography
