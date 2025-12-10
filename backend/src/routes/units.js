@@ -3,6 +3,7 @@ import { z } from 'zod';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { asyncHandler, sendError, ErrorCodes } from '../utils/errorHandler.js';
@@ -582,6 +583,7 @@ router.post(
       // Handle images array if provided
       if (data.images && Array.isArray(data.images) && data.images.length > 0) {
         const imageRecords = data.images.map((image, index) => ({
+          id: randomUUID(),
           unitId: createdUnit.id,
           imageUrl: image.imageUrl,
           caption: image.caption ?? null,
@@ -656,6 +658,7 @@ router.patch(
 
         if (Array.isArray(data.images) && data.images.length > 0) {
           const imageRecords = data.images.map((image, index) => ({
+            id: randomUUID(),
             unitId,
             imageUrl: image.imageUrl,
             caption: image.caption ?? null,
