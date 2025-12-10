@@ -679,16 +679,36 @@ const ServiceRequestsPage = () => {
       {requestList.length === 0 ? (
         <EmptyState
           icon={AssignmentIcon}
-          title={filters.status || filters.category ? 'No service requests match your filters' : 'No service requests yet'}
+          iconColor="#dc2626"
+          title={
+            filters.status || filters.category || filters.priority
+              ? 'No service requests match your filters'
+              : 'No service requests yet'
+          }
           description={
-            filters.status || filters.category
-              ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+            filters.status || filters.category || filters.priority
+              ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all requests.'
               : userRole === 'TENANT'
                 ? 'Need maintenance or repairs? Submit your first service request and we\'ll take care of it promptly.'
                 : 'Start managing service requests from your tenants. Track issues, assign jobs, and keep everyone informed.'
           }
-          actionLabel={filters.status || filters.category || userRole === 'PROPERTY_MANAGER' ? undefined : (userRole === 'TENANT' ? 'Submit First Request' : 'Create Request')}
-          onAction={filters.status || filters.category || userRole === 'PROPERTY_MANAGER' ? undefined : handleCreate}
+          actionLabel={
+            filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
+              ? undefined
+              : userRole === 'TENANT'
+                ? 'Submit First Request'
+                : 'Create Request'
+          }
+          onAction={
+            filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
+              ? undefined
+              : handleCreate
+          }
+          helperText={
+            filters.status || filters.category || filters.priority
+              ? 'Filters are still applied. Clear them to view all service requests or create a new one from here.'
+              : undefined
+          }
         />
       ) : (
         <Stack spacing={3}>
