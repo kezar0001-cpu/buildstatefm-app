@@ -27,7 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '../context/UserContext';
 import { calculateDaysRemaining } from '../utils/date';
 
-const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
+const UpgradePromptModal = ({ open, onClose, trigger = 'feature', onNeverShowAgain }) => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const theme = useTheme();
@@ -187,36 +187,58 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature' }) => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          size="large"
-          sx={{
-            flex: 1,
-            borderRadius: 2,
-          }}
-        >
-          Maybe Later
-        </Button>
-        <Button
-          onClick={handleUpgrade}
-          variant="contained"
-          size="large"
-          startIcon={<TrendingUpIcon />}
-          sx={{
-            flex: 2,
-            borderRadius: 2,
-            background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
-            fontWeight: 700,
-            '&:hover': {
-              background: 'linear-gradient(135deg, #991b1b 0%, #ea580c 100%)',
-              transform: 'scale(1.02)',
-            },
-          }}
-        >
-          View Plans
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 3, flexDirection: 'column', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            size="large"
+            sx={{
+              flex: 1,
+              borderRadius: 2,
+            }}
+          >
+            Maybe Later
+          </Button>
+          <Button
+            onClick={handleUpgrade}
+            variant="contained"
+            size="large"
+            startIcon={<TrendingUpIcon />}
+            sx={{
+              flex: 2,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              fontWeight: 700,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #991b1b 0%, #ea580c 100%)',
+                transform: 'scale(1.02)',
+              },
+            }}
+          >
+            View Plans
+          </Button>
+        </Box>
+        {onNeverShowAgain && (
+          <Button
+            onClick={() => {
+              onNeverShowAgain();
+              onClose();
+            }}
+            variant="text"
+            size="small"
+            sx={{
+              color: 'text.secondary',
+              textTransform: 'none',
+              '&:hover': {
+                bgcolor: 'transparent',
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            Don't show this again
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

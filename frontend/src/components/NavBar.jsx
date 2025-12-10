@@ -23,6 +23,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import { useCurrentUser } from '../context/UserContext';
+import { getNavigationForRole, getUserMenuForRole, getRoleLabel } from '../utils/navigationConfig';
 
 import { useTheme } from '../context/ThemeContext';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
@@ -50,26 +51,9 @@ function NavBar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const jobsNavigation = user?.role === 'TECHNICIAN'
-    ? { name: 'My Jobs', href: '/technician/dashboard' }
-    : { name: 'Jobs', href: '/jobs' };
-
-  // Base navigation items
-  const baseNavigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Properties', href: '/properties' },
-    { name: 'Inspections', href: '/inspections' },
-    jobsNavigation,
-    { name: 'Reports', href: '/reports' },
-    { name: 'Plans', href: '/plans' },
-    { name: 'Service Requests', href: '/service-requests', hideForRoles: ['TECHNICIAN'] },
-    { name: 'Recommendations', href: '/recommendations' },
-  ];
-
-  // Filter navigation based on user role
-  const navigation = baseNavigation.filter(item =>
-    !item.hideForRoles || !item.hideForRoles.includes(user?.role)
-  );
+  // Get role-aware navigation items
+  const navigation = getNavigationForRole(user?.role);
+  const userMenuItems = getUserMenuForRole(user?.role);
 
   const handleNavigation = (path) => {
     navigate(path);

@@ -16,6 +16,7 @@ export const queryKeys = {
     filtered: (filters) => ['jobs', 'filtered', filters],
     technician: () => ['jobs', 'technician'],
     owner: () => ['jobs', 'owner'],
+    byUnit: (unitId) => ['jobs', 'byUnit', unitId],
   },
   units: {
     all: () => ['units'],
@@ -25,6 +26,7 @@ export const queryKeys = {
     tenants: (unitId) => ['units', unitId, 'tenants'],
     jobs: (unitId) => ['units', unitId, 'jobs'],
     inspections: (unitId) => ['units', unitId, 'inspections'],
+    stats: (unitId) => ['units', unitId, 'stats'],
   },
   tenants: {
     all: () => ['tenants'],
@@ -36,6 +38,7 @@ export const queryKeys = {
     detail: (id) => ['serviceRequests', id],
     list: (filters) => ['serviceRequests', 'list', filters],
     tenant: () => ['serviceRequests', 'tenant'],
+    byUnit: (unitId) => ['serviceRequests', 'byUnit', unitId],
   },
   inspections: {
     all: () => ['inspections'],
@@ -51,6 +54,7 @@ export const queryKeys = {
     issues: (inspectionId) => ['inspections', inspectionId, 'issues'],
     photos: (inspectionId) => ['inspections', inspectionId, 'photos'],
     templates: (filters) => ['inspections', 'templates', filters],
+    byUnit: (unitId) => ['inspections', 'byUnit', unitId],
   },
   recurringInspections: {
     all: () => ['recurringInspections'],

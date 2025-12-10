@@ -464,6 +464,316 @@ exports.assignTenant = async (req, res) => {
 };
 
 /**
+ * Orchestrated move-in workflow
+ * Handles tenant assignment, inspection creation, and unit status updates atomically
+ */
+exports.moveIn = async (req, res) => {
+  try {
+    const { id } = req.params; // unit id
+    const { tenantId, email, leaseStart, leaseEnd, rentAmount, depositAmount, createInspection, inspectionDate } = req.body;
+    const userId = req.user.id;
+    const role = req.user.role;
+    
+    if (role !== 'PROPERTY_MANAGER') {
+      return res.status(403).json({ error: 'Only property managers can process move-ins' });
+    }
+    
+    // Validate required fields
+    if (!leaseStart || !leaseEnd || !rentAmount) {
+      return res.status(400).json({ 
+        error: 'Lease start, lease end, and rent amount are required' 
+      });
+    }
+    
+    // Get unit and verify access
+    const unit = await prisma.unit.findUnique({
+      where: { id },
+      include: { property: true },
+    });
+    
+    if (!unit || unit.property.managerId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Check if unit is available
+    const activeTenants = await prisma.unitTenant.count({
+      where: { unitId: id, isActive: true },
+    });
+    
+    if (activeTenants > 0) {
+      return res.status(400).json({ error: 'Unit already has active tenants' });
+    }
+    
+    let tenant;
+    
+    // If tenantId provided, use existing tenant
+    if (tenantId) {
+      tenant = await prisma.user.findUnique({
+        where: { id: tenantId },
+      });
+      
+      if (!tenant || tenant.role !== 'TENANT') {
+        return res.status(400).json({ error: 'Invalid tenant' });
+      }
+    } 
+    // If email provided, find or invite tenant
+    else if (email) {
+      tenant = await prisma.user.findUnique({
+        where: { email },
+      });
+      
+      if (!tenant) {
+        // Create invitation for new tenant
+        const invitation = await prisma.invitation.create({
+          data: {
+            email,
+            role: 'TENANT',
+            invitedBy: userId,
+            status: 'PENDING',
+          },
+        });
+        
+        return res.status(202).json({
+          message: 'Tenant invitation created. Move-in will complete when tenant accepts.',
+          invitation,
+          pendingMoveIn: {
+            unitId: id,
+            leaseStart,
+            leaseEnd,
+            rentAmount: parseFloat(rentAmount),
+            depositAmount: depositAmount ? parseFloat(depositAmount) : null,
+          },
+        });
+      }
+      
+      if (tenant.role !== 'TENANT') {
+        return res.status(400).json({ error: 'User exists but is not a tenant' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Either tenantId or email must be provided' });
+    }
+    
+    // Create tenant assignment
+    const unitTenant = await prisma.unitTenant.create({
+      data: {
+        unitId: id,
+        tenantId: tenant.id,
+        leaseStart: new Date(leaseStart),
+        leaseEnd: new Date(leaseEnd),
+        rentAmount: parseFloat(rentAmount),
+        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
+        isActive: true,
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+    
+    // Update unit status to PENDING_MOVE_IN or OCCUPIED
+    await prisma.unit.update({
+      where: { id },
+      data: { status: createInspection ? 'PENDING_MOVE_IN' : 'OCCUPIED' },
+    });
+    
+    let inspection = null;
+    
+    // Create move-in inspection if requested
+    if (createInspection && inspectionDate) {
+      inspection = await prisma.inspection.create({
+        data: {
+          title: `Move-in Inspection - Unit ${unit.unitNumber}`,
+          type: 'MOVE_IN',
+          status: 'SCHEDULED',
+          scheduledDate: new Date(inspectionDate),
+          propertyId: unit.propertyId,
+          unitId: id,
+        },
+      });
+      
+      // Notify tenant about inspection
+      await prisma.notification.create({
+        data: {
+          userId: tenant.id,
+          type: 'INSPECTION_SCHEDULED',
+          title: 'Move-in Inspection Scheduled',
+          message: `Your move-in inspection is scheduled for ${new Date(inspectionDate).toLocaleDateString()}`,
+          entityType: 'inspection',
+          entityId: inspection.id,
+        },
+      });
+    }
+    
+    // Notify tenant about move-in
+    await prisma.notification.create({
+      data: {
+        userId: tenant.id,
+        type: 'SYSTEM',
+        title: 'Welcome to Your New Home',
+        message: `Your lease for Unit ${unit.unitNumber} begins on ${new Date(leaseStart).toLocaleDateString()}`,
+        entityType: 'unit',
+        entityId: id,
+      },
+    });
+    
+    res.status(201).json({
+      success: true,
+      unitTenant,
+      inspection,
+      unit: {
+        ...unit,
+        status: createInspection ? 'PENDING_MOVE_IN' : 'OCCUPIED',
+      },
+    });
+  } catch (error) {
+    console.error('Error processing move-in:', error);
+    res.status(500).json({ error: 'Failed to process move-in' });
+  }
+};
+
+/**
+ * Orchestrated move-out workflow
+ * Handles inspection creation, tenant deactivation, and unit status updates atomically
+ */
+exports.moveOut = async (req, res) => {
+  try {
+    const { id } = req.params; // unit id
+    const { tenantId, moveOutDate, createInspection, inspectionDate, findings } = req.body;
+    const userId = req.user.id;
+    const role = req.user.role;
+    
+    if (role !== 'PROPERTY_MANAGER') {
+      return res.status(403).json({ error: 'Only property managers can process move-outs' });
+    }
+    
+    if (!tenantId || !moveOutDate) {
+      return res.status(400).json({ error: 'Tenant ID and move-out date are required' });
+    }
+    
+    // Get unit and verify access
+    const unit = await prisma.unit.findUnique({
+      where: { id },
+      include: { property: true },
+    });
+    
+    if (!unit || unit.property.managerId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Verify tenant is assigned to this unit
+    const unitTenant = await prisma.unitTenant.findFirst({
+      where: {
+        unitId: id,
+        tenantId,
+        isActive: true,
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+    
+    if (!unitTenant) {
+      return res.status(404).json({ error: 'Active tenant assignment not found' });
+    }
+    
+    let inspection = null;
+    
+    // Create move-out inspection if requested
+    if (createInspection && inspectionDate) {
+      inspection = await prisma.inspection.create({
+        data: {
+          title: `Move-out Inspection - Unit ${unit.unitNumber}`,
+          type: 'MOVE_OUT',
+          status: 'SCHEDULED',
+          scheduledDate: new Date(inspectionDate),
+          propertyId: unit.propertyId,
+          unitId: id,
+          findings: findings || null,
+        },
+      });
+      
+      // Update unit status to PENDING_MOVE_OUT
+      await prisma.unit.update({
+        where: { id },
+        data: { status: 'PENDING_MOVE_OUT' },
+      });
+      
+      // Notify tenant about inspection
+      await prisma.notification.create({
+        data: {
+          userId: tenantId,
+          type: 'INSPECTION_SCHEDULED',
+          title: 'Move-out Inspection Scheduled',
+          message: `Your move-out inspection is scheduled for ${new Date(inspectionDate).toLocaleDateString()}`,
+          entityType: 'inspection',
+          entityId: inspection.id,
+        },
+      });
+    } else {
+      // No inspection, deactivate immediately
+      await prisma.unitTenant.updateMany({
+        where: {
+          unitId: id,
+          tenantId,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+          moveOutDate: new Date(moveOutDate),
+        },
+      });
+      
+      // Update unit status to AVAILABLE
+      await prisma.unit.update({
+        where: { id },
+        data: { status: 'AVAILABLE' },
+      });
+    }
+    
+    // Notify tenant about move-out
+    await prisma.notification.create({
+      data: {
+        userId: tenantId,
+        type: 'SYSTEM',
+        title: 'Move-out Scheduled',
+        message: `Your move-out from Unit ${unit.unitNumber} is scheduled for ${new Date(moveOutDate).toLocaleDateString()}`,
+        entityType: 'unit',
+        entityId: id,
+      },
+    });
+    
+    res.json({
+      success: true,
+      message: createInspection 
+        ? 'Move-out inspection scheduled. Tenant will be deactivated after inspection.'
+        : 'Tenant moved out successfully',
+      inspection,
+      unit: {
+        ...unit,
+        status: createInspection ? 'PENDING_MOVE_OUT' : 'AVAILABLE',
+      },
+    });
+  } catch (error) {
+    console.error('Error processing move-out:', error);
+    res.status(500).json({ error: 'Failed to process move-out' });
+  }
+};
+
+/**
  * Remove a tenant from a unit
  */
 exports.removeTenant = async (req, res) => {

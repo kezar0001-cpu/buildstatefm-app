@@ -36,7 +36,10 @@ import AnalyticsCharts from '../components/AnalyticsCharts';
 import UpgradePromptModal from '../components/UpgradePromptModal';
 import PageShell from '../components/PageShell';
 import RoleRouter from '../components/RoleRouter';
+import OnboardingChecklist from '../components/OnboardingChecklist';
+import DashboardControls from '../components/DashboardControls';
 import { useCurrentUser } from '../context/UserContext.jsx'; // Hook to reactively read user data
+import { useDashboardPreferences } from '../hooks/useDashboardPreferences';
 import { calculateDaysRemaining, formatDateTime } from '../utils/date.js';
 import { redirectToBillingPortal } from '../utils/billing.js';
 import { queryKeys } from '../utils/queryKeys.js';
@@ -123,10 +126,20 @@ const DashboardSkeleton = () => (
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { user: currentUser } = useCurrentUser();
+
+  // Dashboard preferences hook
+  const {
+    autoRefresh,
+    toggleAutoRefresh,
+    refreshInterval,
+    setRefreshInterval,
+    canShowUpgradeModal,
+    markUpgradeModalShown,
+    setHideUpgradeModal,
+  } = useDashboardPreferences();
 
   useEffect(() => {
     // Update the time every second
@@ -196,10 +209,8 @@ const DashboardPage = () => {
 
   // Show upgrade prompt at strategic moments for trial users
   useEffect(() => {
-    // Only show for trial users who haven't seen the modal in this session
-    const hasSeenModal = sessionStorage.getItem('hasSeenUpgradeModal');
-
-    if (!isSubscribed && !hasSeenModal && summary) {
+    // Check if we can show the modal (respects user preferences and throttling)
+    if (!isSubscribed && canShowUpgradeModal() && summary) {
       // Show modal after user has made some progress
       const hasProgress =
         (summary.properties?.total || 0) >= 2 || // Created 2+ properties
@@ -213,13 +224,13 @@ const DashboardPage = () => {
         // Delay showing modal slightly so it doesn't feel intrusive
         const timer = setTimeout(() => {
           setShowUpgradeModal(true);
-          sessionStorage.setItem('hasSeenUpgradeModal', 'true');
+          markUpgradeModalShown();
         }, 3000); // Show after 3 seconds
 
         return () => clearTimeout(timer);
       }
     }
-  }, [summary, isSubscribed, isTrialActive, trialDaysRemaining]);
+  }, [summary, isSubscribed, isTrialActive, trialDaysRemaining, canShowUpgradeModal, markUpgradeModalShown]);
 
   // Show skeleton layout while loading - maintains visual structure
   if (isLoading) {
@@ -363,6 +374,9 @@ const DashboardPage = () => {
           </Stack>
         </Alert>
       )}
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist />
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4, animation: 'fade-in-up 0.6s ease-out' }}>
@@ -606,6 +620,7 @@ const DashboardPage = () => {
         open={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         trigger={trialDaysRemaining <= 3 ? 'milestone' : 'milestone'}
+        onNeverShowAgain={() => setHideUpgradeModal(true)}
       />
     </Container>
   );

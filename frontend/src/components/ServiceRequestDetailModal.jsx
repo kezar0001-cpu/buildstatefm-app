@@ -42,6 +42,7 @@ import { formatDateTime } from '../utils/date';
 import toast from 'react-hot-toast';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
+import ConvertServiceRequestToJobDialog from './ConvertServiceRequestToJobDialog';
 
 const getStatusColor = (status) => {
   const colors = {
@@ -86,6 +87,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const [rejectionReason, setRejectionReason] = useState('');
   const [managerEstimatedCost, setManagerEstimatedCost] = useState('');
   const [costBreakdownNotes, setCostBreakdownNotes] = useState('');
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   // Fetch request details
   const { data, isLoading, error } = useQuery({
@@ -120,23 +122,13 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     },
   });
 
-  // Convert to job mutation
-  const convertMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiClient.post(`/service-requests/${requestId}/convert-to-job`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
-      toast.success('Converted to job successfully');
-      onClose();
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to convert to job');
-    },
-  });
+  // Handle successful conversion
+  const handleConversionSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+    onClose();
+  };
 
   // Manager adds cost estimate mutation
   const addEstimateMutation = useMutation({
@@ -339,12 +331,8 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     setCostBreakdownNotes('');
   };
 
-  const handleConvert = () => {
-    convertMutation.mutate();
-  };
-
   const handleClose = () => {
-    const pending = updateMutation.isPending || convertMutation.isPending || 
+    const pending = updateMutation.isPending || 
       addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending;
     if (!pending) {
       handleCancelReview();
@@ -381,7 +369,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const linkedJobs = data?.jobs || [];
   const linkedJob = linkedJobs[0]; // Assuming only one job can be linked for simplicity
 
-  const isPendingMutation = updateMutation.isPending || convertMutation.isPending ||
+  const isPendingMutation = updateMutation.isPending || 
     addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
     managerApproveMutation.isPending || managerRejectMutation.isPending;
 
@@ -389,11 +377,12 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
+    <>
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Service Request Details</Typography>
-          <IconButton onClick={handleClose} disabled={updateMutation.isLoading || convertMutation.isLoading}>
+          <IconButton onClick={handleClose} disabled={isPendingMutation}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -902,14 +891,14 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                 >
                   Schedule Inspection
                 </Button>
-                <LoadingButton
-                  onClick={handleConvert}
+                <Button
+                  onClick={() => setShowConvertDialog(true)}
                   variant="contained"
                   startIcon={<BuildIcon />}
-                  loading={convertMutation.isPending}
+                  disabled={isPendingMutation}
                 >
                   Convert to Job
-                </LoadingButton>
+                </Button>
               </>
             )}
           </>
@@ -919,5 +908,16 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* Convert to Job Dialog */}
+    {data && (
+      <ConvertServiceRequestToJobDialog
+        open={showConvertDialog}
+        onClose={() => setShowConvertDialog(false)}
+        serviceRequest={data}
+        onConvert={handleConversionSuccess}
+      />
+    )}
+    </>
   );
 }

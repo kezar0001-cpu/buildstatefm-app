@@ -1081,6 +1081,326 @@ router.post(
   })
 );
 
+// Orchestrated move-in endpoint (single atomic operation)
+router.post(
+  '/:unitId/orchestrated-move-in',
+  requireRole('PROPERTY_MANAGER'),
+  asyncHandler(async (req, res) => {
+    const { unitId } = req.params;
+    const access = await ensureUnitAccess(unitId, req.user, { requireWrite: true });
+    
+    if (!access.allowed) {
+      return sendError(
+        res,
+        access.status,
+        access.reason,
+        access.status === 404 ? ErrorCodes.RES_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED,
+      );
+    }
+
+    const moveInSchema = z.object({
+      tenantId: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      leaseStart: z.string().min(1, 'Lease start date is required'),
+      leaseEnd: z.string().min(1, 'Lease end date is required'),
+      rentAmount: z.number().positive('Rent amount must be greater than zero'),
+      depositAmount: z.number().min(0).optional(),
+      createInspection: z.boolean().optional(),
+      inspectionDate: z.string().optional(),
+    });
+
+    const parsed = moveInSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(
+        res,
+        400,
+        'Validation error',
+        ErrorCodes.VAL_VALIDATION_ERROR,
+        parsed.error.flatten().fieldErrors,
+      );
+    }
+
+    const data = parsed.data;
+
+    // Check if unit is available
+    const activeTenants = await prisma.unitTenant.count({
+      where: { unitId, isActive: true },
+    });
+
+    if (activeTenants > 0) {
+      return sendError(res, 400, 'Unit already has active tenants', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    let tenant;
+
+    // Find or invite tenant
+    if (data.tenantId) {
+      tenant = await prisma.user.findUnique({
+        where: { id: data.tenantId },
+      });
+
+      if (!tenant || tenant.role !== 'TENANT') {
+        return sendError(res, 400, 'Invalid tenant', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+    } else if (data.email) {
+      tenant = await prisma.user.findUnique({
+        where: { email: data.email },
+      });
+
+      if (!tenant) {
+        const invitation = await prisma.invitation.create({
+          data: {
+            email: data.email,
+            role: 'TENANT',
+            invitedBy: req.user.id,
+            status: 'PENDING',
+          },
+        });
+
+        return res.status(202).json({
+          success: true,
+          message: 'Tenant invitation created. Move-in will complete when tenant accepts.',
+          invitation,
+          pendingMoveIn: {
+            unitId,
+            leaseStart: data.leaseStart,
+            leaseEnd: data.leaseEnd,
+            rentAmount: data.rentAmount,
+            depositAmount: data.depositAmount || null,
+          },
+        });
+      }
+
+      if (tenant.role !== 'TENANT') {
+        return sendError(res, 400, 'User exists but is not a tenant', ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+    } else {
+      return sendError(res, 400, 'Either tenantId or email must be provided', ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
+    // Create tenant assignment and optionally inspection in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const unitTenant = await tx.unitTenant.create({
+        data: {
+          unitId,
+          tenantId: tenant.id,
+          leaseStart: new Date(data.leaseStart),
+          leaseEnd: new Date(data.leaseEnd),
+          rentAmount: data.rentAmount,
+          depositAmount: data.depositAmount || null,
+          isActive: true,
+        },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      await tx.unit.update({
+        where: { id: unitId },
+        data: { status: data.createInspection ? 'PENDING_MOVE_IN' : 'OCCUPIED' },
+      });
+
+      let inspection = null;
+
+      if (data.createInspection && data.inspectionDate) {
+        inspection = await tx.inspection.create({
+          data: {
+            title: `Move-in Inspection - Unit ${access.unit.unitNumber}`,
+            type: 'MOVE_IN',
+            status: 'SCHEDULED',
+            scheduledDate: new Date(data.inspectionDate),
+            propertyId: access.unit.propertyId,
+            unitId,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: tenant.id,
+            type: 'INSPECTION_SCHEDULED',
+            title: 'Move-in Inspection Scheduled',
+            message: `Your move-in inspection is scheduled for ${new Date(data.inspectionDate).toLocaleDateString()}`,
+            entityType: 'inspection',
+            entityId: inspection.id,
+          },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId: tenant.id,
+          type: 'SYSTEM',
+          title: 'Welcome to Your New Home',
+          message: `Your lease for Unit ${access.unit.unitNumber} begins on ${new Date(data.leaseStart).toLocaleDateString()}`,
+          entityType: 'unit',
+          entityId: unitId,
+        },
+      });
+
+      return { unitTenant, inspection };
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Move-in completed successfully',
+      unitTenant: result.unitTenant,
+      inspection: result.inspection,
+      unit: {
+        ...access.unit,
+        status: data.createInspection ? 'PENDING_MOVE_IN' : 'OCCUPIED',
+      },
+    });
+  })
+);
+
+// Orchestrated move-out endpoint (single atomic operation)
+router.post(
+  '/:unitId/orchestrated-move-out',
+  requireRole('PROPERTY_MANAGER'),
+  asyncHandler(async (req, res) => {
+    const { unitId } = req.params;
+    const access = await ensureUnitAccess(unitId, req.user, { requireWrite: true });
+
+    if (!access.allowed) {
+      return sendError(
+        res,
+        access.status,
+        access.reason,
+        access.status === 404 ? ErrorCodes.RES_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED,
+      );
+    }
+
+    const moveOutSchema = z.object({
+      tenantId: z.string().min(1, 'Tenant ID is required'),
+      moveOutDate: z.string().min(1, 'Move-out date is required'),
+      createInspection: z.boolean().optional(),
+      inspectionDate: z.string().optional(),
+      findings: z.string().optional(),
+    });
+
+    const parsed = moveOutSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(
+        res,
+        400,
+        'Validation error',
+        ErrorCodes.VAL_VALIDATION_ERROR,
+        parsed.error.flatten().fieldErrors,
+      );
+    }
+
+    const data = parsed.data;
+
+    // Verify tenant is assigned to this unit
+    const unitTenant = await prisma.unitTenant.findFirst({
+      where: {
+        unitId,
+        tenantId: data.tenantId,
+        isActive: true,
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!unitTenant) {
+      return sendError(res, 404, 'Active tenant assignment not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      let inspection = null;
+
+      if (data.createInspection && data.inspectionDate) {
+        inspection = await tx.inspection.create({
+          data: {
+            title: `Move-out Inspection - Unit ${access.unit.unitNumber}`,
+            type: 'MOVE_OUT',
+            status: 'SCHEDULED',
+            scheduledDate: new Date(data.inspectionDate),
+            propertyId: access.unit.propertyId,
+            unitId,
+            findings: data.findings || null,
+          },
+        });
+
+        await tx.unit.update({
+          where: { id: unitId },
+          data: { status: 'PENDING_MOVE_OUT' },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: data.tenantId,
+            type: 'INSPECTION_SCHEDULED',
+            title: 'Move-out Inspection Scheduled',
+            message: `Your move-out inspection is scheduled for ${new Date(data.inspectionDate).toLocaleDateString()}`,
+            entityType: 'inspection',
+            entityId: inspection.id,
+          },
+        });
+      } else {
+        // No inspection, deactivate immediately
+        await tx.unitTenant.updateMany({
+          where: {
+            unitId,
+            tenantId: data.tenantId,
+            isActive: true,
+          },
+          data: {
+            isActive: false,
+            moveOutDate: new Date(data.moveOutDate),
+          },
+        });
+
+        await tx.unit.update({
+          where: { id: unitId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId: data.tenantId,
+          type: 'SYSTEM',
+          title: 'Move-out Scheduled',
+          message: `Your move-out from Unit ${access.unit.unitNumber} is scheduled for ${new Date(data.moveOutDate).toLocaleDateString()}`,
+          entityType: 'unit',
+          entityId: unitId,
+        },
+      });
+
+      return { inspection };
+    });
+
+    res.json({
+      success: true,
+      message: data.createInspection
+        ? 'Move-out inspection scheduled. Tenant will be deactivated after inspection.'
+        : 'Tenant moved out successfully',
+      inspection: result.inspection,
+      unit: {
+        ...access.unit,
+        status: data.createInspection ? 'PENDING_MOVE_OUT' : 'AVAILABLE',
+      },
+    });
+  })
+);
+
 // =============================================================================
 // Unit Images Endpoints
 // =============================================================================

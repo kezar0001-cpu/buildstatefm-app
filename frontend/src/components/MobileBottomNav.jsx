@@ -11,6 +11,7 @@ import {
   Recommend as RecommendIcon,
 } from '@mui/icons-material';
 import { useCurrentUser } from '../context/UserContext';
+import { getMobileNavForRole } from '../utils/navigationConfig';
 
 /**
  * Mobile bottom navigation bar.
@@ -28,50 +29,13 @@ export default function MobileBottomNav() {
     return null;
   }
 
-  // Determine jobs navigation based on role
-  const jobsNavigation = user?.role === 'TECHNICIAN'
-    ? { label: 'My Jobs', path: '/technician/dashboard', icon: BuildIcon }
-    : { label: 'Jobs', path: '/jobs', icon: BuildIcon };
-
-  // Main navigation items for bottom nav - customize based on user role
-  let navItems = [];
-
-  if (user?.role === 'OWNER') {
-    // Navigation for property owners - show 6 most important workflow pages
-    navItems = [
-      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
-      { label: 'Properties', path: '/properties', icon: HomeIcon },
-      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
-      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
-      { label: 'Reports', path: '/reports', icon: AssessmentIcon },
-      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
-    ];
-  } else if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
-    // Navigation for property managers - show 6 most important workflow pages
-    navItems = [
-      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
-      { label: 'Properties', path: '/properties', icon: HomeIcon },
-      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
-      jobsNavigation,
-      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
-      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
-    ];
-  } else {
-    // Default navigation - show 6 most important workflow pages
-    navItems = [
-      { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
-      { label: 'Properties', path: '/properties', icon: HomeIcon },
-      { label: 'Inspections', path: '/inspections', icon: AssignmentIcon },
-      jobsNavigation,
-      { label: 'Requests', path: '/service-requests', icon: RequestQuoteIcon },
-      { label: 'Insights', path: '/recommendations', icon: RecommendIcon },
-    ];
-  }
+  // Get role-aware mobile navigation items
+  const navItems = getMobileNavForRole(user?.role);
 
   // Find current active item index
   const getActiveIndex = () => {
     const index = navItems.findIndex(
-      (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+      (item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
     );
     return index >= 0 ? index : 0;
   };
@@ -79,7 +43,7 @@ export default function MobileBottomNav() {
   const handleChange = (event, newValue) => {
     const item = navItems[newValue];
     if (item) {
-      navigate(item.path);
+      navigate(item.href);
     }
   };
 
@@ -124,7 +88,7 @@ export default function MobileBottomNav() {
           return (
             <BottomNavigationAction
               key={index}
-              label={item.label}
+              label={item.name}
               icon={<Icon />}
             />
           );
