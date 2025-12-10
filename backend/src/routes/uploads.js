@@ -25,6 +25,40 @@ const router = express.Router();
 // Use Redis-backed rate limiting (replaces in-memory Map-based rate limiting)
 const rateLimitUpload = uploadRateLimiter;
 
+/**
+ * GET /uploads/rate-limit-status
+ * Returns the current rate limit status for the authenticated user
+ * Useful for frontend to check before uploading
+ */
+router.get('/rate-limit-status', requireAuth, async (req, res) => {
+  try {
+    // Return rate limit info - the actual checking is done by the rate limiter
+    // This endpoint just provides info about the limits
+    res.json({
+      success: true,
+      limits: {
+        uploads: {
+          maxPerMinute: 500,
+          windowSeconds: 60,
+          description: 'Maximum 500 uploads per minute per user',
+        },
+        propertyUploads: {
+          maxPerMinute: 100,
+          windowSeconds: 60,
+          description: 'Maximum 100 property uploads per minute per user',
+        },
+      },
+      message: 'Rate limits are per-user. Each user has their own quota.',
+    });
+  } catch (error) {
+    console.error('Rate limit status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get rate limit status',
+    });
+  }
+});
+
 // Create upload middleware (uses S3 if configured, local storage otherwise)
 // Default folder: 'properties' for general image uploads
 const upload = createUploadMiddleware({ folder: 'properties' });

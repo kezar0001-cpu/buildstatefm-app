@@ -142,22 +142,26 @@ export function createRedisRateLimiter(options = {}) {
 
 /**
  * Pre-configured rate limiters for common use cases
+ * 
+ * NOTE: Rate limits are per-user, not global. Each authenticated user
+ * has their own quota that resets independently.
  */
 
-// Upload rate limiter: 100 uploads per minute
+// Upload rate limiter: 500 uploads per minute (generous for batch uploads)
+// This allows users to upload multiple images at once without hitting limits
 export const uploadRateLimiter = createRedisRateLimiter({
   keyPrefix: 'upload_rate_limit',
-  points: 100,
+  points: 500,
   duration: 60,
-  errorMessage: 'Too many uploads. Maximum 100 uploads per minute.',
+  errorMessage: 'Too many uploads. Maximum 500 uploads per minute. Please wait a moment before uploading more files.',
 });
 
-// Property upload rate limiter: 20 uploads per minute
+// Property upload rate limiter: 100 uploads per minute (generous for property images)
 export const propertyUploadRateLimiter = createRedisRateLimiter({
   keyPrefix: 'property_upload_rate_limit',
-  points: 20,
+  points: 100,
   duration: 60,
-  errorMessage: 'Too many property uploads. Maximum 20 uploads per minute.',
+  errorMessage: 'Too many property uploads. Maximum 100 uploads per minute.',
 });
 
 // API rate limiter: 100 requests per minute

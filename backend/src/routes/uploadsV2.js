@@ -62,14 +62,14 @@ const router = express.Router();
 
 /**
  * Upload rate limiter configuration
- * - 10 uploads per 30 seconds per user (reasonable for normal usage)
+ * - 200 uploads per 60 seconds per user (generous for batch uploads)
  * - Falls back to memory-based limiting if Redis unavailable
  */
 const uploadRateLimiter = createRedisRateLimiter({
   keyPrefix: 'v2_upload_rate_limit',
-  points: 10,
-  duration: 30,
-  errorMessage: 'Too many uploads. Please wait before uploading more files.',
+  points: 200,
+  duration: 60,
+  errorMessage: 'Too many uploads. Maximum 200 uploads per minute. Please wait a moment before uploading more files.',
 });
 
 // ============================================================================
