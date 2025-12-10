@@ -35,13 +35,14 @@ logger.info('>>> STARTING Buildstate FM Backend <<<');
 // =======================================================
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
+  // Use only supported integrations to avoid runtime errors in local/dev.
+  // The Http and Express integrations are omitted because they are not
+  // available on the currently installed @sentry/node version.
   integrations: [
-    new Sentry.Integrations.Http({ tracing: true }),
-    new Sentry.Integrations.Express({ app: undefined }),
-    nodeProfilingIntegration()
+    nodeProfilingIntegration(),
   ],
   tracesSampleRate: 1.0,
-  profilesSampleRate: 1.0
+  profilesSampleRate: 1.0,
 });
 
 // Validate environment variables
@@ -55,16 +56,19 @@ export { prismaInstance as prisma };
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Attach Express instance to Sentry after app creation
-Sentry.getCurrentHub().getClient()?.getOptions().integrations?.forEach((intg) => {
-  if (intg.name === "Express") intg._app = app;
-});
+// Note: Express-specific integration wiring is skipped because we're not
+// using Sentry's Express integration in this configuration.
 
 // ===================================================
 //  Sentry request + tracing handlers (FIRST MIDDLEWARE)
 // ===================================================
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
+if (Sentry.Handlers && typeof Sentry.Handlers.requestHandler === 'function') {
+  app.use(Sentry.Handlers.requestHandler());
+}
+
+if (Sentry.Handlers && typeof Sentry.Handlers.tracingHandler === 'function') {
+  app.use(Sentry.Handlers.tracingHandler());
+}
 
 // ----------------------
 // Cron Jobs
@@ -273,7 +277,9 @@ app.use('*', (req, res) => {
 // ===================================================================
 //  Sentry Error Handler (before final error handler)
 // ===================================================================
-app.use(Sentry.Handlers.errorHandler());
+if (Sentry.Handlers && typeof Sentry.Handlers.errorHandler === 'function') {
+  app.use(Sentry.Handlers.errorHandler());
+}
 
 // ----------------------
 // Final Error Handler

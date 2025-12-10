@@ -433,7 +433,7 @@ router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), req
 });
 
 // Get preview of upcoming inspections for a specific recurring schedule
-router.get('/:id/preview', authenticate, async (req, res) => {
+router.get('/:id/preview', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { count = 10 } = req.query;
