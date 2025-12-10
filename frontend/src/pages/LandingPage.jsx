@@ -28,7 +28,16 @@ import {
   Tab,
   Tabs,
   Rating,
-  Divider
+  Divider,
+  TextField,
+  LinearProgress,
+  Checkbox,
+  FormControlLabel,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  Tooltip
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -45,7 +54,19 @@ import {
   ArrowForward as ArrowForwardIcon,
   Star as StarIcon,
   People as PeopleIcon,
-  AutoAwesome as AutoAwesomeIcon
+  AutoAwesome as AutoAwesomeIcon,
+  Add as AddIcon,
+  Apartment as ApartmentIcon,
+  LocationOn as LocationIcon,
+  CameraAlt as CameraIcon,
+  CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  Warning as WarningIcon,
+  Schedule as ScheduleIcon,
+  Done as DoneIcon,
+  Refresh as RefreshIcon,
+  AttachMoney as MoneyIcon,
+  Percent as PercentIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import GradientButton from '../components/GradientButton';
@@ -62,6 +83,582 @@ const FadeIn = ({ children, delay = 0 }) => (
     {children}
   </motion.div>
 );
+
+// --- Interactive Demo Components ---
+
+// Demo 1: Add Properties - Interactive property card builder
+const PropertyDemo = () => {
+  const [properties, setProperties] = useState([
+    { id: 1, name: 'Sunset Apartments', units: 12, address: '123 Main St', status: 'active' }
+  ]);
+  const [showForm, setShowForm] = useState(false);
+  const [newProperty, setNewProperty] = useState({ name: '', units: '', address: '' });
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddProperty = () => {
+    if (newProperty.name && newProperty.units) {
+      setIsAdding(true);
+      setTimeout(() => {
+        setProperties([...properties, {
+          id: properties.length + 1,
+          name: newProperty.name || 'New Property',
+          units: parseInt(newProperty.units) || 1,
+          address: newProperty.address || 'Address TBD',
+          status: 'active'
+        }]);
+        setNewProperty({ name: '', units: '', address: '' });
+        setShowForm(false);
+        setIsAdding(false);
+      }, 800);
+    }
+  };
+
+  return (
+    <Box sx={{ height: 320, overflow: 'hidden' }}>
+      {/* Mini Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+          Your Properties ({properties.length})
+        </Typography>
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setShowForm(!showForm)}
+          sx={{ 
+            fontSize: '0.7rem', 
+            py: 0.5,
+            background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+          }}
+        >
+          Add Property
+        </Button>
+      </Box>
+
+      {/* Add Form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <Paper sx={{ p: 1.5, mb: 2, bgcolor: '#fff7f2', border: '1px dashed', borderColor: 'primary.main' }}>
+              <Stack spacing={1}>
+                <TextField
+                  size="small"
+                  placeholder="Property Name"
+                  value={newProperty.name}
+                  onChange={(e) => setNewProperty({ ...newProperty, name: e.target.value })}
+                  sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.75 } }}
+                />
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    size="small"
+                    placeholder="Units"
+                    type="number"
+                    value={newProperty.units}
+                    onChange={(e) => setNewProperty({ ...newProperty, units: e.target.value })}
+                    sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.75 } }}
+                  />
+                  <TextField
+                    size="small"
+                    placeholder="Address"
+                    value={newProperty.address}
+                    onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
+                    sx={{ flex: 2, '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.75 } }}
+                  />
+                </Stack>
+                <Button 
+                  size="small" 
+                  variant="contained" 
+                  onClick={handleAddProperty}
+                  disabled={isAdding || !newProperty.name}
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  {isAdding ? 'Adding...' : 'Save Property'}
+                </Button>
+              </Stack>
+            </Paper>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Property List */}
+      <Stack spacing={1} sx={{ maxHeight: showForm ? 140 : 240, overflow: 'auto' }}>
+        {properties.map((property, index) => (
+          <motion.div
+            key={property.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Paper
+              sx={{
+                p: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': { 
+                  bgcolor: '#fff7f2',
+                  transform: 'translateX(4px)'
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1,
+                  background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white'
+                }}
+              >
+                <ApartmentIcon sx={{ fontSize: 20 }} />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={600} noWrap>
+                  {property.name}
+                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    {property.units} units
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">•</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {property.address}
+                  </Typography>
+                </Stack>
+              </Box>
+              <Chip 
+                label="Active" 
+                size="small" 
+                color="success" 
+                sx={{ fontSize: '0.65rem', height: 20 }} 
+              />
+            </Paper>
+          </motion.div>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
+
+// Demo 2: Schedule Inspections - Interactive checklist
+const InspectionDemo = () => {
+  const [items, setItems] = useState([
+    { id: 1, label: 'Check HVAC system', checked: true, photo: true },
+    { id: 2, label: 'Inspect plumbing fixtures', checked: true, photo: true },
+    { id: 3, label: 'Test smoke detectors', checked: false, photo: false },
+    { id: 4, label: 'Verify electrical outlets', checked: false, photo: false },
+    { id: 5, label: 'Check windows & doors', checked: false, photo: false },
+  ]);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const completedCount = items.filter(i => i.checked).length;
+  const progress = (completedCount / items.length) * 100;
+
+  const toggleItem = (id) => {
+    setItems(items.map(item => {
+      if (item.id === id) {
+        const newChecked = !item.checked;
+        if (newChecked && completedCount === items.length - 1) {
+          setTimeout(() => setShowSuccess(true), 300);
+          setTimeout(() => setShowSuccess(false), 2000);
+        }
+        return { ...item, checked: newChecked, photo: newChecked };
+      }
+      return item;
+    }));
+  };
+
+  const addPhoto = (id) => {
+    setItems(items.map(item => 
+      item.id === id ? { ...item, photo: true } : item
+    ));
+  };
+
+  return (
+    <Box sx={{ height: 320, overflow: 'hidden' }}>
+      {/* Header with Progress */}
+      <Box sx={{ mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+            Move-In Inspection
+          </Typography>
+          <Chip 
+            label={`${completedCount}/${items.length}`} 
+            size="small"
+            color={progress === 100 ? 'success' : 'default'}
+            sx={{ fontSize: '0.7rem', height: 22 }}
+          />
+        </Stack>
+        <LinearProgress 
+          variant="determinate" 
+          value={progress} 
+          sx={{ 
+            height: 6, 
+            borderRadius: 3,
+            bgcolor: '#fee2e2',
+            '& .MuiLinearProgress-bar': {
+              background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+              borderRadius: 3
+            }
+          }} 
+        />
+      </Box>
+
+      {/* Success Message */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+          >
+            <Paper sx={{ p: 1.5, mb: 2, bgcolor: '#dcfce7', border: '1px solid #22c55e' }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <CheckCircleIcon sx={{ color: '#22c55e', fontSize: 20 }} />
+                <Typography variant="body2" fontWeight={600} color="#166534">
+                  Inspection Complete! Report generated.
+                </Typography>
+              </Stack>
+            </Paper>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Checklist */}
+      <Stack spacing={0.5} sx={{ maxHeight: 230, overflow: 'auto' }}>
+        {items.map((item, index) => (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+          >
+            <Paper
+              sx={{
+                p: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                bgcolor: item.checked ? '#f0fdf4' : 'white',
+                border: '1px solid',
+                borderColor: item.checked ? '#86efac' : 'divider',
+                '&:hover': { bgcolor: item.checked ? '#dcfce7' : '#fafafa' }
+              }}
+              onClick={() => toggleItem(item.id)}
+            >
+              <Checkbox
+                checked={item.checked}
+                size="small"
+                sx={{
+                  p: 0.5,
+                  color: '#d1d5db',
+                  '&.Mui-checked': { color: '#22c55e' }
+                }}
+              />
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  flex: 1,
+                  textDecoration: item.checked ? 'line-through' : 'none',
+                  color: item.checked ? 'text.secondary' : 'text.primary',
+                  fontSize: '0.8rem'
+                }}
+              >
+                {item.label}
+              </Typography>
+              <Tooltip title={item.photo ? 'Photo attached' : 'Add photo'}>
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { e.stopPropagation(); addPhoto(item.id); }}
+                  sx={{ 
+                    p: 0.5,
+                    color: item.photo ? '#22c55e' : '#9ca3af'
+                  }}
+                >
+                  <CameraIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </Paper>
+          </motion.div>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
+
+// Demo 3: Track Maintenance - Interactive job tracker
+const MaintenanceDemo = () => {
+  const [jobs, setJobs] = useState([
+    { id: 1, title: 'Fix leaking faucet', unit: 'Unit 4B', priority: 'high', status: 'in_progress', cost: 150 },
+    { id: 2, title: 'Replace AC filter', unit: 'Unit 2A', priority: 'medium', status: 'pending', cost: 45 },
+    { id: 3, title: 'Paint touch-up', unit: 'Unit 7C', priority: 'low', status: 'pending', cost: 200 },
+  ]);
+
+  const statusColors = {
+    pending: { bg: '#fef3c7', color: '#92400e', label: 'Pending' },
+    in_progress: { bg: '#dbeafe', color: '#1e40af', label: 'In Progress' },
+    completed: { bg: '#dcfce7', color: '#166534', label: 'Completed' }
+  };
+
+  const priorityColors = {
+    high: '#ef4444',
+    medium: '#f97316',
+    low: '#22c55e'
+  };
+
+  const updateStatus = (id, newStatus) => {
+    setJobs(jobs.map(job => 
+      job.id === id ? { ...job, status: newStatus } : job
+    ));
+  };
+
+  const totalCost = jobs.reduce((sum, job) => sum + job.cost, 0);
+  const completedJobs = jobs.filter(j => j.status === 'completed').length;
+
+  return (
+    <Box sx={{ height: 320, overflow: 'hidden' }}>
+      {/* Stats Header */}
+      <Stack direction="row" spacing={1} mb={2}>
+        <Paper sx={{ flex: 1, p: 1, textAlign: 'center', bgcolor: '#fff7f2' }}>
+          <Typography variant="h6" fontWeight={700} color="primary.main">
+            {jobs.length}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">Active Jobs</Typography>
+        </Paper>
+        <Paper sx={{ flex: 1, p: 1, textAlign: 'center', bgcolor: '#f0fdf4' }}>
+          <Typography variant="h6" fontWeight={700} color="#22c55e">
+            {completedJobs}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">Completed</Typography>
+        </Paper>
+        <Paper sx={{ flex: 1, p: 1, textAlign: 'center', bgcolor: '#fef3c7' }}>
+          <Typography variant="h6" fontWeight={700} color="#92400e">
+            ${totalCost}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">Total Cost</Typography>
+        </Paper>
+      </Stack>
+
+      {/* Job List */}
+      <Stack spacing={1} sx={{ maxHeight: 230, overflow: 'auto' }}>
+        {jobs.map((job, index) => (
+          <motion.div
+            key={job.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Paper
+              sx={{
+                p: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderLeft: '4px solid',
+                borderLeftColor: priorityColors[job.priority]
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={600} noWrap>
+                    {job.title}
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      {job.unit}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">•</Typography>
+                    <Typography variant="caption" fontWeight={600} color="primary.main">
+                      ${job.cost}
+                    </Typography>
+                  </Stack>
+                </Box>
+                <FormControl size="small" sx={{ minWidth: 100 }}>
+                  <Select
+                    value={job.status}
+                    onChange={(e) => updateStatus(job.id, e.target.value)}
+                    sx={{ 
+                      fontSize: '0.7rem',
+                      height: 28,
+                      bgcolor: statusColors[job.status].bg,
+                      '& .MuiSelect-select': { py: 0.5, px: 1 }
+                    }}
+                  >
+                    <MenuItem value="pending" sx={{ fontSize: '0.75rem' }}>Pending</MenuItem>
+                    <MenuItem value="in_progress" sx={{ fontSize: '0.75rem' }}>In Progress</MenuItem>
+                    <MenuItem value="completed" sx={{ fontSize: '0.75rem' }}>Completed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Paper>
+          </motion.div>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
+
+// Demo 4: Analytics - Interactive dashboard
+const AnalyticsDemo = () => {
+  const [selectedMetric, setSelectedMetric] = useState('occupancy');
+  const [animatedValues, setAnimatedValues] = useState({
+    occupancy: 0,
+    revenue: 0,
+    maintenance: 0
+  });
+
+  const metrics = {
+    occupancy: { value: 94, label: 'Occupancy Rate', suffix: '%', color: '#22c55e', trend: '+2.3%' },
+    revenue: { value: 47500, label: 'Monthly Revenue', prefix: '$', color: '#3b82f6', trend: '+8.1%' },
+    maintenance: { value: 12, label: 'Open Tickets', suffix: '', color: '#f97316', trend: '-15%' }
+  };
+
+  // Animate values on mount
+  React.useEffect(() => {
+    const duration = 1500;
+    const steps = 30;
+    const interval = duration / steps;
+    
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      setAnimatedValues({
+        occupancy: Math.round(metrics.occupancy.value * progress),
+        revenue: Math.round(metrics.revenue.value * progress),
+        maintenance: Math.round(metrics.maintenance.value * progress)
+      });
+      if (step >= steps) clearInterval(timer);
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Mini bar chart data
+  const chartData = [
+    { month: 'Jul', value: 85 },
+    { month: 'Aug', value: 88 },
+    { month: 'Sep', value: 92 },
+    { month: 'Oct', value: 90 },
+    { month: 'Nov', value: 94 },
+    { month: 'Dec', value: 94 },
+  ];
+
+  return (
+    <Box sx={{ height: 320, overflow: 'hidden' }}>
+      {/* Metric Cards */}
+      <Stack direction="row" spacing={1} mb={2}>
+        {Object.entries(metrics).map(([key, metric]) => (
+          <Paper
+            key={key}
+            onClick={() => setSelectedMetric(key)}
+            sx={{
+              flex: 1,
+              p: 1.5,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              border: '2px solid',
+              borderColor: selectedMetric === key ? metric.color : 'transparent',
+              bgcolor: selectedMetric === key ? `${metric.color}10` : 'white',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 1 }
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+              {metric.label}
+            </Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ color: metric.color, fontSize: '1.1rem' }}>
+              {metric.prefix}{animatedValues[key].toLocaleString()}{metric.suffix}
+            </Typography>
+            <Chip
+              label={metric.trend}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.6rem',
+                bgcolor: metric.trend.startsWith('+') ? '#dcfce7' : '#fee2e2',
+                color: metric.trend.startsWith('+') ? '#166534' : '#991b1b'
+              }}
+            />
+          </Paper>
+        ))}
+      </Stack>
+
+      {/* Mini Chart */}
+      <Paper sx={{ p: 2, bgcolor: '#fafafa' }}>
+        <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+          {metrics[selectedMetric].label} Trend
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 100 }}>
+          {chartData.map((item, index) => (
+            <Tooltip key={item.month} title={`${item.month}: ${item.value}%`}>
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: `${item.value}%` }}
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+                style={{
+                  flex: 1,
+                  background: index === chartData.length - 1 
+                    ? 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)'
+                    : '#e5e7eb',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  minHeight: 8
+                }}
+              />
+            </Tooltip>
+          ))}
+        </Box>
+        <Stack direction="row" justifyContent="space-between" mt={1}>
+          {chartData.map(item => (
+            <Typography key={item.month} variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', flex: 1, textAlign: 'center' }}>
+              {item.month}
+            </Typography>
+          ))}
+        </Stack>
+      </Paper>
+
+      {/* Quick Stats */}
+      <Stack direction="row" spacing={1} mt={2}>
+        <Paper sx={{ flex: 1, p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircleIcon sx={{ color: '#22c55e', fontSize: 18 }} />
+          <Box>
+            <Typography variant="caption" fontWeight={600}>98%</Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.6rem' }}>
+              Compliance
+            </Typography>
+          </Box>
+        </Paper>
+        <Paper sx={{ flex: 1, p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ScheduleIcon sx={{ color: '#3b82f6', fontSize: 18 }} />
+          <Box>
+            <Typography variant="caption" fontWeight={600}>2.4 days</Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.6rem' }}>
+              Avg Response
+            </Typography>
+          </Box>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+// Map step index to demo component
+const DemoComponents = {
+  0: PropertyDemo,
+  1: InspectionDemo,
+  2: MaintenanceDemo,
+  3: AnalyticsDemo
+};
 
 const VideoPlaceholder = () => (
   <Box
@@ -161,9 +758,27 @@ const Navbar = () => {
 
           {isMobile ? (
             <>
-              <IconButton onClick={() => setDrawerOpen(true)}>
-                <MenuIcon />
-              </IconButton>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  component={RouterLink}
+                  to="/signin"
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    px: 2,
+                    minWidth: 'auto'
+                  }}
+                >
+                  Sign In
+                </Button>
+                <IconButton onClick={() => setDrawerOpen(true)}>
+                  <MenuIcon />
+                </IconButton>
+              </Stack>
               <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
                 <List sx={{ width: 250 }}>
                   {navLinks.map((link) => (
@@ -173,11 +788,6 @@ const Navbar = () => {
                       </ListItemButton>
                     </ListItem>
                   ))}
-                  <ListItem disablePadding>
-                    <ListItemButton component={RouterLink} to="/signin" onClick={() => setDrawerOpen(false)}>
-                      <ListItemText primary="Sign In" />
-                    </ListItemButton>
-                  </ListItem>
                   <ListItem sx={{ mt: 2 }}>
                     <GradientButton fullWidth component={RouterLink} to="/signup">
                       Get Started Free
@@ -561,53 +1171,30 @@ const HowItWorks = () => {
                     >
                       {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: 36 } })}
                     </Box>
-                    <Typography variant="h5" fontWeight={700}>
-                      {steps[activeStep].title}
-                    </Typography>
-                  </Box>
-                  <CardContent sx={{ p: 4 }}>
-                    {/* Placeholder for screenshot/mockup */}
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: 300,
-                        bgcolor: '#f5f5f5',
-                        borderRadius: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '2px dashed',
-                        borderColor: 'divider',
-                        backgroundImage: 'url(https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80)',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          inset: 0,
-                          bgcolor: 'rgba(185, 28, 28, 0.9)',
-                          backdropFilter: 'blur(4px)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white'
-                        }}
-                      >
-                        <Stack alignItems="center" spacing={1}>
-                          {React.cloneElement(steps[activeStep].icon, { sx: { fontSize: 48 } })}
-                          <Typography variant="h6" fontWeight={600}>
-                            {steps[activeStep].label}
-                          </Typography>
-                          <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                            Interactive Demo Coming Soon
-                          </Typography>
-                        </Stack>
-                      </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h5" fontWeight={700}>
+                        {steps[activeStep].title}
+                      </Typography>
                     </Box>
+                    <Chip
+                      label="Try it!"
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(255, 255, 255, 0.25)',
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        animation: 'pulse 2s infinite',
+                        '@keyframes pulse': {
+                          '0%, 100%': { opacity: 1 },
+                          '50%': { opacity: 0.7 }
+                        }
+                      }}
+                    />
+                  </Box>
+                  <CardContent sx={{ p: 3 }}>
+                    {/* Interactive Demo */}
+                    {React.createElement(DemoComponents[activeStep])}
                   </CardContent>
                 </Card>
               </motion.div>
