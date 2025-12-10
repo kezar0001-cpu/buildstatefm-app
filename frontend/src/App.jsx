@@ -1,7 +1,7 @@
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Box, Button, Paper, Stack, Typography, Divider } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography, Divider, CircularProgress, useTheme, alpha } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import {
@@ -17,15 +17,107 @@ import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
 import * as Sentry from '@sentry/react';
 
-// Simple fallback
+// Modern loading fallback - theme-aware, works in light and dark mode
 function RouteFallback() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
-    <Box sx={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <SectionCard title="Loading" subtitle="Fetching the latest data for you">
-        <Typography variant="body2" color="text.secondary">
-          This won&apos;t take long. We&apos;re preparing the next view.
-        </Typography>
-      </SectionCard>
+    <Box
+      sx={{
+        minHeight: '60vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        px: 2,
+      }}
+    >
+      <Stack
+        spacing={3}
+        alignItems="center"
+        sx={{
+          textAlign: 'center',
+          maxWidth: 320,
+        }}
+      >
+        {/* Animated spinner with brand color */}
+        <Box
+          sx={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Outer glow ring */}
+          <Box
+            sx={{
+              position: 'absolute',
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: isDark
+                ? alpha(theme.palette.primary.main, 0.15)
+                : alpha(theme.palette.primary.main, 0.08),
+              animation: 'pulse 2s ease-in-out infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { transform: 'scale(1)', opacity: 1 },
+                '50%': { transform: 'scale(1.15)', opacity: 0.7 },
+              },
+            }}
+          />
+          <CircularProgress
+            size={48}
+            thickness={4}
+            sx={{
+              color: 'primary.main',
+            }}
+          />
+        </Box>
+
+        {/* Text content */}
+        <Stack spacing={1} alignItems="center">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              color: 'text.primary',
+            }}
+          >
+            Loading
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              lineHeight: 1.6,
+            }}
+          >
+            Preparing your view...
+          </Typography>
+        </Stack>
+
+        {/* Subtle animated dots */}
+        <Stack direction="row" spacing={0.75}>
+          {[0, 1, 2].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: 'primary.main',
+                animation: 'bounce 1.4s ease-in-out infinite',
+                animationDelay: `${i * 0.16}s`,
+                '@keyframes bounce': {
+                  '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                  '40%': { transform: 'scale(1)', opacity: 1 },
+                },
+              }}
+            />
+          ))}
+        </Stack>
+      </Stack>
     </Box>
   );
 }
