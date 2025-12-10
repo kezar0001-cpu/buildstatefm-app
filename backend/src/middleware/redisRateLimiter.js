@@ -118,9 +118,22 @@ export function createRedisRateLimiter(options = {}) {
 
       // Request allowed
       next();
-    } catch (rateLimiterRes) {
-      // Rate limit exceeded
+    } catch (err) {
       const key = keyGenerator(req);
+
+      // Detect a genuine RateLimiterRes object (rate limit exceeded)
+      const isRateLimiterRes =
+        err && typeof err === 'object' &&
+        (typeof err.msBeforeNext === 'number' || typeof err.remainingPoints === 'number');
+
+      if (!isRateLimiterRes) {
+        // Unexpected error from Redis or rate-limiter-flexible – do NOT block the request
+        console.error(`❌ [RateLimiter:${keyPrefix}] Unexpected error while consuming rate limit for key: ${key} (user: ${req.user?.id || 'none'}, ip: ${req.ip || 'none'})`, err);
+        console.warn(`[RateLimiter:${keyPrefix}] Degrading gracefully: allowing request despite rate limiter error.`);
+        return next();
+      }
+
+      const rateLimiterRes = err;
       const message = errorMessage || `Too many requests. Maximum ${points} requests per ${duration} seconds.`;
 
       // Log rate limit exceeded for debugging

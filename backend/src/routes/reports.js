@@ -130,25 +130,45 @@ router.get('/', async (req, res) => {
       return sendError(res, 403, 'Only Property Managers and Owners can view reports', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
-    // Build where clause based on user role
+    // Build where clause based on user role using scalar propertyId
     const where = {};
-    
+
     if (req.user.role === 'PROPERTY_MANAGER') {
-      // Property managers see reports for their properties
-      where.property = {
-        managerId: req.user.id,
-      };
+      // Property managers see reports for properties they manage
+      const managedProperties = await prisma.property.findMany({
+        where: { managerId: req.user.id },
+        select: { id: true },
+      });
+
+      const propertyIds = managedProperties.map((p) => p.id);
+
+      if (propertyIds.length === 0) {
+        return res.json({ success: true, reports: [] });
+      }
+
+      where.propertyId = { in: propertyIds };
     } else if (req.user.role === 'OWNER') {
       // Owners see reports for properties they own
-      where.property = {
-        owners: {
-          some: {
-            ownerId: req.user.id,
+      const ownedProperties = await prisma.property.findMany({
+        where: {
+          owners: {
+            some: {
+              ownerId: req.user.id,
+            },
           },
         },
-      };
+        select: { id: true },
+      });
+
+      const propertyIds = ownedProperties.map((p) => p.id);
+
+      if (propertyIds.length === 0) {
+        return res.json({ success: true, reports: [] });
+      }
+
+      where.propertyId = { in: propertyIds };
     }
-    
+
     const reports = await prisma.reportRequest.findMany({
       where,
       include: {
@@ -160,6 +180,7 @@ router.get('/', async (req, res) => {
         createdAt: 'desc',
       },
     });
+
     res.json({ success: true, reports });
   } catch (error) {
     console.error('Failed to fetch report requests:', error);
