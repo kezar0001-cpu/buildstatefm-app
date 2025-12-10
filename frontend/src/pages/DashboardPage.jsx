@@ -15,6 +15,7 @@ import {
   Paper,
   Divider,
   Stack,
+  Skeleton,
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -39,6 +40,86 @@ import { calculateDaysRemaining, formatDateTime } from '../utils/date.js';
 import { redirectToBillingPortal } from '../utils/billing.js';
 import { queryKeys } from '../utils/queryKeys.js';
 
+// Skeleton component for stat cards - shows immediately while data loads
+const StatCardSkeleton = () => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width="60%" height={16} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width="40%" height={40} sx={{ mb: 1.5 }} />
+          <Stack spacing={0.5}>
+            <Skeleton variant="text" width="80%" height={20} />
+            <Skeleton variant="text" width="70%" height={20} />
+          </Stack>
+        </Box>
+        <Skeleton variant="rounded" width={48} height={48} sx={{ borderRadius: 2 }} />
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+// Skeleton for activity items
+const ActivityItemSkeleton = () => (
+  <Box sx={{ display: 'flex', gap: 2, p: 2 }}>
+    <Skeleton variant="rounded" width={44} height={44} />
+    <Box sx={{ flex: 1 }}>
+      <Skeleton variant="text" width="60%" height={20} />
+      <Skeleton variant="text" width="80%" height={16} sx={{ mt: 0.5 }} />
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Skeleton variant="rounded" width={60} height={24} />
+        <Skeleton variant="text" width={80} height={16} />
+      </Stack>
+    </Box>
+  </Box>
+);
+
+// Full dashboard skeleton layout - shows the structure immediately
+const DashboardSkeleton = () => (
+  <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+    {/* Header skeleton */}
+    <Box sx={{ mb: 4 }}>
+      <Skeleton variant="text" width={200} height={40} />
+      <Skeleton variant="text" width={350} height={24} sx={{ mt: 1 }} />
+    </Box>
+
+    {/* Stats Cards skeleton */}
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <Grid item xs={12} sm={6} md={3} key={i}>
+          <StatCardSkeleton />
+        </Grid>
+      ))}
+    </Grid>
+
+    {/* Content skeleton */}
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={8}>
+        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Skeleton variant="text" width={150} height={28} sx={{ mb: 2 }} />
+          <Divider sx={{ mb: 2 }} />
+          <Stack spacing={1}>
+            {[1, 2, 3, 4].map((i) => (
+              <ActivityItemSkeleton key={i} />
+            ))}
+          </Stack>
+        </Paper>
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Skeleton variant="text" width={120} height={28} sx={{ mb: 2 }} />
+          <Divider sx={{ mb: 2 }} />
+          <Stack spacing={2}>
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} variant="rounded" height={40} sx={{ borderRadius: 1 }} />
+            ))}
+          </Stack>
+        </Paper>
+      </Grid>
+    </Grid>
+  </Container>
+);
+
 const DashboardPage = () => {
   const navigate = useNavigate();
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -57,6 +138,8 @@ const DashboardPage = () => {
 
 
   // Fetch dashboard summary
+  // staleTime: Show cached data immediately, refetch in background after 30s
+  // This eliminates loading screen on subsequent visits
   const {
     data: summary = { properties: {}, units: {}, jobs: {}, inspections: {}, serviceRequests: {} },
     isLoading,
@@ -69,6 +152,7 @@ const DashboardPage = () => {
       // Backend returns { success: true, summary: {...} }
       return response.data?.summary || response.data;
     },
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false, // 5 minutes
   });
 
@@ -80,6 +164,7 @@ const DashboardPage = () => {
       // Backend returns { success: true, items: [...] }
       return response.data?.items || response.data;
     },
+    staleTime: 30 * 1000,
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
   });
 
@@ -90,6 +175,7 @@ const DashboardPage = () => {
       const response = await apiClient.get('/inspections/overdue');
       return response.data;
     },
+    staleTime: 30 * 1000,
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
   });
 
@@ -134,12 +220,9 @@ const DashboardPage = () => {
     }
   }, [summary, isSubscribed, isTrialActive, trialDaysRemaining]);
 
+  // Show skeleton layout while loading - maintains visual structure
   if (isLoading) {
-    return (
-      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-        <DataState type="loading" message="Loading dashboard..." />
-      </Container>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
