@@ -249,8 +249,8 @@ export default function PlansPage() {
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreateClick}
-            size="medium"
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            size="large"
+            sx={{ width: { xs: '100%', md: 'auto' } }}
           >
             Create Plan
           </GradientButton>

@@ -399,7 +399,12 @@ export default function ReportsPage() {
         title="Reports"
         subtitle="Generate audit-ready outputs for inspections, jobs, payments, and service requests."
         actions={(
-          <GradientButton startIcon={<AddIcon />} size="medium" onClick={handleStartNewReport}>
+          <GradientButton
+            startIcon={<AddIcon />}
+            size="large"
+            onClick={handleStartNewReport}
+            sx={{ width: { xs: '100%', md: 'auto' } }}
+          >
             Generate Report
           </GradientButton>
         )}
