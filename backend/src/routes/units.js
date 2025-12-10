@@ -199,7 +199,8 @@ const unitIncludeConfig = {
     orderBy: { displayOrder: 'asc' },
   },
   tenants: tenantListArgs,
-  owners: ownerListArgs,
+  // Use the correct Unit relation name from the Prisma schema
+  UnitOwner: ownerListArgs,
 };
 
 const unitCreateSchema = z.object({
@@ -303,7 +304,7 @@ const toPublicOwner = (owner) => {
 const toPublicUnit = (unit) => {
   if (!unit) return unit;
 
-  const { property, tenants, owners, UnitImage, ...rest } = unit;
+  const { property, tenants, UnitOwner, UnitImage, ...rest } = unit;
 
   return {
     ...rest,
@@ -327,7 +328,7 @@ const toPublicUnit = (unit) => {
         }
       : null,
     tenants: Array.isArray(tenants) ? tenants.map(toPublicTenant) : [],
-    owners: Array.isArray(owners) ? owners.map(toPublicOwner) : [],
+    owners: Array.isArray(UnitOwner) ? UnitOwner.map(toPublicOwner) : [],
   };
 };
 
