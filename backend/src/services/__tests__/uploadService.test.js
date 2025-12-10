@@ -9,9 +9,6 @@ async function loadModule(extra = '') {
 describe('uploadService local upload paths', () => {
   it('returns /uploads URLs for local storage by default', async () => {
     delete process.env.UPLOADS_PUBLIC_PATH;
-    delete process.env.CLOUDINARY_CLOUD_NAME;
-    delete process.env.CLOUDINARY_API_KEY;
-    delete process.env.CLOUDINARY_API_SECRET;
 
     const mod = await loadModule();
     const { getUploadedFileUrl, LOCAL_UPLOADS_PUBLIC_PATH } = mod;

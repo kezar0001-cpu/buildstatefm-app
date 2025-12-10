@@ -2305,12 +2305,12 @@ propertyImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), requir
       return sendError(res, 404, 'Property image not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    // Clean up physical file from disk or cloud storage BEFORE deleting DB record
+    // Clean up physical file from disk or S3 BEFORE deleting DB record
     // This prevents orphaned files if the file deletion fails
     if (existing.imageUrl) {
       try {
-        // Use deleteImage for S3, Cloudinary (legacy), and local files
-        if (existing.imageUrl.startsWith('http') && existing.imageUrl.includes('cloudinary.com')) {
+        // Delete from S3 if it's an S3 URL, otherwise try local file
+        if (existing.imageUrl.startsWith('http') && existing.imageUrl.includes('.s3.')) {
           await deleteImage(existing.imageUrl);
         } else if (isLocalUploadUrl(existing.imageUrl)) {
           const filename = extractLocalUploadFilename(existing.imageUrl);
@@ -2571,21 +2571,6 @@ const propertyDocumentCreateSchema = z.object({
 // Multer middleware for document uploads - uses S3 when configured
 const documentUpload = createDocumentUploadMiddleware();
 
-const extractCloudinaryFields = (file) => {
-  if (!file) return {};
-
-  const secureUrl = file.secure_url || file.path || file.url;
-  const isCloudinary = typeof secureUrl === 'string' && secureUrl.includes('cloudinary.com');
-
-  if (!isCloudinary) return {};
-
-  return {
-    cloudinarySecureUrl: secureUrl,
-    cloudinaryPublicId: file.public_id || file.filename || null,
-    cloudinaryResourceType: file.resource_type || null,
-    cloudinaryFormat: file.format || null,
-  };
-};
 
 /**
  * Get unit IDs where the user is an active tenant within a property
@@ -2811,47 +2796,6 @@ const resolveDocumentUrl = (fileUrl, req) => {
   return `${host}${normalised}`;
 };
 
-const buildCloudinaryDownloadUrl = (cloudUrl, fileName) => {
-  if (!cloudUrl || !cloudUrl.includes('cloudinary.com')) return cloudUrl;
-
-  const sanitisedName = (fileName || 'document').replace(/[^a-zA-Z0-9._-]/g, '_');
-
-  if (cloudUrl.includes('/upload/fl_attachment')) return cloudUrl;
-
-  return cloudUrl.replace(/\/upload\//, `/upload/fl_attachment:${encodeURIComponent(sanitisedName)}/`);
-};
-
-const extractCloudinaryPublicIdFromUrl = (url) => {
-  if (typeof url !== 'string' || !url.includes('cloudinary.com')) return null;
-
-  const match = url.match(/\/upload\/(?:v\d+\/)?([^?#]+)/);
-  if (!match?.[1]) return null;
-
-  return match[1];
-};
-
-const buildCloudinaryPreviewUrl = (document, secureUrl) => {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const hasCloudinary = (secureUrl && secureUrl.includes('cloudinary.com')) || document.cloudinaryPublicId;
-  if (!cloudName || !hasCloudinary) return null;
-
-  const isRawResource = document.cloudinaryResourceType === 'raw' || document.mimeType?.includes('pdf');
-  if (!isRawResource) return null;
-
-  const candidatePublicId = document.cloudinaryPublicId || extractCloudinaryPublicIdFromUrl(secureUrl);
-  if (!candidatePublicId) return null;
-
-  const publicId = candidatePublicId.replace(/^\/+/, '');
-  const hasExtension = /\.[^/.]+$/.test(publicId);
-  const inferredFormat = document.cloudinaryFormat || document.mimeType?.split('/')?.[1] || null;
-  const publicIdWithExtension = hasExtension
-    ? publicId
-    : inferredFormat
-      ? `${publicId}.${inferredFormat}`
-      : publicId;
-
-  return `https://res.cloudinary.com/${cloudName}/raw/upload/${publicIdWithExtension}`;
-};
 
 const buildDocumentPreviewData = (document, req) => {
   if (!document) return { previewUrl: null };
@@ -2878,7 +2822,7 @@ const withDocumentActionUrls = (document, req) => {
   return {
     ...document,
     ...previewData,
-    // Override previewUrl to use backend API endpoint instead of direct Cloudinary URL
+    // Override previewUrl to use backend API endpoint instead of direct S3 URL
     // This ensures authentication is maintained throughout the request chain
     previewUrl: `${baseDocumentPath}/preview`,
     downloadUrl: `${baseDocumentPath}/download`,
@@ -3064,7 +3008,7 @@ propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
       return sendError(res, 500, 'Document URL unavailable', ErrorCodes.FILE_UPLOAD_FAILED);
     }
 
-    // Stream content from Cloudinary instead of redirecting to avoid token loss
+    // Stream content from S3/external URL instead of redirecting to avoid token loss
     try {
       const response = await axios.get(previewData.previewUrl, {
         responseType: 'stream',
@@ -3082,7 +3026,7 @@ propertyDocumentsRouter.get('/:documentId/preview', async (req, res) => {
       // Stream the response
       response.data.pipe(res);
     } catch (streamError) {
-      console.error('Failed to stream document from Cloudinary:', streamError);
+      console.error('Failed to stream document:', streamError);
       return sendError(res, 500, 'Failed to fetch document', ErrorCodes.ERR_INTERNAL_SERVER);
     }
   } catch (error) {
@@ -3151,11 +3095,9 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
       return res.download(filePath, downloadName);
     }
 
-    // Cloudinary or external URLs - stream content instead of redirecting to avoid token loss
-    const downloadUrl = buildCloudinaryDownloadUrl(resolvedUrl, document.fileName);
-
+    // S3 or external URLs - stream content instead of redirecting to avoid token loss
     try {
-      const response = await axios.get(downloadUrl, {
+      const response = await axios.get(resolvedUrl, {
         responseType: 'stream',
         timeout: 30000, // 30 second timeout
       });
@@ -3171,7 +3113,7 @@ propertyDocumentsRouter.get('/:documentId/download', async (req, res) => {
       // Stream the response
       response.data.pipe(res);
     } catch (streamError) {
-      console.error('Failed to stream document from Cloudinary:', streamError);
+      console.error('Failed to stream document:', streamError);
       return sendError(res, 500, 'Failed to fetch document', ErrorCodes.ERR_INTERNAL_SERVER);
     }
   } catch (error) {
@@ -3302,7 +3244,7 @@ propertyDocumentsRouter.delete('/:documentId', requireRole('PROPERTY_MANAGER'), 
       return sendError(res, 404, 'Document not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
     }
 
-    // Clean up physical file from disk or Cloudinary BEFORE deleting DB record
+    // Clean up physical file from disk or S3 BEFORE deleting DB record
     // This prevents orphaned files if the file deletion fails
     if (document.fileUrl) {
       try {

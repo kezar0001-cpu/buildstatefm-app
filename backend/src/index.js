@@ -129,8 +129,8 @@ const contentSecurityPolicy = {
     scriptSrc: ["'self'"],
     imgSrc: ["'self'", "data:", "https:"],
     connectSrc: Array.from(connectSrc),
-    frameSrc: Array.from(connectSrc).concat('https://res.cloudinary.com'), // Allow iframes from API domains for document preview
-    childSrc: Array.from(connectSrc).concat('https://res.cloudinary.com'), // Fallback for frameSrc
+    frameSrc: Array.from(connectSrc), // Allow iframes from API domains for document preview
+    childSrc: Array.from(connectSrc), // Fallback for frameSrc
   },
 };
 

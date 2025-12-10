@@ -49,12 +49,10 @@ import { uploadPropertyDocument } from '../utils/uploadPropertyDocuments.js';
 const buildDirectPreviewUrl = (document) => {
   if (!document) return null;
 
-  // Prefer cloudinarySecureUrl for Cloudinary-hosted files
-  const url = document.cloudinarySecureUrl || document.fileUrl;
+  // Use fileUrl for S3-hosted files
+  const url = document.fileUrl;
   if (!url) return null;
 
-  // For Cloudinary URLs, use them directly
-  // Cloudinary automatically provides viewers for PDFs and images
   return url;
 };
 
@@ -333,7 +331,7 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
           )}
           {previewDocument && (
             <iframe
-              src={previewDocument.resolvedPreviewUrl || previewDocument.cloudinarySecureUrl || previewDocument.fileUrl}
+              src={previewDocument.resolvedPreviewUrl || previewDocument.fileUrl}
               title={previewDocument.fileName}
               style={{ width: '100%', height: '80vh', border: 'none' }}
               onError={() => setPreviewError('Preview not available in modal. Opened in new tab instead.')}

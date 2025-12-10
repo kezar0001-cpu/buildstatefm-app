@@ -41,7 +41,7 @@ export function resolveFileUrl(fileUrl) {
 
   const trimmedUrl = fileUrl.trim();
 
-  // If it's already an absolute URL (Cloudinary, etc.), return as-is
+  // If it's already an absolute URL (S3, etc.), return as-is
   if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
     return trimmedUrl;
   }
@@ -107,11 +107,9 @@ export function buildDocumentPreviewUrl(document) {
   if (!document) return '';
 
   // Prioritize backend API endpoint (previewUrl) to maintain authentication
-  // Direct Cloudinary URLs (cloudinarySecureUrl) bypass auth and cause 401 errors
   const previewCandidates = [
     document.previewUrl,
     document.rawPreviewUrl,
-    document.cloudinarySecureUrl,
     document.fileUrl,
   ].filter(Boolean);
 
@@ -136,74 +134,19 @@ export function buildDocumentDownloadUrl(document) {
   }
 
   if (document.fileUrl) {
-    const resolved = resolveFileUrl(document.fileUrl);
-    return resolved.includes('cloudinary.com')
-      ? addCloudinaryDownloadFlags(resolved, document.fileName)
-      : resolved;
+    return resolveFileUrl(document.fileUrl);
   }
 
   return '';
 }
 
-/**
- * Transform a cloud storage URL to add download flags if needed
- * For S3: Uses Content-Disposition via query params or relies on backend
- * For legacy Cloudinary: Adds fl_attachment flag (backwards compatibility)
- *
- * @param {string} fileUrl - The cloud storage URL
- * @param {string} fileName - The filename to use for download
- * @returns {string} The transformed URL with download flags
- */
-export function addCloudinaryDownloadFlags(fileUrl, fileName) {
-  if (!fileUrl) {
-    return fileUrl;
-  }
-
-  // S3 URLs - rely on backend to set Content-Disposition headers
-  // We don't need to transform S3 URLs as the backend handles this
-  if (fileUrl.includes('.amazonaws.com') || fileUrl.includes('cloudfront.net')) {
-    return fileUrl;
-  }
-
-  // Legacy Cloudinary support (for backwards compatibility)
-  if (fileUrl.includes('cloudinary.com')) {
-    try {
-      // Sanitize filename for URL (remove special characters)
-      const sanitizedFileName = fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
-
-      // Check if URL already has flags
-      if (fileUrl.includes('/upload/fl_')) {
-        return fileUrl;
-      }
-
-      // Insert fl_attachment flag after /upload/
-      const transformedUrl = fileUrl.replace(
-        /\/upload\//,
-        `/upload/fl_attachment:${encodeURIComponent(sanitizedFileName)}/`
-      );
-
-      console.log('[FileUtils] Transformed Cloudinary URL for download:', {
-        original: fileUrl,
-        transformed: transformedUrl,
-        fileName: sanitizedFileName,
-      });
-
-      return transformedUrl;
-    } catch (error) {
-      console.error('[FileUtils] Error transforming Cloudinary URL:', error);
-      return fileUrl;
-    }
-  }
-
-  return fileUrl;
-}
 
 /**
  * Download a file by creating a temporary anchor element and clicking it
  * This works better than window.open() for actual downloads
  *
  * For API endpoints requiring authentication, fetches the file with credentials
- * and creates a blob URL to download. For public URLs (Cloudinary, etc.),
+ * and creates a blob URL to download. For public URLs (S3, etc.),
  * uses direct anchor element download.
  *
  * @param {string} fileUrl - The URL of the file to download
@@ -214,10 +157,7 @@ export async function downloadFile(fileUrl, fileName, options = {}) {
 
   const resolvedUrl = skipResolution ? fileUrl : resolveFileUrl(fileUrl);
 
-  // For Cloudinary URLs, add download flags to ensure proper filename unless caller opts out
-  const downloadUrl = !skipDownloadTransform && resolvedUrl.includes('cloudinary.com')
-    ? addCloudinaryDownloadFlags(resolvedUrl, fileName)
-    : resolvedUrl;
+  const downloadUrl = resolvedUrl;
 
   // Check if this is an API endpoint that requires authentication
   const isApiEndpoint = downloadUrl.includes('/api/') ||
@@ -254,7 +194,7 @@ export async function downloadFile(fileUrl, fileName, options = {}) {
       throw error;
     }
   } else {
-    // For public URLs (Cloudinary, etc.), use direct download
+    // For public URLs (S3, etc.), use direct download
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = fileName || 'download';

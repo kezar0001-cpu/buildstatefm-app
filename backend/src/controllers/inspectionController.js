@@ -53,13 +53,8 @@ const rejectSchema = z.object({
 });
 
 // Access Control Helper (Internal)
-function isAdmin(user) {
-  return user?.role === ROLE_MANAGER;
-}
-
 function buildAccessWhere(user) {
   if (!user) return undefined;
-  if (isAdmin(user)) return undefined;
 
   if (user.role === ROLE_MANAGER) {
     if (!user.managedPropertyIds?.length) return { propertyId: { in: ['__none__'] } };

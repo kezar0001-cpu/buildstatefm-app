@@ -91,7 +91,7 @@ Replace the old `PropertyPhotoUploader` with `PropertyImageManager`:
 The API is almost identical! The new component handles:
 - File selection (drag-and-drop + browse)
 - Client-side compression
-- Upload to Cloudinary
+- Upload to AWS S3
 - Optimistic UI updates
 - Image reordering
 - Cover photo selection
@@ -121,14 +121,14 @@ High-level component that combines everything. **Use this in most cases.**
 (
   images: [
     {
-      imageUrl: 'https://res.cloudinary.com/...',
+      imageUrl: 'https://your-bucket.s3.region.amazonaws.com/...',
       caption: 'Living room',
       isPrimary: true,
       order: 0
     },
     // ... more images
   ],
-  coverUrl: 'https://res.cloudinary.com/...'
+  coverUrl: 'https://your-bucket.s3.region.amazonaws.com/...'
 )
 ```
 
@@ -247,7 +247,7 @@ const imagesToSubmit = getCompletedImages();
   id: string,                    // Unique ID
   file: File,                    // Original file
   localPreview: string,          // Data URL for optimistic UI
-  remoteUrl: string,             // Cloudinary URL (after upload)
+  remoteUrl: string,             // S3 URL (after upload)
   status: 'pending' | 'uploading' | 'complete' | 'error',
   progress: number,              // 0-100
   error: string | null,          // Error message if failed
