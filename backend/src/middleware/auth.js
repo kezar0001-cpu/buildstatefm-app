@@ -371,3 +371,9 @@ export const requireUsage = (limitType, getCurrentUsageFn) => {
     }
   };
 };
+
+/**
+ * Middleware to require ADMIN role
+ * Convenience wrapper around requireRole for admin-only endpoints
+ */
+export const requireAdmin = requireRole('ADMIN');

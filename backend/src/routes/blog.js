@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAdmin, logAdminAction } from '../middleware/adminAuth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import validate from '../middleware/validate.js';
 import blogAutomationService from '../services/blogAutomationService.js';
@@ -316,7 +317,7 @@ router.get('/tags', async (req, res) => {
  * GET /api/blog/admin/posts
  * Get all blog posts (admin only)
  */
-router.get('/admin/posts', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.get('/admin/posts', requireAdmin, logAdminAction('view_all_posts'), async (req, res) => {
   try {
     const {
       page = 1,

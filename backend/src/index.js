@@ -233,6 +233,7 @@ import invitesRoutes from './routes/invites.js';
 import notificationsRoutes from './routes/notifications.js';
 import searchRoutes from './routes/search.js';
 import blogRoutes from './routes/blog.js';
+import adminRoutes from './routes/admin.js';
 
 // ===================================================================
 //
@@ -272,7 +273,7 @@ app.use('/api/invites', invitesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/blog', blogRoutes);
-
+app.use('/api/admin', adminRoutes);
 
 // ---- Health, Root, 404, Error Handler, and Shutdown logic
 app.get('/health', async (_req, res) => {
