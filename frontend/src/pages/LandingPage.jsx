@@ -1726,18 +1726,19 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
             {/* Features */}
             <List dense sx={{ py: 0 }}>
               {(isMobile && !showFeatures ? tier.features.slice(0, 5) : tier.features).map((feature, index) => (
-                <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 32 }}>
+                <ListItem key={index} sx={{ px: 0, py: { xs: 0.25, md: 0.5 } }}>
+                  <ListItemIcon sx={{ minWidth: { xs: 28, md: 32 } }}>
                     {feature.included ? (
-                      <CheckCircleIcon color="success" fontSize="small" />
+                      <CheckCircleIcon color="success" sx={{ fontSize: { xs: 18, md: 20 } }} />
                     ) : (
-                      <CloseIcon color="disabled" fontSize="small" />
+                      <CloseIcon color="disabled" sx={{ fontSize: { xs: 18, md: 20 } }} />
                     )}
                   </ListItemIcon>
                   <ListItemText
                     primary={feature.text}
                     primaryTypographyProps={{
                       variant: 'body2',
+                      fontSize: { xs: '0.8rem', md: '0.875rem' },
                       color: feature.included ? 'text.primary' : 'text.disabled',
                     }}
                   />
@@ -1745,20 +1746,20 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
               ))}
             </List>
             {isMobile && tier.features.length > 5 && (
-              <Box sx={{ textAlign: 'center', mt: 1 }}>
+              <Box sx={{ textAlign: 'center', mt: 0.5 }}>
                 <Button
                   size="small"
                   color="primary"
                   onClick={() => setShowFeatures((prev) => !prev)}
-                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem' }}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}
                 >
-                  {showFeatures ? 'Hide features' : 'View all features'}
+                  {showFeatures ? 'Hide features' : `View all ${tier.features.length} features`}
                 </Button>
               </Box>
             )}
 
             {/* CTA Button */}
-            <Box sx={{ mt: 'auto', pt: 2 }}>
+            <Box sx={{ mt: 'auto', pt: { xs: 1.5, md: 2 } }}>
               {tier.highlighted ? (
                 <GradientButton
                   size="large"
@@ -1766,8 +1767,8 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
                   onClick={() => onSelectPlan(tier.id)}
                   endIcon={<ArrowForwardIcon />}
                   sx={{
-                    py: 1.5,
-                    fontSize: '1rem',
+                    py: { xs: 1.25, md: 1.5 },
+                    fontSize: { xs: '0.9rem', md: '1rem' },
                     fontWeight: 600,
                   }}
                 >
@@ -1781,8 +1782,8 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
                   fullWidth
                   onClick={() => onSelectPlan(tier.id)}
                   sx={{
-                    py: 1.5,
-                    fontSize: '1rem',
+                    py: { xs: 1.25, md: 1.5 },
+                    fontSize: { xs: '0.9rem', md: '1rem' },
                     fontWeight: 600,
                     textTransform: 'none',
                     borderWidth: 2,
