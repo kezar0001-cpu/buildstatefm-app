@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useCurrentUser } from '../context/UserContext.jsx';
 import {
   Box,
   Container,
@@ -37,7 +38,8 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
-  Tooltip
+  Tooltip,
+  ListItemIcon
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -55,6 +57,9 @@ import {
   Star as StarIcon,
   People as PeopleIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Close as CloseIcon,
+  Business as BusinessIcon,
+  RocketLaunch as RocketLaunchIcon,
   Add as AddIcon,
   Apartment as ApartmentIcon,
   LocationOn as LocationIcon,
@@ -717,7 +722,7 @@ const Navbar = () => {
   const navLinks = [
     { label: 'Features', path: '#features' },
     { label: 'How It Works', path: '#how-it-works' },
-    { label: 'Pricing', path: '/pricing' },
+    { label: 'Pricing', path: '#pricing' },
     { label: 'Blog', path: '/blog' },
   ];
 
@@ -1475,6 +1480,426 @@ const Testimonials = () => {
   );
 };
 
+// --- Pricing Section ---
+
+const PRICING_TIERS = [
+  {
+    id: 'BASIC',
+    name: 'Basic',
+    price: 29,
+    yearlyPrice: 290,
+    description: 'Perfect for individual property managers getting started',
+    icon: RocketLaunchIcon,
+    features: [
+      { text: 'Up to 10 properties', included: true },
+      { text: 'Unlimited units', included: true },
+      { text: 'Basic inspections', included: true },
+      { text: 'Job management', included: true },
+      { text: 'Service requests', included: true },
+      { text: '1 property manager', included: true },
+      { text: 'Email support', included: true },
+      { text: 'Mobile access', included: true },
+      { text: 'Maintenance plans & scheduling', included: false },
+      { text: 'Analytics dashboard', included: false },
+      { text: 'Recurring inspections', included: false },
+      { text: 'Custom inspection templates', included: false },
+    ],
+    highlighted: false,
+  },
+  {
+    id: 'PROFESSIONAL',
+    name: 'Professional',
+    price: 79,
+    yearlyPrice: 790,
+    description: 'For growing teams managing multiple properties',
+    icon: StarIcon,
+    features: [
+      { text: 'Up to 50 properties', included: true },
+      { text: 'Unlimited units', included: true },
+      { text: 'Advanced inspections with templates', included: true },
+      { text: 'Job management', included: true },
+      { text: 'Service requests', included: true },
+      { text: 'Up to 5 team members', included: true },
+      { text: 'Priority email support', included: true },
+      { text: 'Mobile access', included: true },
+      { text: 'Maintenance plans & scheduling', included: true },
+      { text: 'Analytics dashboard', included: true },
+      { text: 'Recurring inspections', included: true },
+      { text: 'Technician & owner invites', included: true },
+    ],
+    highlighted: true,
+  },
+  {
+    id: 'ENTERPRISE',
+    name: 'Enterprise',
+    price: 149,
+    yearlyPrice: 1490,
+    description: 'For large organizations with complex needs',
+    icon: BusinessIcon,
+    features: [
+      { text: 'Unlimited properties', included: true },
+      { text: 'Unlimited units', included: true },
+      { text: 'Advanced inspections with templates', included: true },
+      { text: 'Job management', included: true },
+      { text: 'Service requests', included: true },
+      { text: 'Unlimited team members', included: true },
+      { text: 'Dedicated support', included: true },
+      { text: 'Mobile access', included: true },
+      { text: 'Maintenance plans & scheduling', included: true },
+      { text: 'Advanced analytics & reporting', included: true },
+      { text: 'Custom inspection templates', included: true },
+      { text: 'API access', included: true },
+    ],
+    highlighted: false,
+  },
+];
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
+  const Icon = tier.icon;
+  const price = tier.price;
+
+  return (
+    <FadeIn delay={tier.highlighted ? 0.2 : 0.1}>
+      <Card
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          border: tier.highlighted ? '2px solid' : '1px solid',
+          borderColor: tier.highlighted ? 'primary.main' : 'divider',
+          boxShadow: tier.highlighted ? 6 : 1,
+          borderRadius: 3,
+          bgcolor: 'white',
+          overflow: 'visible',
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            boxShadow: tier.highlighted ? 8 : 3,
+            transform: 'translateY(-4px)',
+            borderColor: tier.highlighted ? 'primary.main' : 'primary.light',
+          },
+        }}
+      >
+        {tier.highlighted && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 2,
+            }}
+          >
+            <Chip
+              label="MOST POPULAR"
+              color="primary"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                px: 2,
+                py: 0.5,
+                boxShadow: 2,
+              }}
+            />
+          </Box>
+        )}
+        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 4, pt: tier.highlighted ? 6 : 4 }}>
+          <Stack spacing={3} sx={{ flexGrow: 1 }}>
+            {/* Header */}
+            <Box sx={{ textAlign: 'center' }}>
+              <Box
+                sx={{
+                  mb: 2,
+                  width: 64,
+                  height: 64,
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  mx: 'auto',
+                  transition: 'transform 0.3s',
+                  '&:hover': {
+                    transform: 'rotate(5deg) scale(1.05)'
+                  }
+                }}
+              >
+                <Icon sx={{ fontSize: 32, color: 'white' }} />
+              </Box>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                {tier.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.7 }}>
+                {tier.description}
+              </Typography>
+            </Box>
+
+            {/* Pricing */}
+            <Box sx={{ textAlign: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                  {formatCurrency(price)}
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  /month
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Billed monthly
+              </Typography>
+            </Box>
+
+            <Divider />
+
+            {/* Features */}
+            <List dense sx={{ py: 0 }}>
+              {tier.features.map((feature, index) => (
+                <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    {feature.included ? (
+                      <CheckCircleIcon color="success" fontSize="small" />
+                    ) : (
+                      <CloseIcon color="disabled" fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={feature.text}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      color: feature.included ? 'text.primary' : 'text.disabled',
+                    }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+
+            {/* CTA Button */}
+            <Box sx={{ mt: 'auto', pt: 2 }}>
+              {tier.highlighted ? (
+                <GradientButton
+                  size="large"
+                  fullWidth
+                  onClick={() => onSelectPlan(tier.id)}
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{
+                    py: 1.5,
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {isAuthenticated ? 'Start Trial Today' : 'Start Free Trial'}
+                </GradientButton>
+              ) : (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  size="large"
+                  fullWidth
+                  onClick={() => onSelectPlan(tier.id)}
+                  sx={{
+                    py: 1.5,
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderWidth: 2,
+                    borderRadius: 2,
+                    '&:hover': {
+                      borderWidth: 2,
+                      bgcolor: 'rgba(185, 28, 28, 0.04)'
+                    }
+                  }}
+                >
+                  {isAuthenticated ? 'Start Trial Today' : 'Start Free Trial'}
+                </Button>
+              )}
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textAlign: 'center', display: 'block', mt: 1 }}
+              >
+                14-day free trial • No credit card required
+              </Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    </FadeIn>
+  );
+};
+
+const Pricing = () => {
+  const navigate = useNavigate();
+  const { user } = useCurrentUser();
+
+  const handleSelectPlan = (planId) => {
+    if (user) {
+      navigate(`/subscriptions?plan=${planId}`);
+    } else {
+      navigate(`/signup?plan=${planId}`);
+    }
+  };
+
+  return (
+    <Box
+      id="pricing"
+      sx={{
+        py: { xs: 8, md: 12 },
+        background: 'linear-gradient(180deg, #ffffff 0%, #fff7f2 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Decorative gradient blobs */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: -100,
+          right: -100,
+          width: 400,
+          height: 400,
+          background: 'radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%)',
+          borderRadius: '50%',
+          pointerEvents: 'none'
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: -100,
+          left: -100,
+          width: 400,
+          height: 400,
+          background: 'radial-gradient(circle, rgba(185, 28, 28, 0.08) 0%, transparent 70%)',
+          borderRadius: '50%',
+          pointerEvents: 'none'
+        }}
+      />
+
+      <Container maxWidth="lg" sx={{ maxWidth: 1240, position: 'relative' }}>
+        <Stack spacing={{ xs: 4, sm: 5, md: 6 }}>
+          {/* Header */}
+          <FadeIn>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography
+                variant="overline"
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                  letterSpacing: '0.1em',
+                  fontSize: '0.875rem'
+                }}
+              >
+                PRICING
+              </Typography>
+              <Typography
+                variant="h3"
+                sx={{
+                  fontWeight: 800,
+                  mb: 2,
+                  mt: 1,
+                  fontSize: { xs: '2rem', md: '2.5rem' },
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                Choose Your Plan
+              </Typography>
+              <Typography
+                variant="h6"
+                color="text.secondary"
+                sx={{
+                  maxWidth: 700,
+                  mx: 'auto',
+                  lineHeight: 1.7,
+                  fontWeight: 400,
+                  fontSize: { xs: '1rem', md: '1.2rem' }
+                }}
+              >
+                Start with a 14-day free trial. No credit card required. Cancel anytime.
+              </Typography>
+            </Box>
+          </FadeIn>
+
+          {/* Pricing Cards */}
+          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="stretch" sx={{ pt: 2 }}>
+            {PRICING_TIERS.map((tier) => (
+              <Grid item xs={12} sm={12} md={4} key={tier.id}>
+                <PricingCard
+                  tier={tier}
+                  onSelectPlan={handleSelectPlan}
+                  isAuthenticated={!!user}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* FAQ Section */}
+          <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'grey.50', borderRadius: 3, mt: { xs: 4, md: 6 } }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
+              Frequently Asked Questions
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Do I need a credit card for the free trial?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No! You can start your 14-day free trial without entering any payment information.
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Can I change plans later?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Yes! You can upgrade or downgrade your plan at any time.
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    What happens after my trial ends?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    You'll need to select a paid plan to continue. Your data will be preserved.
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Can I cancel anytime?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Absolutely! Cancel anytime and retain access until the end of your billing period.
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Stack>
+      </Container>
+    </Box>
+  );
+};
+
 const CTA = () => (
   <Box
     sx={{
@@ -1793,6 +2218,7 @@ const LandingPage = () => {
       <Features />
       <ImageShowcase />
       <Testimonials />
+      <Pricing />
       <CTA />
       <Footer />
     </Box>
