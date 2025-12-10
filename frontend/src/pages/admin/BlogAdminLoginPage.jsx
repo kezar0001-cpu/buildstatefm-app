@@ -63,8 +63,8 @@ export default function BlogAdminLoginPage() {
       localStorage.setItem('auth_token', payload.token);
       setCurrentUser(payload.user);
 
-      // Redirect to blog admin dashboard
-      navigate('/admin/blog');
+      // Redirect to admin dashboard
+      navigate('/admin/dashboard');
     } catch (err) {
       const msg =
         err?.response?.data?.message ||

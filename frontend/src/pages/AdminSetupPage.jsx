@@ -103,8 +103,8 @@ export default function AdminSetupPage() {
         saveAuthToken(response.data.accessToken);
         setCurrentUser(response.data.user);
 
-        // Redirect to blog admin
-        navigate('/admin/blog');
+        // Redirect to admin dashboard
+        navigate('/admin/dashboard');
       }
     } catch (err) {
       const message = err.response?.data?.message || 'Setup failed. Please try again.';

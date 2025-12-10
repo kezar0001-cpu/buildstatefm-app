@@ -13,6 +13,7 @@ import {
 import GlobalGuard from './components/GlobalGuard.jsx';
 import AuthGate from './authGate';
 import ProtectedLayout from './components/ProtectedLayout';
+import AdminLayout from './components/AdminLayout';
 import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
 import * as Sentry from '@sentry/react';
@@ -392,6 +393,9 @@ const BlogPage = lazy(() => import('./pages/BlogPage.jsx'));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage.jsx'));
 const AdminSetupPage = lazy(() => import('./pages/AdminSetupPage.jsx'));
 const BlogAdminLoginPage = lazy(() => import('./pages/admin/BlogAdminLoginPage.jsx'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage.jsx'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage.jsx'));
 const BlogAdminPage = lazy(() => import('./pages/admin/BlogAdminPage.jsx'));
 const BlogPostEditorPage = lazy(() => import('./pages/admin/BlogPostEditorPage.jsx'));
 const CategoryEditorPage = lazy(() => import('./pages/admin/CategoryEditorPage.jsx'));
@@ -481,11 +485,14 @@ export default function App() {
           {/* Blog Admin Login */}
           <Route path="/admin/blog/login" element={<BlogAdminLoginPage />} />
 
-          {/* Blog Admin */}
-          <Route path="/admin/blog" element={<AuthGate><ProtectedLayout><BlogAdminPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/admin/blog/posts/:id" element={<AuthGate><ProtectedLayout><BlogPostEditorPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/admin/blog/categories/:id" element={<AuthGate><ProtectedLayout><CategoryEditorPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/admin/blog/tags/:id" element={<AuthGate><ProtectedLayout><TagEditorPage /></ProtectedLayout></AuthGate>} />
+          {/* Admin Panel - Dedicated admin routes with AdminLayout */}
+          <Route path="/admin/dashboard" element={<AuthGate><AdminLayout><AdminDashboard /></AdminLayout></AuthGate>} />
+          <Route path="/admin/users" element={<AuthGate><AdminLayout><AdminUsersPage /></AdminLayout></AuthGate>} />
+          <Route path="/admin/analytics" element={<AuthGate><AdminLayout><AdminAnalyticsPage /></AdminLayout></AuthGate>} />
+          <Route path="/admin/blog" element={<AuthGate><AdminLayout><BlogAdminPage /></AdminLayout></AuthGate>} />
+          <Route path="/admin/blog/posts/:id" element={<AuthGate><AdminLayout><BlogPostEditorPage /></AdminLayout></AuthGate>} />
+          <Route path="/admin/blog/categories/:id" element={<AuthGate><AdminLayout><CategoryEditorPage /></AdminLayout></AuthGate>} />
+          <Route path="/admin/blog/tags/:id" element={<AuthGate><AdminLayout><TagEditorPage /></AdminLayout></AuthGate>} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<AuthGate><ProtectedLayout><Dashboard /></ProtectedLayout></AuthGate>} />
