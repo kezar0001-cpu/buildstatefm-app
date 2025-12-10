@@ -875,7 +875,6 @@ const Hero = () => (
     >
       <Box
         component="video"
-        src="https://www.pexels.com/video/person-typing-on-a-laptop-7597602/"
         autoPlay
         loop
         muted
@@ -884,14 +883,17 @@ const Hero = () => (
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          opacity: 0.6
+          opacity: 0.15
         }}
-      />
+      >
+        <source src="https://cdn.coverr.co/videos/coverr-modern-office-workspace-4166/1080p.mp4" type="video/mp4" />
+        <source src="https://cdn.coverr.co/videos/coverr-typing-on-laptop-keyboard-4165/1080p.mp4" type="video/mp4" />
+      </Box>
       <Box
         sx={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(90deg, rgba(255,247,242,0.96) 0%, rgba(255,247,242,0.9) 55%, rgba(0,0,0,0.25) 100%)'
+          background: 'linear-gradient(90deg, rgba(255,247,242,0.98) 0%, rgba(255,247,242,0.92) 55%, rgba(255,247,242,0.85) 100%)'
         }}
       />
     </Box>
@@ -1633,6 +1635,8 @@ const formatCurrency = (amount) => {
 const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
   const Icon = tier.icon;
   const price = tier.price;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [showFeatures, setShowFeatures] = useState(false);
 
   return (
@@ -1650,8 +1654,8 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
           bgcolor: 'white',
           overflow: 'visible',
           transition: 'all 0.3s ease-in-out',
-          maxWidth: { xs: 420, sm: 440, md: 'none' },
-          mx: { xs: 'auto', md: 0 },
+          maxWidth: { xs: 400, sm: 420, md: 'none' },
+          mx: 'auto',
           '&:hover': {
             boxShadow: tier.highlighted ? 8 : 3,
             transform: 'translateY(-4px)',
@@ -1741,7 +1745,7 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
 
             {/* Features */}
             <List dense sx={{ py: 0 }}>
-              {(showFeatures ? tier.features : tier.features.slice(0, 5)).map((feature, index) => (
+              {(isMobile && !showFeatures ? tier.features.slice(0, 5) : tier.features).map((feature, index) => (
                 <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     {feature.included ? (
@@ -1760,7 +1764,7 @@ const PricingCard = ({ tier, onSelectPlan, isAuthenticated }) => {
                 </ListItem>
               ))}
             </List>
-            {tier.features.length > 5 && (
+            {isMobile && tier.features.length > 5 && (
               <Box sx={{ textAlign: 'center', mt: 1 }}>
                 <Button
                   size="small"

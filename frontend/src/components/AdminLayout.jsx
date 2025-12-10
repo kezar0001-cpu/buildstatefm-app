@@ -35,8 +35,8 @@ import {
   AutoAwesome as AutoAwesomeIcon
 } from '@mui/icons-material';
 import { getCurrentUser, removeAuthToken } from '../lib/auth';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { ThemeWrapper } from '../contexts/ThemeContext';
+import { ThemeProvider } from '../context/ThemeContext';
+import ThemeWrapper from './ThemeWrapper';
 
 const DRAWER_WIDTH = 260;
 
