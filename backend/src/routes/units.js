@@ -161,7 +161,8 @@ const tenantListArgs = {
 
 const ownerIncludeSelection = {
   include: {
-    owner: {
+    // Prisma relation on UnitOwner -> User is named `User`
+    User: {
       select: {
         id: true,
         firstName: true,
@@ -289,13 +290,14 @@ const toPublicOwner = (owner) => {
     endDate: owner.endDate ?? null,
     createdAt: owner.createdAt,
     updatedAt: owner.updatedAt,
-    owner: owner.owner
+    // Map through the related User record
+    owner: owner.User
       ? {
-          id: owner.owner.id,
-          firstName: owner.owner.firstName,
-          lastName: owner.owner.lastName,
-          email: owner.owner.email,
-          phone: owner.owner.phone,
+          id: owner.User.id,
+          firstName: owner.User.firstName,
+          lastName: owner.User.lastName,
+          email: owner.User.email,
+          phone: owner.User.phone,
         }
       : null,
   };
