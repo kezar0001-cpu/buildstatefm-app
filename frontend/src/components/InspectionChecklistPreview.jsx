@@ -24,8 +24,10 @@ import {
   ListAlt as ItemsIcon,
 } from '@mui/icons-material';
 
-export default function InspectionChecklistPreview({ inspection }) {
-  const rooms = inspection?.rooms || [];
+export default function InspectionChecklistPreview({ inspection, rooms: roomsProp, issues: issuesProp }) {
+  // Prefer live rooms/issues passed in from conduct hook; fall back to inspection payload for compatibility
+  const rooms = roomsProp || inspection?.rooms || [];
+  const issues = issuesProp || [];
 
   // Calculate total checklist items (handle both camelCase and PascalCase)
   const totalItems = rooms.reduce((sum, room) => {
@@ -33,13 +35,7 @@ export default function InspectionChecklistPreview({ inspection }) {
     return sum + (items.length || 0);
   }, 0);
 
-  // Estimate completion time (2 minutes per item on average)
-  const estimatedMinutes = Math.max(totalItems * 2, 15); // Minimum 15 minutes
-  const hours = Math.floor(estimatedMinutes / 60);
-  const minutes = estimatedMinutes % 60;
-  const estimatedTime = hours > 0
-    ? `${hours}h ${minutes}m`
-    : `${minutes} minutes`;
+  const totalIssues = issues.length || 0;
 
   // Show message if there are rooms but no checklist items
   if (rooms.length > 0 && totalItems === 0) {
@@ -82,7 +78,7 @@ export default function InspectionChecklistPreview({ inspection }) {
             />
             <Chip
               icon={<TimeIcon />}
-              label={`~${estimatedTime}`}
+              label={`${totalIssues} Issue${totalIssues !== 1 ? 's' : ''}`}
               color="info"
               variant="outlined"
             />
@@ -161,8 +157,6 @@ export default function InspectionChecklistPreview({ inspection }) {
           {/* Tips */}
           <Alert severity="info" icon={<TimeIcon />}>
             <Typography variant="body2">
-              <strong>Estimated time:</strong> {estimatedTime}
-              <br />
               Take photos and add notes as you go through each item.
             </Typography>
           </Alert>

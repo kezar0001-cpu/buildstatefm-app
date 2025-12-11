@@ -29,7 +29,15 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel, isMobile = fa
 
   const renderStep = () => {
     switch (activeStep) {
-      case 0: return <InspectionStepStart inspection={inspection} onStart={actions.startInspection} isMobile={isMobileView} />;
+      case 0: return (
+        <InspectionStepStart
+          inspection={inspection}
+          rooms={rooms}
+          issues={issues}
+          onStart={actions.startInspection}
+          isMobile={isMobileView}
+        />
+      );
       case 1: return <InspectionStepInspectRooms inspection={inspection} rooms={rooms} actions={actions} lastSaved={lastSaved} isMobile={isMobileView} />;
       case 2: return <InspectionStepReview inspection={inspection} rooms={rooms} issues={issues} onComplete={actions.completeInspection} isCompleting={actions.isCompleting} isMobile={isMobileView} />;
       default: return null;

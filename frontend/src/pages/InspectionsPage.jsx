@@ -1267,7 +1267,7 @@ const InspectionKanban = ({
   return (
     <Grid container spacing={2}>
       {columns.map((column) => (
-        <Grid item xs={12} sm={6} md={4} lg={2.4} key={column.id}>
+        <Grid item xs={12} md={6} lg={3} key={column.id}>
           <Paper
             sx={{
               p: 2,
