@@ -37,6 +37,7 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   Download as DownloadIcon,
   Photo as PhotoIcon,
+  Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -44,12 +45,13 @@ import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
-import InspectionAttachmentManager from '../components/InspectionAttachmentManager';
 import InspectionForm from '../components/InspectionForm';
 import InspectionApprovalCard from '../components/InspectionApprovalCard';
 import { CompleteInspectionDialog } from '../components/CompleteInspectionDialog';
 import { InspectionPhotoGalleryModal } from '../components/InspectionPhotoGalleryModal';
 import SkeletonDetail from '../components/SkeletonDetail';
+import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
+import RecommendationWizard from '../components/RecommendationWizard';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { formatDateTime } from '../utils/date';
 import { STATUS_COLOR, TYPE_COLOR } from '../constants/inspections';
@@ -75,6 +77,7 @@ export default function InspectionDetailPage() {
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
+  const [recommendationWizardOpen, setRecommendationWizardOpen] = useState(false);
 
   const [completeData, setCompleteData] = useState({ findings: '', notes: '', tags: [], autoCreateJobs: true, confirmJobCreation: false });
   const [previewJobs, setPreviewJobs] = useState([]);
@@ -428,24 +431,6 @@ export default function InspectionDetailPage() {
             </CardContent>
           </Card>
 
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6">Attachments</Typography>
-                {canManage && (
-                  <Typography variant="caption" color="text.secondary">
-                    Upload photos, videos, or documents as evidence
-                  </Typography>
-                )}
-              </Stack>
-              <InspectionAttachmentManager
-                inspectionId={inspection.id}
-                attachments={inspection.attachments || []}
-                canEdit={canManage}
-              />
-            </CardContent>
-          </Card>
-
           <Card>
             <CardContent>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
@@ -485,35 +470,21 @@ export default function InspectionDetailPage() {
                 <Stack spacing={1.5}>
                   {canManage && (
                     <Button
-                      variant="outlined"
-                      startIcon={<NotificationsActiveIcon />}
-                      onClick={() => {
-                        setReminderDialogOpen(true);
-                        setReminderForm((prev) => ({
-                          ...prev,
-                          recipients: inspection.assignedTo ? [inspection.assignedTo.id] : [],
-                        }));
-                      }}
+                      variant="contained"
+                      color="primary"
+                      startIcon={<LightbulbIcon />}
+                      onClick={() => setRecommendationWizardOpen(true)}
                     >
-                      Schedule reminder
+                      Create recommendations from issues
                     </Button>
                   )}
-                  {canManage && (
-                    <Button
-                      variant="outlined"
-                      startIcon={<AddTaskIcon />}
-                      onClick={() => {
-                        setJobForm((prev) => ({
-                          ...prev,
-                          title: `${inspection.title} follow-up`,
-                          description: inspection.findings || '',
-                        }));
-                        setJobDialogOpen(true);
-                      }}
-                    >
-                      Generate job from findings
-                    </Button>
-                  )}
+                  <Button
+                    variant="outlined"
+                    startIcon={<LightbulbIcon />}
+                    onClick={() => navigate('/recommendations')}
+                  >
+                    View all recommendations
+                  </Button>
                   <Button variant="text" onClick={() => navigate('/inspections')}>
                     Back to inspections
                   </Button>
@@ -701,18 +672,24 @@ export default function InspectionDetailPage() {
             variant="contained"
             startIcon={<AddTaskIcon />}
             onClick={handleJobSubmit}
-            disabled={jobMutation.isPending}
           >
             Create job
           </Button>
         </DialogActions>
       </Dialog>
 
+      <RecommendationWizard
+        open={recommendationWizardOpen}
+        onClose={() => setRecommendationWizardOpen(false)}
+        initialPropertyId={propertyId}
+        initialInspectionId={inspection.id}
+      />
+
       <InspectionPhotoGalleryModal
         open={photoGalleryOpen}
         onClose={() => setPhotoGalleryOpen(false)}
         inspection={inspection}
-        roomPhotos={inspection.rooms?.flatMap(room =>
+        roomPhotos={(inspection.rooms || []).flatMap(room =>
           (room.photos || []).map(photo => ({
             ...photo,
             roomName: room.name,
