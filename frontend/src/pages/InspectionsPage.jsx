@@ -598,6 +598,21 @@ const InspectionsPage = () => {
                     <VisibilityIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
+        {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+          <Tooltip title="Cancel inspection">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelInspection(inspection);
+              }}
+              aria-label={`Cancel ${inspection.title}`}
+            >
+              <CancelIcon />
+            </IconButton>
+          </Tooltip>
+        )}
                 <Tooltip title="Edit">
                   <IconButton
                     size="small"
@@ -1880,6 +1895,21 @@ const InspectionTable = ({
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+                    <Tooltip title="Cancel inspection">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelInspection(inspection);
+                        }}
+                        aria-label={`Cancel ${inspection.title}`}
+                      >
+                        <CancelIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   {inspection.status !== 'COMPLETED' && (
                     <Tooltip title="Edit">
                       <IconButton

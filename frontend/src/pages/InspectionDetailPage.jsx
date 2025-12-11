@@ -56,6 +56,7 @@ import {
   Photo as PhotoIcon,
   PictureAsPdf as PictureAsPdfIcon,
   PlayArrow as PlayArrowIcon,
+  Cancel as CancelIcon,
   ReportProblem as ReportProblemIcon,
   Room as RoomIcon,
   Warning as WarningIcon,
@@ -543,6 +544,18 @@ export default function InspectionDetailPage() {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.patch(`/inspections/${id}`, { status: 'CANCELLED' });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
+      navigate('/inspections');
+    },
+  });
+
   const handlePreviewJobs = () => {
     previewMutation.mutate({
       findings: completeData.findings,
@@ -634,6 +647,9 @@ export default function InspectionDetailPage() {
 
   const canComplete =
     canManage && inspection.status !== 'COMPLETED' && inspection.status !== 'CANCELLED';
+
+  const canCancel =
+    canManage && (inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS');
   const propertyId = normalizedInspection?.property?.id || normalizedInspection?.propertyId || null;
   const rooms = normalizedInspection?.rooms || [];
   const issues = normalizedInspection?.issues || [];
@@ -785,6 +801,18 @@ export default function InspectionDetailPage() {
                         onClick={() => navigate(`/inspections/${id}/conduct`)}
                       >
                         {inspection.status === 'IN_PROGRESS' ? 'Continue' : 'Start'}
+                      </Button>
+                    )}
+                    {canCancel && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="error"
+                        startIcon={<CancelIcon />}
+                        onClick={() => cancelMutation.mutate()}
+                        disabled={cancelMutation.isPending}
+                      >
+                        {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Inspection'}
                       </Button>
                     )}
                     {canComplete && (
@@ -1237,15 +1265,27 @@ export default function InspectionDetailPage() {
           <Stack direction="row" spacing={1}>
             {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') &&
               canManage && (
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<PlayArrowIcon />}
-                  onClick={() => navigate(`/inspections/${id}/conduct`)}
-                  sx={{ flex: 2 }}
-                >
-                  {inspection.status === 'IN_PROGRESS' ? 'Continue' : 'Start'}
-                </Button>
+                <>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<PlayArrowIcon />}
+                    onClick={() => navigate(`/inspections/${id}/conduct`)}
+                    sx={{ flex: 2 }}
+                  >
+                    {inspection.status === 'IN_PROGRESS' ? 'Continue' : 'Start'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<CancelIcon />}
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                    sx={{ flex: 2 }}
+                  >
+                    {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                  </Button>
+                </>
               )}
             {inspection.status === 'COMPLETED' && (
               <Button
