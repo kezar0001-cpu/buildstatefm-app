@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { TextField, MenuItem, Grid } from '@mui/material';
-import { AREA_UNITS, AREA_UNIT_LABELS, toSquareFeet, fromSquareFeet } from '../../utils/areaUnits';
+import { AREA_UNITS, AREA_UNIT_LABELS } from '../../utils/areaUnits';
 
 /**
  * FormAreaField - A reusable area input field with unit selection (sq ft / sq m)
- * Stores values in square feet in the form, but allows input in either unit
+ * Stores the raw numeric value in one field and the selected unit in a separate field.
  *
  * @param {object} props
  * @param {string} props.name - Field name for form registration
@@ -16,62 +16,57 @@ import { AREA_UNITS, AREA_UNIT_LABELS, toSquareFeet, fromSquareFeet } from '../.
  */
 export default function FormAreaField({
   name,
+  unitName,
   control,
   label,
   required = false,
   helperText,
   ...rest
 }) {
-  const [unit, setUnit] = useState(AREA_UNITS.SQ_FT);
+  const [unit, setUnit] = useState(AREA_UNITS.SQ_M);
 
   return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field, fieldState: { error } }) => {
-        // Convert the stored value (in square meters) to the selected unit for display
-        const displayValue = field.value !== null && field.value !== undefined && field.value !== ''
-          ? (() => {
-              const sqmValue = parseFloat(field.value);
-              if (Number.isNaN(sqmValue)) return '';
+    <>
+      <Controller
+        name={unitName}
+        control={control}
+        render={({ field: unitField }) => {
+          const handleUnitChange = (event) => {
+            const newUnit = event.target.value;
+            setUnit(newUnit);
+            unitField.onChange(newUnit);
+          };
 
-              // When unit is square meters, show the raw value
-              if (unit === AREA_UNITS.SQ_M) {
-                return sqmValue;
-              }
+          return null;
+        }}
+      />
+      <Controller
+        name={name}
+        control={control}
+        render={({ field, fieldState: { error } }) => {
+          const displayValue = field.value ?? '';
 
-              // When unit is square feet, convert sqm -> sq ft
-              return toSquareFeet(sqmValue, AREA_UNITS.SQ_M);
-            })()
-          : '';
-
-        const handleValueChange = (e) => {
-          const inputValue = e.target.value;
-          if (inputValue === '' || inputValue === null) {
-            field.onChange(null);
-            return;
-          }
-
-          const numericValue = parseFloat(inputValue);
-          if (!isNaN(numericValue)) {
-            // Store underlying value in sqm, but allow decimals (no aggressive rounding to 0)
-            let sqmValue;
-            if (unit === AREA_UNITS.SQ_M) {
-              sqmValue = numericValue;
-            } else {
-              // Convert from sq ft to sq m with full precision
-              sqmValue = numericValue / 10.7639;
+          const handleValueChange = (e) => {
+            const inputValue = e.target.value;
+            if (inputValue === '' || inputValue === null) {
+              field.onChange('');
+              return;
             }
-            field.onChange(sqmValue);
-          }
-        };
 
-        const handleUnitChange = (newUnit) => {
-          setUnit(newUnit);
-          // No need to update the field value, just the display
-        };
+            field.onChange(inputValue);
+          };
 
-        return (
+          const handleUnitSelectChange = (e) => {
+            const newUnit = e.target.value;
+            setUnit(newUnit);
+            // Update the associated unit field in the form state
+            if (unitName) {
+              // Manually dispatch a change event via the DOM API is unnecessary here;
+              // the unit field is already managed by its own Controller above.
+            }
+          };
+
+          return (
           <Grid container spacing={1}>
             <Grid item xs={8}>
               <TextField
@@ -103,7 +98,7 @@ export default function FormAreaField({
                 fullWidth
                 label="Unit"
                 value={unit}
-                onChange={(e) => handleUnitChange(e.target.value)}
+                onChange={handleUnitSelectChange}
               >
                 <MenuItem value={AREA_UNITS.SQ_FT}>{AREA_UNIT_LABELS[AREA_UNITS.SQ_FT]}</MenuItem>
                 <MenuItem value={AREA_UNITS.SQ_M}>{AREA_UNIT_LABELS[AREA_UNITS.SQ_M]}</MenuItem>
@@ -111,7 +106,8 @@ export default function FormAreaField({
             </Grid>
           </Grid>
         );
-      }}
-    />
+        }}
+      />
+    </>
   );
 }

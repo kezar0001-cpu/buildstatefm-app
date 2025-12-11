@@ -104,6 +104,7 @@ const PropertyBasicInfo = ({ control }) => (
     <Grid item xs={12} sm={4}>
       <FormAreaField
         name="totalArea"
+        unitName="totalAreaUnit"
         control={control}
         label="Total Area"
         helperText="Total property area"
@@ -112,6 +113,7 @@ const PropertyBasicInfo = ({ control }) => (
     <Grid item xs={12} sm={4}>
       <FormAreaField
         name="lotSize"
+        unitName="lotSizeUnit"
         control={control}
         label="Lot Size"
         helperText="Land area"
@@ -120,6 +122,7 @@ const PropertyBasicInfo = ({ control }) => (
     <Grid item xs={12} sm={4}>
       <FormAreaField
         name="buildingSize"
+        unitName="buildingSizeUnit"
         control={control}
         label="Building Size"
         helperText="Building footprint area"

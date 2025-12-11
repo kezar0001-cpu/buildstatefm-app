@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { TextField, MenuItem, Stack } from '@mui/material';
-import { AREA_UNITS, AREA_UNIT_LABELS, toSquareFeet, fromSquareFeet } from '../utils/areaUnits';
+import { AREA_UNITS, AREA_UNIT_LABELS } from '../utils/areaUnits';
 
 /**
  * AreaField - A reusable area input field with unit selection (sq ft / sq m)
@@ -10,8 +10,10 @@ import { AREA_UNITS, AREA_UNIT_LABELS, toSquareFeet, fromSquareFeet } from '../u
  * @param {object} props
  * @param {string} props.id - Input ID
  * @param {string} props.label - Field label (without unit suffix)
- * @param {string|number} props.value - Value in square feet
- * @param {function} props.onChange - Change handler that receives event with value in sq ft
+ * @param {string|number} props.value - Raw numeric value (no unit conversion)
+ * @param {string} props.unit - Selected unit (AREA_UNITS.SQ_FT or AREA_UNITS.SQ_M)
+ * @param {function} props.onChange - Change handler for the numeric value
+ * @param {function} props.onUnitChange - Change handler for the unit value
  * @param {boolean} [props.required] - Whether field is required
  * @param {boolean} [props.error] - Whether field has error
  * @param {string} [props.helperText] - Helper text
@@ -22,25 +24,14 @@ export default function AreaField({
   label,
   value,
   onChange,
+  unit,
+  onUnitChange,
   required = false,
   error = false,
   helperText,
   fullWidth = true,
   ...rest
 }) {
-  const [unit, setUnit] = useState(AREA_UNITS.SQ_FT);
-
-  // Fix: Convert the stored value (in sqm as integer) to the selected unit for display
-  const displayValue = value ? (() => {
-    const sqmValue = parseFloat(value);
-    if (unit === AREA_UNITS.SQ_M) {
-      return sqmValue;
-    } else {
-      // Convert from sqm to sq ft
-      return sqmValue * 10.7639;
-    }
-  })() : '';
-
   const handleValueChange = (e) => {
     const inputValue = e.target.value;
     if (inputValue === '' || inputValue === null) {
@@ -48,27 +39,14 @@ export default function AreaField({
       return;
     }
 
-    const numericValue = parseFloat(inputValue);
-    if (!isNaN(numericValue)) {
-      // Fix: Store as integer sqm (not sq ft) to avoid precision issues
-      // Convert input to sqm, then round to nearest integer
-      let sqmValue;
-      if (unit === AREA_UNITS.SQ_M) {
-        sqmValue = numericValue;
-      } else {
-        // Convert from sq ft to sq m
-        sqmValue = numericValue / 10.7639;
-      }
-      // Round to nearest integer
-      const integerSqm = Math.round(sqmValue);
-      onChange({ target: { value: integerSqm.toString() } });
-    }
+    onChange({ target: { value: inputValue } });
   };
 
   const handleUnitChange = (e) => {
     const newUnit = e.target.value;
-    setUnit(newUnit);
-    // No need to update the field value, just the display
+    if (onUnitChange) {
+      onUnitChange({ target: { value: newUnit } });
+    }
   };
 
   return (
@@ -80,7 +58,7 @@ export default function AreaField({
         label={label}
         required={required}
         type="number"
-        value={displayValue}
+        value={value ?? ''}
         onChange={handleValueChange}
         error={error}
         helperText={helperText}
@@ -93,7 +71,7 @@ export default function AreaField({
         select
         fullWidth
         label="Unit"
-        value={unit}
+        value={unit || AREA_UNITS.SQ_M}
         onChange={handleUnitChange}
         sx={{ flex: 1, minWidth: '120px' }}
       >

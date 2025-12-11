@@ -76,6 +76,7 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
         bedrooms: unit.bedrooms != null ? unit.bedrooms.toString() : '',
         bathrooms: unit.bathrooms != null ? unit.bathrooms.toString() : '',
         area: unit.area != null ? unit.area.toString() : '',
+        areaUnit: unit.areaUnit || 'sq_m',
         rentAmount: unit.rentAmount != null ? unit.rentAmount.toString() : '',
         status: unit.status || 'AVAILABLE',
         description: unit.description || '',
@@ -188,6 +189,7 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
       bedrooms: data.bedrooms,
       bathrooms: data.bathrooms,
       area: data.area,
+      areaUnit: data.areaUnit,
       rentAmount: data.rentAmount,
       status: data.status,
       description: data.description || null,
@@ -292,6 +294,7 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
             >
               <FormAreaField
                 name="area"
+                unitName="areaUnit"
                 control={control}
                 label="Area"
               />

@@ -69,6 +69,7 @@ const initialState = {
     propertyType: '',
     yearBuilt: '',
     totalArea: '',
+    totalAreaUnit: 'sq_m',
     status: 'ACTIVE',
     description: '',
     imageUrl: '',
@@ -79,6 +80,7 @@ const initialState = {
       bedrooms: '',
       bathrooms: '',
       area: '',
+      areaUnit: 'sq_m',
       rent: '',
     },
   ],
@@ -203,7 +205,7 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
       ...prev,
       units: [
         ...prev.units,
-        { label: '', bedrooms: '', bathrooms: '', area: '', rent: '' },
+        { label: '', bedrooms: '', bathrooms: '', area: '', areaUnit: 'sq_m', rent: '' },
       ],
     }));
   };
@@ -365,8 +367,8 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         country: basicInfo.country,
         propertyType: basicInfo.propertyType,
         yearBuilt: basicInfo.yearBuilt ? parseInt(basicInfo.yearBuilt, 10) : null,
-        // Fix: Convert totalArea to integer (sqm) - round to nearest integer
-        totalArea: basicInfo.totalArea ? Math.round(parseFloat(basicInfo.totalArea)) : null,
+        totalArea: basicInfo.totalArea ? parseFloat(basicInfo.totalArea) : null,
+        totalAreaUnit: basicInfo.totalAreaUnit,
         status: basicInfo.status,
         description: basicInfo.description.trim() || null,
         imageUrl: basicInfo.imageUrl.trim() || null,
@@ -379,8 +381,8 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
           unitNumber: unit.label.trim(),
           bedrooms: unit.bedrooms ? parseInt(unit.bedrooms, 10) : null,
           bathrooms: unit.bathrooms ? parseFloat(unit.bathrooms) : null,
-          // Fix: Convert area to integer (sqm) - round to nearest integer
-          area: unit.area ? Math.round(parseFloat(unit.area)) : null,
+          area: unit.area ? parseFloat(unit.area) : null,
+          areaUnit: unit.areaUnit || 'sq_m',
           rentAmount: unit.rent ? parseFloat(unit.rent) : null,
         }));
 
@@ -617,7 +619,9 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
           id="onboarding-property-total-area"
           label="Total Area"
           value={basicInfo.totalArea}
+          unit={basicInfo.totalAreaUnit}
           onChange={handleBasicInfoChange('totalArea')}
+          onUnitChange={handleBasicInfoChange('totalAreaUnit')}
           error={Boolean(basicInfoErrors.totalArea)}
           helperText={basicInfoErrors.totalArea}
         />
@@ -696,7 +700,9 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
                 id={`unit-${index}-area`}
                 label="Area"
                 value={unit.area}
+                unit={unit.areaUnit}
                 onChange={handleUnitChange(index, 'area')}
+                onUnitChange={handleUnitChange(index, 'areaUnit')}
               />
               <TextField
                 fullWidth
