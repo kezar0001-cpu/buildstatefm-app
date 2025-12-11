@@ -75,7 +75,14 @@ const SEVERITY_CONFIG = {
   LOW: { color: 'info', label: 'Low' },
 };
 
-function IssuePhotoUpload({ inspectionId, roomId, issueId, photos = [], onUploadComplete, isMobile }) {
+const STATUS_CONFIG = {
+  PENDING: { color: 'default', label: 'Pending' },
+  PASSED: { color: 'success', label: 'Passed' },
+  FAILED: { color: 'error', label: 'Failed' },
+  NA: { color: 'default', label: 'N/A' },
+};
+
+function IssuePhotoUpload({ inspectionId, roomId, checklistItemId, photos = [], onUploadComplete, isMobile }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   const queryClient = useQueryClient();
@@ -126,13 +133,14 @@ function IssuePhotoUpload({ inspectionId, roomId, issueId, photos = [], onUpload
         throw new Error('Failed to upload photos');
       }
 
-      // Link photos to the issue
+      // Link photos to the room (checklist items don't have direct photo relations)
+      // We store the checklistItemId in the caption for reference
       await Promise.all(
         uploadedUrls.map((url) =>
           apiClient.post(`/inspections/${inspectionId}/photos`, {
             roomId,
-            issueId,
             url,
+            caption: checklistItemId ? `Issue: ${checklistItemId}` : undefined,
           })
         )
       );
@@ -197,10 +205,12 @@ function IssuePhotoUpload({ inspectionId, roomId, issueId, photos = [], onUpload
   );
 }
 
-function IssueCard({ issue, inspectionId, roomId, onUpdate, isMobile }) {
+function IssueCard({ issue, inspectionId, roomId, roomPhotos = [], onUpdate, onEdit, onDelete, isMobile }) {
   const [expanded, setExpanded] = useState(false);
-  const severityConfig = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.MEDIUM;
-  const photos = issue.photos || [];
+  // Checklist items have status, not severity
+  const statusConfig = STATUS_CONFIG[issue.status] || STATUS_CONFIG.PENDING;
+  // Filter room photos that belong to this checklist item (stored in caption)
+  const photos = roomPhotos.filter((p) => p.caption?.includes(issue.id)) || [];
 
   return (
     <Paper
@@ -226,8 +236,8 @@ function IssueCard({ issue, inspectionId, roomId, onUpdate, isMobile }) {
             sx={{
               width: 36,
               height: 36,
-              bgcolor: `${severityConfig.color}.lighter`,
-              color: `${severityConfig.color}.main`,
+              bgcolor: issue.status === 'FAILED' ? 'error.lighter' : issue.status === 'PASSED' ? 'success.lighter' : 'grey.100',
+              color: issue.status === 'FAILED' ? 'error.main' : issue.status === 'PASSED' ? 'success.main' : 'grey.600',
             }}
           >
             <IssueIcon fontSize="small" />
@@ -239,9 +249,9 @@ function IssueCard({ issue, inspectionId, roomId, onUpdate, isMobile }) {
               {issue.description || issue.title}
             </Typography>
             <Chip
-              label={severityConfig.label}
+              label={statusConfig.label}
               size="small"
-              color={severityConfig.color}
+              color={statusConfig.color}
               variant="outlined"
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
@@ -252,9 +262,30 @@ function IssueCard({ issue, inspectionId, roomId, onUpdate, isMobile }) {
             </Typography>
           )}
         </Box>
-        <IconButton size="small">
-          {expanded ? <ExpandLessIcon /> : <CameraIcon color={photos.length > 0 ? 'primary' : 'action'} />}
-        </IconButton>
+        <Stack direction="row" spacing={0.5}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(issue);
+            }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(issue.id);
+            }}
+            color="error"
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small">
+            {expanded ? <ExpandLessIcon /> : <CameraIcon color={photos.length > 0 ? 'primary' : 'action'} />}
+          </IconButton>
+        </Stack>
       </Stack>
 
       <Collapse in={expanded}>
@@ -265,7 +296,7 @@ function IssueCard({ issue, inspectionId, roomId, onUpdate, isMobile }) {
           <IssuePhotoUpload
             inspectionId={inspectionId}
             roomId={roomId}
-            issueId={issue.id}
+            checklistItemId={issue.id}
             photos={photos}
             onUploadComplete={onUpdate}
             isMobile={isMobile}
@@ -281,12 +312,14 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
   const [description, setDescription] = useState(room.notes || '');
   const [generating, setGenerating] = useState(false);
   const [descriptionSaved, setDescriptionSaved] = useState(!!room.notes);
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState(null);
+  const [issueForm, setIssueForm] = useState({ description: '', status: 'PENDING', notes: '' });
   const queryClient = useQueryClient();
 
   const issues = room.checklistItems || room.InspectionChecklistItem || [];
-  const photos = room.photos || [];
-  const issuePhotos = issues.flatMap((i) => i.photos || []);
-  const totalPhotos = photos.length + issuePhotos.length;
+  const photos = room.photos || room.InspectionPhoto || [];
+  const totalPhotos = photos.length;
 
   const saveDescriptionMutation = useMutation({
     mutationFn: async (notes) => {
@@ -330,6 +363,66 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
     },
   });
 
+  // Add issue mutation
+  const addIssueMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await apiClient.post(
+        `/inspections/${inspection.id}/rooms/${room.id}/checklist`,
+        data
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Issue added');
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+      setIssueDialogOpen(false);
+      setIssueForm({ description: '', status: 'PENDING', notes: '' });
+      if (onUpdate) onUpdate();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to add issue');
+    },
+  });
+
+  // Update issue mutation
+  const updateIssueMutation = useMutation({
+    mutationFn: async ({ itemId, data }) => {
+      const response = await apiClient.patch(
+        `/inspections/${inspection.id}/rooms/${room.id}/checklist/${itemId}`,
+        data
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Issue updated');
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+      setIssueDialogOpen(false);
+      setEditingIssue(null);
+      setIssueForm({ description: '', status: 'PENDING', notes: '' });
+      if (onUpdate) onUpdate();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update issue');
+    },
+  });
+
+  // Delete issue mutation
+  const deleteIssueMutation = useMutation({
+    mutationFn: async (itemId) => {
+      await apiClient.delete(
+        `/inspections/${inspection.id}/rooms/${room.id}/checklist/${itemId}`
+      );
+    },
+    onSuccess: () => {
+      toast.success('Issue deleted');
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
+      if (onUpdate) onUpdate();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete issue');
+    },
+  });
+
   const handleSaveDescription = () => {
     if (description.trim()) {
       saveDescriptionMutation.mutate(description);
@@ -342,6 +435,40 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
       return;
     }
     generateIssuesMutation.mutate();
+  };
+
+  const handleOpenAddIssue = () => {
+    setEditingIssue(null);
+    setIssueForm({ description: '', status: 'PENDING', notes: '' });
+    setIssueDialogOpen(true);
+  };
+
+  const handleOpenEditIssue = (issue) => {
+    setEditingIssue(issue);
+    setIssueForm({
+      description: issue.description || '',
+      status: issue.status || 'PENDING',
+      notes: issue.notes || '',
+    });
+    setIssueDialogOpen(true);
+  };
+
+  const handleSaveIssue = () => {
+    if (!issueForm.description.trim()) {
+      toast.error('Please enter an issue description');
+      return;
+    }
+    if (editingIssue) {
+      updateIssueMutation.mutate({ itemId: editingIssue.id, data: issueForm });
+    } else {
+      addIssueMutation.mutate(issueForm);
+    }
+  };
+
+  const handleDeleteIssue = (itemId) => {
+    if (window.confirm('Are you sure you want to delete this issue?')) {
+      deleteIssueMutation.mutate(itemId);
+    }
   };
 
   return (
@@ -437,14 +564,25 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
           </Box>
 
           {/* Step 2: Issues List */}
-          {issues.length > 0 && (
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
+          <Box sx={{ mb: 2 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2">
                 2. Review issues & attach photos
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
-                Click on each issue to attach photos. Photos will be included in the final report.
-              </Typography>
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAddIssue}
+              >
+                Add Issue
+              </Button>
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+              {issues.length > 0
+                ? 'Click on each issue to attach photos. Use edit/delete buttons to modify.'
+                : 'Add issues manually or generate them from your description above.'}
+            </Typography>
+            {issues.length > 0 && (
               <Stack spacing={1}>
                 {issues.map((issue) => (
                   <IssueCard
@@ -452,28 +590,106 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
                     issue={issue}
                     inspectionId={inspection.id}
                     roomId={room.id}
+                    roomPhotos={photos}
                     onUpdate={onUpdate}
+                    onEdit={handleOpenEditIssue}
+                    onDelete={handleDeleteIssue}
                     isMobile={isMobile}
                   />
                 ))}
               </Stack>
-            </Box>
-          )}
+            )}
+          </Box>
 
           {/* Completion indicator */}
           {issues.length > 0 && (
             <Alert
-              severity={issuePhotos.length > 0 ? 'success' : 'info'}
-              icon={issuePhotos.length > 0 ? <CheckCircleIcon /> : undefined}
+              severity={totalPhotos > 0 ? 'success' : 'info'}
+              icon={totalPhotos > 0 ? <CheckCircleIcon /> : undefined}
               sx={{ mt: 2 }}
             >
-              {issuePhotos.length > 0
-                ? `Room complete: ${issues.length} issues documented with ${issuePhotos.length} photos`
+              {totalPhotos > 0
+                ? `Room complete: ${issues.length} issues documented with ${totalPhotos} photos`
                 : 'Tip: Add photos to issues for better documentation'}
             </Alert>
           )}
         </Collapse>
       </CardContent>
+
+      {/* Add/Edit Issue Dialog */}
+      <Dialog
+        open={issueDialogOpen}
+        onClose={() => setIssueDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">
+              {editingIssue ? 'Edit Issue' : 'Add Issue'}
+            </Typography>
+            {isMobile && (
+              <IconButton onClick={() => setIssueDialogOpen(false)}>
+                <CloseIcon />
+              </IconButton>
+            )}
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Issue Description"
+              value={issueForm.description}
+              onChange={(e) => setIssueForm({ ...issueForm, description: e.target.value })}
+              fullWidth
+              required
+              multiline
+              rows={2}
+              placeholder="Describe the issue found..."
+            />
+            <TextField
+              select
+              label="Status"
+              value={issueForm.status}
+              onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="PENDING">Pending</MenuItem>
+              <MenuItem value="PASSED">Passed</MenuItem>
+              <MenuItem value="FAILED">Failed</MenuItem>
+              <MenuItem value="NA">N/A</MenuItem>
+            </TextField>
+            <TextField
+              label="Notes (optional)"
+              value={issueForm.notes}
+              onChange={(e) => setIssueForm({ ...issueForm, notes: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Additional notes or recommendations..."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: isMobile ? 2 : undefined }}>
+          {!isMobile && (
+            <Button onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
+          )}
+          <Button
+            onClick={handleSaveIssue}
+            variant="contained"
+            disabled={!issueForm.description.trim() || addIssueMutation.isPending || updateIssueMutation.isPending}
+            fullWidth={isMobile}
+            sx={{ minHeight: isMobile ? 44 : undefined }}
+          >
+            {addIssueMutation.isPending || updateIssueMutation.isPending
+              ? 'Saving...'
+              : editingIssue
+              ? 'Update Issue'
+              : 'Add Issue'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

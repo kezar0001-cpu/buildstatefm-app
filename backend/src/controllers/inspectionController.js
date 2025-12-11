@@ -541,13 +541,13 @@ export const generateSummary = async (req, res) => {
       include: {
         property: { select: { name: true, address: true } },
         unit: { select: { unitNumber: true } },
-        rooms: {
+        InspectionRoom: {
           include: {
-            checklistItems: true,
-            photos: true,
+            InspectionChecklistItem: true,
+            InspectionPhoto: true,
           },
         },
-        issues: true,
+        InspectionIssue: true,
       },
     });
 
@@ -555,13 +555,14 @@ export const generateSummary = async (req, res) => {
       return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
     }
 
-    const rooms = inspection.rooms || [];
-    const allIssues = rooms.flatMap((r) => r.checklistItems || []);
+    // Use correct Prisma model names
+    const rooms = inspection.InspectionRoom || [];
+    const allChecklistItems = rooms.flatMap((r) => r.InspectionChecklistItem || []);
+    const allIssues = inspection.InspectionIssue || [];
     const criticalIssues = allIssues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH');
     const totalPhotos = rooms.reduce((sum, r) => {
-      const roomPhotos = r.photos?.length || 0;
-      const issuePhotos = (r.checklistItems || []).reduce((s, i) => s + (i.photos?.length || 0), 0);
-      return sum + roomPhotos + issuePhotos;
+      const roomPhotos = r.InspectionPhoto?.length || 0;
+      return sum + roomPhotos;
     }, 0);
 
     // Generate summary text
@@ -579,30 +580,36 @@ export const generateSummary = async (req, res) => {
     }
     summary += '. ';
 
-    if (allIssues.length === 0) {
+    // Use checklist items count for the summary (these are the "issues" from the conduct flow)
+    const itemCount = allChecklistItems.length;
+    
+    if (itemCount === 0 && allIssues.length === 0) {
       summary += 'No issues were identified during the inspection. The property appears to be in good condition.';
     } else {
-      summary += `A total of ${allIssues.length} issue${allIssues.length !== 1 ? 's were' : ' was'} identified during the inspection. `;
+      const totalIssueCount = itemCount + allIssues.length;
+      summary += `A total of ${totalIssueCount} item${totalIssueCount !== 1 ? 's were' : ' was'} documented during the inspection. `;
       
       if (criticalIssues.length > 0) {
         summary += `${criticalIssues.length} ${criticalIssues.length === 1 ? 'issue requires' : 'issues require'} immediate attention due to high or critical severity. `;
       }
       
-      // Group issues by severity for summary
-      const severityCounts = allIssues.reduce((acc, issue) => {
-        const sev = issue.severity || 'MEDIUM';
-        acc[sev] = (acc[sev] || 0) + 1;
-        return acc;
-      }, {});
-      
-      const severityParts = [];
-      if (severityCounts.CRITICAL) severityParts.push(`${severityCounts.CRITICAL} critical`);
-      if (severityCounts.HIGH) severityParts.push(`${severityCounts.HIGH} high priority`);
-      if (severityCounts.MEDIUM) severityParts.push(`${severityCounts.MEDIUM} medium priority`);
-      if (severityCounts.LOW) severityParts.push(`${severityCounts.LOW} low priority`);
-      
-      if (severityParts.length > 0) {
-        summary += `Issue breakdown: ${severityParts.join(', ')}. `;
+      // Group formal issues by severity for summary (if any)
+      if (allIssues.length > 0) {
+        const severityCounts = allIssues.reduce((acc, issue) => {
+          const sev = issue.severity || 'MEDIUM';
+          acc[sev] = (acc[sev] || 0) + 1;
+          return acc;
+        }, {});
+        
+        const severityParts = [];
+        if (severityCounts.CRITICAL) severityParts.push(`${severityCounts.CRITICAL} critical`);
+        if (severityCounts.HIGH) severityParts.push(`${severityCounts.HIGH} high priority`);
+        if (severityCounts.MEDIUM) severityParts.push(`${severityCounts.MEDIUM} medium priority`);
+        if (severityCounts.LOW) severityParts.push(`${severityCounts.LOW} low priority`);
+        
+        if (severityParts.length > 0) {
+          summary += `Issue breakdown: ${severityParts.join(', ')}. `;
+        }
       }
     }
 

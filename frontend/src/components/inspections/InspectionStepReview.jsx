@@ -43,15 +43,14 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
   
   const signatureRequired = inspection.type === 'MOVE_IN' || inspection.type === 'MOVE_OUT';
 
-  // Calculate metrics
+  // Calculate metrics - handle both Prisma model names and aliased names
   const totalPhotos = rooms.reduce((sum, r) => {
-    const roomPhotos = r.photos?.length || 0;
-    const issuePhotos = (r.checklistItems || []).reduce((s, i) => s + (i.photos?.length || 0), 0);
-    return sum + roomPhotos + issuePhotos;
+    const roomPhotos = (r.photos || r.InspectionPhoto || []).length;
+    return sum + roomPhotos;
   }, 0);
 
   const criticalIssues = issues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH');
-  const allIssues = rooms.flatMap((r) => r.checklistItems || []);
+  const allIssues = rooms.flatMap((r) => r.checklistItems || r.InspectionChecklistItem || []);
 
   // Generate AI summary mutation
   const generateSummaryMutation = useMutation({
@@ -250,8 +249,8 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
             </Typography>
             <List disablePadding>
               {rooms.map((room, index) => {
-                const roomIssues = room.checklistItems || [];
-                const roomPhotos = (room.photos?.length || 0) + roomIssues.reduce((s, i) => s + (i.photos?.length || 0), 0);
+                const roomIssues = room.checklistItems || room.InspectionChecklistItem || [];
+                const roomPhotos = (room.photos || room.InspectionPhoto || []).length;
                 return (
                   <React.Fragment key={room.id}>
                     <ListItem sx={{ px: 0 }}>
