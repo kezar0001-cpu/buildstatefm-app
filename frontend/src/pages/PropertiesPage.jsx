@@ -337,7 +337,23 @@ export default function PropertiesPage() {
       // Process images array
       const processedImages = (() => {
         if (Array.isArray(property.images) && property.images.length > 0) {
-          return property.images;
+          // Prefer primary image first, then by displayOrder
+          const imagesArray = [...property.images];
+          imagesArray.sort((a, b) => {
+            const aObj = typeof a === 'object' && a !== null ? a : {};
+            const bObj = typeof b === 'object' && b !== null ? b : {};
+
+            const aPrimary = aObj.isPrimary ? 1 : 0;
+            const bPrimary = bObj.isPrimary ? 1 : 0;
+            if (aPrimary !== bPrimary) {
+              return bPrimary - aPrimary; // primary images first
+            }
+
+            const aOrder = typeof aObj.displayOrder === 'number' ? aObj.displayOrder : 0;
+            const bOrder = typeof bObj.displayOrder === 'number' ? bObj.displayOrder : 0;
+            return aOrder - bOrder;
+          });
+          return imagesArray;
         }
         if (property.imageUrl) {
           return [property.imageUrl];

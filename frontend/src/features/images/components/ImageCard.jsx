@@ -76,13 +76,16 @@ const ImageCard = memo(function ImageCard({
     error,
     isPrimary,
     file,
+    imageUrl: legacyImageUrl,
+    url: plainUrl,
   } = image;
 
   // Bug Fix: Always prefer localPreview to prevent flicker when switching to remoteUrl
   // The localPreview is a blob URL that's already loaded, so using it prevents
   // the browser from having to load a new image when upload completes
   // remoteUrl is still stored and used for form submission, just not displayed
-  const imageUrl = localPreview || remoteUrl;
+  // Additionally, fall back to legacy imageUrl/url fields so first uploads render immediately
+  const imageUrl = localPreview || remoteUrl || legacyImageUrl || plainUrl;
 
   // Check if responsive image variants are available
   const hasResponsiveVariants = variants && typeof variants === 'object' && Object.keys(variants).length > 0;

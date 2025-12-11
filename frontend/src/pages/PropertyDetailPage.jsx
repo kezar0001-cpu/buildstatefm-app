@@ -264,9 +264,27 @@ export default function PropertyDetailPage() {
   const propertyImages = Array.isArray(property?.images) ? property.images : [];
 
   // Bug Fix: Ensure carouselImages is always an array of objects, never strings
-  // This prevents rendering issues in the carousel component
-  const carouselImages = propertyImages.length
-    ? propertyImages
+  // and always starts with the primary image when available
+  // This prevents rendering issues in the carousel component and keeps cover image consistent
+  const sortedPropertyImages = propertyImages.length
+    ? [...propertyImages].sort((a, b) => {
+        const aObj = typeof a === 'object' && a !== null ? a : {};
+        const bObj = typeof b === 'object' && b !== null ? b : {};
+
+        const aPrimary = aObj.isPrimary ? 1 : 0;
+        const bPrimary = bObj.isPrimary ? 1 : 0;
+        if (aPrimary !== bPrimary) {
+          return bPrimary - aPrimary; // primary images first
+        }
+
+        const aOrder = typeof aObj.displayOrder === 'number' ? aObj.displayOrder : 0;
+        const bOrder = typeof bObj.displayOrder === 'number' ? bObj.displayOrder : 0;
+        return aOrder - bOrder;
+      })
+    : [];
+
+  const carouselImages = sortedPropertyImages.length
+    ? sortedPropertyImages
     : property?.imageUrl
       ? [{
           id: 'primary',
