@@ -29,16 +29,19 @@ export default function FormAreaField({
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => {
-        // Convert the stored value (in sqm) to the selected unit for display
+        // Convert the stored value (in square meters) to the selected unit for display
         const displayValue = field.value !== null && field.value !== undefined && field.value !== ''
           ? (() => {
               const sqmValue = parseFloat(field.value);
               if (Number.isNaN(sqmValue)) return '';
+
+              // When unit is square meters, show the raw value
               if (unit === AREA_UNITS.SQ_M) {
                 return sqmValue;
               }
-              // Convert from sqm to sq ft using shared utility
-              return fromSquareFeet(sqmValue, AREA_UNITS.SQ_FT); // underlying value is sqm
+
+              // When unit is square feet, convert sqm -> sq ft
+              return toSquareFeet(sqmValue, AREA_UNITS.SQ_M);
             })()
           : '';
 
