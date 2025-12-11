@@ -75,12 +75,46 @@ const SEVERITY_CONFIG = {
   LOW: { color: 'info', label: 'Low' },
 };
 
-const STATUS_CONFIG = {
-  PENDING: { color: 'default', label: 'Pending' },
-  PASSED: { color: 'success', label: 'Passed' },
-  FAILED: { color: 'error', label: 'Failed' },
-  NA: { color: 'default', label: 'N/A' },
-};
+const PRIORITY_OPTIONS = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'CRITICAL', label: 'Critical' },
+];
+
+/**
+ * Parse priority from the notes field which contains "Category: X, Priority: Y"
+ */
+function parsePriorityFromNotes(notes) {
+  if (!notes || typeof notes !== 'string') return 'MEDIUM';
+  const match = notes.match(/Priority:\s*(LOW|MEDIUM|HIGH|CRITICAL|URGENT)/i);
+  if (match) {
+    const priority = match[1].toUpperCase();
+    return priority === 'URGENT' ? 'CRITICAL' : priority;
+  }
+  return 'MEDIUM';
+}
+
+/**
+ * Parse category from the notes field
+ */
+function parseCategoryFromNotes(notes) {
+  if (!notes || typeof notes !== 'string') return null;
+  const match = notes.match(/Category:\s*([A-Z_]+)/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
+/**
+ * Get the effective priority/severity for an issue
+ */
+function getIssuePriority(issue) {
+  // If severity is explicitly set, use it
+  if (issue.severity && SEVERITY_CONFIG[issue.severity]) {
+    return issue.severity;
+  }
+  // Otherwise parse from notes
+  return parsePriorityFromNotes(issue.notes);
+}
 
 function IssuePhotoUpload({ inspectionId, roomId, checklistItemId, photos = [], onUploadComplete, isMobile }) {
   const [uploading, setUploading] = useState(false);
@@ -207,8 +241,10 @@ function IssuePhotoUpload({ inspectionId, roomId, checklistItemId, photos = [], 
 
 function IssueCard({ issue, inspectionId, roomId, roomPhotos = [], onUpdate, onEdit, onDelete, isMobile }) {
   const [expanded, setExpanded] = useState(false);
-  // Checklist items have status and severity; use severity as priority for the chip
-  const priorityConfig = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.MEDIUM;
+  // Get priority from severity field or parse from notes
+  const priority = getIssuePriority(issue);
+  const priorityConfig = SEVERITY_CONFIG[priority] || SEVERITY_CONFIG.MEDIUM;
+  const category = parseCategoryFromNotes(issue.notes);
   // Filter room photos that belong to this checklist item (stored in caption)
   const photos = roomPhotos.filter((p) => p.caption?.includes(issue.id)) || [];
 
@@ -256,9 +292,9 @@ function IssueCard({ issue, inspectionId, roomId, roomPhotos = [], onUpdate, onE
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
           </Stack>
-          {issue.notes && (
+          {category && (
             <Typography variant="caption" color="text.secondary" noWrap>
-              {issue.notes}
+              Category: {category}, Priority: {priority}
             </Typography>
           )}
         </Box>
@@ -314,7 +350,7 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
   const [descriptionSaved, setDescriptionSaved] = useState(!!room.notes);
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
-  const [issueForm, setIssueForm] = useState({ description: '', status: 'PENDING', notes: '' });
+  const [issueForm, setIssueForm] = useState({ description: '', priority: 'MEDIUM', notes: '' });
   const queryClient = useQueryClient();
 
   const issues = room.checklistItems || room.InspectionChecklistItem || [];
@@ -376,7 +412,7 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
       toast.success('Issue added');
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
       setIssueDialogOpen(false);
-      setIssueForm({ description: '', status: 'PENDING', notes: '' });
+      setIssueForm({ description: '', priority: 'MEDIUM', notes: '' });
       if (onUpdate) onUpdate();
     },
     onError: (error) => {
@@ -398,7 +434,7 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.rooms(inspection.id) });
       setIssueDialogOpen(false);
       setEditingIssue(null);
-      setIssueForm({ description: '', status: 'PENDING', notes: '' });
+      setIssueForm({ description: '', priority: 'MEDIUM', notes: '' });
       if (onUpdate) onUpdate();
     },
     onError: (error) => {
@@ -439,15 +475,18 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
 
   const handleOpenAddIssue = () => {
     setEditingIssue(null);
-    setIssueForm({ description: '', status: 'PENDING', notes: '' });
+    setIssueForm({ description: '', priority: 'MEDIUM', notes: '' });
     setIssueDialogOpen(true);
   };
 
   const handleOpenEditIssue = (issue) => {
     setEditingIssue(issue);
+    const priority = getIssuePriority(issue);
+    const category = parseCategoryFromNotes(issue.notes);
     setIssueForm({
       description: issue.description || '',
-      status: issue.status || 'PENDING',
+      priority: priority,
+      category: category || '',
       notes: issue.notes || '',
     });
     setIssueDialogOpen(true);
@@ -458,10 +497,20 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
       toast.error('Please enter an issue description');
       return;
     }
+    // Build the notes field with category and priority
+    const category = issueForm.category || 'GENERAL';
+    const notesWithMeta = `Category: ${category}, Priority: ${issueForm.priority}`;
+    
+    const dataToSave = {
+      description: issueForm.description,
+      notes: notesWithMeta,
+      status: 'PENDING', // All issues are pending by default
+    };
+    
     if (editingIssue) {
-      updateIssueMutation.mutate({ itemId: editingIssue.id, data: issueForm });
+      updateIssueMutation.mutate({ itemId: editingIssue.id, data: dataToSave });
     } else {
-      addIssueMutation.mutate(issueForm);
+      addIssueMutation.mutate(dataToSave);
     }
   };
 
@@ -650,25 +699,35 @@ function RoomInspectionCard({ room, inspection, onUpdate, isMobile }) {
             />
             <TextField
               select
-              label="Status"
-              value={issueForm.status}
-              onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
+              label="Priority"
+              value={issueForm.priority}
+              onChange={(e) => setIssueForm({ ...issueForm, priority: e.target.value })}
               fullWidth
             >
-              <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="PASSED">Passed</MenuItem>
-              <MenuItem value="FAILED">Failed</MenuItem>
-              <MenuItem value="NA">N/A</MenuItem>
+              {PRIORITY_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField
-              label="Notes (optional)"
-              value={issueForm.notes}
-              onChange={(e) => setIssueForm({ ...issueForm, notes: e.target.value })}
+              select
+              label="Category"
+              value={issueForm.category || 'GENERAL'}
+              onChange={(e) => setIssueForm({ ...issueForm, category: e.target.value })}
               fullWidth
-              multiline
-              rows={2}
-              placeholder="Additional notes or recommendations..."
-            />
+            >
+              <MenuItem value="GENERAL">General</MenuItem>
+              <MenuItem value="SAFETY">Safety</MenuItem>
+              <MenuItem value="STRUCTURAL">Structural</MenuItem>
+              <MenuItem value="ELECTRICAL">Electrical</MenuItem>
+              <MenuItem value="PLUMBING">Plumbing</MenuItem>
+              <MenuItem value="COSMETIC">Cosmetic</MenuItem>
+              <MenuItem value="INTERIOR_FINISH">Interior Finish</MenuItem>
+              <MenuItem value="EXTERIOR">Exterior</MenuItem>
+              <MenuItem value="APPLIANCE">Appliance</MenuItem>
+              <MenuItem value="FINISH">Finish</MenuItem>
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: isMobile ? 2 : undefined }}>

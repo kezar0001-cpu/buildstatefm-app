@@ -59,6 +59,25 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
     LOW: { color: 'info', label: 'Low' },
   };
 
+  // Parse priority from notes field which contains "Category: X, Priority: Y"
+  const parsePriorityFromNotes = (notes) => {
+    if (!notes || typeof notes !== 'string') return 'MEDIUM';
+    const match = notes.match(/Priority:\s*(LOW|MEDIUM|HIGH|CRITICAL|URGENT)/i);
+    if (match) {
+      const priority = match[1].toUpperCase();
+      return priority === 'URGENT' ? 'CRITICAL' : priority;
+    }
+    return 'MEDIUM';
+  };
+
+  // Get effective priority for an issue
+  const getIssuePriority = (issue) => {
+    if (issue.severity && PRIORITY_CONFIG[issue.severity]) {
+      return issue.severity;
+    }
+    return parsePriorityFromNotes(issue.notes);
+  };
+
   const signatureRequired = inspection.type === 'MOVE_IN' || inspection.type === 'MOVE_OUT';
 
   // Calculate metrics - handle both Prisma model names and aliased names
@@ -66,9 +85,10 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
     const roomPhotos = (r.photos || r.InspectionPhoto || []).length;
     return sum + roomPhotos;
   }, 0);
-  const criticalIssues = allIssues.filter(
-    (i) => i.severity === 'CRITICAL' || i.severity === 'HIGH'
-  );
+  const criticalIssues = allIssues.filter((i) => {
+    const priority = getIssuePriority(i);
+    return priority === 'CRITICAL' || priority === 'HIGH';
+  });
 
   // Generate AI summary mutation
   const generateSummaryMutation = useMutation({
@@ -328,28 +348,19 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
                     />
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Chip
-                        label={STATUS_LABELS[issue.status] || STATUS_LABELS.PENDING}
+                        label={(() => {
+                          const priority = getIssuePriority(issue);
+                          return PRIORITY_CONFIG[priority]?.label || 'Medium';
+                        })()}
                         size="small"
-                        color={
-                          issue.status === 'PASSED'
-                            ? 'success'
-                            : issue.status === 'FAILED'
-                            ? 'error'
-                            : 'default'
-                        }
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={
-                          (PRIORITY_CONFIG[issue.severity]?.label || issue.severity || 'Medium')
-                        }
-                        size="small"
-                        color={PRIORITY_CONFIG[issue.severity]?.color || 'warning'}
-                        variant={
-                          issue.severity === 'CRITICAL' || issue.severity === 'HIGH'
-                            ? 'filled'
-                            : 'outlined'
-                        }
+                        color={(() => {
+                          const priority = getIssuePriority(issue);
+                          return PRIORITY_CONFIG[priority]?.color || 'warning';
+                        })()}
+                        variant={(() => {
+                          const priority = getIssuePriority(issue);
+                          return priority === 'CRITICAL' || priority === 'HIGH' ? 'filled' : 'outlined';
+                        })()}
                       />
                     </Stack>
                   </ListItem>

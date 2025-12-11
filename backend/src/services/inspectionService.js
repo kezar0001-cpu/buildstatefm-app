@@ -258,6 +258,7 @@ export async function completeInspection(inspectionId, userId, userRole, payload
             unitId: inspection.unitId,
             inspectionId: inspection.id,
             status: 'OPEN',
+            createdById: userId,
           },
         });
         createdJobs.push(job);

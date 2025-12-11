@@ -86,6 +86,29 @@ const SEVERITY_CONFIG = {
   LOW: { color: 'info', label: 'Low', icon: null },
 };
 
+/**
+ * Parse priority from the notes field which contains "Category: X, Priority: Y"
+ */
+function parsePriorityFromNotes(notes) {
+  if (!notes || typeof notes !== 'string') return 'MEDIUM';
+  const match = notes.match(/Priority:\s*(LOW|MEDIUM|HIGH|CRITICAL|URGENT)/i);
+  if (match) {
+    const priority = match[1].toUpperCase();
+    return priority === 'URGENT' ? 'CRITICAL' : priority;
+  }
+  return 'MEDIUM';
+}
+
+/**
+ * Get the effective priority/severity for an issue or checklist item
+ */
+function getIssuePriority(item) {
+  if (item.severity && SEVERITY_CONFIG[item.severity]) {
+    return item.severity;
+  }
+  return parsePriorityFromNotes(item.notes);
+}
+
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low' },
   { value: 'MEDIUM', label: 'Medium' },
@@ -463,11 +486,14 @@ export default function InspectionDetailPage() {
             typeof photo.caption === 'string' ? photo.caption.includes(item.id) : false
           );
 
+          // Parse priority from notes field
+          const priority = getIssuePriority(item);
+
           derivedIssues.push({
             id: item.id,
             title: item.description,
             description: item.notes,
-            severity: item.status === 'FAILED' ? 'HIGH' : 'MEDIUM',
+            severity: priority,
             status: item.status,
             room: { id: room.id, name: room.name },
             photos: linkedPhotos,
@@ -511,8 +537,10 @@ export default function InspectionDetailPage() {
       issues: issues.length,
       photos: roomPhotos.length + issuePhotos.length + attachments.length,
       progress,
-      criticalIssues: issues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH')
-        .length,
+      criticalIssues: issues.filter((i) => {
+        const priority = i.severity || getIssuePriority(i);
+        return priority === 'CRITICAL' || priority === 'HIGH';
+      }).length,
     };
   }, [normalizedInspection]);
 
