@@ -443,11 +443,40 @@ export default function InspectionDetailPage() {
       photos: room.photos || room.InspectionPhoto || [],
     }));
 
-    const issues = (inspection.issues || inspection.InspectionIssue || []).map((issue) => ({
+    const rawIssues = (inspection.issues || inspection.InspectionIssue || []).map((issue) => ({
       ...issue,
       room: issue.room || issue.InspectionRoom || null,
       photos: issue.photos || issue.InspectionPhoto || [],
     }));
+
+    let issues = rawIssues;
+
+    if (!issues || issues.length === 0) {
+      const derivedIssues = [];
+
+      rooms.forEach((room) => {
+        const checklistItems = room.checklistItems || [];
+        const roomPhotos = room.photos || [];
+
+        checklistItems.forEach((item) => {
+          const linkedPhotos = roomPhotos.filter((photo) =>
+            typeof photo.caption === 'string' ? photo.caption.includes(item.id) : false
+          );
+
+          derivedIssues.push({
+            id: item.id,
+            title: item.description,
+            description: item.notes,
+            severity: item.status === 'FAILED' ? 'HIGH' : 'MEDIUM',
+            status: item.status,
+            room: { id: room.id, name: room.name },
+            photos: linkedPhotos,
+          });
+        });
+      });
+
+      issues = derivedIssues;
+    }
 
     const attachments = inspection.attachments || inspection.InspectionAttachment || [];
 
