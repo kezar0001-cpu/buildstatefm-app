@@ -215,8 +215,8 @@ export async function completeInspection(inspectionId, userId, userRole, payload
     };
   }
 
-  // Technicians mark as PENDING_APPROVAL, Property Managers can directly mark as COMPLETED
-  const newStatus = userRole === 'TECHNICIAN' ? 'PENDING_APPROVAL' : 'COMPLETED';
+  // All roles now mark inspections directly as COMPLETED (no PENDING_APPROVAL flow)
+  const newStatus = 'COMPLETED';
 
   const result = await prisma.$transaction(async (tx) => {
     const inspection = await tx.inspection.update({
