@@ -238,6 +238,7 @@ export async function completeInspection(inspectionId, userId, userRole, payload
 
     await tx.inspectionAuditLog.create({
       data: {
+        id: randomUUID(),
         inspectionId,
         userId,
         action: 'COMPLETED',

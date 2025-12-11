@@ -207,8 +207,8 @@ function IssuePhotoUpload({ inspectionId, roomId, checklistItemId, photos = [], 
 
 function IssueCard({ issue, inspectionId, roomId, roomPhotos = [], onUpdate, onEdit, onDelete, isMobile }) {
   const [expanded, setExpanded] = useState(false);
-  // Checklist items have status, not severity
-  const statusConfig = STATUS_CONFIG[issue.status] || STATUS_CONFIG.PENDING;
+  // Checklist items have status and severity; use severity as priority for the chip
+  const priorityConfig = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.MEDIUM;
   // Filter room photos that belong to this checklist item (stored in caption)
   const photos = roomPhotos.filter((p) => p.caption?.includes(issue.id)) || [];
 
@@ -249,9 +249,9 @@ function IssueCard({ issue, inspectionId, roomId, roomPhotos = [], onUpdate, onE
               {issue.description || issue.title}
             </Typography>
             <Chip
-              label={statusConfig.label}
+              label={priorityConfig.label}
               size="small"
-              color={statusConfig.color}
+              color={priorityConfig.color}
               variant="outlined"
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
