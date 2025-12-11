@@ -534,6 +534,97 @@ export const rejectInspection = async (req, res) => {
   }
 };
 
+export const generateSummary = async (req, res) => {
+  try {
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: req.params.id },
+      include: {
+        property: { select: { name: true, address: true } },
+        unit: { select: { unitNumber: true } },
+        rooms: {
+          include: {
+            checklistItems: true,
+            photos: true,
+          },
+        },
+        issues: true,
+      },
+    });
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    const rooms = inspection.rooms || [];
+    const allIssues = rooms.flatMap((r) => r.checklistItems || []);
+    const criticalIssues = allIssues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH');
+    const totalPhotos = rooms.reduce((sum, r) => {
+      const roomPhotos = r.photos?.length || 0;
+      const issuePhotos = (r.checklistItems || []).reduce((s, i) => s + (i.photos?.length || 0), 0);
+      return sum + roomPhotos + issuePhotos;
+    }, 0);
+
+    // Generate summary text
+    const roomNames = rooms.map((r) => r.name).join(', ');
+    const inspectionType = inspection.type.toLowerCase().replace('_', ' ');
+    const propertyName = inspection.property?.name || 'the property';
+
+    let summary = `This ${inspectionType} inspection of ${propertyName}`;
+    if (inspection.unit) {
+      summary += ` (Unit ${inspection.unit.unitNumber})`;
+    }
+    summary += ` covered ${rooms.length} room${rooms.length !== 1 ? 's' : ''}`;
+    if (rooms.length > 0) {
+      summary += ` (${roomNames})`;
+    }
+    summary += '. ';
+
+    if (allIssues.length === 0) {
+      summary += 'No issues were identified during the inspection. The property appears to be in good condition.';
+    } else {
+      summary += `A total of ${allIssues.length} issue${allIssues.length !== 1 ? 's were' : ' was'} identified during the inspection. `;
+      
+      if (criticalIssues.length > 0) {
+        summary += `${criticalIssues.length} ${criticalIssues.length === 1 ? 'issue requires' : 'issues require'} immediate attention due to high or critical severity. `;
+      }
+      
+      // Group issues by severity for summary
+      const severityCounts = allIssues.reduce((acc, issue) => {
+        const sev = issue.severity || 'MEDIUM';
+        acc[sev] = (acc[sev] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const severityParts = [];
+      if (severityCounts.CRITICAL) severityParts.push(`${severityCounts.CRITICAL} critical`);
+      if (severityCounts.HIGH) severityParts.push(`${severityCounts.HIGH} high priority`);
+      if (severityCounts.MEDIUM) severityParts.push(`${severityCounts.MEDIUM} medium priority`);
+      if (severityCounts.LOW) severityParts.push(`${severityCounts.LOW} low priority`);
+      
+      if (severityParts.length > 0) {
+        summary += `Issue breakdown: ${severityParts.join(', ')}. `;
+      }
+    }
+
+    summary += `${totalPhotos} photo${totalPhotos !== 1 ? 's were' : ' was'} taken to document the findings.`;
+
+    // Add room-specific notes if available
+    const roomsWithNotes = rooms.filter((r) => r.notes && r.notes.trim());
+    if (roomsWithNotes.length > 0 && roomsWithNotes.length <= 3) {
+      summary += '\n\nRoom observations:\n';
+      roomsWithNotes.forEach((room) => {
+        const truncatedNotes = room.notes.length > 150 ? room.notes.substring(0, 150) + '...' : room.notes;
+        summary += `• ${room.name}: ${truncatedNotes}\n`;
+      });
+    }
+
+    res.json({ summary });
+  } catch (error) {
+    console.error('Failed to generate summary', error);
+    sendError(res, 500, 'Failed to generate summary', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};
+
 export const uploadSignature = async (req, res) => {
   try {
     if (!req.file) {
@@ -558,7 +649,15 @@ export const generatePDF = async (req, res) => {
         completedBy: true,
         InspectionRoom: {
           orderBy: { order: 'asc' },
-          include: { InspectionChecklistItem: { orderBy: { order: 'asc' } } },
+          include: {
+            InspectionChecklistItem: {
+              orderBy: { order: 'asc' },
+              include: {
+                photos: true,
+              },
+            },
+            photos: true,
+          },
         },
         InspectionIssue: { orderBy: { createdAt: 'asc' } },
         InspectionPhoto: { orderBy: { order: 'asc' } },

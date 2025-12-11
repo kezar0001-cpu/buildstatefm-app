@@ -156,6 +156,7 @@ router.delete('/:id', requireRole(ROLE_MANAGER), requireActiveSubscription, ensu
 router.post('/:id/reminders', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.createReminder);
 
 router.post('/:id/complete', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.completeInspection);
+router.post('/:id/generate-summary', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.generateSummary);
 router.post('/:id/approve', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.approveInspection);
 router.post('/:id/reject', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.rejectInspection);
 router.post('/:id/signature', requireAuth, ensureInspectionAccess, signatureUpload.single('signature'), inspectionController.uploadSignature);

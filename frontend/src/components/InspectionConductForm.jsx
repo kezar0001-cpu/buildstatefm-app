@@ -3,8 +3,7 @@ import { Box, Stepper, Step, StepButton, Paper, Alert, Snackbar, Stack, Button, 
 import { ArrowBack as ArrowBackIcon, ArrowForward as ArrowForwardIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useInspectionConduct } from '../hooks/useInspectionConduct';
 import { InspectionStepStart } from './inspections/InspectionStepStart';
-import { InspectionStepAddRooms } from './inspections/InspectionStepAddRooms';
-import { InspectionStepConduct } from './inspections/InspectionStepConduct';
+import { InspectionStepInspectRooms } from './inspections/InspectionStepInspectRooms';
 import { InspectionStepReview } from './inspections/InspectionStepReview';
 
 const InspectionConductForm = ({ inspection, onComplete, onCancel, isMobile = false }) => {
@@ -17,11 +16,11 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel, isMobile = fa
     snackbar, setSnackbar, rooms, issues, actions, lastSaved
   } = useInspectionConduct(inspection, onComplete);
 
-  const steps = ['Start Inspection', 'Add Rooms', 'Conduct Inspection', 'Review & Complete'];
+  const steps = ['Start Inspection', 'Inspect Rooms', 'Review & Complete'];
 
   const handleNext = () => {
     if (activeStep === 1 && rooms.length === 0) {
-      setStepError('Please add at least one room.');
+      setStepError('Please add and inspect at least one room before continuing.');
       return;
     }
     setActiveStep(prev => prev + 1);
@@ -31,9 +30,8 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel, isMobile = fa
   const renderStep = () => {
     switch (activeStep) {
       case 0: return <InspectionStepStart inspection={inspection} onStart={actions.startInspection} isMobile={isMobileView} />;
-      case 1: return <InspectionStepAddRooms inspection={inspection} rooms={rooms} actions={actions} isMobile={isMobileView} />;
-      case 2: return <InspectionStepConduct inspection={inspection} rooms={rooms} actions={actions} lastSaved={lastSaved} isMobile={isMobileView} />;
-      case 3: return <InspectionStepReview inspection={inspection} rooms={rooms} issues={issues} onComplete={actions.completeInspection} isCompleting={actions.isCompleting} isMobile={isMobileView} />;
+      case 1: return <InspectionStepInspectRooms inspection={inspection} rooms={rooms} actions={actions} lastSaved={lastSaved} isMobile={isMobileView} />;
+      case 2: return <InspectionStepReview inspection={inspection} rooms={rooms} issues={issues} onComplete={actions.completeInspection} isCompleting={actions.isCompleting} isMobile={isMobileView} />;
       default: return null;
     }
   };
@@ -127,7 +125,7 @@ const InspectionConductForm = ({ inspection, onComplete, onCancel, isMobile = fa
               {isMobileView ? '' : 'Back'}
             </Button>
           )}
-          {activeStep > 0 && activeStep < 3 && (
+          {activeStep > 0 && activeStep < 2 && (
             <Button 
               variant="contained" 
               onClick={handleNext} 

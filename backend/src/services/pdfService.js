@@ -11,6 +11,24 @@ const __dirname = path.dirname(__filename);
  * Generate HTML template for inspection report
  */
 function generateInspectionReportHTML(inspection, property, unit, assignedTo, completedBy) {
+  // Normalize data structure - handle both Prisma model names and aliased names
+  const normalizedInspection = {
+    ...inspection,
+    rooms: inspection.rooms || inspection.InspectionRoom || [],
+    inspectionIssues: inspection.inspectionIssues || inspection.InspectionIssue || [],
+    inspectionPhotos: inspection.inspectionPhotos || inspection.InspectionPhoto || [],
+  };
+
+  // Normalize room data
+  normalizedInspection.rooms = normalizedInspection.rooms.map((room) => ({
+    ...room,
+    checklistItems: room.checklistItems || room.InspectionChecklistItem || [],
+    photos: room.photos || room.InspectionPhoto || [],
+  }));
+
+  // Use normalized inspection for the rest of the function
+  inspection = normalizedInspection;
+
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -51,6 +69,34 @@ function generateInspectionReportHTML(inspection, property, unit, assignedTo, co
     return colors[severity] || '#6B7280';
   };
 
+  const generateIssuePhotosHTML = (photos) => {
+    if (!photos?.length) return '';
+    return `
+      <div class="issue-photos">
+        ${photos.map((photo) => `
+          <img src="${photo.url || photo.imageUrl}" alt="Issue photo" class="issue-photo" />
+        `).join('')}
+      </div>
+    `;
+  };
+
+  const generateRoomPhotosHTML = (photos) => {
+    if (!photos?.length) return '';
+    return `
+      <div class="room-photos">
+        <h4>Room Photos</h4>
+        <div class="room-photos-grid">
+          ${photos.map((photo) => `
+            <div class="room-photo-card">
+              <img src="${photo.url || photo.imageUrl}" alt="${photo.caption || 'Room photo'}" />
+              ${photo.caption ? `<p class="photo-caption">${photo.caption}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  };
+
   const roomsHTML = inspection.rooms?.length
     ? inspection.rooms
         .map(
@@ -67,17 +113,23 @@ function generateInspectionReportHTML(inspection, property, unit, assignedTo, co
           room.checklistItems?.length
             ? `
         <div class="checklist">
-          <h4>Checklist Items</h4>
+          <h4>Issues Found (${room.checklistItems.length})</h4>
           <ul class="checklist-items">
             ${room.checklistItems
               .map(
                 (item) => `
-              <li class="checklist-item ${item.status}">
-                <span class="checkbox ${item.status === 'PASSED' ? 'checked' : item.status === 'FAILED' ? 'failed' : ''}">
-                  ${item.status === 'PASSED' ? '✓' : item.status === 'FAILED' ? '✗' : '○'}
-                </span>
-                <span class="item-name">${item.item}</span>
-                ${item.notes ? `<span class="item-notes">${item.notes}</span>` : ''}
+              <li class="checklist-item ${item.status || ''}">
+                <div class="checklist-item-content">
+                  <div class="checklist-item-header">
+                    <span class="checkbox ${item.status === 'PASSED' ? 'checked' : item.status === 'FAILED' ? 'failed' : ''}">
+                      ${item.status === 'PASSED' ? '✓' : item.status === 'FAILED' ? '✗' : '○'}
+                    </span>
+                    <span class="item-name">${item.description || item.item || item.title || 'Issue'}</span>
+                    ${item.severity ? `<span class="item-severity severity-${item.severity.toLowerCase()}">${item.severity}</span>` : ''}
+                  </div>
+                  ${item.notes ? `<p class="item-notes">${item.notes}</p>` : ''}
+                  ${generateIssuePhotosHTML(item.photos)}
+                </div>
               </li>
             `
               )
@@ -87,6 +139,8 @@ function generateInspectionReportHTML(inspection, property, unit, assignedTo, co
         `
             : ''
         }
+
+        ${generateRoomPhotosHTML(room.photos)}
       </div>
     `
         )
@@ -395,6 +449,89 @@ function generateInspectionReportHTML(inspection, property, unit, assignedTo, co
       padding: 0 10px 10px;
       font-size: 11px;
       color: #6b7280;
+    }
+
+    .checklist-item-content {
+      width: 100%;
+    }
+
+    .checklist-item-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .item-severity {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: white;
+    }
+
+    .item-severity.severity-critical {
+      background-color: #DC2626;
+    }
+
+    .item-severity.severity-high {
+      background-color: #EF4444;
+    }
+
+    .item-severity.severity-medium {
+      background-color: #F59E0B;
+    }
+
+    .item-severity.severity-low {
+      background-color: #10B981;
+    }
+
+    .issue-photos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding-left: 30px;
+    }
+
+    .issue-photo {
+      width: 120px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .room-photos {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px dashed #e5e7eb;
+    }
+
+    .room-photos h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+
+    .room-photos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .room-photo-card {
+      background: white;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .room-photo-card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
     }
 
     .signature-section {
