@@ -41,9 +41,10 @@ export function useInspectionConduct(inspection, onComplete) {
       return apiClient.patch(`/inspections/${inspection.id}`, { status: 'IN_PROGRESS' });
     },
     onSuccess: () => {
-      // Invalidate inspection queries to refresh status
-      queryClient.invalidateQueries(queryKeys.inspections.detail(inspection.id));
-      queryClient.invalidateQueries(queryKeys.inspections.list());
+      // Invalidate inspection queries to refresh status everywhere (list, kanban, detail views)
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.detail(inspection.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.batchedDetail(inspection.id) });
       setActiveStep(1);
       setCompletedSteps(prev => new Set([...prev, 0]));
     },

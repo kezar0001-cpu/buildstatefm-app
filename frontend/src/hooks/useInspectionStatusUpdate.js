@@ -17,25 +17,44 @@ export const useInspectionStatusUpdate = () => {
       return response.data;
     },
     onMutate: async ({ inspectionId, status }) => {
-      // Cancel any outgoing refetches
+      // Cancel any outgoing refetches for inspections so we don't race our optimistic update
       await queryClient.cancelQueries({ queryKey: queryKeys.inspections.all() });
 
-      // Snapshot the previous value for rollback
+      // Snapshot *all* matching inspection queries for rollback
       const previousData = queryClient.getQueriesData({ queryKey: queryKeys.inspections.all() });
 
-      // Optimistically update the inspection status in all queries
-      queryClient.setQueriesData({ queryKey: queryKeys.inspections.all() }, (old) => {
+      // Optimistically update any infinite list/kanban queries
+      queryClient.setQueriesData({ queryKey: ['inspections', 'list'] }, (old) => {
         if (!old?.pages) return old;
         return {
           ...old,
-          pages: old.pages.map(page => ({
+          pages: old.pages.map((page) => ({
             ...page,
-            items: page.items?.map(inspection =>
+            items: page.items?.map((inspection) =>
               inspection.id === inspectionId
                 ? { ...inspection, status, updatedAt: new Date().toISOString() }
                 : inspection
             ) || [],
           })),
+        };
+      });
+
+      // Also optimistically update any simple detail queries
+      queryClient.setQueryData(queryKeys.inspections.detail(inspectionId), (old) => {
+        if (!old) return old;
+        return { ...old, status, updatedAt: new Date().toISOString() };
+      });
+
+      // And the batched detail view, if present
+      queryClient.setQueryData(queryKeys.inspections.batchedDetail(inspectionId), (old) => {
+        if (!old?.inspection) return old;
+        return {
+          ...old,
+          inspection: {
+            ...old.inspection,
+            status,
+            updatedAt: new Date().toISOString(),
+          },
         };
       });
 
@@ -64,9 +83,15 @@ export const useInspectionStatusUpdate = () => {
     },
     onSuccess: (data, variables) => {
       toast.success('Inspection status updated successfully');
+      const inspectionId = variables?.inspectionId;
 
-      // Ensure the data is fresh
+      // Ensure the data is fresh across all relevant inspection queries
       queryClient.invalidateQueries({ queryKey: queryKeys.inspections.all() });
+
+      if (inspectionId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.inspections.detail(inspectionId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.inspections.batchedDetail(inspectionId) });
+      }
     },
   });
 
