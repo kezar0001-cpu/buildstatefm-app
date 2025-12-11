@@ -485,7 +485,6 @@ const InspectionsPage = () => {
     const colors = {
       SCHEDULED: 'info',
       IN_PROGRESS: 'warning',
-      PENDING_APPROVAL: 'secondary',
       COMPLETED: 'success',
       CANCELLED: 'error',
       OVERDUE: 'error',
@@ -497,7 +496,6 @@ const InspectionsPage = () => {
     const icons = {
       SCHEDULED: <ScheduleIcon fontSize="small" />,
       IN_PROGRESS: <PlayArrowIcon fontSize="small" />,
-      PENDING_APPROVAL: <VisibilityIcon fontSize="small" />,
       COMPLETED: <CheckCircleIcon fontSize="small" />,
       CANCELLED: <CancelIcon fontSize="small" />,
       OVERDUE: <WarningIcon fontSize="small" />,
@@ -782,7 +780,6 @@ const InspectionsPage = () => {
                 <MenuItem value="">All Statuses</MenuItem>
                 <MenuItem value="SCHEDULED">Scheduled</MenuItem>
                 <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
                 <MenuItem value="COMPLETED">Completed</MenuItem>
                 <MenuItem value="CANCELLED">Cancelled</MenuItem>
               </Select>

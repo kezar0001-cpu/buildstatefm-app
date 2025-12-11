@@ -304,6 +304,7 @@ model Inspection {
   photos                             String[]               @default([])
   createdAt                          DateTime               @default(now())
   updatedAt                          DateTime               @updatedAt
+  archivedAt                         DateTime?
   rejectionReason                    String?
   rejectedById                       String?
   rejectedAt                         DateTime?
@@ -342,6 +343,7 @@ model Inspection {
   @@index([propertyId, status], map: "idx_inspection_property_status")
   @@index([assignedToId, status])
   @@index([scheduledDate, status])
+  @@index([archivedAt])
 }
 
 model Job {

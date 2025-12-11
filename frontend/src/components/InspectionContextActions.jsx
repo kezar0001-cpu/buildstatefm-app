@@ -67,24 +67,6 @@ export const InspectionContextActions = ({
           variant: 'contained',
         };
 
-      case INSPECTION_STATUS.PENDING_APPROVAL:
-        if (isManager) {
-          return {
-            label: 'Approve',
-            icon: <ApproveIcon />,
-            onClick: () => onApprove?.(inspection),
-            color: 'success',
-            variant: 'contained',
-          };
-        }
-        return {
-          label: 'View',
-          icon: <ViewIcon />,
-          onClick: () => onView?.(inspection.id),
-          color: 'primary',
-          variant: 'outlined',
-        };
-
       case INSPECTION_STATUS.COMPLETED:
         return {
           label: 'View Report',

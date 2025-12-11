@@ -57,10 +57,21 @@ export function initializeCronJobs() {
     }
   });
 
+  // Archive completed inspections after 24 hours - runs every hour
+  cron.schedule('0 * * * *', async () => {
+    console.log('Running inspection archiving check...');
+    try {
+      await archiveInspections();
+    } catch (error) {
+      console.error('Error in inspection archiving cron job:', error);
+    }
+  });
+
   console.log('Cron jobs initialized successfully');
   console.log('- Trial reminders: Daily at 9:00 AM');
   console.log('- Recommendation archiving: Every hour');
   console.log('- Service request archiving: Every hour');
+  console.log('- Inspection archiving: Every hour');
 }
 
 /**
@@ -157,4 +168,33 @@ export async function archiveServiceRequests() {
     rejected: rejectedResult.count,
     total: approvedResult.count + rejectedResult.count,
   };
+}
+
+/**
+ * Archive inspections that have been completed for more than 24 hours.
+ * We keep the status as COMPLETED and set archivedAt, then rely on queries
+ * to exclude archived inspections from normal views.
+ */
+export async function archiveInspections() {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const result = await prisma.inspection.updateMany({
+    where: {
+      status: 'COMPLETED',
+      completedDate: {
+        not: null,
+        lte: twentyFourHoursAgo,
+      },
+      archivedAt: null,
+    },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
+
+  if (result.count > 0) {
+    console.log(`Archived ${result.count} inspection(s) that were completed more than 24 hours ago`);
+  }
+
+  return result;
 }

@@ -67,7 +67,6 @@ import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import Breadcrumbs from '../components/Breadcrumbs';
 import InspectionForm from '../components/InspectionForm';
-import InspectionApprovalCard from '../components/InspectionApprovalCard';
 import { CompleteInspectionDialog } from '../components/CompleteInspectionDialog';
 import { InspectionPhotoGalleryModal } from '../components/InspectionPhotoGalleryModal';
 import SkeletonDetail from '../components/SkeletonDetail';
@@ -842,9 +841,6 @@ export default function InspectionDetailPage() {
             </Box>
           )}
         </Paper>
-
-        {/* Approval Card */}
-        <InspectionApprovalCard inspection={inspection} currentUser={user} />
 
         {/* Metrics Grid */}
         <Grid container spacing={2} sx={{ mb: 3 }}>

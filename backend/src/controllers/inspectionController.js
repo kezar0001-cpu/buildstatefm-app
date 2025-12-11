@@ -11,7 +11,7 @@ const ROLE_MANAGER = 'PROPERTY_MANAGER';
 const ROLE_OWNER = 'OWNER';
 const ROLE_TECHNICIAN = 'TECHNICIAN';
 const ROLE_TENANT = 'TENANT';
-const INSPECTION_STATUS = ['SCHEDULED', 'IN_PROGRESS', 'PENDING_APPROVAL', 'COMPLETED', 'CANCELLED'];
+const INSPECTION_STATUS = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 const INSPECTION_TYPES = ['ROUTINE', 'MOVE_IN', 'MOVE_OUT', 'EMERGENCY', 'COMPLIANCE'];
 
 // Schemas
@@ -155,6 +155,9 @@ function buildInspectionWhere(query, user) {
     if (!isNaN(d.getTime())) range.lte = d;
   }
   if (Object.keys(range).length) filters.push({ scheduledDate: range });
+  
+  // Exclude archived inspections from normal queries by default
+  filters.push({ archivedAt: null });
 
   return filters.length ? { AND: filters } : {};
 }
