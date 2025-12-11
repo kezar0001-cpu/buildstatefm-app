@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 
@@ -179,6 +180,11 @@ export function useInspectionConduct(inspection, onComplete) {
       queryClient.invalidateQueries(queryKeys.inspections.detail(inspection.id));
       queryClient.invalidateQueries(queryKeys.inspections.list());
       onComplete();
+    },
+    onError: (error) => {
+      const message =
+        error?.response?.data?.message || 'Failed to complete inspection. Please try again.';
+      toast.error(message);
     }
   });
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, Button, Alert, Stack } from '@mui/material';
 import InspectionChecklistPreview from '../InspectionChecklistPreview';
 
-export const InspectionStepStart = ({ inspection, rooms, issues, onStart, isMobile = false }) => {
+export const InspectionStepStart = ({ inspection, rooms, onStart, isMobile = false }) => {
   return (
     <Box sx={{ py: isMobile ? 2 : 4 }}>
       <Box sx={{ textAlign: 'center', mb: isMobile ? 2 : 4 }}>
@@ -25,7 +25,7 @@ export const InspectionStepStart = ({ inspection, rooms, issues, onStart, isMobi
       {/* Checklist Preview */}
       {!isMobile && (
         <Stack spacing={3} sx={{ maxWidth: 800, mx: 'auto', mb: 4 }}>
-          <InspectionChecklistPreview inspection={inspection} rooms={rooms} issues={issues} />
+          <InspectionChecklistPreview inspection={inspection} rooms={rooms} />
         </Stack>
       )}
 

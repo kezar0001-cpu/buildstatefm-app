@@ -40,7 +40,25 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
   const [signatureBlob, setSignatureBlob] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
   const [summaryExpanded, setSummaryExpanded] = useState(true);
-  
+
+  // In the conduct flow, checklist items are treated as issues
+  const allIssues = rooms.flatMap((r) => r.checklistItems || r.InspectionChecklistItem || []);
+
+  // Status and priority helpers
+  const STATUS_LABELS = {
+    PENDING: 'Pending',
+    PASSED: 'Passed',
+    FAILED: 'Failed',
+    NA: 'N/A',
+  };
+
+  const PRIORITY_CONFIG = {
+    CRITICAL: { color: 'error', label: 'Critical' },
+    HIGH: { color: 'error', label: 'High' },
+    MEDIUM: { color: 'warning', label: 'Medium' },
+    LOW: { color: 'info', label: 'Low' },
+  };
+
   const signatureRequired = inspection.type === 'MOVE_IN' || inspection.type === 'MOVE_OUT';
 
   // Calculate metrics - handle both Prisma model names and aliased names
@@ -48,9 +66,9 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
     const roomPhotos = (r.photos || r.InspectionPhoto || []).length;
     return sum + roomPhotos;
   }, 0);
-
-  const criticalIssues = issues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH');
-  const allIssues = rooms.flatMap((r) => r.checklistItems || r.InspectionChecklistItem || []);
+  const criticalIssues = allIssues.filter(
+    (i) => i.severity === 'CRITICAL' || i.severity === 'HIGH'
+  );
 
   // Generate AI summary mutation
   const generateSummaryMutation = useMutation({
@@ -289,7 +307,7 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
         </Card>
       )}
 
-      {/* Issues List */}
+      {/* Issues List (checklist items treated as issues) */}
       {allIssues.length > 0 && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>
@@ -302,14 +320,38 @@ export const InspectionStepReview = ({ inspection, rooms, issues, onComplete, is
                   <ListItem sx={{ px: 0 }}>
                     <ListItemText
                       primary={issue.description || issue.title}
-                      secondary={issue.notes}
+                      secondary={
+                        issue.notes
+                          ? issue.notes
+                          : `Status: ${STATUS_LABELS[issue.status] || STATUS_LABELS.PENDING}`
+                      }
                     />
-                    <Chip
-                      label={issue.severity || 'MEDIUM'}
-                      size="small"
-                      color={issue.severity === 'CRITICAL' || issue.severity === 'HIGH' ? 'error' : 'warning'}
-                      variant="outlined"
-                    />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        label={STATUS_LABELS[issue.status] || STATUS_LABELS.PENDING}
+                        size="small"
+                        color={
+                          issue.status === 'PASSED'
+                            ? 'success'
+                            : issue.status === 'FAILED'
+                            ? 'error'
+                            : 'default'
+                        }
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={
+                          (PRIORITY_CONFIG[issue.severity]?.label || issue.severity || 'Medium')
+                        }
+                        size="small"
+                        color={PRIORITY_CONFIG[issue.severity]?.color || 'warning'}
+                        variant={
+                          issue.severity === 'CRITICAL' || issue.severity === 'HIGH'
+                            ? 'filled'
+                            : 'outlined'
+                        }
+                      />
+                    </Stack>
                   </ListItem>
                   {index < Math.min(allIssues.length, 10) - 1 && <Divider />}
                 </React.Fragment>

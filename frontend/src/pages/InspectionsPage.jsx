@@ -983,8 +983,9 @@ const InspectionsPage = () => {
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
+              onCancel={handleCancelInspection}
+              onStatusMenuOpen={handleStatusMenuOpen}
               getStatusColor={getStatusColor}
-              getStatusIcon={getStatusIcon}
               formatStatusText={formatStatusText}
             />
           )}
@@ -1695,6 +1696,21 @@ const InspectionListItem = ({
             <VisibilityIcon />
           </IconButton>
         </Tooltip>
+        {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && onCancel && (
+          <Tooltip title="Cancel inspection">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel(inspection);
+              }}
+              aria-label={`Cancel ${inspection.title}`}
+            >
+              <CancelIcon />
+            </IconButton>
+          </Tooltip>
+        )}
         {inspection.status !== 'COMPLETED' && (
           <Tooltip title="Edit">
             <IconButton
@@ -1710,16 +1726,6 @@ const InspectionListItem = ({
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title="Change Status">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => onStatusMenuOpen(e, inspection)}
-            aria-label={`Change status for ${inspection.title}`}
-          >
-            <MoreVertIcon />
-          </IconButton>
-        </Tooltip>
         <Tooltip title="Delete">
           <IconButton
             size="small"
@@ -1746,10 +1752,11 @@ const InspectionTable = ({
   inspections,
   selectedIds,
   onSelectAll,
-  onSelectOne,
+  onSelect,
   onView,
   onEdit,
   onDelete,
+  onCancel,
   onStatusMenuOpen,
   getStatusColor,
   formatStatusText,
@@ -1804,7 +1811,7 @@ const InspectionTable = ({
               <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={selectedIds.includes(inspection.id)}
-                  onChange={() => onSelectOne(inspection.id)}
+                  onChange={() => onSelect && onSelect(inspection.id)}
                   aria-label={`Select ${inspection.title}`}
                 />
               </TableCell>
@@ -1895,14 +1902,14 @@ const InspectionTable = ({
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+                  {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && onCancel && (
                     <Tooltip title="Cancel inspection">
                       <IconButton
                         size="small"
                         color="error"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCancelInspection(inspection);
+                          onCancel(inspection);
                         }}
                         aria-label={`Cancel ${inspection.title}`}
                       >
@@ -1924,15 +1931,6 @@ const InspectionTable = ({
                       </IconButton>
                     </Tooltip>
                   )}
-                  <Tooltip title="Change Status">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => onStatusMenuOpen(e, inspection)}
-                      aria-label={`Change status for ${inspection.title}`}
-                    >
-                      <MoreVertIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                   <Tooltip title="Delete">
                     <IconButton
                       size="small"

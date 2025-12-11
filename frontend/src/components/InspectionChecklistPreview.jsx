@@ -24,21 +24,18 @@ import {
   ListAlt as ItemsIcon,
 } from '@mui/icons-material';
 
-export default function InspectionChecklistPreview({ inspection, rooms: roomsProp, issues: issuesProp }) {
-  // Prefer live rooms/issues passed in from conduct hook; fall back to inspection payload for compatibility
+export default function InspectionChecklistPreview({ inspection, rooms: roomsProp }) {
+  // Prefer live rooms passed in from conduct hook; fall back to inspection payload for compatibility
   const rooms = roomsProp || inspection?.rooms || [];
-  const issues = issuesProp || [];
 
-  // Calculate total checklist items (handle both camelCase and PascalCase)
-  const totalItems = rooms.reduce((sum, room) => {
+  // In this flow, checklist items ARE issues (AI list generator only creates issues found)
+  const totalIssues = rooms.reduce((sum, room) => {
     const items = room.checklistItems || room.InspectionChecklistItem || [];
     return sum + (items.length || 0);
   }, 0);
 
-  const totalIssues = issues.length || 0;
-
-  // Show message if there are rooms but no checklist items
-  if (rooms.length > 0 && totalItems === 0) {
+  // Show message if there are rooms but no issues
+  if (rooms.length > 0 && totalIssues === 0) {
     return (
       <Alert severity="info">
         <Typography variant="body2">
@@ -72,14 +69,8 @@ export default function InspectionChecklistPreview({ inspection, rooms: roomsPro
             />
             <Chip
               icon={<ItemsIcon />}
-              label={`${totalItems} Item${totalItems !== 1 ? 's' : ''} to Check`}
-              color="secondary"
-              variant="outlined"
-            />
-            <Chip
-              icon={<TimeIcon />}
               label={`${totalIssues} Issue${totalIssues !== 1 ? 's' : ''}`}
-              color="info"
+              color="secondary"
               variant="outlined"
             />
           </Stack>
