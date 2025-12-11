@@ -1262,7 +1262,7 @@ const InspectionKanban = ({
       CANCELLED: [],
     };
 
-    inspections.forEach(inspection => {
+    inspections.forEach((inspection) => {
       const status = inspection.status || 'SCHEDULED';
       if (grouped[status]) {
         grouped[status].push(inspection);
@@ -1280,7 +1280,7 @@ const InspectionKanban = ({
 
   return (
     <Grid container spacing={2}>
-      {columns.map(column => (
+      {columns.map((column) => (
         <Grid item xs={12} sm={6} md={4} lg={2.4} key={column.id}>
           <Paper
             sx={{
@@ -1296,125 +1296,80 @@ const InspectionKanban = ({
               <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
                 {column.title}
               </Typography>
-              <Chip
-                label={column.inspections.length}
-                size="small"
-                color={column.color}
-              />
+              <Chip label={column.inspections.length} size="small" color={column.color} />
             </Box>
 
             {/* Column Cards */}
             <Stack spacing={2}>
-              {column.inspections.map(inspection => (
-                <Card
-                  key={inspection.id}
-                  sx={{
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease-in-out',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: '4px',
-                      background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                      opacity: 0,
-                      transition: 'opacity 0.3s ease-in-out',
-                    },
-                    '@media (hover: hover)': {
+              {column.inspections.map((inspection) => {
+                const inspectionWithRooms = {
+                  ...inspection,
+                  rooms: (inspection.rooms || inspection.InspectionRoom || []).map((room) => ({
+                    ...room,
+                    checklistItems: room.checklistItems || room.InspectionChecklistItem || [],
+                  })),
+                };
+
+                return (
+                  <Card
+                    key={inspection.id}
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease-in-out',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
                       '&:hover': {
                         transform: 'translateY(-4px)',
                         boxShadow: 6,
                         borderColor: 'primary.main',
-                        '&::before': {
-                          opacity: 1,
-                        },
                       },
-                    },
-                  }}
-                  onClick={() => onView(inspection.id)}
-                >
-                  <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, '&:last-child': { pb: 2 } }}>
-                    {/* Header */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
-                        {inspection.title}
-                      </Typography>
-                    </Box>
+                    }}
+                    onClick={() => onView(inspection.id)}
+                  >
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      {/* Header */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                          {inspection.title}
+                        </Typography>
+                        <Chip
+                          icon={getStatusIcon(inspection.displayStatus || inspection.status)}
+                          label={formatStatusText(inspection.displayStatus || inspection.status)}
+                          size="small"
+                          color={getStatusColor(inspection.displayStatus || inspection.status)}
+                        />
+                      </Box>
 
-                    {/* Type Chip */}
-                    {inspection.type && (
-                      <Chip
-                        label={inspection.type.replace(/_/g, ' ')}
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
-
-                    {/* Overdue Warning */}
-                    {inspection.isOverdue && (
-                      <Alert severity="error" sx={{ py: 0 }}>
-                        <Typography variant="caption">Overdue</Typography>
-                      </Alert>
-                    )}
-
-                    {/* Details - Grouped in subtle box */}
-                    <Box
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 1.5,
-                        bgcolor: 'action.hover',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        mt: 'auto',
-                      }}
-                    >
-                      <Stack spacing={1.5}>
-                        {/* Property */}
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                            Property
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            component={MuiLink}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (inspection.property?.id) {
-                                navigate(`/properties/${inspection.property.id}`);
-                              }
-                            }}
-                            sx={{
-                              color: 'primary.main',
-                              textDecoration: 'none',
-                              '&:hover': { textDecoration: 'underline' },
-                              mt: 0.5,
-                              display: 'block',
-                            }}
-                          >
-                            {inspection.property?.name || 'N/A'}
-                          </Typography>
-                        </Box>
-
-                        {/* Unit */}
-                        {inspection.unit && (
+                      {/* Details */}
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: 'action.hover',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          mb: 1.5,
+                        }}
+                      >
+                        <Stack spacing={1.5}>
+                          {/* Property */}
                           <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Unit
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}
+                            >
+                              Property
                             </Typography>
                             <Typography
                               variant="body2"
                               component={MuiLink}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (inspection.unit?.id) {
-                                  navigate(`/units/${inspection.unit.id}`);
+                                if (inspection.property?.id) {
+                                  navigate(`/properties/${inspection.property.id}`);
                                 }
                               }}
                               sx={{
@@ -1425,46 +1380,83 @@ const InspectionKanban = ({
                                 display: 'block',
                               }}
                             >
-                              Unit {inspection.unit.unitNumber}
+                              {inspection.property?.name || 'N/A'}
                             </Typography>
                           </Box>
-                        )}
 
-                        {/* Scheduled Date */}
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                            Scheduled
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {formatDateTime(inspection.scheduledDate)}
-                          </Typography>
-                        </Box>
+                          {/* Unit */}
+                          {inspection.unit && (
+                            <Box>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}
+                              >
+                                Unit
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                component={MuiLink}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (inspection.unit?.id) {
+                                    navigate(`/units/${inspection.unit.id}`);
+                                  }
+                                }}
+                                sx={{
+                                  color: 'primary.main',
+                                  textDecoration: 'none',
+                                  '&:hover': { textDecoration: 'underline' },
+                                  mt: 0.5,
+                                  display: 'block',
+                                }}
+                              >
+                                Unit {inspection.unit.unitNumber}
+                              </Typography>
+                            </Box>
+                          )}
 
-                        {/* Assigned To */}
-                        {inspection.assignedTo && (
+                          {/* Scheduled Date */}
                           <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Assigned To
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}
+                            >
+                              Scheduled
                             </Typography>
                             <Typography variant="body2" sx={{ mt: 0.5 }}>
-                              {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+                              {formatDateTime(inspection.scheduledDate)}
                             </Typography>
                           </Box>
-                        )}
-                      </Stack>
-                    </Box>
 
-                    {/* Progress Indicator */}
-                    <InspectionProgressIndicator inspection={inspection} variant="full" />
+                          {/* Assigned To */}
+                          {inspection.assignedTo && (
+                            <Box>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}
+                              >
+                                Assigned To
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {inspection.assignedTo.firstName} {inspection.assignedTo.lastName}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                      </Box>
 
-                    {/* Context-Aware Actions */}
-                    <Box
-                      sx={{
-                        pt: 1.5,
-                        borderTop: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
+                      {/* Progress Indicator */}
+                      <Box sx={{ mb: 1.5 }}>
+                        <InspectionProgressIndicator inspection={inspectionWithRooms} variant="full" />
+                      </Box>
+
+                      {/* Card Actions */}
                       <InspectionContextActions
                         inspection={inspection}
                         onStartInspection={onStartInspection}
@@ -1478,10 +1470,10 @@ const InspectionKanban = ({
                         size="small"
                         showSecondaryActions={false}
                       />
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {column.inspections.length === 0 && (
                 <Box
@@ -1495,9 +1487,7 @@ const InspectionKanban = ({
                     borderColor: 'divider',
                   }}
                 >
-                  <Typography variant="body2">
-                    No inspections
-                  </Typography>
+                  <Typography variant="body2">No inspections</Typography>
                 </Box>
               )}
             </Stack>
@@ -1672,7 +1662,7 @@ const InspectionListItem = ({
 
         {/* Progress Indicator */}
         <Box sx={{ mt: 2 }}>
-          <InspectionProgressIndicator inspection={inspection} variant="compact" />
+          <InspectionProgressIndicator inspection={inspectionWithRooms} variant="compact" />
         </Box>
       </Box>
 
@@ -1793,7 +1783,16 @@ const InspectionTable = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {inspections.map((inspection) => (
+          {inspections.map((inspection) => {
+            const inspectionWithRooms = {
+              ...inspection,
+              rooms: (inspection.rooms || inspection.InspectionRoom || []).map((room) => ({
+                ...room,
+                checklistItems: room.checklistItems || room.InspectionChecklistItem || [],
+              })),
+            };
+
+            return (
             <TableRow
               key={inspection.id}
               hover
@@ -1878,7 +1877,7 @@ const InspectionTable = ({
               </TableCell>
               <TableCell>
                 <Box sx={{ minWidth: 150 }}>
-                  <InspectionProgressIndicator inspection={inspection} variant="compact" />
+                  <InspectionProgressIndicator inspection={inspectionWithRooms} variant="compact" />
                 </Box>
               </TableCell>
               <TableCell align="right" onClick={(e) => e.stopPropagation()}>
@@ -1934,7 +1933,8 @@ const InspectionTable = ({
                 </Box>
               </TableCell>
             </TableRow>
-          ))}
+          );
+          })}
         </TableBody>
       </Table>
     </TableContainer>

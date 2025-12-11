@@ -11,6 +11,23 @@ export const addRoom = async (req, res) => {
     const { name, roomType, notes } = req.body;
     const inspectionId = req.params.id;
 
+    // Auto-start inspection when work begins
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { status: true },
+    });
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    if (inspection.status === 'SCHEDULED') {
+      await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { status: 'IN_PROGRESS' },
+      });
+    }
+
     const roomCount = await prisma.inspectionRoom.count({ where: { inspectionId } });
 
     const room = await prisma.inspectionRoom.create({
@@ -95,7 +112,7 @@ export const generateAIChecklist = async (req, res) => {
     // Get inspection and room details
     const inspection = await prisma.inspection.findUnique({
       where: { id: inspectionId },
-      select: { type: true }
+      select: { type: true, status: true }
     });
 
     const room = await prisma.inspectionRoom.findUnique({
@@ -105,6 +122,14 @@ export const generateAIChecklist = async (req, res) => {
 
     if (!inspection || !room) {
       return sendError(res, 404, 'Inspection or room not found', ErrorCodes.ERR_NOT_FOUND);
+    }
+
+    // Auto-start inspection when work begins
+    if (inspection.status === 'SCHEDULED') {
+      await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { status: 'IN_PROGRESS' },
+      });
     }
 
     // Get existing count to determine starting order
@@ -195,6 +220,24 @@ export const addChecklistItem = async (req, res) => {
   try {
     const { description, status, notes } = req.body;
     const roomId = req.params.roomId;
+    const inspectionId = req.params.id;
+
+    // Auto-start inspection when work begins
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { status: true },
+    });
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    if (inspection.status === 'SCHEDULED') {
+      await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { status: 'IN_PROGRESS' },
+      });
+    }
 
     const itemCount = await prisma.inspectionChecklistItem.count({ where: { roomId } });
 
@@ -257,6 +300,23 @@ export const addIssue = async (req, res) => {
   try {
     const { roomId, checklistItemId, title, description, severity, status } = req.body;
     const inspectionId = req.params.id;
+
+    // Auto-start inspection when work begins
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { status: true },
+    });
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    if (inspection.status === 'SCHEDULED') {
+      await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { status: 'IN_PROGRESS' },
+      });
+    }
 
     const issue = await prisma.inspectionIssue.create({
       data: {
@@ -331,6 +391,23 @@ export const addPhoto = async (req, res) => {
   try {
     const { roomId, issueId, url, caption } = req.body;
     const inspectionId = req.params.id;
+
+    // Auto-start inspection when work begins
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { status: true },
+    });
+
+    if (!inspection) {
+      return sendError(res, 404, 'Inspection not found', ErrorCodes.RES_INSPECTION_NOT_FOUND);
+    }
+
+    if (inspection.status === 'SCHEDULED') {
+      await prisma.inspection.update({
+        where: { id: inspectionId },
+        data: { status: 'IN_PROGRESS' },
+      });
+    }
 
     let photoCount = 0;
     if (roomId) {
