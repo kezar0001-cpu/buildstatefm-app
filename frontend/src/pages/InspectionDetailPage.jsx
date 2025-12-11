@@ -434,14 +434,39 @@ export default function InspectionDetailPage() {
   const auditData = batchedData?.auditLogs || [];
   const inspectorOptions = batchedData?.inspectors || [];
 
-  const metrics = useMemo(() => {
-    if (!inspection) return { rooms: 0, issues: 0, photos: 0, progress: 0 };
+  const normalizedInspection = useMemo(() => {
+    if (!inspection) return null;
 
-    const rooms = inspection.rooms || [];
-    const issues = inspection.issues || [];
+    const rooms = (inspection.rooms || inspection.InspectionRoom || []).map((room) => ({
+      ...room,
+      checklistItems: room.checklistItems || room.InspectionChecklistItem || [],
+      photos: room.photos || room.InspectionPhoto || [],
+    }));
+
+    const issues = (inspection.issues || inspection.InspectionIssue || []).map((issue) => ({
+      ...issue,
+      room: issue.room || issue.InspectionRoom || null,
+      photos: issue.photos || issue.InspectionPhoto || [],
+    }));
+
+    const attachments = inspection.attachments || inspection.InspectionAttachment || [];
+
+    return {
+      ...inspection,
+      rooms,
+      issues,
+      attachments,
+    };
+  }, [inspection]);
+
+  const metrics = useMemo(() => {
+    if (!normalizedInspection) return { rooms: 0, issues: 0, photos: 0, progress: 0 };
+
+    const rooms = normalizedInspection.rooms || [];
+    const issues = normalizedInspection.issues || [];
     const roomPhotos = rooms.flatMap((r) => r.photos || []);
     const issuePhotos = issues.flatMap((i) => i.photos || []);
-    const attachments = inspection.attachments || [];
+    const attachments = normalizedInspection.attachments || [];
 
     const allChecklistItems = rooms.flatMap((r) => r.checklistItems || []);
     const completedItems = allChecklistItems.filter(
@@ -460,7 +485,7 @@ export default function InspectionDetailPage() {
       criticalIssues: issues.filter((i) => i.severity === 'CRITICAL' || i.severity === 'HIGH')
         .length,
     };
-  }, [inspection]);
+  }, [normalizedInspection]);
 
   const previewMutation = useMutation({
     mutationFn: async (payload) => {
@@ -610,9 +635,9 @@ export default function InspectionDetailPage() {
 
   const canComplete =
     canManage && inspection.status !== 'COMPLETED' && inspection.status !== 'CANCELLED';
-  const propertyId = inspection.property?.id || inspection.propertyId || null;
-  const rooms = inspection.rooms || [];
-  const issues = inspection.issues || [];
+  const propertyId = normalizedInspection?.property?.id || normalizedInspection?.propertyId || null;
+  const rooms = normalizedInspection?.rooms || [];
+  const issues = normalizedInspection?.issues || [];
 
   return (
     <Box sx={{ pb: isMobile ? 10 : 4 }}>
