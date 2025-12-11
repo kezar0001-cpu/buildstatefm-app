@@ -1190,15 +1190,6 @@ const InspectionsPage = () => {
           <ListItemText>In Progress</ListItemText>
         </MenuItem>
         <MenuItem
-          onClick={() => handleStatusChange(statusMenuInspection, 'PENDING_APPROVAL')}
-          disabled={statusMenuInspection?.status === 'PENDING_APPROVAL' || isUpdatingStatus}
-        >
-          <ListItemIcon>
-            <VisibilityIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Pending Approval</ListItemText>
-        </MenuItem>
-        <MenuItem
           onClick={() => handleStatusChange(statusMenuInspection, 'COMPLETED')}
           disabled={statusMenuInspection?.status === 'COMPLETED' || isUpdatingStatus}
         >
@@ -1254,7 +1245,6 @@ const InspectionKanban = ({
     const grouped = {
       SCHEDULED: [],
       IN_PROGRESS: [],
-      PENDING_APPROVAL: [],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -1269,7 +1259,6 @@ const InspectionKanban = ({
     return [
       { id: 'SCHEDULED', title: 'Scheduled', inspections: grouped.SCHEDULED, color: 'info' },
       { id: 'IN_PROGRESS', title: 'In Progress', inspections: grouped.IN_PROGRESS, color: 'warning' },
-      { id: 'PENDING_APPROVAL', title: 'Pending Approval', inspections: grouped.PENDING_APPROVAL, color: 'secondary' },
       { id: 'COMPLETED', title: 'Completed', inspections: grouped.COMPLETED, color: 'success' },
       { id: 'CANCELLED', title: 'Cancelled', inspections: grouped.CANCELLED, color: 'error' },
     ];
