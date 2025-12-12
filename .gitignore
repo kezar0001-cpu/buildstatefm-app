@@ -21,3 +21,7 @@ backend/.env
 frontend/.env
 backend/.env
 nul
+
+# OpenMemory - IDE/Assistant specific rules
+.windsurf\rules\openmemory.md
+AGENTS.md
