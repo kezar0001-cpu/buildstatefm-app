@@ -80,6 +80,7 @@ const PlanCard = ({ plan, onClick, onEdit, onArchive }) => {
         borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
+        boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
         overflow: 'hidden',
         opacity: plan.isActive ? 1 : 0.7,
         '&::before': {

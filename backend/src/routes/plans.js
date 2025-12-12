@@ -11,6 +11,7 @@ const FREQUENCIES = ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'SEM
 const planSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
   propertyId: z.string().min(1, 'Property ID is required'),
+  assignedToId: z.string().optional().nullable(),
   frequency: z.enum(FREQUENCIES, { errorMap: () => ({ message: 'Invalid frequency' }) }),
   description: z.string().optional(),
   nextDueDate: z.string().optional(),
@@ -20,6 +21,7 @@ const planSchema = z.object({
 
 const planUpdateSchema = z.object({
   name: z.string().min(1, 'Plan name is required').optional(),
+  assignedToId: z.string().optional().nullable(),
   frequency: z.enum(FREQUENCIES, { errorMap: () => ({ message: 'Invalid frequency' }) }).optional(),
   description: z.string().optional().nullable(),
   nextDueDate: z.string().optional(),
@@ -93,6 +95,33 @@ const verifyPropertyAccess = async (propertyId, userId, userRole) => {
   return { hasAccess: true, property };
 };
 
+const resolveTechnicianAssignment = async (assignedToId, managerUserId) => {
+  const normalizedAssigneeId = assignedToId === '' ? null : assignedToId;
+  if (!normalizedAssigneeId) {
+    return { assignedToId: null };
+  }
+
+  const technician = await prisma.user.findUnique({
+    where: { id: normalizedAssigneeId },
+    select: { id: true, role: true, orgId: true },
+  });
+
+  if (!technician || technician.role !== 'TECHNICIAN') {
+    return { error: 'Technician not found', status: 404, code: ErrorCodes.RES_USER_NOT_FOUND };
+  }
+
+  const manager = await prisma.user.findUnique({
+    where: { id: managerUserId },
+    select: { orgId: true },
+  });
+
+  if (!manager?.orgId || technician.orgId !== manager.orgId) {
+    return { error: 'You do not have permission to assign this technician', status: 403, code: ErrorCodes.ACC_ACCESS_DENIED };
+  }
+
+  return { assignedToId: technician.id };
+};
+
 // GET / - List all maintenance plans (with role-based filtering)
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -120,6 +149,14 @@ router.get('/', requireAuth, async (req, res) => {
     const plans = await prisma.maintenancePlan.findMany({
       where,
       include: {
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         property: {
           select: {
             id: true,
@@ -155,6 +192,14 @@ router.get('/:id', requireAuth, async (req, res) => {
     const plan = await prisma.maintenancePlan.findUnique({
       where: { id },
       include: {
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         property: {
           select: {
             id: true,
@@ -222,7 +267,7 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) 
       return sendError(res, 400, issue?.message || 'Invalid request', ErrorCodes.VAL_VALIDATION_ERROR, parsed.error.issues);
     }
 
-    const { name, propertyId, frequency, description, nextDueDate, autoCreateJobs, isActive } = parsed.data;
+    const { name, propertyId, assignedToId, frequency, description, nextDueDate, autoCreateJobs, isActive } = parsed.data;
 
     // Verify property exists and user has access
     const { hasAccess, error, property } = await verifyPropertyAccess(propertyId, req.user.id, req.user.role);
@@ -232,11 +277,17 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) 
       return sendError(res, statusCode, error, errorCode);
     }
 
+    const resolvedAssignment = await resolveTechnicianAssignment(assignedToId, req.user.id);
+    if (resolvedAssignment?.error) {
+      return sendError(res, resolvedAssignment.status || 400, resolvedAssignment.error, resolvedAssignment.code || ErrorCodes.VAL_VALIDATION_ERROR);
+    }
+
     // Create maintenance plan
     const plan = await prisma.maintenancePlan.create({
       data: {
         name,
         propertyId,
+        assignedToId: resolvedAssignment.assignedToId,
         frequency,
         description: description || null,
         nextDueDate: nextDueDate ? new Date(nextDueDate) : new Date(),
@@ -244,6 +295,14 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) 
         isActive: isActive ?? true,
       },
       include: {
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         property: {
           select: {
             id: true,
@@ -305,11 +364,18 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, r
       return sendError(res, 403, 'You do not have permission to update this plan', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
-    const { name, frequency, description, nextDueDate, autoCreateJobs, isActive } = parsed.data;
+    const { name, assignedToId, frequency, description, nextDueDate, autoCreateJobs, isActive } = parsed.data;
 
     // Build update data
     const updateData = {};
     if (name !== undefined) updateData.name = name;
+    if (assignedToId !== undefined) {
+      const resolvedAssignment = await resolveTechnicianAssignment(assignedToId, req.user.id);
+      if (resolvedAssignment?.error) {
+        return sendError(res, resolvedAssignment.status || 400, resolvedAssignment.error, resolvedAssignment.code || ErrorCodes.VAL_VALIDATION_ERROR);
+      }
+      updateData.assignedToId = resolvedAssignment.assignedToId;
+    }
     if (frequency !== undefined) updateData.frequency = frequency;
     if (description !== undefined) updateData.description = description;
     if (nextDueDate !== undefined) updateData.nextDueDate = new Date(nextDueDate);
@@ -320,6 +386,14 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, r
       where: { id },
       data: updateData,
       include: {
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         property: {
           select: {
             id: true,

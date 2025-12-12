@@ -24,10 +24,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   CalendarToday as CalendarTodayIcon,
   Place as PlaceIcon,
+  Person as PersonIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
@@ -49,6 +52,8 @@ import MaintenancePlanForm from './MaintenancePlanForm';
 
 const PlanDetailModal = ({ planId, open, onClose }) => {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
@@ -178,7 +183,19 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
 
   if (isLoading) {
     return (
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
+      >
         <DialogContent>
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -190,14 +207,35 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
 
   if (error) {
     return (
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
+      >
         <DialogContent>
           <Alert severity="error">
             {error.response?.data?.message || 'Failed to load plan details'}
           </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Close</Button>
+        <DialogActions
+          sx={{
+            px: { xs: 2, md: 3 },
+            pb: { xs: 2, md: 2 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: { xs: 1, sm: 0 },
+          }}
+        >
+          <Button onClick={onClose} fullWidth={isMobile} sx={{ minHeight: { xs: 48, md: 36 } }}>
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     );
@@ -205,7 +243,19 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
 
   if (isEditing) {
     return (
-      <Dialog open={open} onClose={handleFormCancel} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={handleFormCancel}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
+      >
         <MaintenancePlanForm
           plan={plan}
           onSuccess={handleFormSuccess}
@@ -217,7 +267,19 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
+      >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -276,6 +338,27 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
                       label={getFrequencyLabel(plan?.frequency)}
                       size="small"
                       color="primary"
+                      variant="outlined"
+                    />
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Assigned Technician
+                    </Typography>
+                    <Chip
+                      label={
+                        plan?.assignedTo
+                          ? `${plan.assignedTo.firstName} ${plan.assignedTo.lastName}`
+                          : 'Unassigned'
+                      }
+                      size="small"
+                      color={plan?.assignedTo ? 'primary' : 'default'}
                       variant="outlined"
                     />
                   </Box>
@@ -408,23 +491,37 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions
+          sx={{
+            px: { xs: 2, md: 3 },
+            pb: { xs: 2, md: 2 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: { xs: 1, sm: 1 },
+          }}
+        >
           <Button
             onClick={handleDelete}
             color="error"
             startIcon={<DeleteIcon />}
             disabled={deleteMutation.isPending}
+            fullWidth={isMobile}
+            sx={{ minHeight: { xs: 48, md: 36 } }}
           >
             Delete Plan
           </Button>
-          <Box sx={{ flex: 1 }} />
-          <Button onClick={onClose}>Close</Button>
+          <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
+          <Button onClick={onClose} fullWidth={isMobile} sx={{ minHeight: { xs: 48, md: 36 } }}>
+            Close
+          </Button>
           {!isArchived ? (
             <Button
               onClick={() => setIsArchiveDialogOpen(true)}
               variant="outlined"
               startIcon={<ArchiveIcon />}
               disabled={archiveMutation.isPending}
+              fullWidth={isMobile}
+              sx={{ minHeight: { xs: 48, md: 36 } }}
             >
               Archive
             </Button>
@@ -434,6 +531,8 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
               variant="outlined"
               startIcon={<UnarchiveIcon />}
               disabled={unarchiveMutation.isPending}
+              fullWidth={isMobile}
+              sx={{ minHeight: { xs: 48, md: 36 } }}
             >
               Restore
             </Button>
@@ -443,6 +542,8 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
             variant="contained"
             startIcon={<EditIcon />}
             disabled={isArchived}
+            fullWidth={isMobile}
+            sx={{ minHeight: { xs: 48, md: 36 } }}
           >
             Edit Plan
           </Button>

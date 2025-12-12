@@ -37,6 +37,7 @@ const FREQUENCY_OPTIONS = [
 const planSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
   propertyId: z.string().min(1, 'Property is required'),
+  assignedToId: z.string().optional(),
   frequency: z.string().min(1, 'Frequency is required'),
   description: z.string().optional(),
   nextDueDate: z.date().optional(),
@@ -47,6 +48,7 @@ const planSchema = z.object({
 const planDefaultValues = {
   name: '',
   propertyId: '',
+  assignedToId: '',
   frequency: 'MONTHLY',
   description: '',
   nextDueDate: new Date(),
@@ -80,12 +82,21 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
     },
   });
 
+  const { data: technicians = [], isLoading: loadingTechnicians } = useQuery({
+    queryKey: queryKeys.users.list({ role: 'TECHNICIAN' }),
+    queryFn: async () => {
+      const response = await apiClient.get('/users?role=TECHNICIAN');
+      return ensureArray(response.data, ['users', 'data', 'items', 'results']);
+    },
+  });
+
   // Initialize form with plan data if editing
   useEffect(() => {
     if (plan) {
       reset({
         name: plan.name || '',
         propertyId: plan.propertyId || '',
+        assignedToId: plan.assignedToId || plan.assignedTo?.id || '',
         frequency: plan.frequency || 'MONTHLY',
         description: plan.description || '',
         nextDueDate: plan.nextDueDate ? new Date(plan.nextDueDate) : new Date(),
@@ -99,6 +110,7 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
     try {
       const payload = {
         ...data,
+        assignedToId: data.assignedToId || null,
         nextDueDate: toISOString(data.nextDueDate),
       };
 
@@ -131,6 +143,13 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
 
   const autoCreateJobs = watch('autoCreateJobs');
   const isActive = watch('isActive');
+  const technicianOptions = [
+    { value: '', label: 'Unassigned' },
+    ...ensureArray(technicians).map((tech) => ({
+      value: tech.id,
+      label: `${tech.firstName} ${tech.lastName} (${tech.email})`,
+    })),
+  ];
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -172,6 +191,17 @@ const MaintenancePlanForm = ({ plan, onSuccess, onCancel }) => {
                 label="Frequency"
                 required
                 options={FREQUENCY_OPTIONS}
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormSelect
+                name="assignedToId"
+                control={control}
+                label="Assign to Technician (Optional)"
+                options={technicianOptions}
+                disabled={loadingTechnicians}
+                helperText={loadingTechnicians ? 'Loading technicians...' : undefined}
               />
             </Grid>
 

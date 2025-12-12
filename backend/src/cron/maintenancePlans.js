@@ -138,10 +138,11 @@ async function createJobForPlan(plan) {
         title: `Maintenance: ${plan.name}`,
         description:
           plan.description || `Scheduled maintenance task generated for ${plan.name}`,
-        status: 'OPEN',
+        status: plan.assignedToId ? 'ASSIGNED' : 'OPEN',
         priority: 'MEDIUM',
         propertyId: plan.propertyId,
         maintenancePlanId: plan.id,
+        assignedToId: plan.assignedToId || null,
         scheduledDate: scheduledDate,
       },
       include: {

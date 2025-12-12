@@ -65,6 +65,7 @@ model User {
   TenantProfile                                        TenantProfile?
   UnitOwner                                            UnitOwner[]
   tenantUnits                                          UnitTenant[]
+  assignedMaintenancePlans                              MaintenancePlan[]       @relation("AssignedMaintenancePlanTechnician")
   Org                                                  Org?                    @relation(fields: [orgId], references: [id])
 
   @@index([email])
@@ -402,6 +403,7 @@ model MaintenancePlan {
   name              String
   description       String?
   propertyId        String
+  assignedToId       String?
   frequency         String
   nextDueDate       DateTime
   lastCompletedDate DateTime?
@@ -411,9 +413,11 @@ model MaintenancePlan {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   jobs              Job[]
+  assignedTo         User?     @relation("AssignedMaintenancePlanTechnician", fields: [assignedToId], references: [id])
   property          Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+  @@index([assignedToId])
   @@index([isActive])
   @@index([nextDueDate])
   @@index([archivedAt])
