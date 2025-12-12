@@ -2,16 +2,15 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useLocation, useNavigate } from 'react-router-dom';
 import { animate, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import {
-  Building2,
-  ClipboardList,
-  Gauge,
-  Lightbulb,
-  NotebookTabs,
-  ReceiptText,
-  ScrollText,
-  Wrench,
-  type LucideIcon,
-} from 'lucide-react';
+  Dashboard as DashboardIcon,
+  Home as HomeIcon,
+  Assignment as AssignmentIcon,
+  Build as BuildIcon,
+  RequestPage as ServiceRequestIcon,
+  Lightbulb as RecommendationIcon,
+  Description as ReportIcon,
+  Subscriptions as PlansIcon,
+} from '@mui/icons-material';
 import { useCurrentUser } from '../context/UserContext';
 import { getDefaultRouteForRole, getNavigationForRole } from '../utils/navigationConfig';
 
@@ -19,7 +18,7 @@ type RotaryNavItem = {
   key: string;
   label: string;
   href: string;
-  Icon: LucideIcon;
+  Icon: React.ElementType;
 };
 
 export type RotaryFooterProps = {
@@ -73,14 +72,14 @@ function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
   const dashboardHref = getDefaultRouteForRole(role || 'PROPERTY_MANAGER');
 
   const ordered: RotaryNavItem[] = [
-    { key: 'dashboard', label: 'Dashboard', href: dashboardHref, Icon: Gauge },
-    { key: 'properties', label: 'Properties', href: '/properties', Icon: Building2 },
-    { key: 'inspections', label: 'Inspections', href: '/inspections', Icon: ClipboardList },
-    { key: 'jobs', label: 'Jobs', href: '/jobs', Icon: Wrench },
-    { key: 'service-requests', label: 'Service Requests', href: '/service-requests', Icon: ReceiptText },
-    { key: 'recommendations', label: 'Recommendations', href: '/recommendations', Icon: Lightbulb },
-    { key: 'reports', label: 'Reports', href: '/reports', Icon: ScrollText },
-    { key: 'plans', label: 'Plans', href: '/plans', Icon: NotebookTabs },
+    { key: 'dashboard', label: 'Dashboard', href: dashboardHref, Icon: DashboardIcon },
+    { key: 'properties', label: 'Properties', href: '/properties', Icon: HomeIcon },
+    { key: 'inspections', label: 'Inspections', href: '/inspections', Icon: AssignmentIcon },
+    { key: 'jobs', label: 'Jobs', href: '/jobs', Icon: BuildIcon },
+    { key: 'service-requests', label: 'Service Requests', href: '/service-requests', Icon: ServiceRequestIcon },
+    { key: 'recommendations', label: 'Recommendations', href: '/recommendations', Icon: RecommendationIcon },
+    { key: 'reports', label: 'Reports', href: '/reports', Icon: ReportIcon },
+    { key: 'plans', label: 'Plans', href: '/plans', Icon: PlansIcon },
   ];
 
   if (!role) return ordered;
@@ -180,7 +179,7 @@ function RotaryWheelItem({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <item.Icon size={26} strokeWidth={2.3} />
+          <item.Icon sx={{ fontSize: 26 }} />
         </motion.div>
 
         <div
