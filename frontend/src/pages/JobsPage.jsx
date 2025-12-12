@@ -24,6 +24,7 @@ import {
   ToggleButton,
   Paper,
   Checkbox,
+  FormControlLabel,
   useMediaQuery,
   useTheme,
   InputAdornment,
@@ -105,6 +106,7 @@ const JobsPage = () => {
     status: '',
     priority: '',
     filter: '',
+    includeArchived: false,
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -174,8 +176,9 @@ const JobsPage = () => {
     if (filters.priority) params.append('priority', filters.priority);
     if (filters.filter) params.append('filter', filters.filter);
     if (searchQuery) params.append('search', searchQuery);
+    if (filters.includeArchived) params.append('includeArchived', 'true');
     return params;
-  }, [filters.filter, filters.priority, filters.status, searchQuery]);
+  }, [filters.filter, filters.includeArchived, filters.priority, filters.status, searchQuery]);
 
   // Fetch jobs with infinite query
   const {
@@ -729,12 +732,17 @@ const JobsPage = () => {
 
           {/* Filter Row */}
           <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={1.5} 
-            sx={{ 
-              flexWrap: 'wrap', 
+            direction="row"
+            spacing={1.5}
+            sx={{
+              flexWrap: 'nowrap',
               gap: 1.5,
               width: { xs: '100%', lg: 'auto' },
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              whiteSpace: 'nowrap',
+              pb: 0.5,
+              '&::-webkit-scrollbar': { height: 6 },
             }}
           >
             {/* Status Filter */}
@@ -744,7 +752,7 @@ const JobsPage = () => {
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
               size="small"
-              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+              sx={{ minWidth: 130, flexShrink: 0 }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="OPEN">Open</MenuItem>
@@ -761,7 +769,7 @@ const JobsPage = () => {
               value={filters.priority}
               onChange={(e) => handleFilterChange('priority', e.target.value)}
               size="small"
-              sx={{ minWidth: { xs: '100%', sm: 120 } }}
+              sx={{ minWidth: 120, flexShrink: 0 }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="LOW">Low</MenuItem>
@@ -777,12 +785,28 @@ const JobsPage = () => {
               value={filters.filter}
               onChange={(e) => handleFilterChange('filter', e.target.value)}
               size="small"
-              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+              sx={{ minWidth: 130, flexShrink: 0 }}
             >
               <MenuItem value="">None</MenuItem>
               <MenuItem value="overdue">Overdue</MenuItem>
               <MenuItem value="unassigned">Unassigned</MenuItem>
             </TextField>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!filters.includeArchived}
+                  onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                  Show Archived
+                </Typography>
+              }
+              sx={{ ml: 0, flexShrink: 0 }}
+            />
           </Stack>
 
           {!isMobile && (
@@ -1463,9 +1487,9 @@ const JobsPage = () => {
         open={detailModalOpen}
         onClose={handleCloseDetailModal}
         returnPath={detailReturnPath}
-        onViewFullPage={() => {
+        onViewFullPage={(jobId) => {
           handleCloseDetailModal();
-          handleOpenFullDetailPage(selectedJob?.id);
+          handleOpenFullDetailPage(jobId);
         }}
       />
 

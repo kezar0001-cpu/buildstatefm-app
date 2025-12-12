@@ -34,6 +34,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  InputAdornment,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -172,7 +173,12 @@ function MetricCard({ icon, label, value, color = 'primary', onClick }) {
       }}
     >
       <Box sx={{ color: `${color}.main`, mb: 1 }}>{icon}</Box>
-      <Typography variant="h4" fontWeight={700} color={`${color}.main`}>
+      <Typography
+        variant="h4"
+        fontWeight={700}
+        color={`${color}.main`}
+        sx={{ fontSize: { xs: 28, sm: 34, md: 40 } }}
+      >
         {value}
       </Typography>
       <Typography variant="caption" color="text.secondary">
@@ -464,6 +470,12 @@ export default function InspectionDetailPage() {
   const [recommendationWizardOpen, setRecommendationWizardOpen] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState({});
 
+  const [estimateCostDialogOpen, setEstimateCostDialogOpen] = useState(false);
+  const [estimateCostDialogMode, setEstimateCostDialogMode] = useState('single');
+  const [estimateCostIssue, setEstimateCostIssue] = useState(null);
+  const [estimateCostIssues, setEstimateCostIssues] = useState([]);
+  const [estimateCostInput, setEstimateCostInput] = useState('');
+
   const [completeData, setCompleteData] = useState({
     findings: '',
     notes: '',
@@ -696,13 +708,14 @@ export default function InspectionDetailPage() {
   });
 
   const convertToRecommendationMutation = useMutation({
-    mutationFn: async (issue) => {
+    mutationFn: async ({ issue, estimatedCost }) => {
       const response = await apiClient.post('/recommendations', {
         title: issue.title,
         description: issue.description || `Issue from inspection: ${issue.title}`,
         priority: issue.severity || 'MEDIUM',
         propertyId: inspection?.propertyId,
         inspectionId: id,
+        estimatedCost,
         status: 'SUBMITTED',
       });
       return response.data;
@@ -718,7 +731,7 @@ export default function InspectionDetailPage() {
   });
 
   const convertAllToRecommendationsMutation = useMutation({
-    mutationFn: async (issues) => {
+    mutationFn: async ({ issues, estimatedCost }) => {
       const promises = issues.map((issue) =>
         apiClient.post('/recommendations', {
           title: issue.title,
@@ -726,6 +739,7 @@ export default function InspectionDetailPage() {
           priority: issue.severity || 'MEDIUM',
           propertyId: inspection?.propertyId,
           inspectionId: id,
+          estimatedCost,
           status: 'SUBMITTED',
         })
       );
@@ -746,14 +760,50 @@ export default function InspectionDetailPage() {
   };
 
   const handleConvertIssueToRecommendation = (issue) => {
-    convertToRecommendationMutation.mutate(issue);
+    setEstimateCostDialogMode('single');
+    setEstimateCostIssue(issue);
+    setEstimateCostIssues([]);
+    setEstimateCostInput('');
+    setEstimateCostDialogOpen(true);
   };
 
   const handleConvertAllToRecommendations = () => {
     const issues = normalizedInspection?.issues || [];
     if (issues.length > 0) {
-      convertAllToRecommendationsMutation.mutate(issues);
+      setEstimateCostDialogMode('bulk');
+      setEstimateCostIssue(null);
+      setEstimateCostIssues(issues);
+      setEstimateCostInput('');
+      setEstimateCostDialogOpen(true);
     }
+  };
+
+  const handleCloseEstimateCostDialog = () => {
+    setEstimateCostDialogOpen(false);
+    setEstimateCostIssue(null);
+    setEstimateCostIssues([]);
+    setEstimateCostInput('');
+  };
+
+  const handleConfirmEstimateCostDialog = () => {
+    const raw = String(estimateCostInput || '').trim();
+    const estimatedCost = raw ? Number(raw) : undefined;
+
+    if (raw && (Number.isNaN(estimatedCost) || estimatedCost < 0)) {
+      toast.error('Estimated cost must be a valid positive number');
+      return;
+    }
+
+    if (estimateCostDialogMode === 'bulk') {
+      convertAllToRecommendationsMutation.mutate({ issues: estimateCostIssues, estimatedCost });
+      handleCloseEstimateCostDialog();
+      return;
+    }
+
+    if (estimateCostIssue) {
+      convertToRecommendationMutation.mutate({ issue: estimateCostIssue, estimatedCost });
+    }
+    handleCloseEstimateCostDialog();
   };
 
   const handlePreviewJobs = () => {
@@ -840,7 +890,7 @@ export default function InspectionDetailPage() {
   const issues = normalizedInspection?.issues || [];
 
   return (
-    <Box sx={{ pb: isMobile ? 10 : 4 }}>
+    <Box sx={{ pb: isMobile ? (isSmall ? 16 : 10) : 4 }}>
       <Container maxWidth="lg" sx={{ pt: isMobile ? 2 : 4 }}>
         {!isMobile && (
           <Breadcrumbs
@@ -1137,7 +1187,9 @@ export default function InspectionDetailPage() {
           <Tabs
             value={activeTab}
             onChange={(e, newValue) => setActiveTab(newValue)}
-            variant={isMobile ? 'fullWidth' : 'standard'}
+            variant={isSmall ? 'scrollable' : isMobile ? 'fullWidth' : 'standard'}
+            scrollButtons={isSmall ? 'auto' : false}
+            allowScrollButtonsMobile
             sx={{
               borderBottom: 1,
               borderColor: 'divider',
@@ -1384,13 +1436,14 @@ export default function InspectionDetailPage() {
                       severity="info"
                       sx={{ mb: 2 }}
                       action={
-                        <Stack direction="row" spacing={1}>
+                        <Stack direction={isSmall ? 'column' : 'row'} spacing={1} sx={{ width: isSmall ? '100%' : 'auto' }}>
                           <Button
                             color="inherit"
                             size="small"
                             onClick={handleConvertAllToRecommendations}
                             disabled={convertAllToRecommendationsMutation.isPending}
                             startIcon={<LightbulbIcon />}
+                            fullWidth={isSmall}
                           >
                             {convertAllToRecommendationsMutation.isPending
                               ? 'Converting...'
@@ -1483,7 +1536,7 @@ export default function InspectionDetailPage() {
             zIndex: 1100,
           }}
         >
-          <Stack direction="row" spacing={1}>
+          <Stack direction={isSmall ? 'column' : 'row'} spacing={1}>
             {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') &&
               canManage && (
                 <>
@@ -1519,20 +1572,22 @@ export default function InspectionDetailPage() {
                 View Report
               </Button>
             )}
-            <IconButton
-              onClick={() => setPhotoGalleryOpen(true)}
-              sx={{ bgcolor: 'action.hover' }}
-            >
-              <PhotoIcon />
-            </IconButton>
-            {canManage && (
+            <Stack direction="row" spacing={1} justifyContent={isSmall ? 'flex-end' : 'flex-start'}>
               <IconButton
-                onClick={() => setEditDialogOpen(true)}
+                onClick={() => setPhotoGalleryOpen(true)}
                 sx={{ bgcolor: 'action.hover' }}
               >
-                <EditIcon />
+                <PhotoIcon />
               </IconButton>
-            )}
+              {canManage && (
+                <IconButton
+                  onClick={() => setEditDialogOpen(true)}
+                  sx={{ bgcolor: 'action.hover' }}
+                >
+                  <EditIcon />
+                </IconButton>
+              )}
+            </Stack>
           </Stack>
         </Paper>
       )}
@@ -1752,6 +1807,43 @@ export default function InspectionDetailPage() {
         initialPropertyId={propertyId}
         initialInspectionId={inspection.id}
       />
+
+      <Dialog
+        open={estimateCostDialogOpen}
+        onClose={handleCloseEstimateCostDialog}
+        maxWidth="xs"
+        fullWidth
+        fullScreen={isSmall}
+      >
+        <DialogTitle>Estimated repair cost</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              Enter an estimated cost for the repair so it can be included on the recommendation.
+            </Typography>
+            <TextField
+              label="Estimated cost"
+              value={estimateCostInput}
+              onChange={(e) => setEstimateCostInput(e.target.value)}
+              type="number"
+              inputProps={{ min: 0, step: 0.01 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              placeholder="Optional"
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: isSmall ? 2 : undefined }}>
+          <Button onClick={handleCloseEstimateCostDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmEstimateCostDialog}
+            disabled={convertToRecommendationMutation.isPending || convertAllToRecommendationsMutation.isPending}
+          >
+            Convert
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <InspectionPhotoGalleryModal
         open={photoGalleryOpen}

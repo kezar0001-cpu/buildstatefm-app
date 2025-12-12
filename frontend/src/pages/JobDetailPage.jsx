@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Container } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -15,8 +15,6 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useCurrentUser();
-
-  const [dialogOpen, setDialogOpen] = useState(true);
 
   const fallbackPath = location.state?.from || '/jobs';
 
@@ -49,7 +47,6 @@ export default function JobDetailPage() {
   });
 
   const handleClose = () => {
-    setDialogOpen(false);
     navigate(fallbackPath);
   };
 
@@ -69,9 +66,10 @@ export default function JobDetailPage() {
         {job && (
           <JobDetailModal
             job={job}
-            open={dialogOpen}
+            open
             onClose={handleClose}
             returnPath={fallbackPath}
+            variant="page"
           />
         )}
       </DataState>

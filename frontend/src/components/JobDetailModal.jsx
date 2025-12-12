@@ -64,7 +64,7 @@ import {
 } from '../utils/jobCache.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 
-const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
+const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage, variant = 'modal' }) => {
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
@@ -575,14 +575,29 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
     onClose?.(returnPath);
   };
 
+  const isPageVariant = variant === 'page';
+
   return (
     <>
       <Dialog 
-        open={open && !!job} 
+        open={(isPageVariant ? !!job : open && !!job)} 
         onClose={handleClose} 
-        maxWidth="md" 
-        fullWidth
+        maxWidth={isPageVariant ? false : 'md'}
+        fullWidth={!isPageVariant}
+        fullScreen={isPageVariant}
+        hideBackdrop={isPageVariant}
         disableEnforceFocus
+        PaperProps={
+          isPageVariant
+            ? {
+                sx: {
+                  m: 0,
+                  borderRadius: 0,
+                  height: '100%',
+                },
+              }
+            : undefined
+        }
         onTransitionExited={() => {
           // Ensure no elements retain focus after dialog closes
           if (document.activeElement && document.activeElement.blur) {
@@ -613,7 +628,7 @@ const JobDetailModal = ({ job, open, onClose, returnPath, onViewFullPage }) => {
               />
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center">
-              {onViewFullPage && (
+              {onViewFullPage && !isPageVariant && (
                 <Button
                   variant="outlined"
                   size="small"

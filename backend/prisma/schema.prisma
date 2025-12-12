@@ -369,6 +369,7 @@ model Job {
   technicianNotes            String?
   createdAt                  DateTime         @default(now())
   updatedAt                  DateTime         @updatedAt
+  archivedAt                 DateTime?
   assignedTo                 User?            @relation("AssignedTechnician", fields: [assignedToId], references: [id])
   User_Job_createdByIdToUser User             @relation("Job_createdByIdToUser", fields: [createdById], references: [id])
   Inspection                 Inspection?      @relation(fields: [inspectionId], references: [id])
@@ -391,6 +392,7 @@ model Job {
   @@index([assignedToId, status])
   @@index([scheduledDate, status])
   @@index([createdAt, status])
+  @@index([archivedAt])
 }
 
 model MaintenancePlan {
@@ -861,12 +863,12 @@ model InspectionTemplateRoom {
 }
 
 model JobComment {
-  id        String   @id
+  id        String   @id @default(cuid())
   jobId     String
   userId    String
   content   String
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   Job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   User      User     @relation(fields: [userId], references: [id])
 

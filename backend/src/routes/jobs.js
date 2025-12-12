@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import validate from '../middleware/validate.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { prisma } from '../config/prismaClient.js';
@@ -106,6 +107,7 @@ const jobListQuerySchema = z.object({
   assignedToId: z.string().optional(),
   filter: z.enum(['overdue', 'unassigned']).optional(),
   search: z.string().trim().min(1).optional(),
+  includeArchived: z.preprocess((value) => value === 'true' || value === true, z.boolean()).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -120,6 +122,7 @@ router.get('/', requireAuth, async (req, res) => {
       assignedToId,
       filter,
       search,
+      includeArchived,
       limit: parsedLimit,
       offset: parsedOffset,
     } = jobListQuerySchema.parse(req.query);
@@ -150,6 +153,11 @@ router.get('/', requireAuth, async (req, res) => {
     // Apply query filters
     if (status) {
       where.status = status;
+    }
+
+    // Exclude archived jobs by default unless explicitly requested
+    if (!includeArchived) {
+      where.archivedAt = null;
     }
 
     if (priority) {
@@ -1529,6 +1537,7 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
     // Create comment
     const comment = await prisma.jobComment.create({
       data: {
+        id: randomUUID(),
         jobId: id,
         userId: req.user.id,
         content,

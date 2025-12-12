@@ -62,16 +62,13 @@ router.get('/', requireAuth, async (req, res) => {
       ];
     }
 
-    // By default, exclude archived items unless explicitly requested via status filter
-    // If status is ARCHIVED, show only archived items
-    // If status is set to something else, show only that status (which implicitly excludes archived)
-    // If no status filter, exclude archived items
-    if (status === 'ARCHIVED') {
-      where.status = 'ARCHIVED';
-    } else if (status) {
+    // Recommendations-style archiving behavior:
+    // - if status is explicitly set, honor it (including ARCHIVED)
+    // - otherwise, exclude ARCHIVED by default unless includeArchived=true
+    const shouldIncludeArchived = includeArchived === 'true' || includeArchived === true;
+    if (status) {
       where.status = status;
-    } else {
-      // No status filter - exclude archived by default
+    } else if (!shouldIncludeArchived) {
       where.status = { not: 'ARCHIVED' };
     }
 

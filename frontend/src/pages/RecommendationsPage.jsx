@@ -1916,6 +1916,9 @@ const RecommendationKanban = ({
               minHeight: 400,
               bgcolor: 'background.default',
               borderRadius: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
             }}
           >
             {/* Column Header */}
@@ -1931,7 +1934,16 @@ const RecommendationKanban = ({
             </Box>
 
             {/* Column Cards */}
-            <Stack spacing={2} sx={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
+            <Stack
+              spacing={2}
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                pr: 0.5,
+              }}
+            >
               {column.recommendations.map(recommendation => {
                 const property = recommendation.property || propertiesMap.get(recommendation.propertyId);
                 const propertyName = property?.name || 'N/A';
@@ -1973,10 +1985,20 @@ const RecommendationKanban = ({
                     <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, '&:last-child': { pb: 2 } }}>
                       {/* Header */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontWeight: 600,
+                            flex: 1,
+                            pr: 1,
+                            minWidth: 0,
+                            wordBreak: 'break-word',
+                            lineHeight: 1.25,
+                          }}
+                        >
                           {recommendation.title}
                         </Typography>
-                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()} sx={{ flexShrink: 0 }}>
                           {user?.role === 'PROPERTY_MANAGER' && (
                             <>
                               <Tooltip title="Edit">

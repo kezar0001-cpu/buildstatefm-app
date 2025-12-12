@@ -67,11 +67,22 @@ export function initializeCronJobs() {
     }
   });
 
+  // Archive completed/cancelled jobs after 24 hours - runs every hour
+  cron.schedule('0 * * * *', async () => {
+    console.log('Running job archiving check...');
+    try {
+      await archiveJobs();
+    } catch (error) {
+      console.error('Error in job archiving cron job:', error);
+    }
+  });
+
   console.log('Cron jobs initialized successfully');
   console.log('- Trial reminders: Daily at 9:00 AM');
   console.log('- Recommendation archiving: Every hour');
   console.log('- Service request archiving: Every hour');
   console.log('- Inspection archiving: Every hour');
+  console.log('- Job archiving: Every hour');
 }
 
 /**
@@ -112,14 +123,52 @@ export async function archiveRejectedRecommendations() {
 }
 
 /**
+ * Archive jobs that have been completed or cancelled for more than 24 hours.
+ * We keep the status as-is and set archivedAt, then rely on queries
+ * to exclude archived jobs from normal views.
+ */
+export async function archiveJobs() {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const result = await prisma.job.updateMany({
+    where: {
+      archivedAt: null,
+      OR: [
+        {
+          status: 'COMPLETED',
+          completedDate: {
+            not: null,
+            lte: twentyFourHoursAgo,
+          },
+        },
+        {
+          status: 'CANCELLED',
+          updatedAt: {
+            lte: twentyFourHoursAgo,
+          },
+        },
+      ],
+    },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
+
+  if (result.count > 0) {
+    console.log(`Archived ${result.count} job(s) that were completed/cancelled more than 24 hours ago`);
+  }
+
+  return result;
+}
+
+/**
  * Archive service requests based on approval/rejection timing
  * - Approved requests: archived after 24 hours
- * - Rejected requests: archived after 25 hours
+ * - Rejected requests: archived after 24 hours
  */
 export async function archiveServiceRequests() {
   const now = Date.now();
   const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000);
-  const twentyFiveHoursAgo = new Date(now - 25 * 60 * 60 * 1000);
 
   // Archive approved requests after 24 hours
   const approvedResult = await prisma.serviceRequest.updateMany({
@@ -142,7 +191,7 @@ export async function archiveServiceRequests() {
     console.log(`Archived ${approvedResult.count} approved service request(s) that were approved more than 24 hours ago`);
   }
 
-  // Archive rejected requests after 25 hours
+  // Archive rejected requests after 24 hours
   const rejectedResult = await prisma.serviceRequest.updateMany({
     where: {
       status: {
@@ -150,7 +199,7 @@ export async function archiveServiceRequests() {
       },
       rejectedAt: {
         not: null,
-        lte: twentyFiveHoursAgo,
+        lte: twentyFourHoursAgo,
       },
     },
     data: {
@@ -160,7 +209,7 @@ export async function archiveServiceRequests() {
   });
 
   if (rejectedResult.count > 0) {
-    console.log(`Archived ${rejectedResult.count} rejected service request(s) that were rejected more than 25 hours ago`);
+    console.log(`Archived ${rejectedResult.count} rejected service request(s) that were rejected more than 24 hours ago`);
   }
 
   return {
@@ -180,12 +229,22 @@ export async function archiveInspections() {
 
   const result = await prisma.inspection.updateMany({
     where: {
-      status: 'COMPLETED',
-      completedDate: {
-        not: null,
-        lte: twentyFourHoursAgo,
-      },
       archivedAt: null,
+      OR: [
+        {
+          status: 'COMPLETED',
+          completedDate: {
+            not: null,
+            lte: twentyFourHoursAgo,
+          },
+        },
+        {
+          status: 'CANCELLED',
+          updatedAt: {
+            lte: twentyFourHoursAgo,
+          },
+        },
+      ],
     },
     data: {
       archivedAt: new Date(),

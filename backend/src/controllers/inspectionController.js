@@ -90,7 +90,21 @@ function buildInspectionWhere(query, user) {
     filters.push(accessFilter);
   }
 
-  const { search, propertyId, unitId, status, inspectorId, inspector, assignedToId, dateFrom, dateTo, tags, tag, hasRejection } = query;
+  const {
+    search,
+    propertyId,
+    unitId,
+    status,
+    inspectorId,
+    inspector,
+    assignedToId,
+    dateFrom,
+    dateTo,
+    tags,
+    tag,
+    hasRejection,
+    includeArchived,
+  } = query;
 
   if (propertyId) filters.push({ propertyId });
   if (unitId) filters.push({ unitId });
@@ -157,7 +171,10 @@ function buildInspectionWhere(query, user) {
   if (Object.keys(range).length) filters.push({ scheduledDate: range });
   
   // Exclude archived inspections from normal queries by default
-  filters.push({ archivedAt: null });
+  const shouldIncludeArchived = includeArchived === 'true' || includeArchived === true;
+  if (!shouldIncludeArchived) {
+    filters.push({ archivedAt: null });
+  }
 
   return filters.length ? { AND: filters } : {};
 }

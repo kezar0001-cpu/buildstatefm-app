@@ -1,17 +1,8 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme } from '@mui/material';
-import {
-  Dashboard as DashboardIcon,
-  Home as HomeIcon,
-  Build as BuildIcon,
-  Assignment as AssignmentIcon,
-  RequestQuote as RequestQuoteIcon,
-  Assessment as AssessmentIcon,
-  Recommend as RecommendIcon,
-} from '@mui/icons-material';
+import { Box, BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme } from '@mui/material';
 import { useCurrentUser } from '../context/UserContext';
-import { getMobileNavForRole } from '../utils/navigationConfig';
+import { getDefaultRouteForRole, getNavigationForRole } from '../utils/navigationConfig';
 
 /**
  * Mobile bottom navigation bar.
@@ -29,8 +20,19 @@ export default function MobileBottomNav() {
     return null;
   }
 
-  // Get role-aware mobile navigation items
-  const navItems = getMobileNavForRole(user?.role);
+  const role = user?.role;
+
+  // Use the same navigation items as the main navbar, but make them accessible on mobile.
+  // Normalize the generic /dashboard route to the role-specific default route.
+  const rawNavItems = getNavigationForRole(role).map((item) => {
+    if (item.href === '/dashboard') {
+      return { ...item, href: getDefaultRouteForRole(role) };
+    }
+    return item;
+  });
+
+  // De-duplicate by href (prevents duplicate dashboard entries for some roles)
+  const navItems = rawNavItems.filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
 
   // Find current active item index
   const getActiveIndex = () => {
@@ -61,39 +63,45 @@ export default function MobileBottomNav() {
       }}
       elevation={3}
     >
-      <BottomNavigation
-        value={getActiveIndex()}
-        onChange={handleChange}
-        showLabels
+      <Box
         sx={{
-          backgroundColor: 'background.paper',
-          '& .MuiBottomNavigationAction-root': {
-            color: 'text.secondary',
-            minWidth: 'auto',
-            px: 0.5,
-            '&.Mui-selected': {
-              color: 'primary.main',
-            },
-            '& .MuiBottomNavigationAction-label': {
-              fontSize: '0.65rem',
-              '&.Mui-selected': {
-                fontSize: '0.7rem',
-              },
-            },
-          },
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          '&::-webkit-scrollbar': { height: 6 },
         }}
       >
-        {navItems.map((item, index) => {
-          const Icon = item.icon;
-          return (
-            <BottomNavigationAction
-              key={index}
-              label={item.name}
-              icon={<Icon />}
-            />
-          );
-        })}
-      </BottomNavigation>
+        <BottomNavigation
+          value={getActiveIndex()}
+          onChange={handleChange}
+          showLabels
+          sx={{
+            backgroundColor: 'background.paper',
+            width: 'max-content',
+            minWidth: '100%',
+            '& .MuiBottomNavigationAction-root': {
+              color: 'text.secondary',
+              flex: '0 0 auto',
+              minWidth: 76,
+              px: 1,
+              '&.Mui-selected': {
+                color: 'primary.main',
+              },
+              '& .MuiBottomNavigationAction-label': {
+                fontSize: '0.65rem',
+                '&.Mui-selected': {
+                  fontSize: '0.7rem',
+                },
+              },
+            },
+          }}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return <BottomNavigationAction key={item.href} label={item.name} icon={<Icon />} />;
+          })}
+        </BottomNavigation>
+      </Box>
     </Paper>
   );
 }

@@ -37,6 +37,7 @@ import {
   InputLabel,
   Select,
   Checkbox,
+  FormControlLabel,
   Toolbar,
   InputAdornment,
   Link as MuiLink,
@@ -131,6 +132,7 @@ const InspectionsPage = () => {
   const [technicianFilter, setTechnicianFilter] = useState(searchParams.get('technician') || '');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
+  const [includeArchived, setIncludeArchived] = useState(searchParams.get('includeArchived') === 'true');
 
   // View mode state
   const [viewMode, setViewMode] = useState(() => {
@@ -196,6 +198,7 @@ const InspectionsPage = () => {
     if (technicianFilter) params.append('assignedToId', technicianFilter);
     if (dateFrom) params.append('dateFrom', dateFrom);
     if (dateTo) params.append('dateTo', dateTo);
+    if (includeArchived) params.append('includeArchived', 'true');
     return params;
   };
 
@@ -216,6 +219,7 @@ const InspectionsPage = () => {
       technicianId: technicianFilter,
       dateFrom,
       dateTo,
+      includeArchived,
     }),
     queryFn: async ({ pageParam = 0 }) => {
       const params = buildQueryParams();
@@ -777,16 +781,21 @@ const InspectionsPage = () => {
 
           {/* Filter Row */}
           <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={1.5} 
-            sx={{ 
-              flexWrap: 'wrap', 
+            direction="row"
+            spacing={1.5}
+            sx={{
+              flexWrap: 'nowrap',
               gap: 1.5,
               width: { xs: '100%', lg: 'auto' },
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              whiteSpace: 'nowrap',
+              pb: 0.5,
+              '&::-webkit-scrollbar': { height: 6 },
             }}
           >
             {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 } }}>
+            <FormControl size="small" sx={{ minWidth: 130, flexShrink: 0 }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
@@ -816,7 +825,7 @@ const InspectionsPage = () => {
               }}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+              sx={{ minWidth: 130, flexShrink: 0 }}
             />
 
             {/* Date To */}
@@ -830,7 +839,26 @@ const InspectionsPage = () => {
               }}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: { xs: '100%', sm: 130 } }}
+              sx={{ minWidth: 130, flexShrink: 0 }}
+            />
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeArchived}
+                  onChange={(e) => {
+                    setIncludeArchived(e.target.checked);
+                    updateSearchParam('includeArchived', e.target.checked ? 'true' : '');
+                  }}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                  Show Archived
+                </Typography>
+              }
+              sx={{ ml: 0, flexShrink: 0 }}
             />
           </Stack>
 
