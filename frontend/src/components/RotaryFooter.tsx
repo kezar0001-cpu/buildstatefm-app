@@ -217,27 +217,6 @@ export default function RotaryFooter({ className, collapsed = false, onCollapsed
     onCollapsedChange?.(!collapsed);
   }, [collapsed, onCollapsedChange]);
 
-  const snapToNearest = useCallback(() => {
-    if (items.length === 0) return;
-    const current = rotation.get();
-    const snapped = Math.round(current / ITEM_WIDTH) * ITEM_WIDTH;
-    const idx = normalizeIndex(-Math.round(snapped / ITEM_WIDTH), items.length);
-
-    animate(rotation, snapped, {
-      type: 'spring',
-      stiffness: 200,
-      damping: 25,
-      mass: 0.5,
-      onComplete: () => {
-        const cycle = ITEM_WIDTH * items.length;
-        const normalized = ((snapped % cycle) + cycle) % cycle;
-        rotation.set(normalized);
-      },
-    });
-
-    setActiveIndex(idx);
-  }, [items.length, rotation]);
-
   const scheduleRotationUpdate = useCallback(
     (next: number) => {
       pendingRotation.current = next;
@@ -298,14 +277,13 @@ export default function RotaryFooter({ className, collapsed = false, onCollapsed
       } catch {
         // ignore
       }
-      snapToNearest();
       if (suppressNextClick.current) {
         window.setTimeout(() => {
           suppressNextClick.current = false;
         }, 0);
       }
     },
-    [snapToNearest]
+    [rotation]
   );
 
   const handleItemClick = useCallback(
