@@ -581,10 +581,17 @@ export default function InspectionDetailPage() {
     const completedItems = allChecklistItems.filter(
       (item) => item.status === 'PASSED' || item.status === 'FAILED' || item.status === 'NA'
     ).length;
-    const progress =
+    let progress =
       allChecklistItems.length > 0
         ? Math.round((completedItems / allChecklistItems.length) * 100)
         : 0;
+
+    // Once an inspection is marked COMPLETED, we always show 100% complete,
+    // regardless of the underlying checklist math. This better reflects the
+    // workflow where completion is an explicit action.
+    if (normalizedInspection.status === 'COMPLETED') {
+      progress = 100;
+    }
 
     return {
       rooms: rooms.length,
