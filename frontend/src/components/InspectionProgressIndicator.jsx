@@ -10,21 +10,30 @@ const InspectionProgressIndicator = ({ inspection, variant = 'full' }) => {
     return null;
   }
 
-  const completedRooms = rooms.filter((room) => {
+  const allChecklistItems = rooms.flatMap((room) => room.checklistItems || []);
+  const totalChecklistItems = allChecklistItems.length;
+
+  let completedRooms = rooms.filter((room) => {
     const items = room.checklistItems || [];
     if (items.length === 0) return false;
     return items.every((item) => item.status !== 'PENDING');
   }).length;
 
-  const allChecklistItems = rooms.flatMap((room) => room.checklistItems || []);
-  const totalChecklistItems = allChecklistItems.length;
-  const completedChecklistItems = allChecklistItems.filter(
+  let completedChecklistItems = allChecklistItems.filter(
     (item) => item.status === 'PASSED' || item.status === 'FAILED' || item.status === 'NA'
   ).length;
 
-  const checklistPercentage = totalChecklistItems > 0
+  let checklistPercentage = totalChecklistItems > 0
     ? Math.round((completedChecklistItems / totalChecklistItems) * 100)
     : 0;
+
+  // Once an inspection is marked COMPLETED, mirror the detail page behaviour
+  // by always showing 100% complete regardless of underlying checklist math.
+  if (inspection?.status === 'COMPLETED') {
+    completedRooms = totalRooms;
+    completedChecklistItems = totalChecklistItems;
+    checklistPercentage = totalChecklistItems > 0 ? 100 : 0;
+  }
 
   if (variant === 'compact') {
     return (
