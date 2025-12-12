@@ -160,16 +160,6 @@ function RotaryWheelItem({
         className="relative flex flex-col items-center justify-center pointer-events-auto"
         style={{ width: ITEM_WIDTH, height: ITEM_WIDTH }}
       >
-        {isActive && (
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="absolute inset-0 flex items-center justify-center"
-          >
-            <div className="h-14 w-14 rounded-full bg-orange-500/10 border-2 border-orange-500/40" />
-          </motion.div>
-        )}
-
         <motion.div
           className={`relative z-10 transition-colors duration-200 ${
             isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
