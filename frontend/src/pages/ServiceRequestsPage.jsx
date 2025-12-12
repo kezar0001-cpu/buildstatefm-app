@@ -473,8 +473,10 @@ const ServiceRequestsPage = () => {
               overflowX: 'auto',
               overflowY: 'hidden',
               whiteSpace: 'nowrap',
+              WebkitOverflowScrolling: 'touch',
               pb: 0.5,
-              '&::-webkit-scrollbar': { height: 6 },
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
             }}
           >
             {/* Search */}
@@ -502,7 +504,11 @@ const ServiceRequestsPage = () => {
                 ),
               }}
               size="small"
-              sx={{ flex: '1 0 260px', minWidth: 260, maxWidth: 420 }}
+              sx={{
+                flex: { xs: '0 0 200px', sm: '1 0 260px' },
+                minWidth: { xs: 200, sm: 260 },
+                maxWidth: 420,
+              }}
             />
 
             {/* Filter Row */}
@@ -513,11 +519,10 @@ const ServiceRequestsPage = () => {
                 flexWrap: 'nowrap',
                 gap: 1.5,
                 width: 'auto',
-                overflowX: 'auto',
-                overflowY: 'hidden',
+                flexShrink: 0,
+                overflow: 'visible',
                 whiteSpace: 'nowrap',
-                pb: 0.5,
-                '&::-webkit-scrollbar': { height: 6 },
+                alignItems: 'center',
               }}
             >
               {/* Status Filter */}
@@ -529,7 +534,7 @@ const ServiceRequestsPage = () => {
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
                 size="small"
-                sx={{ minWidth: 150, flexShrink: 0 }}
+                sx={{ minWidth: { xs: 120, sm: 150 }, flexShrink: 0 }}
               >
                 <MenuItem value="">All Statuses</MenuItem>
                 <MenuItem value="SUBMITTED">Submitted</MenuItem>
@@ -554,7 +559,7 @@ const ServiceRequestsPage = () => {
                 value={filters.category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
                 size="small"
-                sx={{ minWidth: 150, flexShrink: 0 }}
+                sx={{ minWidth: { xs: 120, sm: 150 }, flexShrink: 0 }}
               >
                 <MenuItem value="">All Categories</MenuItem>
                 <MenuItem value="PLUMBING">Plumbing</MenuItem>
@@ -577,7 +582,7 @@ const ServiceRequestsPage = () => {
                 value={filters.priority || ''}
                 onChange={(e) => handleFilterChange('priority', e.target.value)}
                 size="small"
-                sx={{ minWidth: 150, flexShrink: 0 }}
+                sx={{ minWidth: { xs: 120, sm: 150 }, flexShrink: 0 }}
               >
                 <MenuItem value="">All Priorities</MenuItem>
                 <MenuItem value="LOW">Low</MenuItem>
@@ -596,7 +601,7 @@ const ServiceRequestsPage = () => {
                 }
                 label={
                   <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                    Show Archived
+                    {isMobile ? 'Archived' : 'Show Archived'}
                   </Typography>
                 }
                 sx={{ ml: 0, flexShrink: 0 }}

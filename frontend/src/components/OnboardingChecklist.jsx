@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -15,6 +15,8 @@ import {
   Collapse,
   IconButton,
   Alert,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -128,6 +130,29 @@ export default function OnboardingChecklist({ onDismiss }) {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const [expanded, setExpanded] = useState(true);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const dismissKey = useMemo(() => {
+    const identifier = user?.id || user?.email || 'unknown';
+    return `onboarding:dismissed:${identifier}`;
+  }, [user?.email, user?.id]);
+
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(dismissKey) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setDismissed(sessionStorage.getItem(dismissKey) === 'true');
+    } catch {
+      setDismissed(false);
+    }
+  }, [dismissKey]);
 
   // Fetch dashboard summary to check completion
   const { data: summary } = useQuery({
@@ -147,14 +172,18 @@ export default function OnboardingChecklist({ onDismiss }) {
   const progress = (completedSteps.length / steps.length) * 100;
   const isComplete = progress === 100;
 
-  // Don't show if user has dismissed or completed
-  const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-  if (hasSeenOnboarding && isComplete) {
+  // Hide permanently when complete; hide temporarily when dismissed (resets on new sign-in because logout clears sessionStorage)
+  if (isComplete || dismissed) {
     return null;
   }
 
   const handleDismiss = () => {
-    localStorage.setItem('hasSeenOnboarding', 'true');
+    try {
+      sessionStorage.setItem(dismissKey, 'true');
+    } catch {
+      // ignore
+    }
+    setDismissed(true);
     if (onDismiss) {
       onDismiss();
     }
@@ -170,28 +199,26 @@ export default function OnboardingChecklist({ onDismiss }) {
         mb: 3,
         borderRadius: 3,
         border: '2px solid',
-        borderColor: isComplete ? 'success.main' : 'primary.main',
+        borderColor: 'primary.main',
         boxShadow: 3,
       }}
     >
-      <CardContent>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            {isComplete ? (
-              <CelebrationIcon color="success" sx={{ fontSize: 28 }} />
-            ) : (
-              <AssignmentIcon color="primary" sx={{ fontSize: 28 }} />
-            )}
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+          spacing={1.5}
+          mb={2}
+        >
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            <AssignmentIcon color="primary" sx={{ fontSize: 28 }} />
             <Typography variant="h6" fontWeight={600}>
-              {isComplete ? 'Onboarding Complete!' : 'Getting Started'}
+              Getting Started
             </Typography>
-            <Chip
-              label={`${completedSteps.length}/${steps.length}`}
-              color={isComplete ? 'success' : 'primary'}
-              size="small"
-            />
+            <Chip label={`${completedSteps.length}/${steps.length}`} color="primary" size="small" />
           </Stack>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: 'flex-end', sm: 'auto' } }}>
             <IconButton size="small" onClick={() => setExpanded(!expanded)}>
               {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
@@ -201,42 +228,46 @@ export default function OnboardingChecklist({ onDismiss }) {
           </Stack>
         </Stack>
 
-        {isComplete && (
-          <Alert severity="success" sx={{ mb: 2 }} icon={<CelebrationIcon />}>
-            Congratulations! You've completed all the essential setup steps. 
-            Your property management system is ready to use.
-          </Alert>
-        )}
-
-        {!isComplete && (
-          <Box mb={2}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Complete these steps to get the most out of Buildstate FM
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{
-                height: 8,
+        <Box mb={2}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Complete these steps to get the most out of Buildstate FM
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{
+              height: 8,
+              borderRadius: 1,
+              mt: 1,
+              bgcolor: 'action.hover',
+              '& .MuiLinearProgress-bar': {
                 borderRadius: 1,
-                mt: 1,
-                bgcolor: 'action.hover',
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 1,
-                },
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              {Math.round(progress)}% complete
-            </Typography>
-          </Box>
-        )}
+              },
+            }}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            {Math.round(progress)}% complete
+          </Typography>
+        </Box>
 
         <Collapse in={expanded}>
           <List disablePadding>
             {steps.map((step, index) => {
               const isCompleted = step.checkFn(summary || {});
               const StepIcon = step.icon;
+
+              const actionButton =
+                !isCompleted && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleAction(step.action)}
+                    sx={{ mt: isMobile ? 1 : 0 }}
+                    fullWidth={isMobile}
+                  >
+                    {step.actionLabel}
+                  </Button>
+                );
 
               return (
                 <ListItem
@@ -248,30 +279,22 @@ export default function OnboardingChecklist({ onDismiss }) {
                     border: '1px solid',
                     borderColor: isCompleted ? 'success.main' : 'divider',
                     transition: 'all 0.2s',
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
                     '&:hover': {
                       bgcolor: isCompleted ? 'success.lighter' : 'action.hover',
                     },
                   }}
-                  secondaryAction={
-                    !isCompleted && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleAction(step.action)}
-                      >
-                        {step.actionLabel}
-                      </Button>
-                    )
-                  }
+                  secondaryAction={!isMobile ? actionButton : undefined}
                 >
-                  <ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 34 }}>
                     {isCompleted ? (
                       <CheckCircleIcon color="success" />
                     ) : (
                       <UncheckedIcon color="action" />
                     )}
                   </ListItemIcon>
-                  <ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 34 }}>
                     <StepIcon color={isCompleted ? 'success' : 'action'} />
                   </ListItemIcon>
                   <ListItemText
@@ -292,24 +315,18 @@ export default function OnboardingChecklist({ onDismiss }) {
                         {step.description}
                       </Typography>
                     }
+                    sx={{ minWidth: 0 }}
                   />
+
+                  {isMobile && (
+                    <Box sx={{ width: '100%', pl: 8 }}>
+                      {actionButton}
+                    </Box>
+                  )}
                 </ListItem>
               );
             })}
           </List>
-
-          {isComplete && (
-            <Box mt={2} textAlign="center">
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleDismiss}
-                startIcon={<CheckCircleIcon />}
-              >
-                Dismiss Checklist
-              </Button>
-            </Box>
-          )}
         </Collapse>
       </CardContent>
     </Card>
