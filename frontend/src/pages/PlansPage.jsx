@@ -16,6 +16,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Dialog,
+  Collapse,
   Table,
   TableBody,
   TableCell,
@@ -36,6 +37,7 @@ import {
   CalendarMonth as CalendarMonthIcon,
   Search as SearchIcon,
   FilterList as FilterListIcon,
+  Close as CloseIcon,
   TrendingUp as TrendingUpIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
@@ -114,6 +116,7 @@ export default function PlansPage() {
     search: '',
     includeArchived: false,
   });
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
@@ -182,6 +185,27 @@ export default function PlansPage() {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.propertyId) count += 1;
+    if (filters.frequency) count += 1;
+    if (filters.isActive) count += 1;
+    if (filters.includeArchived) count += 1;
+    return count;
+  }, [filters.propertyId, filters.frequency, filters.isActive, filters.includeArchived]);
+
+  const hasAnyActiveFilters = !!filters.search || activeFilterCount > 0;
+
+  const handleClearFilters = () => {
+    setFilters({
+      propertyId: '',
+      frequency: '',
+      isActive: '',
+      search: '',
+      includeArchived: false,
+    });
   };
 
   const archivePlanMutation = useMutation({
@@ -351,99 +375,170 @@ export default function PlansPage() {
           mt: 3,
         }}
       >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
+        <Stack spacing={{ xs: 1.5, md: 0 }}>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            sx={{ gap: { xs: 1.5, lg: 2 } }}
+          >
             <TextField
-              fullWidth
-              size="small"
               placeholder="Search plans..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
               InputProps={{
                 startAdornment: (
-                  <InputAdornment position="start">
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
                     <SearchIcon />
-                  </InputAdornment>
+                  </Box>
+                ),
+                endAdornment: filters.search && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                    <IconButton
+                      aria-label="clear search"
+                      onClick={() => handleFilterChange('search', '')}
+                      edge="end"
+                      size="small"
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 ),
               }}
+              size="small"
+              sx={{
+                width: { xs: '100%', md: 'auto' },
+                flex: { md: '1 0 260px' },
+                minWidth: { md: 260 },
+                maxWidth: { md: 420 },
+              }}
             />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Property"
-              value={filters.propertyId}
-              onChange={(e) => handleFilterChange('propertyId', e.target.value)}
-            >
-              <MenuItem value="">All Properties</MenuItem>
-              {properties.map((property) => (
-                <MenuItem key={property.id} value={property.id}>
-                  {property.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Frequency"
-              value={filters.frequency}
-              onChange={(e) => handleFilterChange('frequency', e.target.value)}
-            >
-              {FREQUENCY_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Status"
-              value={filters.isActive}
-              onChange={(e) => handleFilterChange('isActive', e.target.value)}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
 
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={!!filters.includeArchived}
-                  onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
+            {isMobile ? (
+              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                <Button
+                  variant="outlined"
                   size="small"
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                  {isMobile ? 'Archived' : 'Show Archived'}
-                </Typography>
-              }
-              sx={{ ml: 0, flexShrink: 0 }}
-            />
-          </Grid>
+                  startIcon={<FilterListIcon />}
+                  onClick={() => setFiltersExpanded((prev) => !prev)}
+                  sx={{ textTransform: 'none', flex: 1 }}
+                >
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <Chip
+                      label={activeFilterCount}
+                      size="small"
+                      color="primary"
+                      sx={{ ml: 1, height: 20, minWidth: 20 }}
+                    />
+                  )}
+                </Button>
 
-          {!isMobile && (
-            <Grid
-              item
-              xs={12}
-              sm={12}
-              md={2}
-              sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}
-            >
+                {hasAnyActiveFilters && (
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    size="small"
+                    onClick={handleClearFilters}
+                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    startIcon={<CloseIcon />}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </Stack>
+            ) : (
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{
+                  flexWrap: 'nowrap',
+                  gap: 1.5,
+                  width: 'auto',
+                  flexShrink: 0,
+                  overflow: 'visible',
+                  whiteSpace: 'nowrap',
+                  alignItems: 'center',
+                }}
+              >
+                <TextField
+                  select
+                  label="Property"
+                  value={filters.propertyId}
+                  onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 190, flexShrink: 0 }}
+                >
+                  <MenuItem value="">All Properties</MenuItem>
+                  {properties.map((property) => (
+                    <MenuItem key={property.id} value={property.id}>
+                      {property.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  label="Frequency"
+                  value={filters.frequency}
+                  onChange={(e) => handleFilterChange('frequency', e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 160, flexShrink: 0 }}
+                >
+                  {FREQUENCY_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  label="Status"
+                  value={filters.isActive}
+                  onChange={(e) => handleFilterChange('isActive', e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 150, flexShrink: 0 }}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={!!filters.includeArchived}
+                      onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                      Show Archived
+                    </Typography>
+                  }
+                  sx={{ ml: 0, flexShrink: 0 }}
+                />
+
+                {hasAnyActiveFilters && (
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    size="small"
+                    onClick={handleClearFilters}
+                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    startIcon={<CloseIcon />}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </Stack>
+            )}
+
+            {!isMobile && (
               <ToggleButtonGroup
                 value={view}
                 exclusive
@@ -455,6 +550,7 @@ export default function PlansPage() {
                   borderRadius: 2,
                   border: '1px solid',
                   borderColor: 'divider',
+                  flexShrink: 0,
                   '& .MuiToggleButtonGroup-grouped': {
                     minWidth: 40,
                     border: 'none',
@@ -496,9 +592,134 @@ export default function PlansPage() {
                   </Tooltip>
                 </ToggleButton>
               </ToggleButtonGroup>
-            </Grid>
+            )}
+          </Stack>
+
+          {isMobile && (
+            <>
+              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
+                <Stack spacing={1.5} sx={{ pt: 1 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Property"
+                    value={filters.propertyId}
+                    onChange={(e) => handleFilterChange('propertyId', e.target.value)}
+                  >
+                    <MenuItem value="">All Properties</MenuItem>
+                    {properties.map((property) => (
+                      <MenuItem key={property.id} value={property.id}>
+                        {property.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Frequency"
+                    value={filters.frequency}
+                    onChange={(e) => handleFilterChange('frequency', e.target.value)}
+                  >
+                    {FREQUENCY_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Status"
+                    value={filters.isActive}
+                    onChange={(e) => handleFilterChange('isActive', e.target.value)}
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!filters.includeArchived}
+                        onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                        Show Archived
+                      </Typography>
+                    }
+                    sx={{ ml: 0, flexShrink: 0 }}
+                  />
+                </Stack>
+              </Collapse>
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                <ToggleButtonGroup
+                  value={view}
+                  exclusive
+                  onChange={handleViewChange}
+                  aria-label="View mode toggle"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '& .MuiToggleButtonGroup-grouped': {
+                      minWidth: 40,
+                      border: 'none',
+                      '&:not(:first-of-type)': {
+                        borderRadius: 2,
+                      },
+                      '&:first-of-type': {
+                        borderRadius: 2,
+                      },
+                    },
+                    '& .MuiToggleButton-root': {
+                      color: 'text.secondary',
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    },
+                    '& .Mui-selected': {
+                      color: 'error.main',
+                      backgroundColor: 'transparent !important',
+                      '&:hover': {
+                        backgroundColor: 'action.hover !important',
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="card" aria-label="card view">
+                    <Tooltip title="Card View">
+                      <ViewModuleIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="table" aria-label="table view">
+                    <Tooltip title="Table View">
+                      <TableChartIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="calendar" aria-label="calendar view">
+                    <Tooltip title="Calendar View">
+                      <CalendarMonthIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </>
           )}
-        </Grid>
+        </Stack>
       </Paper>
 
       {/* Content */}
