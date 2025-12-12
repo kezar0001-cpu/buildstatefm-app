@@ -31,13 +31,10 @@ export default function MobileBottomNav() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [moreOpen, setMoreOpen] = useState(false);
 
-  if (!isMobile) {
-    return null;
-  }
-
   const role = user?.role;
 
   const navItems = useMemo(() => {
+    if (!isMobile) return [];
     // Use the same navigation items as the main navbar, but make them accessible on mobile.
     // Normalize the generic /dashboard route to the role-specific default route.
     const rawNavItems = getNavigationForRole(role).map((item) => {
@@ -49,10 +46,14 @@ export default function MobileBottomNav() {
 
     // De-duplicate by href (prevents duplicate dashboard entries for some roles)
     return rawNavItems.filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
-  }, [role]);
+  }, [isMobile, role]);
 
   const primaryItems = useMemo(() => navItems.slice(0, 4), [navItems]);
   const overflowItems = useMemo(() => navItems.slice(4), [navItems]);
+
+  if (!isMobile) {
+    return null;
+  }
 
   // Find current active item index
   const getActiveIndex = () => {
