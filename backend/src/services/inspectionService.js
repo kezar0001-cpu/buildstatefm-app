@@ -246,6 +246,58 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       }
     });
 
+    // Create a Report for this inspection if one doesn't exist
+    let report = await tx.report.findFirst({
+      where: { inspectionId: inspection.id },
+      select: { id: true },
+    });
+
+    if (!report) {
+      // Build summary from rooms and checklist items
+      const roomSummaries = before.InspectionRoom?.map((room) => {
+        const items = room.InspectionChecklistItem || [];
+        return `${room.name}: ${items.length} item(s) documented`;
+      }).join('; ') || 'No rooms inspected';
+
+      const allItems = before.InspectionRoom?.flatMap((r) => r.InspectionChecklistItem || []) || [];
+      const summary = `Inspection completed on ${new Date().toLocaleDateString()}. ${allItems.length} issue(s) documented across ${before.InspectionRoom?.length || 0} room(s).`;
+
+      report = await tx.report.create({
+        data: {
+          title: `${inspection.title} - Report`,
+          inspectionId: inspection.id,
+          summary: summary,
+          findings: payload.findings ?? before.findings ?? roomSummaries,
+          data: {
+            rooms: before.InspectionRoom?.map((room) => ({
+              id: room.id,
+              name: room.name,
+              roomType: room.roomType,
+              notes: room.notes,
+              items: (room.InspectionChecklistItem || []).map((item) => ({
+                id: item.id,
+                description: item.description,
+                status: item.status,
+                notes: item.notes,
+              })),
+            })),
+            completedAt: new Date().toISOString(),
+            completedById: userId,
+          },
+        },
+      });
+
+      await tx.inspectionAuditLog.create({
+        data: {
+          id: randomUUID(),
+          inspectionId,
+          userId,
+          action: 'REPORT_CREATED',
+          changes: { reportId: report.id },
+        }
+      });
+    }
+
     const createdJobs = [];
     if (payload.autoCreateJobs && highPriorityFindings.length > 0) {
       for (const [index, finding] of highPriorityFindings.entries()) {
@@ -275,42 +327,10 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       }
     }
 
-    // Create recommendations for failed checklist items
+    // Create recommendations for failed checklist items (no longer auto-create, user will do this manually)
     const createdRecommendations = [];
-    if (failedChecklistItems.length > 0) {
-      // Find the report for this inspection to link recommendations
-      const report = await tx.report.findFirst({
-        where: { inspectionId: inspection.id },
-        select: { id: true },
-      });
 
-      for (const failedItem of failedChecklistItems) {
-        const recommendation = await tx.recommendation.create({
-          data: {
-            title: `${inspection.title} - ${failedItem.roomName}: ${failedItem.description.substring(0, 100)}`,
-            description: `Failed inspection item in ${failedItem.roomName}: ${failedItem.description}`,
-            propertyId: inspection.propertyId,
-            reportId: report?.id || null,
-            priority: 'MEDIUM',
-            status: 'SUBMITTED',
-            createdById: userId,
-          },
-        });
-        createdRecommendations.push(recommendation);
-
-        await tx.inspectionAuditLog.create({
-          data: {
-            id: randomUUID(),
-            inspectionId,
-            userId,
-            action: 'RECOMMENDATION_CREATED',
-            changes: { recommendationId: recommendation.id, checklistItemId: failedItem.item.id },
-          }
-        });
-      }
-    }
-
-    return { inspection, createdJobs, createdRecommendations };
+    return { inspection, createdJobs, createdRecommendations, report };
   });
 
   // Notifications (outside transaction to avoid holding lock)

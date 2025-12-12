@@ -25,6 +25,7 @@ import {
   ListItemAvatar,
   ListItemIcon,
   ListItemText,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -51,6 +52,8 @@ import {
   Home as HomeIcon,
   Lightbulb as LightbulbIcon,
   LocationOn as LocationIcon,
+  Work as WorkIcon,
+  MoreVert as MoreVertIcon,
   NotificationsActive as NotificationsActiveIcon,
   Person as PersonIcon,
   Photo as PhotoIcon,
@@ -180,8 +183,29 @@ function MetricCard({ icon, label, value, color = 'primary', onClick }) {
   );
 }
 
-function IssueCard({ issue, isMobile, onClick }) {
+function IssueCard({ issue, isMobile, onClick, onConvertToJob, onConvertToRecommendation, canManage, isConverting }) {
   const severityConfig = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.MEDIUM;
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
+
+  const handleMenuClick = (event) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleConvertToJob = () => {
+    handleMenuClose();
+    onConvertToJob?.(issue);
+  };
+
+  const handleConvertToRecommendation = () => {
+    handleMenuClose();
+    onConvertToRecommendation?.(issue);
+  };
 
   return (
     <Paper
@@ -216,6 +240,36 @@ function IssueCard({ issue, isMobile, onClick }) {
               size="small"
               variant="outlined"
             />
+            {canManage && (
+              <>
+                <IconButton
+                  size="small"
+                  onClick={handleMenuClick}
+                  disabled={isConverting}
+                >
+                  <MoreVertIcon fontSize="small" />
+                </IconButton>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={menuOpen}
+                  onClose={handleMenuClose}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MenuItem onClick={handleConvertToJob}>
+                    <ListItemIcon>
+                      <WorkIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Convert to Job</ListItemText>
+                  </MenuItem>
+                  <MenuItem onClick={handleConvertToRecommendation}>
+                    <ListItemIcon>
+                      <LightbulbIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Convert to Recommendation</ListItemText>
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
           </Stack>
           {issue.description && (
             <Typography
@@ -612,6 +666,90 @@ export default function InspectionDetailPage() {
       navigate('/inspections');
     },
   });
+
+  const convertToJobMutation = useMutation({
+    mutationFn: async (issue) => {
+      const response = await apiClient.post('/jobs', {
+        title: issue.title,
+        description: issue.description || `Issue from inspection: ${issue.title}`,
+        priority: issue.severity || 'MEDIUM',
+        propertyId: inspection?.propertyId,
+        unitId: inspection?.unitId,
+        inspectionId: id,
+        status: 'OPEN',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.batchedDetail(id) });
+      toast.success('Issue converted to job successfully');
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to convert issue to job');
+    },
+  });
+
+  const convertToRecommendationMutation = useMutation({
+    mutationFn: async (issue) => {
+      const response = await apiClient.post('/recommendations', {
+        title: issue.title,
+        description: issue.description || `Issue from inspection: ${issue.title}`,
+        priority: issue.severity || 'MEDIUM',
+        propertyId: inspection?.propertyId,
+        inspectionId: id,
+        status: 'SUBMITTED',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.recommendations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.batchedDetail(id) });
+      toast.success('Issue converted to recommendation successfully');
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to convert issue to recommendation');
+    },
+  });
+
+  const convertAllToRecommendationsMutation = useMutation({
+    mutationFn: async (issues) => {
+      const promises = issues.map((issue) =>
+        apiClient.post('/recommendations', {
+          title: issue.title,
+          description: issue.description || `Issue from inspection: ${issue.title}`,
+          priority: issue.severity || 'MEDIUM',
+          propertyId: inspection?.propertyId,
+          inspectionId: id,
+          status: 'SUBMITTED',
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.recommendations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inspections.batchedDetail(id) });
+      toast.success(`${data.length} issue(s) converted to recommendations`);
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to convert issues to recommendations');
+    },
+  });
+
+  const handleConvertIssueToJob = (issue) => {
+    convertToJobMutation.mutate(issue);
+  };
+
+  const handleConvertIssueToRecommendation = (issue) => {
+    convertToRecommendationMutation.mutate(issue);
+  };
+
+  const handleConvertAllToRecommendations = () => {
+    const issues = normalizedInspection?.issues || [];
+    if (issues.length > 0) {
+      convertAllToRecommendationsMutation.mutate(issues);
+    }
+  };
 
   const handlePreviewJobs = () => {
     previewMutation.mutate({
@@ -1234,21 +1372,35 @@ export default function InspectionDetailPage() {
                       severity="info"
                       sx={{ mb: 2 }}
                       action={
-                        <Button
-                          color="inherit"
-                          size="small"
-                          onClick={() => setRecommendationWizardOpen(true)}
-                        >
-                          Create Recommendations
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            color="inherit"
+                            size="small"
+                            onClick={handleConvertAllToRecommendations}
+                            disabled={convertAllToRecommendationsMutation.isPending}
+                            startIcon={<LightbulbIcon />}
+                          >
+                            {convertAllToRecommendationsMutation.isPending
+                              ? 'Converting...'
+                              : 'Convert All to Recommendations'}
+                          </Button>
+                        </Stack>
                       }
                     >
-                      Convert issues to recommendations for property owner review.
+                      {issues.length} issue{issues.length !== 1 ? 's' : ''} found. Convert individually or all at once to recommendations for property owner review.
                     </Alert>
                   )}
                   <Stack spacing={2}>
                     {issues.map((issue) => (
-                      <IssueCard key={issue.id} issue={issue} isMobile={isMobile} />
+                      <IssueCard
+                        key={issue.id}
+                        issue={issue}
+                        isMobile={isMobile}
+                        canManage={canManage}
+                        onConvertToJob={handleConvertIssueToJob}
+                        onConvertToRecommendation={handleConvertIssueToRecommendation}
+                        isConverting={convertToJobMutation.isPending || convertToRecommendationMutation.isPending}
+                      />
                     ))}
                   </Stack>
                 </>

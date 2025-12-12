@@ -623,7 +623,14 @@ export const generateSummary = async (req, res) => {
     if (roomsWithNotes.length > 0 && roomsWithNotes.length <= 3) {
       summary += '\n\nRoom observations:\n';
       roomsWithNotes.forEach((room) => {
-        const truncatedNotes = room.notes.length > 150 ? room.notes.substring(0, 150) + '...' : room.notes;
+        // Allow substantially more detail before truncating so
+        // observations dont appear prematurely cut off in the UI.
+        const MAX_ROOM_NOTES_LENGTH = 500;
+        const notes = room.notes.trim();
+        const truncatedNotes =
+          notes.length > MAX_ROOM_NOTES_LENGTH
+            ? notes.substring(0, MAX_ROOM_NOTES_LENGTH) + '...'
+            : notes;
         summary += `• ${room.name}: ${truncatedNotes}\n`;
       });
     }
