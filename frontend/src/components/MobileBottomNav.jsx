@@ -1,6 +1,20 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Box, BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme } from '@mui/material';
+import {
+  BottomNavigation,
+  BottomNavigationAction,
+  Divider,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Paper,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useCurrentUser } from '../context/UserContext';
 import { getDefaultRouteForRole, getNavigationForRole } from '../utils/navigationConfig';
 
@@ -15,6 +29,7 @@ export default function MobileBottomNav() {
   const { user } = useCurrentUser();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [moreOpen, setMoreOpen] = useState(false);
 
   if (!isMobile) {
     return null;
@@ -22,31 +37,40 @@ export default function MobileBottomNav() {
 
   const role = user?.role;
 
-  // Use the same navigation items as the main navbar, but make them accessible on mobile.
-  // Normalize the generic /dashboard route to the role-specific default route.
-  const rawNavItems = getNavigationForRole(role).map((item) => {
-    if (item.href === '/dashboard') {
-      return { ...item, href: getDefaultRouteForRole(role) };
-    }
-    return item;
-  });
+  const navItems = useMemo(() => {
+    // Use the same navigation items as the main navbar, but make them accessible on mobile.
+    // Normalize the generic /dashboard route to the role-specific default route.
+    const rawNavItems = getNavigationForRole(role).map((item) => {
+      if (item.href === '/dashboard') {
+        return { ...item, href: getDefaultRouteForRole(role) };
+      }
+      return item;
+    });
 
-  // De-duplicate by href (prevents duplicate dashboard entries for some roles)
-  const navItems = rawNavItems.filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
+    // De-duplicate by href (prevents duplicate dashboard entries for some roles)
+    return rawNavItems.filter((item, index, arr) => arr.findIndex((x) => x.href === item.href) === index);
+  }, [role]);
+
+  const primaryItems = useMemo(() => navItems.slice(0, 4), [navItems]);
+  const overflowItems = useMemo(() => navItems.slice(4), [navItems]);
 
   // Find current active item index
   const getActiveIndex = () => {
-    const index = navItems.findIndex(
+    const index = primaryItems.findIndex(
       (item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
     );
-    return index >= 0 ? index : 0;
+    if (index >= 0) return index;
+    return overflowItems.length > 0 ? primaryItems.length : 0;
   };
 
   const handleChange = (event, newValue) => {
-    const item = navItems[newValue];
-    if (item) {
-      navigate(item.href);
+    if (overflowItems.length > 0 && newValue === primaryItems.length) {
+      setMoreOpen(true);
+      return;
     }
+
+    const item = primaryItems[newValue];
+    if (item) navigate(item.href);
   };
 
   return (
@@ -63,46 +87,66 @@ export default function MobileBottomNav() {
       }}
       elevation={3}
     >
-      <Box
+      <BottomNavigation
+        value={getActiveIndex()}
+        onChange={handleChange}
+        showLabels
         sx={{
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          WebkitOverflowScrolling: 'touch',
-          '&::-webkit-scrollbar': { height: 6 },
-        }}
-      >
-        <BottomNavigation
-          value={getActiveIndex()}
-          onChange={handleChange}
-          showLabels
-          sx={{
-            backgroundColor: 'background.paper',
-            width: 'max-content',
-            minWidth: '100%',
-            '& .MuiBottomNavigationAction-root': {
-              color: 'text.secondary',
-              flex: '0 0 auto',
-              minWidth: 76,
-              px: 1,
+          backgroundColor: 'background.paper',
+          '& .MuiBottomNavigationAction-root': {
+            color: 'text.secondary',
+            minWidth: 0,
+            flex: 1,
+            px: 0.5,
+            '&.Mui-selected': {
+              color: 'primary.main',
+            },
+            '& .MuiBottomNavigationAction-label': {
+              fontSize: '0.65rem',
               '&.Mui-selected': {
-                color: 'primary.main',
-              },
-              '& .MuiBottomNavigationAction-label': {
-                fontSize: '0.65rem',
-                '&.Mui-selected': {
-                  fontSize: '0.7rem',
-                },
+                fontSize: '0.7rem',
               },
             },
-          }}
-        >
+          },
+        }}
+      >
+        {primaryItems.map((item) => {
+          const Icon = item.icon;
+          return <BottomNavigationAction key={item.href} label={item.name} icon={<Icon />} />;
+        })}
+
+        {overflowItems.length > 0 && <BottomNavigationAction label="More" icon={<MoreHorizIcon />} />}
+      </BottomNavigation>
+    </Paper>
+
+    <Drawer anchor="bottom" open={moreOpen} onClose={() => setMoreOpen(false)}>
+      <Paper sx={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+        <Typography variant="subtitle1" sx={{ px: 2, py: 1.5, fontWeight: 600 }}>
+          Menu
+        </Typography>
+        <Divider />
+        <List dense disablePadding>
           {navItems.map((item) => {
             const Icon = item.icon;
-            return <BottomNavigationAction key={item.href} label={item.name} icon={<Icon />} />;
+            return (
+              <ListItemButton
+                key={item.href}
+                selected={location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)}
+                onClick={() => {
+                  setMoreOpen(false);
+                  navigate(item.href);
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <Icon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary={item.name} />
+              </ListItemButton>
+            );
           })}
-        </BottomNavigation>
-      </Box>
-    </Paper>
+        </List>
+      </Paper>
+    </Drawer>
   );
 }
 

@@ -781,21 +781,21 @@ const InspectionsPage = () => {
 
           {/* Filter Row */}
           <Stack 
-            direction="row"
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={1.5}
             sx={{
-              flexWrap: 'nowrap',
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
               gap: 1.5,
               width: { xs: '100%', lg: 'auto' },
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              whiteSpace: 'nowrap',
-              pb: 0.5,
+              overflowX: { xs: 'visible', sm: 'auto' },
+              overflowY: 'visible',
+              whiteSpace: { xs: 'normal', sm: 'nowrap' },
+              pb: { xs: 0, sm: 0.5 },
               '&::-webkit-scrollbar': { height: 6 },
             }}
           >
             {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: 130, flexShrink: 0 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130 }, flexShrink: 0 }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
@@ -825,7 +825,7 @@ const InspectionsPage = () => {
               }}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 130, flexShrink: 0 }}
+              sx={{ minWidth: { xs: '100%', sm: 130 }, flexShrink: 0 }}
             />
 
             {/* Date To */}
@@ -839,7 +839,7 @@ const InspectionsPage = () => {
               }}
               size="small"
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 130, flexShrink: 0 }}
+              sx={{ minWidth: { xs: '100%', sm: 130 }, flexShrink: 0 }}
             />
 
             <FormControlLabel

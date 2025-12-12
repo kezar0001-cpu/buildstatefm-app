@@ -732,16 +732,16 @@ const JobsPage = () => {
 
           {/* Filter Row */}
           <Stack 
-            direction="row"
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={1.5}
             sx={{
-              flexWrap: 'nowrap',
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
               gap: 1.5,
               width: { xs: '100%', lg: 'auto' },
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              whiteSpace: 'nowrap',
-              pb: 0.5,
+              overflowX: { xs: 'visible', sm: 'auto' },
+              overflowY: 'visible',
+              whiteSpace: { xs: 'normal', sm: 'nowrap' },
+              pb: { xs: 0, sm: 0.5 },
               '&::-webkit-scrollbar': { height: 6 },
             }}
           >
@@ -752,7 +752,7 @@ const JobsPage = () => {
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
               size="small"
-              sx={{ minWidth: 130, flexShrink: 0 }}
+              sx={{ minWidth: { xs: '100%', sm: 130 }, flexShrink: 0 }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="OPEN">Open</MenuItem>
@@ -769,7 +769,7 @@ const JobsPage = () => {
               value={filters.priority}
               onChange={(e) => handleFilterChange('priority', e.target.value)}
               size="small"
-              sx={{ minWidth: 120, flexShrink: 0 }}
+              sx={{ minWidth: { xs: '100%', sm: 120 }, flexShrink: 0 }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="LOW">Low</MenuItem>
@@ -785,7 +785,7 @@ const JobsPage = () => {
               value={filters.filter}
               onChange={(e) => handleFilterChange('filter', e.target.value)}
               size="small"
-              sx={{ minWidth: 130, flexShrink: 0 }}
+              sx={{ minWidth: { xs: '100%', sm: 130 }, flexShrink: 0 }}
             >
               <MenuItem value="">None</MenuItem>
               <MenuItem value="overdue">Overdue</MenuItem>
