@@ -259,44 +259,16 @@ const DashboardPage = () => {
           title="Dashboard"
           subtitle="Welcome back! Here's what's happening with your properties."
           actions={(
-            <Stack direction="row" spacing={1} alignItems="center">
-              <IconButton
-                onClick={handleRefresh}
-                color="primary"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: 'rgba(185, 28, 28, 0.08)',
-                    transform: 'rotate(180deg)',
-                  },
-                }}
-              >
-                <RefreshIcon />
-              </IconButton>
-              <GradientButton
-                startIcon={<AddIcon />}
-                onClick={() => navigate('/properties', { state: { openCreateDialog: true } })}
-                size="large"
-                sx={{ width: { xs: '100%', md: 'auto' } }}
-              >
-                Add Property
-              </GradientButton>
-            </Stack>
+            <DashboardControls
+              onRefresh={handleRefresh}
+              autoRefresh={autoRefresh}
+              onToggleAutoRefresh={toggleAutoRefresh}
+              refreshInterval={refreshInterval}
+              onSetRefreshInterval={setRefreshInterval}
+            />
           )}
           contentSpacing={{ xs: 3, md: 4 }}
         >
-          <DashboardControls
-            onRefresh={handleRefresh}
-            autoRefresh={autoRefresh}
-            toggleAutoRefresh={toggleAutoRefresh}
-            refreshInterval={refreshInterval}
-            setRefreshInterval={setRefreshInterval}
-          />
-
           {/* Overdue Inspections Alert */}
           {overdueInspections.length > 0 && (
             <Alert

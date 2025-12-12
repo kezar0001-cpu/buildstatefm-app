@@ -265,6 +265,7 @@ export async function completeInspection(inspectionId, userId, userRole, payload
 
         await tx.inspectionAuditLog.create({
           data: {
+            id: randomUUID(),
             inspectionId,
             userId,
             action: 'JOB_CREATED',
@@ -299,6 +300,7 @@ export async function completeInspection(inspectionId, userId, userRole, payload
 
         await tx.inspectionAuditLog.create({
           data: {
+            id: randomUUID(),
             inspectionId,
             userId,
             action: 'RECOMMENDATION_CREATED',

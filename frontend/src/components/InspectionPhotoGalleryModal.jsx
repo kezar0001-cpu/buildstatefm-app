@@ -62,11 +62,13 @@ export const InspectionPhotoGalleryModal = ({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Combine all photos with metadata
+  // Combine all photos with metadata and deduplicate so the same
+  // underlying photo (by id/url) is not shown twice when linked
+  // to both a room and an issue
   const allPhotos = useMemo(() => {
     const photos = [];
 
-    // Add room photos
+    // Add room photos first
     roomPhotos.forEach((photo) => {
       photos.push({
         ...photo,
@@ -79,7 +81,8 @@ export const InspectionPhotoGalleryModal = ({
       });
     });
 
-    // Add issue photos
+    // Add issue photos (these should win when the same photo exists
+    // as both a room and issue photo)
     issuePhotos.forEach((photo) => {
       photos.push({
         ...photo,
@@ -105,7 +108,26 @@ export const InspectionPhotoGalleryModal = ({
       });
     });
 
-    return photos;
+    // Deduplicate by id or URL, preferring the last occurrence
+    // (so issue-specific metadata overrides room-only metadata)
+    const deduped = [];
+    const seen = new Set();
+
+    for (let i = photos.length - 1; i >= 0; i -= 1) {
+      const photo = photos[i];
+      const key = photo.id || photo.url || photo.imageUrl;
+
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        deduped.unshift(photo);
+      } else if (!key) {
+        // If we somehow lack a stable key, keep the photo once
+        // based on object identity/index
+        deduped.unshift(photo);
+      }
+    }
+
+    return deduped;
   }, [roomPhotos, issuePhotos, attachments]);
 
   // Filter photos
@@ -131,15 +153,23 @@ export const InspectionPhotoGalleryModal = ({
     return filtered;
   }, [allPhotos, categoryFilter, searchQuery]);
 
-  // Get category counts
+  // Get category counts based on the deduplicated list
   const categoryCounts = useMemo(() => {
-    return {
+    const counts = {
       ALL: allPhotos.length,
-      ROOM: roomPhotos.length,
-      ISSUE: issuePhotos.length,
-      ATTACHMENT: attachments.length,
+      ROOM: 0,
+      ISSUE: 0,
+      ATTACHMENT: 0,
     };
-  }, [allPhotos, roomPhotos, issuePhotos, attachments]);
+
+    allPhotos.forEach((photo) => {
+      if (photo.category === 'room') counts.ROOM += 1;
+      else if (photo.category === 'issue') counts.ISSUE += 1;
+      else if (photo.category === 'attachment') counts.ATTACHMENT += 1;
+    });
+
+    return counts;
+  }, [allPhotos]);
 
   // Prepare lightbox slides
   const lightboxSlides = useMemo(() => {
