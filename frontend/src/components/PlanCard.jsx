@@ -13,6 +13,8 @@ import {
 import {
   Edit as EditIcon,
   Visibility as VisibilityIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
   CalendarToday as CalendarTodayIcon,
   Place as PlaceIcon,
   Schedule as ScheduleIcon,
@@ -21,11 +23,12 @@ import {
 } from '@mui/icons-material';
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns';
 
-const PlanCard = ({ plan, onClick, onEdit }) => {
+const PlanCard = ({ plan, onClick, onEdit, onArchive }) => {
   const nextDueDate = plan.nextDueDate ? new Date(plan.nextDueDate) : null;
   const isOverdue = nextDueDate && isPast(nextDueDate) && !isToday(nextDueDate);
   const isDueToday = nextDueDate && isToday(nextDueDate);
   const isDueTomorrow = nextDueDate && isTomorrow(nextDueDate);
+  const isArchived = !!plan.archivedAt;
 
   const getFrequencyLabel = (frequency) => {
     const labels = {
@@ -58,6 +61,11 @@ const PlanCard = ({ plan, onClick, onEdit }) => {
   const handleEdit = (e) => {
     e.stopPropagation();
     onEdit?.(plan);
+  };
+
+  const handleArchive = (e) => {
+    e.stopPropagation();
+    onArchive?.(plan);
   };
 
   return (
@@ -113,9 +121,9 @@ const PlanCard = ({ plan, onClick, onEdit }) => {
             {plan.name}
           </Typography>
           <Chip
-            label={plan.isActive ? 'Active' : 'Inactive'}
+            label={isArchived ? 'Archived' : plan.isActive ? 'Active' : 'Inactive'}
             size="small"
-            color={plan.isActive ? 'success' : 'default'}
+            color={isArchived ? 'default' : plan.isActive ? 'success' : 'default'}
             sx={{ flexShrink: 0 }}
           />
         </Box>
@@ -196,8 +204,13 @@ const PlanCard = ({ plan, onClick, onEdit }) => {
               <VisibilityIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+          <Tooltip title={isArchived ? 'Restore plan' : 'Archive plan'}>
+            <IconButton size="small" onClick={handleArchive}>
+              {isArchived ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Edit plan">
-            <IconButton size="small" onClick={handleEdit}>
+            <IconButton size="small" onClick={handleEdit} disabled={isArchived}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>

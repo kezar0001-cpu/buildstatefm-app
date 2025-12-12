@@ -405,6 +405,7 @@ model MaintenancePlan {
   lastCompletedDate DateTime?
   autoCreateJobs    Boolean   @default(false)
   isActive          Boolean   @default(true)
+  archivedAt         DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   jobs              Job[]
@@ -413,6 +414,7 @@ model MaintenancePlan {
   @@index([propertyId])
   @@index([isActive])
   @@index([nextDueDate])
+  @@index([archivedAt])
 }
 
 model ServiceRequest {

@@ -26,6 +26,8 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -41,6 +43,8 @@ import {
   Edit as EditIcon,
   Visibility as VisibilityIcon,
   ViewList as ViewListIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -108,6 +112,7 @@ export default function PlansPage() {
     frequency: '',
     isActive: '',
     search: '',
+    includeArchived: false,
   });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -123,6 +128,7 @@ export default function PlansPage() {
       if (filters.frequency) params.append('frequency', filters.frequency);
       if (filters.isActive) params.append('isActive', filters.isActive);
       if (filters.search) params.append('search', filters.search);
+      if (filters.includeArchived) params.append('includeArchived', 'true');
 
       const response = await apiClient.get(`/plans?${params.toString()}`);
       return ensureArray(response.data);
@@ -176,6 +182,42 @@ export default function PlansPage() {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const archivePlanMutation = useMutation({
+    mutationFn: async (planId) => {
+      const response = await apiClient.patch(`/plans/${planId}/archive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all() });
+      toast.success('Plan archived');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to archive plan');
+    },
+  });
+
+  const unarchivePlanMutation = useMutation({
+    mutationFn: async (planId) => {
+      const response = await apiClient.patch(`/plans/${planId}/unarchive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all() });
+      toast.success('Plan restored');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to restore plan');
+    },
+  });
+
+  const handleToggleArchive = (plan) => {
+    if (plan?.archivedAt) {
+      unarchivePlanMutation.mutate(plan.id);
+    } else {
+      archivePlanMutation.mutate(plan.id);
+    }
   };
 
   const handleCreateClick = () => {
@@ -375,6 +417,25 @@ export default function PlansPage() {
               ))}
             </TextField>
           </Grid>
+
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!filters.includeArchived}
+                  onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                  {isMobile ? 'Archived' : 'Show Archived'}
+                </Typography>
+              }
+              sx={{ ml: 0, flexShrink: 0 }}
+            />
+          </Grid>
+
           {!isMobile && (
             <Grid
               item
@@ -475,6 +536,7 @@ export default function PlansPage() {
                   plan={plan}
                   onClick={() => handleCardClick(plan)}
                   onEdit={() => handleEditClick(plan)}
+                  onArchive={() => handleToggleArchive(plan)}
                 />
               </Grid>
             ))}
@@ -551,7 +613,10 @@ export default function PlansPage() {
                           <IconButton size="small" onClick={() => handleCardClick(plan)}>
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" onClick={() => handleEditClick(plan)}>
+                          <IconButton size="small" onClick={() => handleToggleArchive(plan)}>
+                            {plan.archivedAt ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleEditClick(plan)} disabled={!!plan.archivedAt}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </TableCell>

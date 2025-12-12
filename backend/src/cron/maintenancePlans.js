@@ -199,6 +199,7 @@ export async function processMaintenancePlans() {
       where: {
         isActive: true,
         autoCreateJobs: true,
+        archivedAt: null,
         nextDueDate: {
           lte: now,
         },

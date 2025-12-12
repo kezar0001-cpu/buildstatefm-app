@@ -27,6 +27,11 @@ const planUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const includeArchivedSchema = z.preprocess(
+  (value) => value === 'true' || value === true,
+  z.boolean().optional()
+);
+
 // Helper to build where clause based on user role
 const buildWhereClause = (userId, userRole, filters = {}) => {
   const where = {};
@@ -91,13 +96,18 @@ const verifyPropertyAccess = async (propertyId, userId, userRole) => {
 // GET / - List all maintenance plans (with role-based filtering)
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { propertyId, frequency, isActive, search } = req.query;
+    const { propertyId, frequency, isActive, search, includeArchived } = req.query;
+    const shouldIncludeArchived = includeArchivedSchema.parse(includeArchived) === true;
 
     const where = buildWhereClause(req.user.id, req.user.role, {
       propertyId,
       frequency,
       isActive,
     });
+
+    if (!shouldIncludeArchived) {
+      where.archivedAt = null;
+    }
 
     // Add search filter
     if (search) {
@@ -153,8 +163,6 @@ router.get('/:id', requireAuth, async (req, res) => {
             city: true,
             state: true,
             managerId: true,
-          },
-          include: {
             owners: {
               select: {
                 ownerId: true,
@@ -288,6 +296,10 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, r
       return sendError(res, 404, 'Maintenance plan not found', ErrorCodes.RES_NOT_FOUND);
     }
 
+    if (existingPlan.archivedAt) {
+      return sendError(res, 403, 'Archived maintenance plans cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
     // Verify user has access
     if (req.user.role === 'PROPERTY_MANAGER' && existingPlan.property.managerId !== req.user.id) {
       return sendError(res, 403, 'You do not have permission to update this plan', ErrorCodes.ACC_ACCESS_DENIED);
@@ -329,6 +341,116 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, r
   } catch (error) {
     console.error('Error updating maintenance plan:', error);
     return sendError(res, 500, 'Failed to update maintenance plan', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /:id/archive - Archive a maintenance plan (Property Manager only)
+router.patch('/:id/archive', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existingPlan = await prisma.maintenancePlan.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            managerId: true,
+          },
+        },
+      },
+    });
+
+    if (!existingPlan) {
+      return sendError(res, 404, 'Maintenance plan not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (existingPlan.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You do not have permission to archive this plan', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const plan = await prisma.maintenancePlan.update({
+      where: { id },
+      data: {
+        archivedAt: new Date(),
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            state: true,
+          },
+        },
+        _count: {
+          select: {
+            jobs: true,
+          },
+        },
+      },
+    });
+
+    res.json(plan);
+  } catch (error) {
+    console.error('Error archiving maintenance plan:', error);
+    return sendError(res, 500, 'Failed to archive maintenance plan', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /:id/unarchive - Unarchive a maintenance plan (Property Manager only)
+router.patch('/:id/unarchive', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existingPlan = await prisma.maintenancePlan.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            id: true,
+            managerId: true,
+          },
+        },
+      },
+    });
+
+    if (!existingPlan) {
+      return sendError(res, 404, 'Maintenance plan not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (existingPlan.property.managerId !== req.user.id) {
+      return sendError(res, 403, 'You do not have permission to unarchive this plan', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const plan = await prisma.maintenancePlan.update({
+      where: { id },
+      data: {
+        archivedAt: null,
+      },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            state: true,
+          },
+        },
+        _count: {
+          select: {
+            jobs: true,
+          },
+        },
+      },
+    });
+
+    res.json(plan);
+  } catch (error) {
+    console.error('Error unarchiving maintenance plan:', error);
+    return sendError(res, 500, 'Failed to unarchive maintenance plan', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

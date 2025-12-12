@@ -130,6 +130,7 @@ export async function getMaintenancePlanCount(userId) {
         managerId: userId,
       },
       isActive: true,
+      archivedAt: null,
     },
   });
 }

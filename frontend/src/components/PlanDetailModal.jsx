@@ -36,6 +36,8 @@ import {
   Work as WorkIcon,
   AutoMode as AutoModeIcon,
   Info as InfoIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -49,6 +51,7 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 
   // Fetch plan details
   const {
@@ -62,6 +65,38 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
       return response.data;
     },
     enabled: open && !!planId,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.patch(`/plans/${planId}/archive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.detail(planId) });
+      toast.success('Plan archived');
+      setIsArchiveDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to archive plan');
+      setIsArchiveDialogOpen(false);
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.patch(`/plans/${planId}/unarchive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.detail(planId) });
+      toast.success('Plan restored');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to restore plan');
+    },
   });
 
   // Delete mutation
@@ -91,6 +126,8 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
   const handleEdit = () => {
     setIsEditing(true);
   };
+
+  const isArchived = !!plan?.archivedAt;
 
   const handleFormSuccess = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.plans.all() });
@@ -188,8 +225,8 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
                 {plan?.name}
               </Typography>
               <Chip
-                label={plan?.isActive ? 'Active' : 'Inactive'}
-                color={getStatusColor(plan?.isActive)}
+                label={isArchived ? 'Archived' : plan?.isActive ? 'Active' : 'Inactive'}
+                color={isArchived ? 'default' : getStatusColor(plan?.isActive)}
                 size="small"
               />
             </Box>
@@ -199,6 +236,11 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
           </Box>
         </DialogTitle>
         <DialogContent dividers>
+          {isArchived && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This maintenance plan has been archived and is read-only.
+            </Alert>
+          )}
           <Grid container spacing={3}>
             {/* Left Column: Core Details */}
             <Grid item xs={12} md={6}>
@@ -377,10 +419,30 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
           </Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={onClose}>Close</Button>
+          {!isArchived ? (
+            <Button
+              onClick={() => setIsArchiveDialogOpen(true)}
+              variant="outlined"
+              startIcon={<ArchiveIcon />}
+              disabled={archiveMutation.isPending}
+            >
+              Archive
+            </Button>
+          ) : (
+            <Button
+              onClick={() => unarchiveMutation.mutate()}
+              variant="outlined"
+              startIcon={<UnarchiveIcon />}
+              disabled={unarchiveMutation.isPending}
+            >
+              Restore
+            </Button>
+          )}
           <Button
             onClick={handleEdit}
             variant="contained"
             startIcon={<EditIcon />}
+            disabled={isArchived}
           >
             Edit Plan
           </Button>
@@ -395,6 +457,16 @@ const PlanDetailModal = ({ planId, open, onClose }) => {
         message={`Are you sure you want to delete "${plan?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         severity="error"
+      />
+
+      <ConfirmDialog
+        open={isArchiveDialogOpen}
+        onClose={() => setIsArchiveDialogOpen(false)}
+        onConfirm={() => archiveMutation.mutate()}
+        title="Archive Maintenance Plan"
+        message={`Archive "${plan?.name}"? You can restore it later by enabling Show Archived.`}
+        confirmText="Archive"
+        severity="warning"
       />
     </>
   );
