@@ -35,7 +35,6 @@ import {
   Backdrop,
   Checkbox,
   FormControlLabel,
-  Paper,
   Divider,
   useMediaQuery,
   useTheme,
