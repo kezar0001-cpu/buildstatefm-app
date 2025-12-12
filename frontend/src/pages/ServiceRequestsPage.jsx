@@ -464,10 +464,18 @@ const ServiceRequestsPage = () => {
           }}
         >
           <Stack
-            direction={{ xs: 'column', lg: 'row' }}
+            direction="row"
             spacing={2}
-            alignItems={{ xs: 'stretch', lg: 'center' }}
-            sx={{ flexWrap: 'wrap', gap: { xs: 1.5, lg: 2 } }}
+            alignItems="center"
+            sx={{
+              flexWrap: 'nowrap',
+              gap: { xs: 1.5, lg: 2 },
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              whiteSpace: 'nowrap',
+              pb: 0.5,
+              '&::-webkit-scrollbar': { height: 6 },
+            }}
           >
             {/* Search */}
             <TextField
@@ -494,7 +502,7 @@ const ServiceRequestsPage = () => {
                 ),
               }}
               size="small"
-              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 300, lg: 400 } }}
+              sx={{ flex: '1 0 260px', minWidth: 260, maxWidth: 420 }}
             />
 
             {/* Filter Row */}
@@ -504,7 +512,7 @@ const ServiceRequestsPage = () => {
               sx={{
                 flexWrap: 'nowrap',
                 gap: 1.5,
-                width: { xs: '100%', lg: 'auto' },
+                width: 'auto',
                 overflowX: 'auto',
                 overflowY: 'hidden',
                 whiteSpace: 'nowrap',
