@@ -26,7 +26,7 @@ export type RotaryFooterProps = {
   className?: string;
 };
 
-const ITEM_WIDTH = 80;
+const ITEM_WIDTH = 72;
 const VISIBLE_ITEMS = 5;
 const BASE_CONTAINER_WIDTH = ITEM_WIDTH * VISIBLE_ITEMS;
 
@@ -94,12 +94,14 @@ function RotaryWheelItem({
   index,
   totalItems,
   rotation,
+  activeIndex,
   onClick,
 }: {
   item: RotaryNavItem;
   index: number;
   totalItems: number;
   rotation: ReturnType<typeof useSpring>;
+  activeIndex: number;
   onClick: () => void;
 }) {
   const offset = useTransform(rotation, (v) => {
@@ -109,14 +111,14 @@ function RotaryWheelItem({
   const absOffset = useTransform(offset, (o) => Math.abs(o));
 
   const xPos = useTransform(offset, (o) => o * ITEM_WIDTH);
-  const yPos = useTransform(absOffset, (a) => (a === 0 ? 0 : Math.pow(a, 1.4) * 10 + a * 2));
+  const yPos = useTransform(absOffset, (a) => (a === 0 ? 0 : Math.pow(a, 1.35) * 6 + a * 1.5));
   const rotateX = useTransform(absOffset, (a) => a * -6);
 
   const scale = useTransform(absOffset, (a) => {
-    if (a < 0.5) return 1.3;
-    if (a < 1.5) return 0.85;
-    if (a < 2.5) return 0.65;
-    if (a < 3.5) return 0.45;
+    if (a < 0.5) return 1.2;
+    if (a < 1.5) return 0.9;
+    if (a < 2.5) return 0.72;
+    if (a < 3.5) return 0.55;
     return 0.3;
   });
 
@@ -136,7 +138,7 @@ function RotaryWheelItem({
     return 10;
   });
 
-  const isActive = useTransform(absOffset, (a) => a < 0.5);
+  const isActive = index === activeIndex;
 
   return (
     <motion.div
@@ -159,34 +161,33 @@ function RotaryWheelItem({
         className="relative flex flex-col items-center justify-center pointer-events-auto"
         style={{ width: ITEM_WIDTH, height: ITEM_WIDTH }}
       >
-        <motion.div
-          style={{ opacity: useTransform(isActive, (v) => (v ? 1 : 0)) }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
+        {isActive && (
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
+            className="absolute inset-0 flex items-center justify-center"
           >
-            <div className="h-16 w-16 rounded-full bg-orange-500/10 border-2 border-orange-500/40" />
+            <div className="h-14 w-14 rounded-full bg-orange-500/10 border-2 border-orange-500/40" />
           </motion.div>
-        </motion.div>
+        )}
 
         <motion.div
-          className="relative z-10 transition-colors duration-200"
-          style={{
-            color: useTransform(isActive, (v) => (v ? '#ea580c' : 'rgba(107, 114, 128, 1)')),
-          }}
-          whileHover={{ scale: 1.1 }}
+          className={`relative z-10 transition-colors duration-200 ${
+            isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
+          }`}
+          whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <motion.div
-            style={{
-              scale: useTransform(isActive, (v) => (v ? 1.0 : 0.9)),
-            }}
-          >
-            <item.Icon size={30} strokeWidth={2.3} />
-          </motion.div>
+          <item.Icon size={26} strokeWidth={2.3} />
         </motion.div>
+
+        <div
+          className={`mt-1 w-[72px] text-center text-[10px] leading-none font-medium truncate transition-colors duration-200 ${
+            isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {item.label}
+        </div>
       </div>
     </motion.div>
   );
@@ -281,28 +282,19 @@ export default function RotaryFooter({ className }: RotaryFooterProps) {
 
   return (
     <div className={`md:hidden ${className || ''}`}>
-      <div className="fixed bottom-0 left-1/2 z-[60] w-full -translate-x-1/2 pb-8 pt-6 pointer-events-none">
-        <div className="pointer-events-auto">
-          <div className="text-center mb-5">
-            <motion.div
-              key={activeIndex}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="text-orange-600 text-base font-semibold"
-            >
-              {items[activeIndex]?.label}
-            </motion.div>
-          </div>
-
-          <div className="flex justify-center px-4">
+      <div className="fixed bottom-0 left-0 right-0 z-[60] pointer-events-none">
+        <div
+          className="pointer-events-auto bg-white/85 backdrop-blur-xl border-t border-gray-200"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+        >
+          <div className="flex justify-center px-3 pt-2">
             <div
               ref={containerRef}
-              className="relative bg-white/90 backdrop-blur-xl border border-gray-200 rounded-full shadow-2xl overflow-visible w-[400px] max-w-[calc(100vw-2rem)]"
-              style={{ height: 90, width: BASE_CONTAINER_WIDTH }}
+              className="relative bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl overflow-visible max-w-[calc(100vw-1.5rem)]"
+              style={{ height: 74, width: BASE_CONTAINER_WIDTH }}
             >
-              <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-white/90 via-white/60 to-transparent z-40 pointer-events-none rounded-l-full" />
-              <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white/90 via-white/60 to-transparent z-40 pointer-events-none rounded-r-full" />
+              <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-l-2xl" />
+              <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-r-2xl" />
 
               <motion.div
                 drag="x"
@@ -322,32 +314,13 @@ export default function RotaryFooter({ className }: RotaryFooterProps) {
                       index={index}
                       totalItems={items.length}
                       rotation={springRotation}
+                      activeIndex={activeIndex}
                       onClick={() => handleItemClick(index)}
                     />
                   ))}
                 </div>
               </motion.div>
             </div>
-          </div>
-
-          <div className="flex justify-center gap-1.5 mt-6">
-            {items.map((item, index) => (
-              <button
-                key={item.key}
-                onClick={() => handleItemClick(index)}
-                className="group transition-all"
-                aria-label={`Go to ${item.label}`}
-                type="button"
-              >
-                <div
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    index === activeIndex
-                      ? 'bg-orange-500 w-6'
-                      : 'bg-gray-300 w-1.5 group-hover:bg-gray-400 group-hover:w-3'
-                  }`}
-                />
-              </button>
-            ))}
           </div>
         </div>
       </div>
