@@ -29,7 +29,6 @@ import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   AdminPanelSettings as AdminIcon,
-  BarChart as BarChartIcon,
   Category as CategoryIcon,
   LocalOffer as TagIcon,
   AutoAwesome as AutoAwesomeIcon
@@ -83,11 +82,6 @@ const adminMenuItems = [
   {
     divider: true,
     label: 'System'
-  },
-  {
-    title: 'Reports',
-    path: '/admin/reports',
-    icon: <BarChartIcon />,
   },
   {
     title: 'Settings',

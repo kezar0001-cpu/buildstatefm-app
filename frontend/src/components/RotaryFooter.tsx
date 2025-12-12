@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { animate, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import {
   Dashboard as DashboardIcon,
   Home as HomeIcon,
@@ -8,7 +8,6 @@ import {
   Build as BuildIcon,
   RequestPage as ServiceRequestIcon,
   Lightbulb as RecommendationIcon,
-  Description as ReportIcon,
   Subscriptions as PlansIcon,
 } from '@mui/icons-material';
 import { useCurrentUser } from '../context/UserContext';
@@ -78,7 +77,6 @@ function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
     { key: 'jobs', label: 'Jobs', href: '/jobs', Icon: BuildIcon },
     { key: 'service-requests', label: 'Service Requests', href: '/service-requests', Icon: ServiceRequestIcon },
     { key: 'recommendations', label: 'Recommendations', href: '/recommendations', Icon: RecommendationIcon },
-    { key: 'reports', label: 'Reports', href: '/reports', Icon: ReportIcon },
     { key: 'plans', label: 'Plans', href: '/plans', Icon: PlansIcon },
   ];
 
@@ -291,18 +289,6 @@ export default function RotaryFooter({ className, collapsed = false, onCollapsed
       const item = items[idx];
       if (!item) return;
       setActiveIndex(idx);
-      const target = -idx * ITEM_WIDTH;
-      animate(rotation, target, {
-        type: 'spring',
-        stiffness: 200,
-        damping: 25,
-        mass: 0.5,
-        onComplete: () => {
-          const cycle = ITEM_WIDTH * items.length;
-          const normalized = ((target % cycle) + cycle) % cycle;
-          rotation.set(normalized);
-        },
-      });
       navigate(item.href);
     },
     [items, navigate, rotation]

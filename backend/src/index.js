@@ -223,7 +223,6 @@ import subscriptionsRoutes from './routes/subscriptions.js';
 import promoCodesRoutes from './routes/promoCodes.js';
 import uploadsRoutes from './routes/uploads.js';
 import uploadsV2Routes from './routes/uploadsV2.js';
-import reportsRoutes from './routes/reports.js';
 import recommendationsRoutes from './routes/recommendations.js';
 import plansRoutes from './routes/plans.js';
 import dashboardRoutes from './routes/dashboard.js';
@@ -263,7 +262,6 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/promo-codes', promoCodesRoutes);
 app.use('/api/uploads', uploadsRoutes); // Route for upload endpoints (photos, documents, etc.)
 app.use('/api/v2/uploads', uploadsV2Routes); // New unified upload API (v2)
-app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
 app.use('/api/dashboard', dashboardRoutes);

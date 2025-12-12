@@ -40,10 +40,6 @@ export const ROUTES_REQUIRING_ACTIVE_SUBSCRIPTION = [
   'POST /api/service-requests',
   'PATCH /api/service-requests/:id',
   
-  // Reports
-  'POST /api/reports',
-  'GET /api/reports/:id',
-  
   // Templates
   'POST /api/inspection-templates',
   'PATCH /api/inspection-templates/:id',

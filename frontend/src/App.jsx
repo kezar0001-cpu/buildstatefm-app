@@ -376,10 +376,6 @@ const InspectionReportPage = lazy(() => import('./pages/InspectionReportPage.jsx
 const JobsPage = lazy(() => import('./pages/JobsPage.jsx'));
 const JobDetailPage = lazy(() => import('./pages/JobDetailPage.jsx'));
 const PlansPage = lazy(() => import('./pages/PlansPage.jsx'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
-const NewReportsPage = lazy(() => import('./pages/NewReportsPage.jsx'));
-const ReportGenerator = lazy(() => import('./pages/ReportGenerator.jsx'));
-const ReportDetailPage = lazy(() => import('./pages/ReportDetailPage.jsx'));
 const RecommendationsPage = lazy(() => import('./pages/RecommendationsPage.jsx'));
 const ServiceRequestsPage = lazy(() => import('./pages/ServiceRequestsPage.jsx'));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage.jsx'));
@@ -517,11 +513,6 @@ export default function App() {
           <Route path="/service-requests" element={<AuthGate><ProtectedLayout><ServiceRequestsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/recommendations" element={<AuthGate><ProtectedLayout><RecommendationsPage /></ProtectedLayout></AuthGate>} />
           <Route path="/subscriptions" element={<AuthGate><ProtectedLayout><SubscriptionsPage /></ProtectedLayout></AuthGate>} />
-
-          <Route path="/reports" element={<AuthGate><ProtectedLayout><ReportsPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/reports/:id" element={<AuthGate><ProtectedLayout><ReportDetailPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/reports-new" element={<AuthGate><ProtectedLayout><NewReportsPage /></ProtectedLayout></AuthGate>} />
-          <Route path="/reports/generate/:reportType" element={<AuthGate><ProtectedLayout><ReportGenerator /></ProtectedLayout></AuthGate>} />
 
           <Route path="/profile" element={<AuthGate><ProtectedLayout><ProfilePage /></ProtectedLayout></AuthGate>} />
 

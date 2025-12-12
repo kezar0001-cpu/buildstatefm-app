@@ -8,7 +8,6 @@ import {
   Home as HomeIcon,
   Assignment as AssignmentIcon,
   Build as BuildIcon,
-  Description as ReportIcon,
   Subscriptions as PlansIcon,
   RequestPage as ServiceRequestIcon,
   Lightbulb as RecommendationIcon,
@@ -83,12 +82,6 @@ export const NAVIGATION_ITEMS = [
     roles: ['PROPERTY_MANAGER', 'ADMIN'],
   },
   {
-    name: 'Reports',
-    href: '/reports',
-    icon: ReportIcon,
-    roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
-  },
-  {
     name: 'Plans',
     href: '/plans',
     icon: PlansIcon,
@@ -141,7 +134,6 @@ export const MOBILE_NAV_ITEMS = {
     { name: 'Dashboard', href: '/owner/dashboard', icon: DashboardIcon },
     { name: 'Properties', href: '/properties', icon: HomeIcon },
     { name: 'Inspections', href: '/inspections', icon: AssignmentIcon },
-    { name: 'Reports', href: '/reports', icon: ReportIcon },
   ],
   TENANT: [
     { name: 'Home', href: '/tenant/dashboard', icon: DashboardIcon },
