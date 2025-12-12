@@ -74,79 +74,81 @@ export default function MobileBottomNav() {
   };
 
   return (
-    <Paper
-      sx={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        display: { xs: 'block', md: 'none' },
-        borderTop: '1px solid',
-        borderColor: 'divider',
-      }}
-      elevation={3}
-    >
-      <BottomNavigation
-        value={getActiveIndex()}
-        onChange={handleChange}
-        showLabels
+    <>
+      <Paper
         sx={{
-          backgroundColor: 'background.paper',
-          '& .MuiBottomNavigationAction-root': {
-            color: 'text.secondary',
-            minWidth: 0,
-            flex: 1,
-            px: 0.5,
-            '&.Mui-selected': {
-              color: 'primary.main',
-            },
-            '& .MuiBottomNavigationAction-label': {
-              fontSize: '0.65rem',
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          display: { xs: 'block', md: 'none' },
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+        elevation={3}
+      >
+        <BottomNavigation
+          value={getActiveIndex()}
+          onChange={handleChange}
+          showLabels
+          sx={{
+            backgroundColor: 'background.paper',
+            '& .MuiBottomNavigationAction-root': {
+              color: 'text.secondary',
+              minWidth: 0,
+              flex: 1,
+              px: 0.5,
               '&.Mui-selected': {
-                fontSize: '0.7rem',
+                color: 'primary.main',
+              },
+              '& .MuiBottomNavigationAction-label': {
+                fontSize: '0.65rem',
+                '&.Mui-selected': {
+                  fontSize: '0.7rem',
+                },
               },
             },
-          },
-        }}
-      >
-        {primaryItems.map((item) => {
-          const Icon = item.icon;
-          return <BottomNavigationAction key={item.href} label={item.name} icon={<Icon />} />;
-        })}
-
-        {overflowItems.length > 0 && <BottomNavigationAction label="More" icon={<MoreHorizIcon />} />}
-      </BottomNavigation>
-    </Paper>
-
-    <Drawer anchor="bottom" open={moreOpen} onClose={() => setMoreOpen(false)}>
-      <Paper sx={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-        <Typography variant="subtitle1" sx={{ px: 2, py: 1.5, fontWeight: 600 }}>
-          Menu
-        </Typography>
-        <Divider />
-        <List dense disablePadding>
-          {navItems.map((item) => {
+          }}
+        >
+          {primaryItems.map((item) => {
             const Icon = item.icon;
-            return (
-              <ListItemButton
-                key={item.href}
-                selected={location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)}
-                onClick={() => {
-                  setMoreOpen(false);
-                  navigate(item.href);
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Icon fontSize="small" />
-                </ListItemIcon>
-                <ListItemText primary={item.name} />
-              </ListItemButton>
-            );
+            return <BottomNavigationAction key={item.href} label={item.name} icon={<Icon />} />;
           })}
-        </List>
+
+          {overflowItems.length > 0 && <BottomNavigationAction label="More" icon={<MoreHorizIcon />} />}
+        </BottomNavigation>
       </Paper>
-    </Drawer>
+
+      <Drawer anchor="bottom" open={moreOpen} onClose={() => setMoreOpen(false)}>
+        <Paper sx={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+          <Typography variant="subtitle1" sx={{ px: 2, py: 1.5, fontWeight: 600 }}>
+            Menu
+          </Typography>
+          <Divider />
+          <List dense disablePadding>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <ListItemButton
+                  key={item.href}
+                  selected={location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)}
+                  onClick={() => {
+                    setMoreOpen(false);
+                    navigate(item.href);
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Icon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary={item.name} />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Paper>
+      </Drawer>
+    </>
   );
 }
 
