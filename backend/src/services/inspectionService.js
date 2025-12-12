@@ -298,34 +298,9 @@ export async function completeInspection(inspectionId, userId, userRole, payload
       });
     }
 
+    // Do not auto-create follow-up jobs on completion.
+    // Jobs are now created manually from the inspection detail Issues tab.
     const createdJobs = [];
-    if (payload.autoCreateJobs && highPriorityFindings.length > 0) {
-      for (const [index, finding] of highPriorityFindings.entries()) {
-        const job = await tx.job.create({
-          data: {
-            title: `${inspection.title} - Follow-Up ${index + 1}`,
-            description: finding.description,
-            priority: finding.priority,
-            propertyId: inspection.propertyId,
-            unitId: inspection.unitId,
-            inspectionId: inspection.id,
-            status: 'OPEN',
-            createdById: userId,
-          },
-        });
-        createdJobs.push(job);
-
-        await tx.inspectionAuditLog.create({
-          data: {
-            id: randomUUID(),
-            inspectionId,
-            userId,
-            action: 'JOB_CREATED',
-            changes: { jobId: job.id, priority: finding.priority },
-          }
-        });
-      }
-    }
 
     // Create recommendations for failed checklist items (no longer auto-create, user will do this manually)
     const createdRecommendations = [];

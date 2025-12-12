@@ -57,7 +57,6 @@ import {
   NotificationsActive as NotificationsActiveIcon,
   Person as PersonIcon,
   Photo as PhotoIcon,
-  PictureAsPdf as PictureAsPdfIcon,
   PlayArrow as PlayArrowIcon,
   Cancel as CancelIcon,
   ReportProblem as ReportProblemIcon,
@@ -487,7 +486,6 @@ export default function InspectionDetailPage() {
     assignedToId: '',
     scheduledDate: '',
   });
-  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const canManage = useMemo(
     () => user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN',
@@ -796,21 +794,6 @@ export default function InspectionDetailPage() {
     });
   };
 
-  const handleDownloadPDF = async () => {
-    try {
-      setPdfGenerating(true);
-      const response = await apiClient.get(`/inspections/${id}/report/pdf`);
-      if (response.data?.downloadUrl) {
-        window.open(response.data.downloadUrl, '_blank');
-      }
-    } catch (err) {
-      logger.error('Failed to generate PDF:', err);
-      toast.error('Failed to generate PDF report. Please try again.');
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
-
   const toggleRoomExpanded = (roomId) => {
     setExpandedRooms((prev) => ({ ...prev, [roomId]: !prev[roomId] }));
   };
@@ -963,27 +946,6 @@ export default function InspectionDetailPage() {
                 >
                   Photos ({metrics.photos})
                 </Button>
-                {inspection.status === 'COMPLETED' && (
-                  <>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<DescriptionIcon />}
-                      onClick={() => navigate(`/inspections/${id}/report`)}
-                    >
-                      Report
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<PictureAsPdfIcon />}
-                      onClick={handleDownloadPDF}
-                      disabled={pdfGenerating}
-                    >
-                      {pdfGenerating ? 'Generating...' : 'PDF'}
-                    </Button>
-                  </>
-                )}
                 {canManage && (
                   <>
                     <Button
