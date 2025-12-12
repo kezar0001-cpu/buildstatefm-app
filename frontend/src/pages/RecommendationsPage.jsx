@@ -286,8 +286,17 @@ export default function RecommendationsPage() {
     setConvertingRecommendation(null);
   };
 
-  const handleConvertSuccess = () => {
+  const handleConvertSuccess = (result) => {
     handleConvertDialogClose();
+
+    // ConvertToJobDialog performs the API call directly (not via useApiMutation), so
+    // we need to manually refetch to reflect the status change to IMPLEMENTED.
+    query.refetch();
+
+    const newStatus = result?.recommendation?.status;
+    if (statusFilter && newStatus && statusFilter !== newStatus) {
+      toast('Recommendation moved to Implemented. Clear the Status filter to see it.');
+    }
   };
 
   const handleApprove = async (recommendationId) => {

@@ -30,8 +30,8 @@ const API_PATH_PREFIX = '/api';
 
 const apiClient = axios.create({
   baseURL,
-  // Don't use withCredentials when using Bearer tokens - it can cause CORS issues
-  withCredentials: false,
+  // Refresh tokens are stored in HttpOnly cookies, so credentials must be included.
+  withCredentials: true,
 });
 
 function normalizeRelativeUrl(url) {
@@ -111,32 +111,12 @@ function handleUnauthorized({ error, forceLogout = false }) {
     redirectToSignin();
     return;
   }
-
-  if (typeof window === 'undefined') return;
-
-  const now = Date.now();
-  const lastError = window._last401Error || 0;
-  const errorCount = window._401ErrorCount || 0;
-
-  if (now - lastError < 5000) {
-    window._401ErrorCount = errorCount + 1;
-
-    if (window._401ErrorCount >= 3) {
-      removeAuthToken();
-      redirectToSignin();
-    }
-  } else {
-    window._401ErrorCount = 1;
-  }
-
-  window._last401Error = now;
 }
 
 async function requestNewAccessToken() {
   if (!refreshRequest) {
     refreshRequest = apiClient
       .post('/auth/refresh', {}, {
-        withCredentials: true,
         __isRefreshRequest: true,
         _skipAuth: true,
       })
@@ -148,16 +128,20 @@ async function requestNewAccessToken() {
         saveAuthToken(newToken);
         return newToken;
       })
-      .catch((error) => {
-        removeAuthToken();
-        throw error;
-      })
       .finally(() => {
         refreshRequest = null;
       });
   }
 
   return refreshRequest;
+}
+
+export async function silentRefreshAccessToken() {
+  try {
+    return await requestNewAccessToken();
+  } catch {
+    return null;
+  }
 }
 
 // Request interceptor: Attach auth token to every request
@@ -294,7 +278,10 @@ apiClient.interceptors.response.use(
         }
       }
 
-      handleUnauthorized({ error });
+      // If we already retried (or refresh is skipped), treat this as an invalid session.
+      if (originalRequest._retry === true) {
+        handleUnauthorized({ error, forceLogout: true });
+      }
     }
 
     return Promise.reject(error);

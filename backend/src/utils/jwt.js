@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import getJwtSecret from './getJwtSecret.js';
 
 const SECRET = getJwtSecret();
-const ACCESS_TOKEN_EXPIRATION = '15m';
+const ACCESS_TOKEN_EXPIRATION = '1h';
 const REFRESH_TOKEN_EXPIRATION = '7d';
 
 export function signToken(payload, opts = {}) {

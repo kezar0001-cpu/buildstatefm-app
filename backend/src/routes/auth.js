@@ -19,6 +19,10 @@ const REFRESH_COOKIE_NAME = 'refreshToken';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+function hashRefreshToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 function refreshCookieOptions() {
   return {
     httpOnly: true,
@@ -33,14 +37,23 @@ function setRefreshTokenCookie(res, refreshToken) {
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
 }
 
-function issueAuthTokens(user, res) {
+async function issueAuthTokens(user, res) {
   const basePayload = { id: user.id, email: user.email, role: user.role };
   const accessToken = signAccessToken(basePayload);
   const refreshToken = signRefreshToken(basePayload);
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      refreshTokenHash,
+    },
+  });
+
   if (res) {
     setRefreshTokenCookie(res, refreshToken);
   }
-  return { accessToken, refreshToken };
+  return { accessToken };
 }
 
 /**
@@ -276,7 +289,7 @@ router.post('/setup', async (req, res) => {
       },
     });
 
-    const { accessToken, refreshToken } = issueAuthTokens(user, res);
+    const { accessToken } = await issueAuthTokens(user, res);
 
     const { passwordHash: _ph, ...userWithoutPassword } = user;
 
@@ -284,7 +297,6 @@ router.post('/setup', async (req, res) => {
       success: true,
       token: accessToken,
       accessToken,
-      refreshToken,
       user: userWithoutPassword,
       message: 'Admin account created successfully!',
     });
@@ -448,7 +460,7 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    const { accessToken, refreshToken } = issueAuthTokens(user, res);
+    const { accessToken } = await issueAuthTokens(user, res);
 
     // ✅ SEND EMAIL VERIFICATION (async, don't block registration)
     (async () => {
@@ -470,7 +482,6 @@ router.post('/register', async (req, res) => {
       success: true,
       token: accessToken,
       accessToken,
-      refreshToken,
       user: userWithoutPassword,
       message: 'Account created successfully! Please check your email to verify your account.',
     });
@@ -537,13 +548,13 @@ router.post('/login', async (req, res) => {
 async function handleSuccessfulLogin(user, res) {
   // ❌ Removed: subscription checks (not on User in this schema)
 
-  const { accessToken, refreshToken } = issueAuthTokens(user, res);
+  const { accessToken } = await issueAuthTokens(user, res);
 
   // Combine trial state check and lastLoginAt update in single operation
   const userWithTrial = await ensureTrialState(user, true);
 
   const { passwordHash: _ph, ...userWithoutPassword } = userWithTrial;
-  res.json({ success: true, token: accessToken, accessToken, refreshToken, user: userWithoutPassword });
+  res.json({ success: true, token: accessToken, accessToken, user: userWithoutPassword });
 }
 
 // ========================================
@@ -553,8 +564,7 @@ async function handleSuccessfulLogin(user, res) {
 router.post('/refresh', async (req, res) => {
   try {
     const cookieToken = req.cookies?.[REFRESH_COOKIE_NAME];
-    const bodyToken = req.body?.refreshToken || req.body?.token;
-    const refreshToken = bodyToken || cookieToken;
+    const refreshToken = cookieToken;
 
     if (!refreshToken) {
       return sendError(res, 401, 'Refresh token is required', ErrorCodes.AUTH_NO_TOKEN);
@@ -579,18 +589,28 @@ router.post('/refresh', async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, refreshTokenHash: true },
     });
 
     if (!user) {
       return sendError(res, 401, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
     }
 
+    const tokenHash = hashRefreshToken(refreshToken);
+    if (!user.refreshTokenHash || user.refreshTokenHash !== tokenHash) {
+      res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions());
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshTokenHash: null },
+      });
+      return sendError(res, 401, 'Invalid refresh token', ErrorCodes.AUTH_INVALID_TOKEN);
+    }
+
     // ✅ TOKEN ROTATION: Issue new refresh token, old one is invalidated by cookie overwrite
     // In future: implement token revocation list for additional security
-    const { accessToken, refreshToken: newRefreshToken } = issueAuthTokens(user, res);
+    const { accessToken } = await issueAuthTokens(user, res);
 
-    res.json({ success: true, token: accessToken, accessToken, refreshToken: newRefreshToken });
+    res.json({ success: true, token: accessToken, accessToken });
   } catch (error) {
     console.error('Refresh token error:', error);
     return sendError(res, 500, 'Failed to refresh token', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -673,7 +693,7 @@ router.get(
 
       // ❌ Removed: subscription checks (not present)
 
-      const { accessToken } = issueAuthTokens(user, res);
+      const { accessToken } = await issueAuthTokens(user, res);
 
       const dashboardRoutes = {
         PROPERTY_MANAGER: '/dashboard',
@@ -732,8 +752,26 @@ router.get('/me', requireAuth, async (req, res) => {
 // POST /api/auth/logout
 // ========================================
 router.post('/logout', (req, res) => {
-  req.logout((err) => {
+  const cookieToken = req.cookies?.[REFRESH_COOKIE_NAME];
+
+  const clearServerRefresh = async () => {
+    if (!cookieToken) return;
+    try {
+      const decoded = verifyRefreshToken(cookieToken);
+      if (decoded?.id) {
+        await prisma.user.update({
+          where: { id: decoded.id },
+          data: { refreshTokenHash: null },
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  req.logout(async (err) => {
     if (err) return sendError(res, 500, 'Logout failed', ErrorCodes.ERR_INTERNAL_SERVER);
+    await clearServerRefresh();
     res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions());
     res.json({ success: true, message: 'Logged out successfully' });
   });

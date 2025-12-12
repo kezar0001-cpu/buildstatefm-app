@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser, getAuthToken, refreshCurrentUser } from './lib/auth.js';
+import { silentRefreshAccessToken } from './api/client.js';
 import logger from './utils/logger';
 
 /**
@@ -25,18 +26,51 @@ function AuthGate({ children }) {
   const [isVerified, setIsVerified] = useState(hasToken && cachedUser);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const hasValidatedRef = useRef(false);
+  const hasAttemptedSilentRefreshRef = useRef(false);
 
   useEffect(() => {
     // Skip if already redirecting
     if (isRedirecting) return;
     
-    // If no token at all, redirect immediately (no API call needed)
+    // If no access token, attempt silent refresh (cookie-based) before redirecting.
     if (!hasToken) {
-      const isBlogAdminRoute = location.pathname.startsWith('/admin/blog');
-      const loginPath = isBlogAdminRoute ? '/admin/blog/login' : '/signin';
-      logger.log('AuthGate: No token, redirecting to', loginPath);
-      setIsRedirecting(true);
-      navigate(loginPath, { replace: true });
+      if (hasAttemptedSilentRefreshRef.current) {
+        const isBlogAdminRoute = location.pathname.startsWith('/admin/blog');
+        const loginPath = isBlogAdminRoute ? '/admin/blog/login' : '/signin';
+        logger.log('AuthGate: No token and silent refresh failed, redirecting to', loginPath);
+        setIsRedirecting(true);
+        navigate(loginPath, { replace: true });
+        return;
+      }
+
+      hasAttemptedSilentRefreshRef.current = true;
+
+      silentRefreshAccessToken()
+        .then((token) => {
+          if (!token) return null;
+          return refreshCurrentUser();
+        })
+        .then((user) => {
+          if (!user) {
+            const isBlogAdminRoute = location.pathname.startsWith('/admin/blog');
+            const loginPath = isBlogAdminRoute ? '/admin/blog/login' : '/signin';
+            logger.log('AuthGate: Silent refresh did not restore session, redirecting');
+            setIsRedirecting(true);
+            navigate(loginPath, { replace: true });
+            return;
+          }
+
+          logger.log('AuthGate: Silent refresh succeeded');
+          setIsVerified(true);
+        })
+        .catch((error) => {
+          logger.error('AuthGate: Silent refresh error:', error);
+          const isBlogAdminRoute = location.pathname.startsWith('/admin/blog');
+          const loginPath = isBlogAdminRoute ? '/admin/blog/login' : '/signin';
+          setIsRedirecting(true);
+          navigate(loginPath, { replace: true });
+        });
+
       return;
     }
 

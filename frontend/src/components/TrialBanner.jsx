@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '../context/UserContext';
 import { calculateDaysRemaining } from '../utils/date';
 
-const TrialBanner = () => {
+const TrialBanner = ({ footerCollapsed = false }) => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -143,14 +143,20 @@ const TrialBanner = () => {
     window.localStorage.setItem('trialBannerCollapsed', isCollapsed ? 'true' : 'false');
   }, [isCollapsed]);
 
+  const mobileBottomOffset = footerCollapsed
+    ? 'calc(env(safe-area-inset-bottom) + 64px)'
+    : 'calc(env(safe-area-inset-bottom) + 144px)';
+
   const floatingContainerStyles = {
     position: 'fixed',
-    bottom: { xs: 72, sm: 24 }, // Increased bottom spacing on mobile to avoid footer menu
+    bottom: { xs: mobileBottomOffset, sm: 24 },
     right: { xs: 16, sm: 24 },
     left: { xs: 16, sm: 'auto' },
-    zIndex: (theme) => theme.zIndex.drawer, // Changed from drawer + 2 to drawer to stay below footer
+    zIndex: (theme) => ({ xs: 55, sm: theme.zIndex.drawer }),
     width: { xs: 'auto', sm: 360 },
     maxWidth: { xs: 'calc(100% - 32px)', sm: 360 },
+    transition: { xs: 'bottom 220ms ease', sm: 'none' },
+    pointerEvents: 'none',
   };
 
   const collapsedChip = (
@@ -170,6 +176,7 @@ const TrialBanner = () => {
             fontWeight: 600,
             width: '100%',
             px: 1.5,
+            pointerEvents: 'auto',
             '& .MuiChip-label': {
               display: 'flex',
               alignItems: 'center',
@@ -197,6 +204,7 @@ const TrialBanner = () => {
             color: '#fff',
             borderRadius: 2,
             overflow: 'hidden',
+            pointerEvents: 'auto',
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', p: 2 }}>
@@ -280,6 +288,7 @@ const TrialBanner = () => {
             color: '#fff',
             borderRadius: 2,
             overflow: 'hidden',
+            pointerEvents: 'auto',
           }}
         >
           <Box sx={{ p: 2 }}>
@@ -389,6 +398,7 @@ const TrialBanner = () => {
         sx={{
           borderRadius: 2,
           overflow: 'hidden',
+          pointerEvents: 'auto',
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', p: 2 }}>

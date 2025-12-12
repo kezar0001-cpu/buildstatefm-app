@@ -36,7 +36,7 @@ function Layout({ children }) {
         flexDirection: 'column',
       }}
     >
-      <TrialBanner />
+      <TrialBanner footerCollapsed={footerCollapsed} />
       <NavBar />
       <Box
         component="main"

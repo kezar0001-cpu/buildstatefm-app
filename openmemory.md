@@ -13,6 +13,10 @@
 - **RotaryFooter (mobile nav):** `frontend/src/components/RotaryFooter.tsx`
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
   - Swipe uses pointer capture (no framer drag) for smoothness; snap-on-release removed.
+
+- **Service Requests filters (mobile-friendly):** `frontend/src/pages/ServiceRequestsPage.jsx`
+  - On mobile, search is full-width and filters are in a `Collapse` toggled by a "Filters" button with an active-count chip.
+  - On desktop, filters remain inline in a single row.
 - **Navigation config:** `frontend/src/utils/navigationConfig.js`
   - Defines `NAVIGATION_ITEMS` and `MOBILE_NAV_ITEMS` by role.
 
