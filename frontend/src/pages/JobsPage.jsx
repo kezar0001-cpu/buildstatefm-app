@@ -1016,10 +1016,14 @@ const JobsPage = () => {
                                         sx={{
                                           mb: 2,
                                           cursor: 'pointer',
-                                          transition: 'transform 0.2s, box-shadow 0.2s',
+                                          transition: 'all 0.3s ease-in-out',
+                                          borderRadius: 2,
+                                          border: '1px solid',
+                                          borderColor: 'divider',
                                           '&:hover': {
-                                            transform: 'translateY(-2px)',
-                                            boxShadow: 3,
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 6,
+                                            borderColor: 'primary.main',
                                           },
                                         }}
                                         onClick={() => handleOpenDetailModal(job)}
@@ -1182,10 +1186,12 @@ const JobsPage = () => {
                       borderRadius: 2,
                       border: '1px solid',
                       borderColor: 'divider',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.3s ease-in-out',
                       cursor: 'pointer',
                       '&:hover': {
-                        boxShadow: 3,
+                        transform: 'translateY(-4px)',
+                        boxShadow: 6,
+                        borderColor: 'primary.main',
                       },
                     }}
                     onClick={() => handleOpenDetailModal(job)}

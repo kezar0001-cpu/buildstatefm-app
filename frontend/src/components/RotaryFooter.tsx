@@ -24,6 +24,8 @@ type RotaryNavItem = {
 
 export type RotaryFooterProps = {
   className?: string;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 };
 
 const ITEM_WIDTH = 72;
@@ -193,7 +195,7 @@ function RotaryWheelItem({
   );
 }
 
-export default function RotaryFooter({ className }: RotaryFooterProps) {
+export default function RotaryFooter({ className, collapsed = false, onCollapsedChange }: RotaryFooterProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useCurrentUser() as unknown as { user?: { role?: string } };
@@ -204,7 +206,16 @@ export default function RotaryFooter({ className }: RotaryFooterProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const rotation = useMotionValue(0);
   const springRotation = useSpring(rotation, { stiffness: 200, damping: 25, mass: 0.5 });
-  const dragStartRotation = useRef(0);
+  const panStartRotation = useRef(0);
+  const panStartX = useRef(0);
+  const isPanning = useRef(false);
+  const suppressNextClick = useRef(false);
+  const rafId = useRef<number | null>(null);
+  const pendingRotation = useRef<number | null>(null);
+
+  const handleToggleCollapsed = useCallback(() => {
+    onCollapsedChange?.(!collapsed);
+  }, [collapsed, onCollapsedChange]);
 
   const snapToNearest = useCallback(() => {
     if (items.length === 0) return;
@@ -227,25 +238,79 @@ export default function RotaryFooter({ className }: RotaryFooterProps) {
     setActiveIndex(idx);
   }, [items.length, rotation]);
 
-  const handleDragStart = useCallback(() => {
-    dragStartRotation.current = rotation.get();
-  }, [rotation]);
+  const scheduleRotationUpdate = useCallback(
+    (next: number) => {
+      pendingRotation.current = next;
+      if (rafId.current != null) return;
+      rafId.current = window.requestAnimationFrame(() => {
+        rafId.current = null;
+        const value = pendingRotation.current;
+        if (value == null) return;
+        rotation.set(value);
+      });
+    },
+    [rotation]
+  );
 
-  const handleDrag = useCallback(
-    (_: unknown, info: { offset: { x: number } }) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (items.length === 0) return;
-      const sensitivity = 0.55;
-      const next = dragStartRotation.current + info.offset.x * sensitivity;
-      rotation.set(next);
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('button')) return;
 
-      const idx = normalizeIndex(-Math.round(next / ITEM_WIDTH), items.length);
-      setActiveIndex((prev) => (prev === idx ? prev : idx));
+      isPanning.current = true;
+      suppressNextClick.current = false;
+      panStartX.current = e.clientX;
+      panStartRotation.current = rotation.get();
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
     },
     [items.length, rotation]
   );
 
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPanning.current || items.length === 0) return;
+      const sensitivity = 0.55;
+      const dx = e.clientX - panStartX.current;
+      if (Math.abs(dx) > 4) {
+        suppressNextClick.current = true;
+      }
+      const next = panStartRotation.current + dx * sensitivity;
+      scheduleRotationUpdate(next);
+
+      const idx = normalizeIndex(-Math.round(next / ITEM_WIDTH), items.length);
+      setActiveIndex((prev) => (prev === idx ? prev : idx));
+    },
+    [items.length, scheduleRotationUpdate]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPanning.current) return;
+      isPanning.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      snapToNearest();
+      if (suppressNextClick.current) {
+        window.setTimeout(() => {
+          suppressNextClick.current = false;
+        }, 0);
+      }
+    },
+    [snapToNearest]
+  );
+
   const handleItemClick = useCallback(
     (idx: number) => {
+      if (suppressNextClick.current) return;
       const item = items[idx];
       if (!item) return;
       setActiveIndex(idx);
@@ -283,46 +348,69 @@ export default function RotaryFooter({ className }: RotaryFooterProps) {
   return (
     <div className={`md:hidden ${className || ''}`}>
       <div className="fixed bottom-0 left-0 right-0 z-[60] pointer-events-none">
-        <div
-          className="pointer-events-auto bg-white/85 backdrop-blur-xl border-t border-gray-200"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
-        >
-          <div className="flex justify-center px-3 pt-2">
-            <div
-              ref={containerRef}
-              className="relative bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl overflow-visible max-w-[calc(100vw-1.5rem)]"
-              style={{ height: 74, width: BASE_CONTAINER_WIDTH }}
-            >
-              <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-l-2xl" />
-              <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-r-2xl" />
-
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.05}
-                dragMomentum
-                onDragStart={handleDragStart}
-                onDrag={handleDrag}
-                onDragEnd={snapToNearest}
-                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        {collapsed ? (
+          <div
+            className="pointer-events-auto"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+          >
+            <div className="flex justify-center px-3 pt-2">
+              <button
+                type="button"
+                onClick={handleToggleCollapsed}
+                className="bg-white/85 backdrop-blur-xl border border-gray-200 rounded-full shadow-lg px-4 py-2 text-xs font-semibold text-gray-700"
               >
-                <div className="relative h-full flex items-center justify-center">
-                  {items.map((item, index) => (
-                    <RotaryWheelItem
-                      key={item.key}
-                      item={item}
-                      index={index}
-                      totalItems={items.length}
-                      rotation={springRotation}
-                      activeIndex={activeIndex}
-                      onClick={() => handleItemClick(index)}
-                    />
-                  ))}
-                </div>
-              </motion.div>
+                Open navigation
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="pointer-events-auto bg-white/85 backdrop-blur-xl border-t border-gray-200"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+          >
+            <div className="flex justify-center px-3 pt-2">
+              <div
+                ref={containerRef}
+                className="relative bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl overflow-visible max-w-[calc(100vw-1.5rem)]"
+                style={{ height: 74, width: BASE_CONTAINER_WIDTH }}
+              >
+                <button
+                  type="button"
+                  onClick={handleToggleCollapsed}
+                  className="absolute -top-3 right-3 z-[70] bg-white/90 border border-gray-200 rounded-full shadow px-2 py-1 text-[10px] font-semibold text-gray-700"
+                >
+                  Hide
+                </button>
+
+                <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-l-2xl" />
+                <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white/80 via-white/40 to-transparent z-40 pointer-events-none rounded-r-2xl" />
+
+                <motion.div
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                  style={{ touchAction: 'pan-y' }}
+                >
+                  <div className="relative h-full flex items-center justify-center">
+                    {items.map((item, index) => (
+                      <RotaryWheelItem
+                        key={item.key}
+                        item={item}
+                        index={index}
+                        totalItems={items.length}
+                        rotation={springRotation}
+                        activeIndex={activeIndex}
+                        onClick={() => handleItemClick(index)}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
