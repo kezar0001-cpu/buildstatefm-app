@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Box, Typography, Icon, useTheme } from '@mui/material';
+import { Card, CardContent, Box, Typography, useTheme } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -84,6 +84,7 @@ export default function StatCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              lineHeight: 0,
               boxShadow: `0 4px 14px 0 ${color === 'primary' ? 'rgb(185 28 28 / 0.25)' : color === 'secondary' ? 'rgb(249 115 22 / 0.25)' : 'rgb(0 0 0 / 0.1)'}`,
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '&:hover': {
@@ -92,7 +93,16 @@ export default function StatCard({
               },
             }}
           >
-            <Icon sx={{ color: '#ffffff', fontSize: 28 }}>{icon}</Icon>
+            {React.isValidElement(icon)
+              ? React.cloneElement(icon, {
+                  sx: {
+                    color: '#ffffff',
+                    fontSize: 28,
+                    display: 'block',
+                    ...(icon.props?.sx || {}),
+                  },
+                })
+              : icon}
           </Box>
         </Box>
 
