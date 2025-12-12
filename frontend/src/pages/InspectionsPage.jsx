@@ -959,6 +959,7 @@ const InspectionsPage = () => {
             <InspectionKanban
               inspections={inspectionsWithOverdue}
               onView={handleView}
+              onViewReport={handleViewReport}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
               onStartInspection={handleStartInspection}
@@ -1247,6 +1248,7 @@ const InspectionsPage = () => {
 const InspectionKanban = ({
   inspections,
   onView,
+  onViewReport,
   onEdit,
   onDelete,
   onStartInspection,
@@ -1471,7 +1473,7 @@ const InspectionKanban = ({
                         onReject={onReject}
                         onCancel={onCancel}
                         onView={onView}
-                        onViewReport={handleViewReport}
+                        onViewReport={onViewReport}
                         onEdit={onEdit}
                         variant="button"
                         size="small"
