@@ -341,6 +341,10 @@ const InspectionsPage = () => {
     navigate(`/inspections/${id}`);
   };
 
+  const handleViewReport = (id) => {
+    navigate(`/inspections/${id}/report`);
+  };
+
   const handleStatusMenuOpen = (event, inspection) => {
     event.stopPropagation();
     setStatusMenuAnchor(event.currentTarget);
@@ -1467,6 +1471,7 @@ const InspectionKanban = ({
                         onReject={onReject}
                         onCancel={onCancel}
                         onView={onView}
+                        onViewReport={handleViewReport}
                         onEdit={onEdit}
                         variant="button"
                         size="small"

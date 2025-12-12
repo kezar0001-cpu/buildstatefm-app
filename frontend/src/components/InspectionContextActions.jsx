@@ -23,6 +23,7 @@ import { useCurrentUser } from '../context/UserContext';
  * @param {Function} onReject - Handler for rejecting inspection
  * @param {Function} onCancel - Handler for cancelling inspection
  * @param {Function} onView - Handler for viewing inspection
+ * @param {Function} onViewReport - Optional handler for viewing inspection report (COMPLETED)
  * @param {Function} onEdit - Handler for editing inspection
  * @param {String} variant - 'button' or 'icon' (default: 'button')
  * @param {String} size - 'small', 'medium', or 'large' (default: 'small')
@@ -35,6 +36,7 @@ export const InspectionContextActions = ({
   onReject,
   onCancel,
   onView,
+  onViewReport,
   onEdit,
   variant = 'button',
   size = 'small',
@@ -71,7 +73,7 @@ export const InspectionContextActions = ({
         return {
           label: 'View Report',
           icon: <ViewIcon />,
-          onClick: () => onView?.(inspection.id),
+          onClick: () => (onViewReport ? onViewReport(inspection.id) : onView?.(inspection.id)),
           color: 'primary',
           variant: 'outlined',
         };

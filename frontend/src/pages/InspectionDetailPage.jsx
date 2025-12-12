@@ -946,6 +946,16 @@ export default function InspectionDetailPage() {
                 >
                   Photos ({metrics.photos})
                 </Button>
+                {inspection.status === 'COMPLETED' && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<DescriptionIcon />}
+                    onClick={() => navigate(`/inspections/${id}/report`)}
+                  >
+                    View Report
+                  </Button>
+                )}
                 {canManage && (
                   <>
                     <Button
