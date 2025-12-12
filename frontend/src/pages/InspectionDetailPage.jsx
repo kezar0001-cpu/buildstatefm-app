@@ -933,6 +933,39 @@ export default function InspectionDetailPage() {
                   </Stack>
                 )}
               </Stack>
+
+              {isMobile && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PhotoIcon />}
+                    onClick={() => setPhotoGalleryOpen(true)}
+                  >
+                    Photos ({metrics.photos})
+                  </Button>
+                  {inspection.status === 'COMPLETED' && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<DescriptionIcon />}
+                      onClick={() => navigate(`/inspections/${id}/report`)}
+                    >
+                      View Report
+                    </Button>
+                  )}
+                  {canManage && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={() => setEditDialogOpen(true)}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </Stack>
+              )}
             </Box>
 
             {/* Desktop Actions */}

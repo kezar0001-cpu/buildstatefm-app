@@ -1462,7 +1462,7 @@ router.get('/:id/comments', requireAuth, async (req, res) => {
     const comments = await prisma.jobComment.findMany({
       where: { jobId: id },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             firstName: true,
@@ -1475,8 +1475,14 @@ router.get('/:id/comments', requireAuth, async (req, res) => {
         createdAt: 'desc',
       },
     });
-    
-    res.json({ success: true, comments });
+
+    const normalizedComments = comments.map((comment) => ({
+      ...comment,
+      user: comment.User,
+      User: undefined,
+    }));
+
+    res.json({ success: true, comments: normalizedComments });
   } catch (error) {
     console.error('Error fetching job comments:', error);
     return sendError(res, 500, 'Failed to fetch comments', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -1528,7 +1534,7 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
         content,
       },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             firstName: true,
@@ -1538,8 +1544,14 @@ router.post('/:id/comments', requireAuth, validate(commentSchema), async (req, r
         },
       },
     });
-    
-    res.status(201).json({ success: true, comment });
+
+    const normalizedComment = {
+      ...comment,
+      user: comment.User,
+      User: undefined,
+    };
+
+    res.status(201).json({ success: true, comment: normalizedComment });
   } catch (error) {
     console.error('Error creating job comment:', error);
     return sendError(res, 500, 'Failed to create comment', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -1556,7 +1568,7 @@ router.patch('/:id/comments/:commentId', requireAuth, validate(commentSchema), a
     const comment = await prisma.jobComment.findUnique({
       where: { id: commentId },
       include: {
-        job: {
+        Job: {
           include: {
             property: {
               select: {
@@ -1587,7 +1599,7 @@ router.patch('/:id/comments/:commentId', requireAuth, validate(commentSchema), a
       where: { id: commentId },
       data: { content },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             firstName: true,
@@ -1598,7 +1610,13 @@ router.patch('/:id/comments/:commentId', requireAuth, validate(commentSchema), a
       },
     });
 
-    res.json({ success: true, comment: updatedComment });
+    const normalizedComment = {
+      ...updatedComment,
+      user: updatedComment.User,
+      User: undefined,
+    };
+
+    res.json({ success: true, comment: normalizedComment });
   } catch (error) {
     console.error('Error updating job comment:', error);
     return sendError(res, 500, 'Failed to update comment', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -1614,7 +1632,7 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
     const comment = await prisma.jobComment.findUnique({
       where: { id: commentId },
       include: {
-        job: {
+        Job: {
           include: {
             property: {
               select: {
@@ -1639,7 +1657,7 @@ router.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
     // Property manager can delete any comment on jobs for their properties
     const isAuthor = comment.userId === req.user.id;
     const isPropertyManager = req.user.role === 'PROPERTY_MANAGER' && 
-      comment.job?.property?.managerId === req.user.id;
+      comment.Job?.property?.managerId === req.user.id;
 
     if (!isAuthor && !isPropertyManager) {
       return sendError(res, 403, 'You can only delete your own comments', ErrorCodes.ACC_ACCESS_DENIED);

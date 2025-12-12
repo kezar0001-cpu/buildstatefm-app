@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 test('job comments require authentication', () => {
   // Test that comment endpoints require auth
@@ -156,4 +158,18 @@ test('comment user information included', () => {
   // Should NOT include sensitive data
   assert.equal(comment.user.passwordHash, undefined);
   assert.equal(comment.user.email, undefined);
+});
+
+test('job comments routes use correct Prisma relation names', () => {
+  const routesPath = path.join(process.cwd(), 'src', 'routes', 'jobs.js');
+  const source = fs.readFileSync(routesPath, 'utf8');
+
+  assert.ok(source.includes("router.get('/:id/comments'"));
+  assert.ok(source.includes("router.post('/:id/comments'"));
+  assert.ok(source.includes("router.patch('/:id/comments/:commentId'"));
+  assert.ok(source.includes("router.delete('/:id/comments/:commentId'"));
+
+  assert.ok(source.includes('include: {\n        User:'));
+  assert.ok(source.includes('include: {\n        Job:'));
+  assert.ok(source.includes('user: comment.User'));
 });

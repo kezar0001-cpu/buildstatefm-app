@@ -67,11 +67,18 @@ const printStyles = `
     }
     
     .page-break {
+      break-before: page;
       page-break-before: always;
     }
     
     .avoid-break {
+      break-inside: avoid;
       page-break-inside: avoid;
+    }
+
+    .allow-break {
+      break-inside: auto;
+      page-break-inside: auto;
     }
     
     .report-container {
@@ -84,6 +91,18 @@ const printStyles = `
     
     img {
       max-width: 100% !important;
+      height: auto !important;
+      page-break-inside: avoid;
+    }
+
+    .print-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 12px !important;
+    }
+
+    .print-grid > * {
+      break-inside: avoid;
       page-break-inside: avoid;
     }
   }
@@ -602,7 +621,7 @@ const InspectionReportPage = () => {
                 return (
                   <Card
                     key={issue.id}
-                    className="avoid-break"
+                    className="allow-break"
                     variant="outlined"
                     sx={{
                       mb: 3,
@@ -647,11 +666,12 @@ const InspectionReportPage = () => {
                           <Typography variant="subtitle2" gutterBottom>
                             Evidence Photos ({issuePhotos.length})
                           </Typography>
-                          <Grid container spacing={2}>
+                          <Grid container spacing={2} className="print-grid">
                             {issuePhotos.map((photo, photoIndex) => (
                               <Grid item xs={12} sm={6} key={photo.id || photoIndex}>
                                 <Paper
                                   variant="outlined"
+                                  className="avoid-break"
                                   sx={{
                                     p: 1,
                                     bgcolor: sectionBgColor,
@@ -701,7 +721,7 @@ const InspectionReportPage = () => {
                   const checklistItems = room.checklistItems || [];
 
                   return (
-                    <Card key={room.id} className="avoid-break" variant="outlined" sx={{ mb: 3 }}>
+                    <Card key={room.id} className="allow-break" variant="outlined" sx={{ mb: 3 }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                           <Typography variant="subtitle1" fontWeight={700}>
@@ -767,10 +787,10 @@ const InspectionReportPage = () => {
                             <Typography variant="subtitle2" gutterBottom>
                               Room Photos ({roomPhotos.length})
                             </Typography>
-                            <Grid container spacing={2}>
+                            <Grid container spacing={2} className="print-grid">
                               {roomPhotos.map((photo, photoIndex) => (
                                 <Grid item xs={12} sm={6} key={photo.id || photoIndex}>
-                                  <Paper variant="outlined" sx={{ p: 1, bgcolor: sectionBgColor }}>
+                                  <Paper variant="outlined" className="avoid-break" sx={{ p: 1, bgcolor: sectionBgColor }}>
                                     <Box
                                       component="img"
                                       src={photo.url || photo.imageUrl}
