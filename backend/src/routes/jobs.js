@@ -270,6 +270,8 @@ router.get('/', requireAuth, async (req, res) => {
     const limit = parsedLimit ?? 50;
     const offset = parsedOffset ?? 0;
 
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
+
     // Fetch jobs and total count in parallel
     const [jobs, total] = await Promise.all([
       prisma.job.findMany({
@@ -295,7 +297,7 @@ router.get('/', requireAuth, async (req, res) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true,
+              ...(includeAssigneeEmail ? { email: true } : {}),
             },
           },
         },
@@ -333,6 +335,8 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubscription, validate(jobCreateSchema), async (req, res) => {
   try {
     const { propertyId, unitId, title, description, priority, scheduledDate, assignedToId, estimatedCost, notes } = req.body;
+
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
     
     // Verify property exists
     const property = await prisma.property.findUnique({
@@ -402,7 +406,7 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER'), requireActiveSubs
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeAssigneeEmail ? { email: true } : {}),
           },
         },
       },
@@ -1005,6 +1009,8 @@ router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, r
   try {
     const { id } = req.params;
 
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
+
     const job = await prisma.job.findUnique({
       where: { id },
       include: {
@@ -1071,7 +1077,7 @@ router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, r
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeAssigneeEmail ? { email: true } : {}),
           },
         },
       },
@@ -1111,10 +1117,10 @@ router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, r
 router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
 
-    if (!reason || reason.trim().length === 0) {
-      return sendError(res, 400, 'Rejection reason is required', ErrorCodes.VAL_MISSING_FIELD);
+    if (!reason) {
+      return sendError(res, 400, 'Reason is required', ErrorCodes.VAL_MISSING_FIELD);
     }
 
     const job = await prisma.job.findUnique({
@@ -1191,7 +1197,6 @@ router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, r
           where: { id: job.property.managerId },
         });
         if (manager) {
-          // Create notification for job rejection
           await prisma.notification.create({
             data: {
               userId: manager.id,
@@ -1228,6 +1233,8 @@ router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, r
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
     
     const job = await prisma.job.findUnique({
       where: { id },

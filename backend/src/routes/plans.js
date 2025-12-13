@@ -128,6 +128,8 @@ router.get('/', requireAuth, async (req, res) => {
     const { propertyId, frequency, isActive, search, includeArchived } = req.query;
     const shouldIncludeArchived = includeArchivedSchema.parse(includeArchived) === true;
 
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
+
     const where = buildWhereClause(req.user.id, req.user.role, {
       propertyId,
       frequency,
@@ -154,7 +156,7 @@ router.get('/', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeAssigneeEmail ? { email: true } : {}),
           },
         },
         property: {
@@ -189,6 +191,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const includeAssigneeEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
+
     const plan = await prisma.maintenancePlan.findUnique({
       where: { id },
       include: {
@@ -197,7 +201,7 @@ router.get('/:id', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeAssigneeEmail ? { email: true } : {}),
           },
         },
         property: {

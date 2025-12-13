@@ -314,6 +314,18 @@ export const getRecentActivity = async (req, res) => {
 
     const activities = [];
 
+    let tenantPropertyIds = null;
+    if (role === 'TENANT') {
+      const tenancies = await prisma.unitTenant.findMany({
+        where: { tenantId: userId, isActive: true },
+        select: { unit: { select: { propertyId: true } } },
+      });
+
+      tenantPropertyIds = Array.from(
+        new Set(tenancies.map(t => t.unit?.propertyId).filter((value) => typeof value === 'string' && value.length > 0))
+      );
+    }
+
     const propertyScope =
       role === 'PROPERTY_MANAGER'
         ? { managerId: userId }
@@ -324,6 +336,10 @@ export const getRecentActivity = async (req, res) => {
     const inspectionWhere =
       role === 'TECHNICIAN'
         ? { assignedToId: userId }
+        : role === 'TENANT'
+        ? Array.isArray(tenantPropertyIds) && tenantPropertyIds.length > 0
+          ? { propertyId: { in: tenantPropertyIds } }
+          : { propertyId: { in: [] } }
         : propertyScope
         ? { property: propertyScope }
         : {};

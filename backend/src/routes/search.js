@@ -106,6 +106,10 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         link: `/jobs`
       }))
     });
+  } else if (req.user.role === 'ADMIN') {
+    // Admins can search across all records
+  } else {
+    return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
   }
 
   // Search properties

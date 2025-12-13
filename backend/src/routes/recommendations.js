@@ -243,6 +243,8 @@ router.post('/', requireAuth, async (req, res) => {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { reportId, status, priority, search } = req.query;
+
+    const includeActorEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
     
     const where = {};
     if (reportId) where.reportId = reportId;
@@ -349,7 +351,7 @@ router.get('/', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeActorEmail ? { email: true } : {}),
           },
         },
         approvedBy: {
@@ -357,7 +359,7 @@ router.get('/', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeActorEmail ? { email: true } : {}),
           },
         },
       },
@@ -377,6 +379,8 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const includeActorEmail = ['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
 
     const recommendation = await prisma.recommendation.findUnique({
       where: { id },
@@ -415,7 +419,7 @@ router.get('/:id', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeActorEmail ? { email: true } : {}),
           },
         },
         approvedBy: {
@@ -423,7 +427,7 @@ router.get('/:id', requireAuth, async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            ...(includeActorEmail ? { email: true } : {}),
           },
         },
       },

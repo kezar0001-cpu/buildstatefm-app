@@ -45,6 +45,9 @@
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
   - Disabled backend mount for reports by removing `/api/reports` from `backend/server.js`.
 
+- **Backend security audit report:**
+  - `BACKEND_SECURITY_AUDIT_REPORT.md`
+
 - **Canonical auth middleware (backend):**
   - Prefer `requireAuth` from `backend/src/middleware/auth.js` for protected routes to ensure DB user lookup + `isActive` enforcement.
   - Billing routes in `backend/src/routes/billing.js` standardized on `requireAuth` across `/checkout`, `/confirm`, `/invoices`, `/payment-method`, `/portal`, `/change-plan`, `/cancel`.

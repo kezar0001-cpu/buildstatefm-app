@@ -183,8 +183,19 @@ router.get('/:token', async (req, res) => {
             lastName: true,
           },
         },
-        property: true,
-        unit: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        unit: {
+          select: {
+            id: true,
+            unitNumber: true,
+            propertyId: true,
+          },
+        },
       },
     });
 
@@ -205,7 +216,6 @@ router.get('/:token', async (req, res) => {
     res.json({
       success: true,
       invite: {
-        email: invite.email,
         role: invite.role,
         invitedBy: invite.invitedBy,
         property: invite.property,

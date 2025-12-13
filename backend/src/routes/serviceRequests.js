@@ -95,6 +95,8 @@ router.get('/', requireAuth, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
+    const includeRequesterEmail = req.user.role === 'PROPERTY_MANAGER';
+
     // Fetch service requests and total count in parallel
     const [requests, total] = await Promise.all([
       prisma.serviceRequest.findMany({
@@ -118,7 +120,7 @@ router.get('/', requireAuth, async (req, res) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true,
+              ...(includeRequesterEmail ? { email: true } : {}),
             },
           },
         },
@@ -180,6 +182,8 @@ router.get('/archived', requireAuth, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
+    const includeRequesterEmail = req.user.role === 'PROPERTY_MANAGER';
+
     // Fetch archived service requests and total count in parallel
     const [requests, total] = await Promise.all([
       prisma.serviceRequest.findMany({
@@ -203,7 +207,7 @@ router.get('/archived', requireAuth, async (req, res) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true,
+              ...(includeRequesterEmail ? { email: true } : {}),
               role: true,
             }
           },
