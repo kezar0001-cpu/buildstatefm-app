@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -16,12 +16,26 @@ import useApiMutation from '../hooks/useApiMutation';
 import { queryKeys } from '../utils/queryKeys.js';
 import { apiClient } from '../api/client.js';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { getCurrentUser } from '../lib/auth';
 
 export default function EditPropertyPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState(null);
+  const user = getCurrentUser();
+
+  const canEditProperty = user?.role === 'ADMIN' || user?.role === 'PROPERTY_MANAGER';
+
+  useEffect(() => {
+    if (user && !canEditProperty) {
+      navigate(`/properties/${id}`, { replace: true });
+    }
+  }, [canEditProperty, id, navigate, user]);
+
+  if (user && !canEditProperty) {
+    return null;
+  }
 
   const {
     data,

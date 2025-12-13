@@ -62,6 +62,7 @@ import toast from 'react-hot-toast';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { getCurrentUser } from '../lib/auth';
 
 import MoveInWizard from '../components/MoveInWizard';
 import MoveOutWizard from '../components/MoveOutWizard';
@@ -85,6 +86,9 @@ export default function UnitDetailPage() {
   const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const user = getCurrentUser();
+
+  const canManageUnit = user?.role === 'ADMIN' || user?.role === 'PROPERTY_MANAGER';
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -268,24 +272,29 @@ export default function UnitDetailPage() {
   };
 
   const handleEditUnit = () => {
+    if (!canManageUnit) return;
     setEditDialogOpen(true);
   };
 
   const handleAssignTenant = () => {
+    if (!canManageUnit) return;
     setSelectedTenant(null);
     setAssignDialogOpen(true);
   };
 
   const handleInviteTenant = () => {
+    if (!canManageUnit) return;
     setInviteTenantDialogOpen(true);
   };
 
   const handleEditTenant = (tenant) => {
+    if (!canManageUnit) return;
     setSelectedTenant(tenant);
     setAssignDialogOpen(true);
   };
 
   const handleRemoveTenant = (tenant) => {
+    if (!canManageUnit) return;
     setSelectedTenant(tenant);
     setConfirmRemoveOpen(true);
   };
@@ -297,10 +306,12 @@ export default function UnitDetailPage() {
   };
 
   const handleAssignOwner = () => {
+    if (!canManageUnit) return;
     setAssignOwnerDialogOpen(true);
   };
 
   const handleInviteOwner = () => {
+    if (!canManageUnit) return;
     setInviteOwnerDialogOpen(true);
   };
 
@@ -1265,7 +1276,7 @@ export default function UnitDetailPage() {
             {/* Edit Unit Dialog */}
             <UnitForm
               key={unit.id}
-              open={editDialogOpen}
+              open={canManageUnit && editDialogOpen}
               onClose={() => setEditDialogOpen(false)}
               propertyId={unit.propertyId}
               unit={unit}
@@ -1277,7 +1288,7 @@ export default function UnitDetailPage() {
 
             {/* Tenant Assignment Dialog */}
             <TenantAssignmentDialog
-              open={assignDialogOpen}
+              open={canManageUnit && assignDialogOpen}
               onClose={() => {
                 setAssignDialogOpen(false);
                 setSelectedTenant(null);
@@ -1288,7 +1299,7 @@ export default function UnitDetailPage() {
 
             {/* Invite Tenant Dialog */}
             <InviteTenantDialog
-              open={inviteTenantDialogOpen}
+              open={canManageUnit && inviteTenantDialogOpen}
               onClose={() => setInviteTenantDialogOpen(false)}
               unitId={id}
               unitNumber={unit?.unitNumber}
@@ -1296,14 +1307,14 @@ export default function UnitDetailPage() {
 
             {/* Owner Assignment Dialog */}
             <UnitOwnerAssignmentDialog
-              open={assignOwnerDialogOpen}
+              open={canManageUnit && assignOwnerDialogOpen}
               onClose={() => setAssignOwnerDialogOpen(false)}
               unitId={id}
             />
 
             {/* Invite Owner Dialog */}
             <InviteOwnerDialog
-              open={inviteOwnerDialogOpen}
+              open={canManageUnit && inviteOwnerDialogOpen}
               onClose={() => setInviteOwnerDialogOpen(false)}
               property={{ id: unit?.propertyId }}
             />
@@ -1326,7 +1337,10 @@ export default function UnitDetailPage() {
               <DialogActions>
                 <Button onClick={() => setConfirmRemoveOpen(false)}>Cancel</Button>
                 <Button
-                  onClick={confirmRemove}
+                  onClick={() => {
+                    if (!canManageUnit) return;
+                    confirmRemove();
+                  }}
                   color="error"
                   variant="contained"
                   disabled={removeTenantMutation.isLoading}
@@ -1354,7 +1368,10 @@ export default function UnitDetailPage() {
               <DialogActions>
                 <Button onClick={() => setConfirmRemoveOwnerOpen(false)}>Cancel</Button>
                 <Button
-                  onClick={confirmRemoveOwner}
+                  onClick={() => {
+                    if (!canManageUnit) return;
+                    confirmRemoveOwner();
+                  }}
                   color="error"
                   variant="contained"
                   disabled={removeOwnerMutation.isLoading}

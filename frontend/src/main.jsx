@@ -24,8 +24,6 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0
 });
 
-console.log("Sentry DSN used:", import.meta.env.VITE_SENTRY_DSN);
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

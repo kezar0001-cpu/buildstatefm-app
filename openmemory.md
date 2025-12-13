@@ -20,6 +20,12 @@
 - **Navigation config:** `frontend/src/utils/navigationConfig.js`
   - Defines `NAVIGATION_ITEMS` and `MOBILE_NAV_ITEMS` by role.
 
+## RBAC
+- **Option 1 (Technician/Tenant read-only):** Technicians and tenants can access Properties/Units pages but only in read-only mode.
+  - **No create/edit/delete/assignment UI** is shown for read-only roles.
+  - `/properties/:id/edit` remains blocked for non-edit roles.
+  - Backend supports scoped read access and gates non-PM roles by the property manager subscription.
+
 ## Patterns
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.

@@ -32,7 +32,7 @@ const UpgradePromptModal = ({ open, onClose, trigger = 'feature', onNeverShowAga
   const { user } = useCurrentUser();
   const theme = useTheme();
 
-  if (!user) return null;
+  if (!user || user.role !== 'PROPERTY_MANAGER') return null;
 
   const daysRemaining = calculateDaysRemaining(user.trialEndDate);
   const isOnTrial = user.subscriptionStatus === 'TRIAL' && daysRemaining > 0;

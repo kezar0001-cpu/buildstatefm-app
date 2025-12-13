@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import prisma from '../config/prismaClient.js';
-import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireActiveSubscription, isSubscriptionActive } from '../middleware/auth.js';
 import { asyncHandler, sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = Router({ mergeParams: true });
@@ -342,7 +342,16 @@ const ensurePropertyAccess = async (propertyId, user, { requireWrite = false } =
 
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
-    include: { owners: { select: { ownerId: true } } },
+    include: {
+      owners: { select: { ownerId: true } },
+      manager: {
+        select: {
+          id: true,
+          subscriptionStatus: true,
+          trialEndDate: true,
+        },
+      },
+    },
   });
 
   if (!property) {
@@ -364,6 +373,21 @@ const ensurePropertyAccess = async (propertyId, user, { requireWrite = false } =
     return { allowed: true, property, canWrite: false };
   }
 
+  if (user.role === 'TECHNICIAN') {
+    const hasAssignedJob = await prisma.job.findFirst({
+      where: {
+        propertyId,
+        assignedToId: user.id,
+        archivedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (hasAssignedJob) {
+      return { allowed: true, property, canWrite: false };
+    }
+  }
+
   if (user.role === 'TENANT') {
     const hasActiveLease = await prisma.unitTenant.findFirst({
       where: {
@@ -379,6 +403,22 @@ const ensurePropertyAccess = async (propertyId, user, { requireWrite = false } =
   }
 
   return { allowed: false, status: 403, reason: 'Access denied to this property' };
+};
+
+const ensureManagerSubscriptionActive = (property, user) => {
+  if (!property) return { allowed: false, status: 404, reason: 'Property not found' };
+  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN') {
+    return { allowed: true };
+  }
+  if (isSubscriptionActive(property.manager)) {
+    return { allowed: true };
+  }
+  return {
+    allowed: false,
+    status: 403,
+    reason: "This property's subscription has expired. Please contact your property manager.",
+    errorCode: ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED,
+  };
 };
 
 const ensureUnitAccess = async (unitId, user, options = {}) => {
@@ -435,6 +475,12 @@ router.get(
           access.status === 404 ? ErrorCodes.RES_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED,
         );
       }
+
+      const subscriptionGate = ensureManagerSubscriptionActive(access.property, req.user);
+      if (!subscriptionGate.allowed) {
+        return sendError(res, subscriptionGate.status, subscriptionGate.reason, subscriptionGate.errorCode);
+      }
+
       where.propertyId = propertyId;
     } else {
       switch (req.user.role) {
@@ -449,9 +495,24 @@ router.get(
         case 'TENANT':
           where.tenants = { some: { tenantId: req.user.id, isActive: true } };
           break;
+        case 'TECHNICIAN':
+          where.jobs = { some: { assignedToId: req.user.id, archivedAt: null } };
+          break;
         default:
           return sendError(res, 403, 'Access denied to units', ErrorCodes.ACC_ACCESS_DENIED);
       }
+    }
+
+    // Subscription gate for non-PM roles when listing across properties
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
+      const now = new Date();
+      where.property = {
+        ...(where.property || {}),
+        OR: [
+          { manager: { subscriptionStatus: 'ACTIVE' } },
+          { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+        ],
+      };
     }
 
     if (statusFilter) {
@@ -530,6 +591,11 @@ router.get(
         access.reason,
         access.status === 404 ? ErrorCodes.RES_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED,
       );
+    }
+
+    const subscriptionGate = ensureManagerSubscriptionActive(access.property, req.user);
+    if (!subscriptionGate.allowed) {
+      return sendError(res, subscriptionGate.status, subscriptionGate.reason, subscriptionGate.errorCode);
     }
 
     res.json({ success: true, unit: toPublicUnit(access.unit) });

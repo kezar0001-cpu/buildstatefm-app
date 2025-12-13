@@ -48,12 +48,13 @@ export default function GlobalGuard() {
         if (!user) return;
 
         setCurrentUser(user);
+        const isSubscriptionOwnerRole = user.role === 'PROPERTY_MANAGER';
         const trialEndDate = user.trialEndDate ? new Date(user.trialEndDate) : null;
         const trialActive =
           user.subscriptionStatus === 'TRIAL' && (!trialEndDate || trialEndDate.getTime() > Date.now());
         const isActive = user.subscriptionStatus === 'ACTIVE' || trialActive;
 
-        if (!isActive && path !== SUBS_PATH) {
+        if (isSubscriptionOwnerRole && !isActive && path !== SUBS_PATH) {
           navigate(SUBS_PATH, { replace: true });
         }
       })

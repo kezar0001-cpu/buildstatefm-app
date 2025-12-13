@@ -61,7 +61,7 @@ export const NAVIGATION_ITEMS = [
     name: 'Jobs',
     href: '/jobs',
     icon: BuildIcon,
-    roles: ['PROPERTY_MANAGER', 'ADMIN'],
+    roles: ['PROPERTY_MANAGER'],
   },
   {
     name: 'My Jobs',
@@ -142,7 +142,6 @@ export const MOBILE_NAV_ITEMS = {
   ],
   TECHNICIAN: [
     { name: 'My Jobs', href: '/technician/dashboard', icon: DashboardIcon },
-    { name: 'Jobs', href: '/jobs', icon: BuildIcon },
     { name: 'Profile', href: '/profile', icon: PersonIcon },
   ],
   ADMIN: [

@@ -110,7 +110,7 @@ const TrialBanner = ({ footerCollapsed = false }) => {
   }, [isExpanded, isTrialActive, isTrialExpired, isSuspended]);
 
   // Don't show banner if user has active subscription
-  if (!user || subscriptionStatus === 'ACTIVE') {
+  if (!user || user.role !== 'PROPERTY_MANAGER' || subscriptionStatus === 'ACTIVE') {
     return null;
   }
 

@@ -124,8 +124,6 @@ function RouteFallback() {
 }
 
 function NotFound() {
-  throw new Error("BuildStateFM Sentry Test Error");
-
   return (
     <Box
       sx={{

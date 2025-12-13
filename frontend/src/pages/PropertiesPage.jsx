@@ -75,6 +75,7 @@ import { normaliseArray } from '../utils/error';
 import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
 import logger from '../utils/logger';
+import { getCurrentUser } from '../lib/auth';
 
 // Helper function to get status color - defined outside component to avoid recreation on every render
 const getStatusColor = (status) => {
@@ -97,9 +98,12 @@ export default function PropertiesPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const user = getCurrentUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const canManageProperties = user?.role === 'ADMIN' || user?.role === 'PROPERTY_MANAGER';
 
   // Bug Fix #2: Use URL search params for search and filter state
   // This allows bookmarking, sharing, and proper back/forward navigation
@@ -415,6 +419,7 @@ export default function PropertiesPage() {
   }, [data?.pages]);
 
   const handleMenuOpen = (event, property) => {
+    if (!canManageProperties) return;
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedProperty(property);
@@ -425,6 +430,7 @@ export default function PropertiesPage() {
   };
 
   const handleCreate = () => {
+    if (!canManageProperties) return;
     setEditMode(false);
     setSelectedProperty(null);
     setDialogOpen(true);
@@ -444,6 +450,7 @@ export default function PropertiesPage() {
   };
 
   const handleEdit = async (property = null) => {
+    if (!canManageProperties) return;
     if (property) {
       // Fetch full property data to ensure all fields are available for editing
       try {
@@ -462,6 +469,7 @@ export default function PropertiesPage() {
   };
 
   const handleDelete = (property = null) => {
+    if (!canManageProperties) return;
     if (property) {
       setSelectedProperty(property);
     }
@@ -516,7 +524,7 @@ export default function PropertiesPage() {
       <PageShell
         title="Properties"
         subtitle="Manage your property portfolio"
-        actions={(
+        actions={canManageProperties ? (
           <GradientButton
             startIcon={<AddIcon />}
             onClick={handleCreate}
@@ -525,7 +533,7 @@ export default function PropertiesPage() {
           >
             Add Property
           </GradientButton>
-        )}
+        ) : null}
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Search and Filter */}
@@ -838,13 +846,15 @@ export default function PropertiesPage() {
                               {property.name}
                             </Typography>
                             {/* Bug Fix: Add ARIA label for accessibility */}
-                            <IconButton
-                              size="small"
-                              onClick={(e) => handleMenuOpen(e, property)}
-                              aria-label={`Actions for ${property.name}`}
-                            >
-                              <MoreVertIcon />
-                            </IconButton>
+                            {canManageProperties && (
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleMenuOpen(e, property)}
+                                aria-label={`Actions for ${property.name}`}
+                              >
+                                <MoreVertIcon />
+                              </IconButton>
+                            )}
                           </Box>
 
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1026,31 +1036,35 @@ export default function PropertiesPage() {
                                   <VisibilityIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Edit">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(property);
-                                  }}
-                                  aria-label="Edit property"
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(property);
-                                  }}
-                                  aria-label="Delete property"
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
+                              {canManageProperties && (
+                                <Tooltip title="Edit">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEdit(property);
+                                    }}
+                                    aria-label="Edit property"
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {canManageProperties && (
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(property);
+                                    }}
+                                    aria-label="Delete property"
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Stack>
                           </Stack>
                         </CardContent>
@@ -1131,13 +1145,15 @@ export default function PropertiesPage() {
                             </TableCell>
                             <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                               {/* Bug Fix: Add ARIA label for accessibility */}
-                              <IconButton
-                                size="small"
-                                onClick={(e) => handleMenuOpen(e, property)}
-                                aria-label={`Actions for ${property.name}`}
-                              >
-                                <MoreVertIcon />
-                              </IconButton>
+                              {canManageProperties && (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleMenuOpen(e, property)}
+                                  aria-label={`Actions for ${property.name}`}
+                                >
+                                  <MoreVertIcon />
+                                </IconButton>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -1180,14 +1196,18 @@ export default function PropertiesPage() {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => handleEdit(selectedProperty)}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          Edit
-        </MenuItem>
-        <MenuItem onClick={() => handleDelete(selectedProperty)} sx={{ color: 'error.main' }}>
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete
-        </MenuItem>
+        {canManageProperties && (
+          <MenuItem onClick={() => handleEdit(selectedProperty)}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            Edit
+          </MenuItem>
+        )}
+        {canManageProperties && (
+          <MenuItem onClick={() => handleDelete(selectedProperty)} sx={{ color: 'error.main' }}>
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            Delete
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Property Onboarding Wizard */}
@@ -1203,7 +1223,7 @@ export default function PropertiesPage() {
       {/* Property Form Dialog */}
       <PropertyForm
         key={selectedProperty?.id || 'new-property'}
-        open={dialogOpen && editMode}
+        open={canManageProperties && dialogOpen && editMode}
         onClose={() => {
           setDialogOpen(false);
           setSelectedProperty(null);
@@ -1214,7 +1234,7 @@ export default function PropertiesPage() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog open={canManageProperties && deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>Delete Property</DialogTitle>
         <DialogContent>
           <Typography>

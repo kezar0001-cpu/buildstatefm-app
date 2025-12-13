@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import axios from 'axios';
 import prisma from '../config/prismaClient.js';
 import { redisGet, redisSet } from '../config/redisClient.js';
-import { requireAuth, requireRole, requireActiveSubscription, requireUsage } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireActiveSubscription, requireUsage, isSubscriptionActive } from '../middleware/auth.js';
 import { canCreateProperty, getPropertyLimit, getLimitReachedMessage } from '../utils/subscriptionLimits.js';
 import { getPropertyCount } from '../utils/usageTracking.js';
 import unitsRouter from './units.js';
@@ -530,6 +530,8 @@ const buildPropertyDetailInclude = (includeImages) => ({
       lastName: true,
       email: true,
       phone: true,
+      subscriptionStatus: true,
+      trialEndDate: true,
     },
   },
   owners: {
@@ -1243,6 +1245,11 @@ const ensurePropertyAccess = (property, user, options = {}) => {
   const { requireWrite = false } = options;
   
   if (!property) return { allowed: false, reason: 'Property not found', status: 404 };
+
+  // Admins have full access
+  if (user.role === 'ADMIN') {
+    return { allowed: true, canWrite: true };
+  }
   
   // Property managers who manage the property have full access
   if (user.role === 'PROPERTY_MANAGER' && property.managerId === user.id) {
@@ -1260,6 +1267,18 @@ const ensurePropertyAccess = (property, user, options = {}) => {
   return { allowed: false, reason: 'Forbidden', status: 403 };
 };
 
+const subscriptionIsActiveForManager = (manager) => {
+  if (!manager) return false;
+  return isSubscriptionActive(manager);
+};
+
+const propertyManagerSubscriptionWhere = (now) => ({
+  OR: [
+    { manager: { subscriptionStatus: 'ACTIVE' } },
+    { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+  ],
+});
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -1269,13 +1288,15 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
   try {
     let where = {};
 
-    // Property managers see properties they manage
-    if (req.user.role === 'PROPERTY_MANAGER') {
-      where = { managerId: req.user.id };
-    }
+    const now = new Date();
+    const shouldGateByManagerSubscription = !['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
 
-    // Owners see properties they own
-    if (req.user.role === 'OWNER') {
+    // Role-scoped property list
+    if (req.user.role === 'ADMIN') {
+      where = {};
+    } else if (req.user.role === 'PROPERTY_MANAGER') {
+      where = { managerId: req.user.id };
+    } else if (req.user.role === 'OWNER') {
       where = {
         owners: {
           some: {
@@ -1283,16 +1304,39 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
           },
         },
       };
+    } else if (req.user.role === 'TENANT') {
+      where = {
+        units: {
+          some: {
+            tenants: {
+              some: {
+                tenantId: req.user.id,
+                isActive: true,
+              },
+            },
+          },
+        },
+      };
+    } else if (req.user.role === 'TECHNICIAN') {
+      where = {
+        jobs: {
+          some: {
+            assignedToId: req.user.id,
+            archivedAt: null,
+          },
+        },
+      };
+    } else {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
     }
 
-    // Technicians and tenants should not access this route
-    if (req.user.role === 'TECHNICIAN' || req.user.role === 'TENANT') {
-      return sendError(
-        res,
-        403,
-        'Access denied. This endpoint is for property managers and owners only.',
-        ErrorCodes.ACC_ACCESS_DENIED
-      );
+    if (shouldGateByManagerSubscription) {
+      where = {
+        AND: [
+          where,
+          propertyManagerSubscriptionWhere(now),
+        ],
+      };
     }
 
     // Parse pagination parameters
@@ -1638,10 +1682,48 @@ router.get('/:id', cacheMiddleware({ ttl: 60 }), async (req, res) => {
       })
     );
 
-    const access = ensurePropertyAccess(property, req.user);
-    if (!access.allowed) {
-      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
-      return sendError(res, access.status, access.reason, errorCode);
+    if (!property) {
+      return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    // Role-aware access checks
+    let allowed = false;
+    if (req.user.role === 'ADMIN') {
+      allowed = true;
+    } else if (req.user.role === 'PROPERTY_MANAGER') {
+      allowed = property.managerId === req.user.id;
+    } else if (req.user.role === 'OWNER') {
+      allowed = property.owners?.some((o) => o.ownerId === req.user.id);
+    } else if (req.user.role === 'TENANT') {
+      allowed = Array.isArray(property.units) && property.units.some((u) =>
+        Array.isArray(u.tenants) && u.tenants.some((t) => t.tenantId === req.user.id && t.isActive)
+      );
+    } else if (req.user.role === 'TECHNICIAN') {
+      allowed = await prisma.job.findFirst({
+        where: {
+          propertyId: property.id,
+          assignedToId: req.user.id,
+          archivedAt: null,
+        },
+        select: { id: true },
+      }) != null;
+    }
+
+    if (!allowed) {
+      return sendError(res, 403, 'Forbidden', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
+    // Enforce property manager subscription gating for non-PM roles
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
+      const managerActive = subscriptionIsActiveForManager(property.manager);
+      if (!managerActive) {
+        return sendError(
+          res,
+          403,
+          "This property's subscription has expired. Please contact your property manager.",
+          ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED
+        );
+      }
     }
 
     // Bug Fix: Use DB-based occupancy calculation for accurate stats on large properties
@@ -1870,15 +1952,11 @@ router.patch('/:id', requireRole('PROPERTY_MANAGER'), requireActiveSubscription,
           }
 
           await Promise.all([...updatePromises, createPromise]);
-
-          // Bug Fix #12: Always sync property.imageUrl after image updates
-          // This ensures the cover image is always correct
-          await syncPropertyCoverImage(tx, property.id);
         }
 
         return updatedRecord;
       }, {
-        isolationLevel: 'Serializable', // Prevent race conditions in concurrent updates
+        isolationLevel: 'Serializable',
         maxWait: 5000, // Maximum time to wait for transaction to start
         timeout: 30000, // Bug Fix: Increase timeout for operations with many images
       });
@@ -3381,7 +3459,7 @@ propertyNotesRouter.get('/', requireRole('PROPERTY_MANAGER', 'OWNER'), async (re
 
 // POST /properties/:id/notes - Create a new note
 // Any property manager can add notes (doesn't have to be the assigned manager)
-propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) => {
+propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
   const propertyId = req.params.id;
 
   try {
@@ -3397,6 +3475,12 @@ propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), async (req, res) 
 
     if (!property) {
       return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
     }
 
     // Check if PropertyNote model exists (migration might not have run)
@@ -3462,6 +3546,12 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), requireAc
 
     if (!property) {
       return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
     }
 
     const existingNote = await prisma.propertyNote.findUnique({
@@ -3530,6 +3620,12 @@ propertyNotesRouter.delete('/:noteId', requireRole('PROPERTY_MANAGER'), requireA
 
     if (!property) {
       return sendError(res, 404, 'Property not found', ErrorCodes.RES_PROPERTY_NOT_FOUND);
+    }
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
     }
 
     const existingNote = await prisma.propertyNote.findUnique({

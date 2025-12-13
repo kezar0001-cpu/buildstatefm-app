@@ -601,7 +601,7 @@ export default function SubscriptionsPage() {
 
   // Redirect non-property-managers (backend will also reject, but better UX to redirect early)
   React.useEffect(() => {
-    if (currentUser && currentUser.role !== 'PROPERTY_MANAGER' && currentUser.role !== 'ADMIN') {
+    if (currentUser && currentUser.role !== 'PROPERTY_MANAGER') {
       navigate('/dashboard', { replace: true });
     }
   }, [currentUser, navigate]);
@@ -613,7 +613,7 @@ export default function SubscriptionsPage() {
   const trialDaysRemaining = calculateDaysRemaining(currentUser?.trialEndDate);
 
   // Don't render if user is not a property manager
-  if (!currentUser || (currentUser.role !== 'PROPERTY_MANAGER' && currentUser.role !== 'ADMIN')) {
+  if (!currentUser || currentUser.role !== 'PROPERTY_MANAGER') {
     return null;
   }
 

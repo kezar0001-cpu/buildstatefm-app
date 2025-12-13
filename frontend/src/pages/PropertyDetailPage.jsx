@@ -534,8 +534,9 @@ export default function PropertyDetailPage() {
   // Check if current user can edit this property
   // Property managers can edit properties and add notes
   // Note: For notes specifically, any property manager can add notes (not just the assigned manager)
-  const canEdit = user?.role === 'PROPERTY_MANAGER' && property?.managerId === user?.id;
-  const canAddNotes = user?.role === 'PROPERTY_MANAGER'; // Any property manager can add notes
+  const canEdit =
+    user?.role === 'ADMIN' ||
+    (user?.role === 'PROPERTY_MANAGER' && property?.managerId === user?.id);
 
   const activities = ensureArray(activityQuery.data, ['activities', 'data.activities', 'items']);
 
@@ -575,15 +576,18 @@ export default function PropertyDetailPage() {
   };
 
   const handleEditProperty = () => {
+    if (!canEdit) return;
     setEditDialogOpen(true);
   };
 
   const handleAddUnit = () => {
+    if (!canEdit) return;
     setSelectedUnit(null);
     setUnitDialogOpen(true);
   };
 
   const handleUnitMenuOpen = (event, unit) => {
+    if (!canEdit) return;
     event.stopPropagation();
     setUnitMenuAnchor(event.currentTarget);
     setSelectedUnit(unit);
@@ -600,16 +604,19 @@ export default function PropertyDetailPage() {
   };
 
   const handleEditUnit = () => {
+    if (!canEdit) return;
     setUnitDialogOpen(true);
     handleUnitMenuClose();
   };
 
   const handleDeleteUnit = () => {
+    if (!canEdit) return;
     setDeleteUnitDialogOpen(true);
     handleUnitMenuClose();
   };
 
   const confirmDeleteUnit = async () => {
+    if (!canEdit) return;
     if (!selectedUnit) return;
 
     try {
@@ -1808,7 +1815,7 @@ export default function PropertyDetailPage() {
                   Property Notes
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
-                <PropertyNotesSection propertyId={id} canEdit={canAddNotes} />
+                <PropertyNotesSection propertyId={id} canEdit={canEdit} />
               </Paper>
             )}
 
@@ -1879,20 +1886,22 @@ export default function PropertyDetailPage() {
       </DataState>
 
       {/* Unit Menu */}
-      <Menu
-        anchorEl={unitMenuAnchor}
-        open={Boolean(unitMenuAnchor)}
-        onClose={handleUnitMenuClose}
-      >
-        <MenuItem onClick={handleEditUnit}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          Edit
-        </MenuItem>
-        <MenuItem onClick={handleDeleteUnit} sx={{ color: 'error.main' }}>
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete
-        </MenuItem>
-      </Menu>
+      {canEdit && (
+        <Menu
+          anchorEl={unitMenuAnchor}
+          open={Boolean(unitMenuAnchor)}
+          onClose={handleUnitMenuClose}
+        >
+          <MenuItem onClick={handleEditUnit}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            Edit
+          </MenuItem>
+          <MenuItem onClick={handleDeleteUnit} sx={{ color: 'error.main' }}>
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            Delete
+          </MenuItem>
+        </Menu>
+      )}
 
       {/* Edit Property Dialog */}
       <PropertyForm
@@ -1910,7 +1919,7 @@ export default function PropertyDetailPage() {
       {/* Unit Form Dialog */}
       <UnitForm
         key={selectedUnit?.id || 'new-unit'}
-        open={unitDialogOpen}
+        open={canEdit && unitDialogOpen}
         onClose={() => {
           setUnitDialogOpen(false);
           // Delay clearing selectedUnit to prevent flash of wrong data during close animation
@@ -1929,7 +1938,7 @@ export default function PropertyDetailPage() {
 
       {/* Delete Unit Dialog */}
       <Dialog
-        open={deleteUnitDialogOpen}
+        open={canEdit && deleteUnitDialogOpen}
         onClose={() => {
           setDeleteUnitDialogOpen(false);
           setTimeout(() => setSelectedUnit(null), 200);
