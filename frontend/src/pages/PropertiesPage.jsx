@@ -38,6 +38,7 @@ import {
   useMediaQuery,
   Checkbox,
   Divider,
+  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,7 +54,9 @@ import {
   TableChart as TableChartIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
+
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -106,6 +109,7 @@ export default function PropertiesPage() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   // Bug Fix: Track local search input to avoid URL pollution on every keystroke
   const [localSearchInput, setLocalSearchInput] = useState(searchTerm);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // Bug Fix #3: Persist view mode preference in localStorage
   // On mobile, always use 'list' view as it's the only one that looks good
@@ -154,6 +158,20 @@ export default function PropertiesPage() {
 
     return () => clearTimeout(timeoutId);
   }, [localSearchInput]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterStatus && filterStatus !== 'all') count += 1;
+    return count;
+  }, [filterStatus]);
+
+  const hasFilters = debouncedSearchTerm || activeFilterCount > 0;
+
+  const handleClearFilters = () => {
+    setLocalSearchInput('');
+    updateSearchParam('search', '');
+    updateSearchParam('status', 'all');
+  };
 
   // Bug Fix: Clear pagination errors when search or filter changes
   // This prevents stale error messages from persisting after user changes query
@@ -521,109 +539,196 @@ export default function PropertiesPage() {
             animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={{ xs: 2, sm: 2 }} 
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-          >
-            {/* Search */}
-            <TextField
-              placeholder="Search properties by name, address, or city..."
-              value={localSearchInput}
-              onChange={(e) => setLocalSearchInput(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: localSearchInput && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={() => setLocalSearchInput('')}
-                      edge="end"
-                      size="small"
-                      sx={{ minWidth: 44, minHeight: 44 }} // Better touch target
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 250 } }}
-            />
-
-            {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Status"
-                onChange={(e) => updateSearchParam('status', e.target.value)}
-              >
-                <MenuItem value="all">All Statuses</MenuItem>
-                <MenuItem value="ACTIVE">Active</MenuItem>
-                <MenuItem value="INACTIVE">Inactive</MenuItem>
-                <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
-              </Select>
-            </FormControl>
-
-            {/* View Toggle - Hidden on mobile */}
-            {!isMobile && (
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                aria-label="View mode toggle"
+          <Stack spacing={{ xs: 1.5, md: 0 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              sx={{ gap: { xs: 1.5, lg: 2 } }}
+            >
+              <TextField
+                placeholder="Search properties by name, address, or city..."
+                value={localSearchInput}
+                onChange={(e) => setLocalSearchInput(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                      <SearchIcon />
+                    </Box>
+                  ),
+                  endAdornment: localSearchInput && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                      <IconButton
+                        aria-label="clear search"
+                        onClick={() => setLocalSearchInput('')}
+                        edge="end"
+                        size="small"
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ),
+                }}
                 size="small"
                 sx={{
-                  backgroundColor: 'background.paper',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 40,
-                    border: 'none',
-                    '&:not(:first-of-type)': {
-                      borderRadius: 2,
-                    },
-                    '&:first-of-type': {
-                      borderRadius: 2,
-                    },
-                  },
-                  '& .MuiToggleButton-root': {
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                  },
-                  '& .Mui-selected': {
-                    color: 'error.main',
-                    backgroundColor: 'transparent !important',
-                    '&:hover': {
-                      backgroundColor: 'action.hover !important',
-                    },
-                  },
+                  width: { xs: '100%', md: 'auto' },
+                  flex: { md: '1 0 260px' },
+                  minWidth: { md: 260 },
+                  maxWidth: { md: 420 },
                 }}
-              >
-                <ToggleButton value="grid" aria-label="grid view">
-                  <Tooltip title="Grid View">
-                    <ViewModuleIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
-                  <Tooltip title="List View">
-                    <ViewListIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="table" aria-label="table view">
-                  <Tooltip title="Table View">
-                    <TableChartIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              </ToggleButtonGroup>
+              />
+
+              {isMobile ? (
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FilterListIcon />}
+                    onClick={() => setFiltersExpanded((prev) => !prev)}
+                    sx={{ textTransform: 'none', flex: 1 }}
+                  >
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Chip
+                        label={activeFilterCount}
+                        size="small"
+                        color="primary"
+                        sx={{ ml: 1, height: 20, minWidth: 20 }}
+                      />
+                    )}
+                  </Button>
+
+                  {hasFilters && (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      size="small"
+                      onClick={handleClearFilters}
+                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                      startIcon={<CloseIcon />}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              ) : (
+                <Stack
+                  direction="row"
+                  spacing={1.5}
+                  sx={{
+                    flexWrap: 'nowrap',
+                    gap: 1.5,
+                    width: 'auto',
+                    flexShrink: 0,
+                    overflow: 'visible',
+                    whiteSpace: 'nowrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label="Status"
+                      onChange={(e) => updateSearchParam('status', e.target.value)}
+                    >
+                      <MenuItem value="all">All Statuses</MenuItem>
+                      <MenuItem value="ACTIVE">Active</MenuItem>
+                      <MenuItem value="INACTIVE">Inactive</MenuItem>
+                      <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {hasFilters && (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      size="small"
+                      onClick={handleClearFilters}
+                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                      startIcon={<CloseIcon />}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              )}
+
+              {!isMobile && (
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={handleViewModeChange}
+                  aria-label="View mode toggle"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                    '& .MuiToggleButtonGroup-grouped': {
+                      minWidth: 40,
+                      border: 'none',
+                      '&:not(:first-of-type)': {
+                        borderRadius: 2,
+                      },
+                      '&:first-of-type': {
+                        borderRadius: 2,
+                      },
+                    },
+                    '& .MuiToggleButton-root': {
+                      color: 'text.secondary',
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    },
+                    '& .Mui-selected': {
+                      color: 'error.main',
+                      backgroundColor: 'transparent !important',
+                      '&:hover': {
+                        backgroundColor: 'action.hover !important',
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="grid" aria-label="grid view">
+                    <Tooltip title="Grid View">
+                      <ViewModuleIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="list" aria-label="list view">
+                    <Tooltip title="List View">
+                      <ViewListIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="table" aria-label="table view">
+                    <Tooltip title="Table View">
+                      <TableChartIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              )}
+            </Stack>
+
+            {isMobile && (
+              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
+                <Stack spacing={1.5} sx={{ pt: 1 }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label="Status"
+                      onChange={(e) => updateSearchParam('status', e.target.value)}
+                    >
+                      <MenuItem value="all">All Statuses</MenuItem>
+                      <MenuItem value="ACTIVE">Active</MenuItem>
+                      <MenuItem value="INACTIVE">Inactive</MenuItem>
+                      <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Collapse>
             )}
           </Stack>
         </Paper>

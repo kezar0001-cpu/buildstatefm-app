@@ -17,6 +17,7 @@ import {
   Chip,
   CircularProgress,
   Paper,
+  Collapse,
   InputAdornment,
   IconButton,
   FormControl,
@@ -119,6 +120,7 @@ export default function ReportsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('reports-view-mode') || 'table';
@@ -199,6 +201,23 @@ export default function ReportsPage() {
       return matchesStatus && matchesType && matchesProperty && matchesSearch;
     });
   }, [reportsData, statusFilter, typeFilter, filterPropertyId, searchInput]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (typeFilter) count += 1;
+    if (statusFilter) count += 1;
+    if (filterPropertyId) count += 1;
+    return count;
+  }, [filterPropertyId, statusFilter, typeFilter]);
+
+  const hasFilters = !!searchInput || activeFilterCount > 0;
+
+  const handleClearFilters = () => {
+    setSearchInput('');
+    setStatusFilter('');
+    setTypeFilter('');
+    setFilterPropertyId('');
+  };
 
   const mutation = useMutation({
     mutationFn: (newReport) => apiClient.post('/reports', newReport),
@@ -422,163 +441,262 @@ export default function ReportsPage() {
             animation: 'fade-in-up 0.6s ease-out',
           }}
         >
-          <Stack
-            direction={{ xs: 'column', lg: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', lg: 'center' }}
-            sx={{ flexWrap: 'nowrap', gap: { xs: 1.5, lg: 2 } }}
-          >
-            {/* Search */}
-            <TextField
-              placeholder="Search reports..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchInput && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={() => setSearchInput('')}
-                      edge="end"
-                      size="small"
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-              sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200, lg: 280 } }}
-            />
-
-            {/* Report Type Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140, lg: 140 } }}>
-              <InputLabel>Report Type</InputLabel>
-              <Select
-                value={typeFilter}
-                label="Report Type"
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <MenuItem value="">All Types</MenuItem>
-                {Object.entries(REPORT_TYPES).map(([key, value]) => (
-                  <MenuItem key={key} value={key}>
-                    {value}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130, lg: 130 } }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <MenuItem key={option.value || 'all'} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* Property Filter */}
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 130, lg: 130 } }}>
-              <InputLabel>Property</InputLabel>
-              <Select
-                value={filterPropertyId}
-                label="Property"
-                onChange={(e) => setFilterPropertyId(e.target.value)}
-              >
-                <MenuItem value="">All Properties</MenuItem>
-                {propertiesData.map((prop) => (
-                  <MenuItem key={prop.id} value={prop.id}>
-                    {prop.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* Clear Filters Button */}
-            {(searchInput || statusFilter || typeFilter || filterPropertyId) && (
-              <Button
-                variant="text"
-                color="inherit"
-                size="small"
-                onClick={() => {
-                  setSearchInput('');
-                  setStatusFilter('');
-                  setTypeFilter('');
-                  setFilterPropertyId('');
+          <Stack spacing={{ xs: 1.5, md: 0 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              sx={{ gap: { xs: 1.5, lg: 2 } }}
+            >
+              <TextField
+                placeholder="Search reports..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                      <SearchIcon />
+                    </Box>
+                  ),
+                  endAdornment: searchInput && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                      <IconButton
+                        aria-label="clear search"
+                        onClick={() => setSearchInput('')}
+                        edge="end"
+                        size="small"
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ),
                 }}
-                sx={{ textTransform: 'none', minWidth: 'auto', whiteSpace: 'nowrap' }}
-                startIcon={<CloseIcon />}
-              >
-                Clear
-              </Button>
-            )}
-
-            {/* View Toggle - Desktop only */}
-            {!isMobile && (
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                aria-label="View mode toggle"
                 size="small"
                 sx={{
-                  backgroundColor: 'background.paper',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 40,
-                    border: 'none',
-                    '&:not(:first-of-type)': {
-                      borderRadius: 2,
-                    },
-                    '&:first-of-type': {
-                      borderRadius: 2,
-                    },
-                  },
-                  '& .MuiToggleButton-root': {
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                  },
-                  '& .Mui-selected': {
-                    color: 'error.main',
-                    backgroundColor: 'transparent !important',
-                    '&:hover': {
-                      backgroundColor: 'action.hover !important',
-                    },
-                  },
+                  width: { xs: '100%', md: 'auto' },
+                  flex: { md: '1 0 260px' },
+                  minWidth: { md: 260 },
+                  maxWidth: { md: 420 },
                 }}
-              >
-                <ToggleButton value="grid" aria-label="grid view">
-                  <Tooltip title="Grid View">
-                    <ViewModuleIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
-                  <Tooltip title="List View">
-                    <ViewListIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="table" aria-label="table view">
-                  <Tooltip title="Table View">
-                    <TableChartIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              </ToggleButtonGroup>
+              />
+
+              {isMobile ? (
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FilterListIcon />}
+                    onClick={() => setFiltersExpanded((prev) => !prev)}
+                    sx={{ textTransform: 'none', flex: 1 }}
+                  >
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Chip
+                        label={activeFilterCount}
+                        size="small"
+                        color="primary"
+                        sx={{ ml: 1, height: 20, minWidth: 20 }}
+                      />
+                    )}
+                  </Button>
+
+                  {hasFilters && (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      size="small"
+                      onClick={handleClearFilters}
+                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                      startIcon={<CloseIcon />}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              ) : (
+                <Stack
+                  direction="row"
+                  spacing={1.5}
+                  sx={{
+                    flexWrap: 'nowrap',
+                    gap: 1.5,
+                    width: 'auto',
+                    flexShrink: 0,
+                    overflow: 'visible',
+                    whiteSpace: 'nowrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
+                    <InputLabel>Report Type</InputLabel>
+                    <Select
+                      value={typeFilter}
+                      label="Report Type"
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                    >
+                      <MenuItem value="">All Types</MenuItem>
+                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                        <MenuItem key={key} value={key}>
+                          {value}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={statusFilter}
+                      label="Status"
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((option) => (
+                        <MenuItem key={option.value || 'all'} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
+                    <InputLabel>Property</InputLabel>
+                    <Select
+                      value={filterPropertyId}
+                      label="Property"
+                      onChange={(e) => setFilterPropertyId(e.target.value)}
+                    >
+                      <MenuItem value="">All Properties</MenuItem>
+                      {propertiesData.map((prop) => (
+                        <MenuItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {hasFilters && (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      size="small"
+                      onClick={handleClearFilters}
+                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                      startIcon={<CloseIcon />}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              )}
+
+              {!isMobile && (
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={handleViewModeChange}
+                  aria-label="View mode toggle"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                    '& .MuiToggleButtonGroup-grouped': {
+                      minWidth: 40,
+                      border: 'none',
+                      '&:not(:first-of-type)': {
+                        borderRadius: 2,
+                      },
+                      '&:first-of-type': {
+                        borderRadius: 2,
+                      },
+                    },
+                    '& .MuiToggleButton-root': {
+                      color: 'text.secondary',
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    },
+                    '& .Mui-selected': {
+                      color: 'error.main',
+                      backgroundColor: 'transparent !important',
+                      '&:hover': {
+                        backgroundColor: 'action.hover !important',
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="grid" aria-label="grid view">
+                    <Tooltip title="Grid View">
+                      <ViewModuleIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="list" aria-label="list view">
+                    <Tooltip title="List View">
+                      <ViewListIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="table" aria-label="table view">
+                    <Tooltip title="Table View">
+                      <TableChartIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              )}
+            </Stack>
+
+            {isMobile && (
+              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
+                <Stack spacing={1.5} sx={{ pt: 1 }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Report Type</InputLabel>
+                    <Select
+                      value={typeFilter}
+                      label="Report Type"
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                    >
+                      <MenuItem value="">All Types</MenuItem>
+                      {Object.entries(REPORT_TYPES).map(([key, value]) => (
+                        <MenuItem key={key} value={key}>
+                          {value}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={statusFilter}
+                      label="Status"
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((option) => (
+                        <MenuItem key={option.value || 'all'} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Property</InputLabel>
+                    <Select
+                      value={filterPropertyId}
+                      label="Property"
+                      onChange={(e) => setFilterPropertyId(e.target.value)}
+                    >
+                      <MenuItem value="">All Properties</MenuItem>
+                      {propertiesData.map((prop) => (
+                        <MenuItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Collapse>
             )}
           </Stack>
         </Paper>
