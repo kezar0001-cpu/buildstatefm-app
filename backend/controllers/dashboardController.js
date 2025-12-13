@@ -147,9 +147,11 @@ export const getDashboardSummary = async (req, res) => {
 
     // ---------- Inspections
     if (role !== 'TENANT' || tenantHasAccessibleProperties) {
+      const inspectionWhere = { ...inspectionFilter, archivedAt: null };
+
       const byStatus = await prisma.inspection.groupBy({
         by: ['status'],
-        where: inspectionFilter,
+        where: inspectionWhere,
         _count: { _all: true },
       });
       summary.inspections.total = byStatus.reduce((n, r) => n + r._count._all, 0);
@@ -163,7 +165,7 @@ export const getDashboardSummary = async (req, res) => {
       nextWeek.setDate(nextWeek.getDate() + 7);
       summary.inspections.upcoming = await prisma.inspection.count({
         where: {
-          ...inspectionFilter,
+          ...inspectionWhere,
           status: 'SCHEDULED',
           scheduledDate: { gte: new Date(), lte: nextWeek },
         },
