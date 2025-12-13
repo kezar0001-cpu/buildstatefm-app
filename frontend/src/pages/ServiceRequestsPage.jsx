@@ -35,8 +35,6 @@ import {
   TableRow,
   Backdrop,
   Checkbox,
-  Collapse,
-  FormControlLabel,
   Divider,
   useMediaQuery,
   useTheme,
@@ -49,7 +47,6 @@ import {
   Build as BuildIcon,
   Search as SearchIcon,
   Close as CloseIcon,
-  FilterList as FilterListIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ViewModule as ViewModuleIcon,
@@ -72,6 +69,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { formatDate } from '../utils/date';
 import GradientButton from '../components/GradientButton';
 import PageShell from '../components/PageShell';
+import FilterBar from '../components/FilterBar/FilterBar';
 import { useCurrentUser } from '../context/UserContext.jsx';
 
 const ServiceRequestsPage = () => {
@@ -94,7 +92,6 @@ const ServiceRequestsPage = () => {
     priority: '',
     includeArchived: false,
   });
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -472,353 +469,84 @@ const ServiceRequestsPage = () => {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
-        <Paper
-          sx={{
-            mb: 3,
-            p: { xs: 2, md: 3.5 },
-            borderRadius: { xs: 2, md: 2 },
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-            animation: 'fade-in-up 0.6s ease-out',
-          }}
-        >
-          <Stack spacing={{ xs: 1.5, md: 0 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              alignItems={{ xs: 'stretch', md: 'center' }}
-              sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
-            >
-              {/* Search */}
-              <TextField
-                placeholder="Search service requests..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                      <SearchIcon />
-                    </Box>
-                  ),
-                  endAdornment: searchInput && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                      <IconButton
-                        aria-label="clear search"
-                        onClick={() => setSearchInput('')}
-                        edge="end"
-                        size="small"
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ),
-                }}
-                size="small"
-                sx={{
-                  width: { xs: '100%', md: 'auto' },
-                  flex: { md: '1 0 260px' },
-                  minWidth: { md: 260 },
-                  maxWidth: { md: 420 },
-                }}
-              />
-
-              {/* Mobile: filters toggle + clear */}
-              {isMobile ? (
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FilterListIcon />}
-                    onClick={() => setFiltersExpanded((prev) => !prev)}
-                    sx={{ textTransform: 'none', flex: 1 }}
-                  >
-                    Filters
-                    {activeFilterCount > 0 && (
-                      <Chip
-                        label={activeFilterCount}
-                        size="small"
-                        color="primary"
-                        sx={{ ml: 1, height: 20, minWidth: 20 }}
-                      />
-                    )}
-                  </Button>
-
-                  {(debouncedSearch || activeFilterCount > 0) && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </Stack>
-              ) : (
-                <>
-                  {/* Desktop: filter row */}
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    sx={{
-                      flexWrap: 'wrap',
-                      gap: 1.5,
-                      width: 'auto',
-                      flexShrink: 0,
-                      overflow: 'visible',
-                      whiteSpace: 'normal',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <TextField
-                      id="service-requests-filter-status"
-                      name="status"
-                      select
-                      label="Status"
-                      value={filters.status}
-                      onChange={(e) => handleFilterChange('status', e.target.value)}
-                      size="small"
-                      sx={{ minWidth: 150, flexShrink: 0 }}
-                    >
-                      <MenuItem value="">All Statuses</MenuItem>
-                      <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                      <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                      <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
-                      <MenuItem value="PENDING_OWNER_APPROVAL">Pending Owner Approval</MenuItem>
-                      <MenuItem value="APPROVED">Approved</MenuItem>
-                      <MenuItem value="APPROVED_BY_OWNER">Approved by Owner</MenuItem>
-                      <MenuItem value="REJECTED">Rejected</MenuItem>
-                      <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
-                      <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
-                      <MenuItem value="COMPLETED">Completed</MenuItem>
-                      <MenuItem value="ARCHIVED">Archived</MenuItem>
-                    </TextField>
-
-                    <TextField
-                      id="service-requests-filter-category"
-                      name="category"
-                      select
-                      label="Category"
-                      value={filters.category}
-                      onChange={(e) => handleFilterChange('category', e.target.value)}
-                      size="small"
-                      sx={{ minWidth: 150, flexShrink: 0 }}
-                    >
-                      <MenuItem value="">All Categories</MenuItem>
-                      <MenuItem value="PLUMBING">Plumbing</MenuItem>
-                      <MenuItem value="ELECTRICAL">Electrical</MenuItem>
-                      <MenuItem value="HVAC">HVAC</MenuItem>
-                      <MenuItem value="APPLIANCE">Appliance</MenuItem>
-                      <MenuItem value="STRUCTURAL">Structural</MenuItem>
-                      <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
-                      <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
-                      <MenuItem value="GENERAL">General</MenuItem>
-                      <MenuItem value="OTHER">Other</MenuItem>
-                    </TextField>
-
-                    <TextField
-                      id="service-requests-filter-priority"
-                      name="priority"
-                      select
-                      label="Priority"
-                      value={filters.priority || ''}
-                      onChange={(e) => handleFilterChange('priority', e.target.value)}
-                      size="small"
-                      sx={{ minWidth: 150, flexShrink: 0 }}
-                    >
-                      <MenuItem value="">All Priorities</MenuItem>
-                      <MenuItem value="LOW">Low</MenuItem>
-                      <MenuItem value="MEDIUM">Medium</MenuItem>
-                      <MenuItem value="HIGH">High</MenuItem>
-                      <MenuItem value="URGENT">Urgent</MenuItem>
-                    </TextField>
-
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={!!filters.includeArchived}
-                          onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
-                          size="small"
-                        />
-                      }
-                      label={
-                        <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                          Show Archived
-                        </Typography>
-                      }
-                      sx={{ ml: 0, flexShrink: 0 }}
-                    />
-                  </Stack>
-
-                  {(debouncedSearch || activeFilterCount > 0) && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', minWidth: 'auto' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear filters
-                    </Button>
-                  )}
-                </>
-              )}
-
-              {!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
-
-              {!isMobile && (
-                <ToggleButtonGroup
-                  value={viewMode}
-                  exclusive
-                  onChange={handleViewModeChange}
-                  aria-label="View mode toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    flexShrink: 0,
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
-                      },
-                      '&:first-of-type': {
-                        borderRadius: 2,
-                      },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    },
-                    '& .Mui-selected': {
-                      color: 'error.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="grid" aria-label="grid view">
-                    <Tooltip title="Grid View">
-                      <ViewModuleIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="kanban" aria-label="kanban view">
-                    <Tooltip title="Kanban View">
-                      <ViewKanbanIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="table" aria-label="table view">
-                    <Tooltip title="Table View">
-                      <TableChartIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              )}
-            </Stack>
-
-            {/* Mobile: expanded filter controls */}
-            {isMobile && (
-              <Collapse in={filtersExpanded}>
-                <Stack
-                  spacing={1.5}
-                  sx={{
-                    pt: 1.5,
-                    '& .MuiFormControl-root, & .MuiTextField-root': {
-                      width: '100%',
-                    },
-                  }}
-                >
-                  <TextField
-                    id="service-requests-filter-status"
-                    name="status"
-                    select
-                    label="Status"
-                    value={filters.status}
-                    onChange={(e) => handleFilterChange('status', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All Statuses</MenuItem>
-                    <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                    <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                    <MenuItem value="PENDING_MANAGER_REVIEW">Pending Manager Review</MenuItem>
-                    <MenuItem value="PENDING_OWNER_APPROVAL">Pending Owner Approval</MenuItem>
-                    <MenuItem value="APPROVED">Approved</MenuItem>
-                    <MenuItem value="APPROVED_BY_OWNER">Approved by Owner</MenuItem>
-                    <MenuItem value="REJECTED">Rejected</MenuItem>
-                    <MenuItem value="REJECTED_BY_OWNER">Rejected by Owner</MenuItem>
-                    <MenuItem value="CONVERTED_TO_JOB">Converted to Job</MenuItem>
-                    <MenuItem value="COMPLETED">Completed</MenuItem>
-                    <MenuItem value="ARCHIVED">Archived</MenuItem>
-                  </TextField>
-
-                  <TextField
-                    id="service-requests-filter-category"
-                    name="category"
-                    select
-                    label="Category"
-                    value={filters.category}
-                    onChange={(e) => handleFilterChange('category', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All Categories</MenuItem>
-                    <MenuItem value="PLUMBING">Plumbing</MenuItem>
-                    <MenuItem value="ELECTRICAL">Electrical</MenuItem>
-                    <MenuItem value="HVAC">HVAC</MenuItem>
-                    <MenuItem value="APPLIANCE">Appliance</MenuItem>
-                    <MenuItem value="STRUCTURAL">Structural</MenuItem>
-                    <MenuItem value="PEST_CONTROL">Pest Control</MenuItem>
-                    <MenuItem value="LANDSCAPING">Landscaping</MenuItem>
-                    <MenuItem value="GENERAL">General</MenuItem>
-                    <MenuItem value="OTHER">Other</MenuItem>
-                  </TextField>
-
-                  <TextField
-                    id="service-requests-filter-priority"
-                    name="priority"
-                    select
-                    label="Priority"
-                    value={filters.priority || ''}
-                    onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All Priorities</MenuItem>
-                    <MenuItem value="LOW">Low</MenuItem>
-                    <MenuItem value="MEDIUM">Medium</MenuItem>
-                    <MenuItem value="HIGH">High</MenuItem>
-                    <MenuItem value="URGENT">Urgent</MenuItem>
-                  </TextField>
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={!!filters.includeArchived}
-                        onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0 }}
-                  />
-                </Stack>
-              </Collapse>
-            )}
-          </Stack>
-        </Paper>
+        <Box sx={{ mb: 3 }}>
+          <FilterBar
+            searchValue={searchInput}
+            onSearchChange={(e) => setSearchInput(e.target.value)}
+            onSearchClear={() => setSearchInput('')}
+            searchPlaceholder="Search service requests..."
+            filters={[
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All Statuses' },
+                  { value: 'SUBMITTED', label: 'Submitted' },
+                  { value: 'UNDER_REVIEW', label: 'Under Review' },
+                  { value: 'PENDING_MANAGER_REVIEW', label: 'Pending Manager Review' },
+                  { value: 'PENDING_OWNER_APPROVAL', label: 'Pending Owner Approval' },
+                  { value: 'APPROVED', label: 'Approved' },
+                  { value: 'APPROVED_BY_OWNER', label: 'Approved by Owner' },
+                  { value: 'REJECTED', label: 'Rejected' },
+                  { value: 'REJECTED_BY_OWNER', label: 'Rejected by Owner' },
+                  { value: 'CONVERTED_TO_JOB', label: 'Converted to Job' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'ARCHIVED', label: 'Archived' },
+                ],
+              },
+              {
+                key: 'category',
+                label: 'Category',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All Categories' },
+                  { value: 'PLUMBING', label: 'Plumbing' },
+                  { value: 'ELECTRICAL', label: 'Electrical' },
+                  { value: 'HVAC', label: 'HVAC' },
+                  { value: 'APPLIANCE', label: 'Appliance' },
+                  { value: 'STRUCTURAL', label: 'Structural' },
+                  { value: 'PEST_CONTROL', label: 'Pest Control' },
+                  { value: 'LANDSCAPING', label: 'Landscaping' },
+                  { value: 'GENERAL', label: 'General' },
+                  { value: 'OTHER', label: 'Other' },
+                ],
+              },
+              {
+                key: 'priority',
+                label: 'Priority',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All Priorities' },
+                  { value: 'LOW', label: 'Low' },
+                  { value: 'MEDIUM', label: 'Medium' },
+                  { value: 'HIGH', label: 'High' },
+                  { value: 'URGENT', label: 'Urgent' },
+                ],
+              },
+              {
+                key: 'includeArchived',
+                label: 'Show Archived',
+                type: 'checkbox',
+                primary: false,
+              },
+            ]}
+            filterValues={filters}
+            onFilterChange={(key, value) => handleFilterChange(key, value)}
+            onClearFilters={handleClearFilters}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            viewModes={['grid', 'kanban', 'table']}
+            showViewToggle={!isMobile}
+            maxDesktopInlineFilters={3}
+          />
+        </Box>
 
       {/* Bulk Actions Bar */}
       {selectedRequestIds.length > 0 && (

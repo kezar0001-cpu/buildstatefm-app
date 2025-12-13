@@ -20,7 +20,6 @@ import {
   DialogActions,
   CircularProgress,
   TextField,
-  InputAdornment,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -29,7 +28,6 @@ import {
   Delete as DeleteIcon,
   Add as AddIcon,
   Visibility as VisibilityIcon,
-  Search as SearchIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import {
@@ -41,6 +39,7 @@ import {
 import toast from 'react-hot-toast';
 import logger from '../../utils/logger';
 import BlogAutomationTab from '../../components/BlogAutomationTab';
+import FilterBar from '../../components/FilterBar/FilterBar';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -143,18 +142,16 @@ function BlogAdminPage() {
       {/* Posts Tab */}
       <TabPanel value={tabValue} index={0}>
         <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Search posts by title or excerpt..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
+          <FilterBar
+            searchValue={searchQuery}
+            onSearchChange={(e) => setSearchQuery(e.target.value)}
+            onSearchClear={() => setSearchQuery('')}
+            searchPlaceholder="Search posts by title or excerpt..."
+            filters={[]}
+            filterValues={{}}
+            onFilterChange={() => {}}
+            onClearFilters={() => setSearchQuery('')}
+            showViewToggle={false}
           />
         </Box>
 

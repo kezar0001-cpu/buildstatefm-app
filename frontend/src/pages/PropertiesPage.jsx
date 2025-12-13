@@ -12,7 +12,6 @@ import {
   Chip,
   Stack,
   TextField,
-  InputAdornment,
   IconButton,
   Menu,
   MenuItem,
@@ -39,11 +38,9 @@ import {
   useMediaQuery,
   Checkbox,
   Divider,
-  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Search as SearchIcon,
   MoreVert as MoreVertIcon,
   Home as HomeIcon,
   LocationOn as LocationIcon,
@@ -55,7 +52,6 @@ import {
   TableChart as TableChartIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
-  FilterList as FilterListIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
@@ -80,6 +76,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 import logger from '../utils/logger';
 import { getCurrentUser } from '../lib/auth';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import FilterBar from '../components/FilterBar/FilterBar';
 
 // Helper function to get status color - defined outside component to avoid recreation on every render
 const getStatusColor = (status) => {
@@ -121,7 +118,6 @@ export default function PropertiesPage() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   // Bug Fix: Track local search input to avoid URL pollution on every keystroke
   const [localSearchInput, setLocalSearchInput] = useState(searchTerm);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // Bug Fix #3: Persist view mode preference in localStorage
   // On mobile, always use 'list' view as it's the only one that looks good
@@ -607,291 +603,82 @@ export default function PropertiesPage() {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Search and Filter */}
-        <Paper
-          sx={{
-            p: { xs: 2, sm: 2.5, md: 3.5 },
-            borderRadius: { xs: 2, md: 2 },
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-            animation: 'fade-in-up 0.6s ease-out',
-          }}
-        >
-          <Stack spacing={{ xs: 1.5, md: 0 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              alignItems={{ xs: 'stretch', md: 'center' }}
-              sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
-            >
-              <TextField
-                placeholder="Search properties by name, address, or city..."
-                value={localSearchInput}
-                onChange={(e) => setLocalSearchInput(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                      <SearchIcon />
-                    </Box>
-                  ),
-                  endAdornment: localSearchInput && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                      <IconButton
-                        aria-label="clear search"
-                        onClick={() => setLocalSearchInput('')}
-                        edge="end"
-                        size="small"
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ),
-                }}
-                size="small"
-                sx={{
-                  width: { xs: '100%', md: 'auto' },
-                  flex: { md: '1 0 260px' },
-                  minWidth: { md: 260 },
-                  maxWidth: { md: 420 },
-                }}
-              />
-
-              {isMobile ? (
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FilterListIcon />}
-                    onClick={() => setFiltersExpanded((prev) => !prev)}
-                    sx={{ textTransform: 'none', flex: 1 }}
-                  >
-                    Filters
-                    {activeFilterCount > 0 && (
-                      <Chip
-                        label={activeFilterCount}
-                        size="small"
-                        color="primary"
-                        sx={{ ml: 1, height: 20, minWidth: 20 }}
-                      />
-                    )}
-                  </Button>
-
-                  {hasFilters && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </Stack>
-              ) : (
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  sx={{
-                    flexWrap: 'wrap',
-                    gap: 1.5,
-                    width: '100%',
-                    flexGrow: 1,
-                    alignItems: 'center',
-                  }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label="Status"
-                      onChange={(e) => updateSearchParam('status', e.target.value)}
-                    >
-                      <MenuItem value="all">All Statuses</MenuItem>
-                      <MenuItem value="ACTIVE">Active</MenuItem>
-                      <MenuItem value="INACTIVE">Inactive</MenuItem>
-                      <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      value={filterPropertyType}
-                      label="Type"
-                      onChange={(e) => updateSearchParam('propertyType', e.target.value)}
-                    >
-                      <MenuItem value="all">All Types</MenuItem>
-                      <MenuItem value="Residential">Residential</MenuItem>
-                      <MenuItem value="Commercial">Commercial</MenuItem>
-                      <MenuItem value="Mixed-Use">Mixed-Use</MenuItem>
-                      <MenuItem value="Industrial">Industrial</MenuItem>
-                      <MenuItem value="Retail">Retail</MenuItem>
-                      <MenuItem value="Office">Office</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="State"
-                    size="small"
-                    value={filterState === 'all' ? '' : filterState}
-                    placeholder="Any"
-                    onChange={(e) => updateSearchParam('state', e.target.value || 'all')}
-                    sx={{ minWidth: 140, flexShrink: 0 }}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={!!includeArchived}
-                        onChange={(e) => updateSearchParam('includeArchived', e.target.checked ? 'true' : '')}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0, flexShrink: 0 }}
-                  />
-
-                  {hasFilters && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear
-                    </Button>
-                  )}
-
-                  <Box sx={{ flexGrow: 1 }} />
-
-                  <ToggleButtonGroup
-                    value={viewMode}
-                    exclusive
-                    onChange={handleViewModeChange}
-                    aria-label="View mode toggle"
-                    size="small"
-                    sx={{
-                      backgroundColor: 'background.paper',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      flexShrink: 0,
-                      '& .MuiToggleButtonGroup-grouped': {
-                        minWidth: 40,
-                        border: 'none',
-                        '&:not(:first-of-type)': {
-                          borderRadius: 2,
-                        },
-                        '&:first-of-type': {
-                          borderRadius: 2,
-                        },
-                      },
-                      '& .MuiToggleButton-root': {
-                        color: 'text.secondary',
-                        '&:hover': {
-                          backgroundColor: 'action.hover',
-                        },
-                      },
-                      '& .Mui-selected': {
-                        color: 'error.main',
-                        backgroundColor: 'transparent !important',
-                        '&:hover': {
-                          backgroundColor: 'action.hover !important',
-                        },
-                      },
-                    }}
-                  >
-                    <ToggleButton value="grid" aria-label="grid view">
-                      <Tooltip title="Grid View">
-                        <ViewModuleIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="list" aria-label="list view">
-                      <Tooltip title="List View">
-                        <ViewListIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="table" aria-label="table view">
-                      <Tooltip title="Table View">
-                        <TableChartIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Stack>
-              )}
-            </Stack>
-
-            {isMobile && (
-              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
-                <Stack spacing={1.5} sx={{ pt: 1 }}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label="Status"
-                      onChange={(e) => updateSearchParam('status', e.target.value)}
-                    >
-                      <MenuItem value="all">All Statuses</MenuItem>
-                      <MenuItem value="ACTIVE">Active</MenuItem>
-                      <MenuItem value="INACTIVE">Inactive</MenuItem>
-                      <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      value={filterPropertyType}
-                      label="Type"
-                      onChange={(e) => updateSearchParam('propertyType', e.target.value)}
-                    >
-                      <MenuItem value="all">All Types</MenuItem>
-                      <MenuItem value="Residential">Residential</MenuItem>
-                      <MenuItem value="Commercial">Commercial</MenuItem>
-                      <MenuItem value="Mixed-Use">Mixed-Use</MenuItem>
-                      <MenuItem value="Industrial">Industrial</MenuItem>
-                      <MenuItem value="Retail">Retail</MenuItem>
-                      <MenuItem value="Office">Office</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="State"
-                    size="small"
-                    value={filterState === 'all' ? '' : filterState}
-                    placeholder="Any"
-                    onChange={(e) => updateSearchParam('state', e.target.value || 'all')}
-                    fullWidth
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={!!includeArchived}
-                        onChange={(e) => updateSearchParam('includeArchived', e.target.checked ? 'true' : '')}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0 }}
-                  />
-                </Stack>
-              </Collapse>
-            )}
-          </Stack>
-        </Paper>
+        <Box sx={{ mb: 3 }}>
+          <FilterBar
+            searchValue={localSearchInput}
+            onSearchChange={(e) => setLocalSearchInput(e.target.value)}
+            onSearchClear={() => setLocalSearchInput('')}
+            searchPlaceholder="Search properties by name, address, or city..."
+            filters={[
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                primary: true,
+                minWidth: 160,
+                options: [
+                  { value: 'all', label: 'All Statuses' },
+                  { value: 'ACTIVE', label: 'Active' },
+                  { value: 'INACTIVE', label: 'Inactive' },
+                  { value: 'UNDER_MAINTENANCE', label: 'Under Maintenance' },
+                ],
+              },
+              {
+                key: 'propertyType',
+                label: 'Type',
+                type: 'select',
+                primary: true,
+                minWidth: 180,
+                options: [
+                  { value: 'all', label: 'All Types' },
+                  { value: 'Residential', label: 'Residential' },
+                  { value: 'Commercial', label: 'Commercial' },
+                  { value: 'Mixed-Use', label: 'Mixed-Use' },
+                  { value: 'Industrial', label: 'Industrial' },
+                  { value: 'Retail', label: 'Retail' },
+                  { value: 'Office', label: 'Office' },
+                ],
+              },
+              {
+                key: 'state',
+                label: 'State',
+                type: 'text',
+                primary: true,
+                minWidth: 140,
+                placeholder: 'Any',
+              },
+              {
+                key: 'includeArchived',
+                label: 'Show Archived',
+                type: 'checkbox',
+                primary: false,
+              },
+            ]}
+            filterValues={{
+              status: filterStatus,
+              propertyType: filterPropertyType,
+              state: filterState === 'all' ? '' : filterState,
+              includeArchived,
+            }}
+            onFilterChange={(key, value) => {
+              if (key === 'includeArchived') {
+                updateSearchParam('includeArchived', value ? 'true' : '');
+                return;
+              }
+              if (key === 'state') {
+                updateSearchParam('state', value || 'all');
+                return;
+              }
+              updateSearchParam(key, value);
+            }}
+            onClearFilters={handleClearFilters}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            viewModes={['grid', 'list', 'table']}
+            showViewToggle={!isMobile}
+            maxDesktopInlineFilters={3}
+          />
+        </Box>
 
         {/* Error Alerts */}
         {deleteMutation.isError && (

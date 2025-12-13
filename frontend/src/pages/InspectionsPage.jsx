@@ -6,7 +6,6 @@ import {
   Typography,
   Button,
   Paper,
-  Collapse,
   Grid,
   Card,
   CardContent,
@@ -65,7 +64,6 @@ import {
   Search as SearchIcon,
   Close as CloseIcon,
   Warning as WarningIcon,
-  FilterList as FilterListIcon,
   FileDownload as FileDownloadIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
@@ -79,6 +77,7 @@ import InspectionForm from '../components/InspectionForm';
 import InspectionCalendarBoard from '../components/InspectionCalendarBoard';
 import InspectionProgressIndicator from '../components/InspectionProgressIndicator';
 import { InspectionContextActions } from '../components/InspectionContextActions';
+import FilterBar from '../components/FilterBar/FilterBar';
 import PageHeader from '../components/PageHeader';
 import InspectionKanbanSkeleton from '../components/skeletons/InspectionKanbanSkeleton';
 import InspectionListSkeleton from '../components/skeletons/InspectionListSkeleton';
@@ -134,7 +133,6 @@ const InspectionsPage = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
   const [includeArchived, setIncludeArchived] = useState(searchParams.get('includeArchived') === 'true');
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // View mode state
   const [viewMode, setViewMode] = useState(() => {
@@ -764,386 +762,119 @@ const InspectionsPage = () => {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
-        <Paper
-          sx={{
-            p: { xs: 2, sm: 2.5, md: 3.5 },
-            mb: 3,
-            borderRadius: { xs: 2, md: 2 },
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-            animation: 'fade-in-up 0.6s ease-out',
-          }}
-        >
-          <Stack spacing={{ xs: 1.5, md: 0 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              alignItems={{ xs: 'stretch', md: 'center' }}
-              sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
-            >
-              <TextField
-                placeholder="Search inspections..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                      <SearchIcon />
-                    </Box>
-                  ),
-                  endAdornment: searchInput && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                      <IconButton
-                        aria-label="clear search"
-                        onClick={() => setSearchInput('')}
-                        edge="end"
-                        size="small"
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ),
-                }}
-                size="small"
-                sx={{
-                  width: { xs: '100%', md: 'auto' },
-                  flex: { md: '1 0 260px' },
-                  minWidth: { md: 260 },
-                  maxWidth: { md: 420 },
-                }}
-              />
-
-              {isMobile ? (
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FilterListIcon />}
-                    onClick={() => setFiltersExpanded((prev) => !prev)}
-                    sx={{ textTransform: 'none', flex: 1 }}
-                  >
-                    Filters
-                    {activeFilterCount > 0 && (
-                      <Chip
-                        label={activeFilterCount}
-                        size="small"
-                        color="primary"
-                        sx={{ ml: 1, height: 20, minWidth: 20 }}
-                      />
-                    )}
-                  </Button>
-
-                  {hasFilters && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </Stack>
-              ) : (
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  sx={{
-                    flexWrap: 'wrap',
-                    gap: 1.5,
-                    width: 'auto',
-                    flexShrink: 0,
-                    overflow: 'visible',
-                    whiteSpace: 'normal',
-                    alignItems: 'center',
-                  }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={statusFilter}
-                      label="Status"
-                      onChange={(e) => {
-                        setStatusFilter(e.target.value);
-                        updateSearchParam('status', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Statuses</MenuItem>
-                      <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-                      <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                      <MenuItem value="COMPLETED">Completed</MenuItem>
-                      <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
-                    <InputLabel>Property</InputLabel>
-                    <Select
-                      value={propertyFilter}
-                      label="Property"
-                      onChange={(e) => {
-                        setPropertyFilter(e.target.value);
-                        updateSearchParam('property', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Properties</MenuItem>
-                      {properties.map((p) => (
-                        <MenuItem key={p.id} value={p.id}>
-                          {p.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
-                    <InputLabel>Inspector</InputLabel>
-                    <Select
-                      value={technicianFilter}
-                      label="Inspector"
-                      onChange={(e) => {
-                        setTechnicianFilter(e.target.value);
-                        updateSearchParam('technician', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Inspectors</MenuItem>
-                      {technicians.map((t) => (
-                        <MenuItem key={t.id} value={t.id}>
-                          {t.firstName} {t.lastName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="From"
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => {
-                      setDateFrom(e.target.value);
-                      updateSearchParam('dateFrom', e.target.value);
-                    }}
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ minWidth: 140, flexShrink: 0 }}
-                  />
-
-                  <TextField
-                    label="To"
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => {
-                      setDateTo(e.target.value);
-                      updateSearchParam('dateTo', e.target.value);
-                    }}
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ minWidth: 140, flexShrink: 0 }}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={includeArchived}
-                        onChange={(e) => {
-                          setIncludeArchived(e.target.checked);
-                          updateSearchParam('includeArchived', e.target.checked ? 'true' : '');
-                        }}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0, flexShrink: 0 }}
-                  />
-
-                  {hasFilters && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      size="small"
-                      onClick={handleClearFilters}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                      startIcon={<CloseIcon />}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </Stack>
-              )}
-
-              {!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
-
-              {!isMobile && (
-                <ToggleButtonGroup
-                  value={viewMode}
-                  exclusive
-                  onChange={handleViewModeChange}
-                  aria-label="View mode toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    flexShrink: 0,
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
-                      },
-                      '&:first-of-type': {
-                        borderRadius: 2,
-                      },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    },
-                    '& .Mui-selected': {
-                      color: 'error.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="grid" aria-label="kanban view">
-                    <Tooltip title="Kanban View">
-                      <ViewKanbanIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="list" aria-label="list view">
-                    <Tooltip title="List View">
-                      <ViewListIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="table" aria-label="table view">
-                    <Tooltip title="Table View">
-                      <TableChartIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              )}
-            </Stack>
-
-            {isMobile && (
-              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
-                <Stack spacing={1.5} sx={{ pt: 1 }}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={statusFilter}
-                      label="Status"
-                      onChange={(e) => {
-                        setStatusFilter(e.target.value);
-                        updateSearchParam('status', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Statuses</MenuItem>
-                      <MenuItem value="SCHEDULED">Scheduled</MenuItem>
-                      <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                      <MenuItem value="COMPLETED">Completed</MenuItem>
-                      <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Property</InputLabel>
-                    <Select
-                      value={propertyFilter}
-                      label="Property"
-                      onChange={(e) => {
-                        setPropertyFilter(e.target.value);
-                        updateSearchParam('property', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Properties</MenuItem>
-                      {properties.map((p) => (
-                        <MenuItem key={p.id} value={p.id}>
-                          {p.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Inspector</InputLabel>
-                    <Select
-                      value={technicianFilter}
-                      label="Inspector"
-                      onChange={(e) => {
-                        setTechnicianFilter(e.target.value);
-                        updateSearchParam('technician', e.target.value);
-                      }}
-                    >
-                      <MenuItem value="">All Inspectors</MenuItem>
-                      {technicians.map((t) => (
-                        <MenuItem key={t.id} value={t.id}>
-                          {t.firstName} {t.lastName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="From"
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => {
-                      setDateFrom(e.target.value);
-                      updateSearchParam('dateFrom', e.target.value);
-                    }}
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-
-                  <TextField
-                    label="To"
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => {
-                      setDateTo(e.target.value);
-                      updateSearchParam('dateTo', e.target.value);
-                    }}
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={includeArchived}
-                        onChange={(e) => {
-                          setIncludeArchived(e.target.checked);
-                          updateSearchParam('includeArchived', e.target.checked ? 'true' : '');
-                        }}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0, flexShrink: 0 }}
-                  />
-                </Stack>
-              </Collapse>
-            )}
-          </Stack>
-        </Paper>
+        <Box sx={{ mb: 3 }}>
+          <FilterBar
+            searchValue={searchInput}
+            onSearchChange={(e) => setSearchInput(e.target.value)}
+            onSearchClear={() => setSearchInput('')}
+            searchPlaceholder="Search inspections..."
+            filters={[
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All Statuses' },
+                  { value: 'SCHEDULED', label: 'Scheduled' },
+                  { value: 'IN_PROGRESS', label: 'In Progress' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'CANCELLED', label: 'Cancelled' },
+                ],
+              },
+              {
+                key: 'property',
+                label: 'Property',
+                type: 'select',
+                primary: true,
+                minWidth: 180,
+                options: [
+                  { value: '', label: 'All Properties' },
+                  ...properties.map((p) => ({ value: p.id, label: p.name })),
+                ],
+              },
+              {
+                key: 'technician',
+                label: 'Inspector',
+                type: 'select',
+                primary: true,
+                minWidth: 180,
+                options: [
+                  { value: '', label: 'All Inspectors' },
+                  ...technicians.map((t) => ({
+                    value: t.id,
+                    label: `${t.firstName} ${t.lastName}`,
+                  })),
+                ],
+              },
+              {
+                key: 'dateFrom',
+                label: 'From',
+                type: 'date',
+                primary: false,
+                minWidth: 140,
+              },
+              {
+                key: 'dateTo',
+                label: 'To',
+                type: 'date',
+                primary: false,
+                minWidth: 140,
+              },
+              {
+                key: 'includeArchived',
+                label: 'Show Archived',
+                type: 'checkbox',
+                primary: false,
+              },
+            ]}
+            filterValues={{
+              status: statusFilter,
+              property: propertyFilter,
+              technician: technicianFilter,
+              dateFrom,
+              dateTo,
+              includeArchived,
+            }}
+            onFilterChange={(key, value) => {
+              if (key === 'status') {
+                setStatusFilter(value);
+                updateSearchParam('status', value);
+                return;
+              }
+              if (key === 'property') {
+                setPropertyFilter(value);
+                updateSearchParam('property', value);
+                return;
+              }
+              if (key === 'technician') {
+                setTechnicianFilter(value);
+                updateSearchParam('technician', value);
+                return;
+              }
+              if (key === 'dateFrom') {
+                setDateFrom(value);
+                updateSearchParam('dateFrom', value);
+                return;
+              }
+              if (key === 'dateTo') {
+                setDateTo(value);
+                updateSearchParam('dateTo', value);
+                return;
+              }
+              if (key === 'includeArchived') {
+                setIncludeArchived(Boolean(value));
+                updateSearchParam('includeArchived', value ? 'true' : '');
+              }
+            }}
+            onClearFilters={handleClearFilters}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            viewModes={['grid', 'list', 'table']}
+            maxDesktopInlineFilters={3}
+          />
+        </Box>
 
       {/* Bulk Actions Toolbar - only show when items are selected */}
       {selectedIds.length > 0 && (

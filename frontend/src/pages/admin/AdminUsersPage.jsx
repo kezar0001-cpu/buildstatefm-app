@@ -21,6 +21,7 @@ import {
 import { Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import apiClient from '../../api/client';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import FilterBar from '../../components/FilterBar/FilterBar';
 
 const ACTIVE_WINDOW_DAYS = 30;
 
@@ -206,28 +207,32 @@ export default function AdminUsersPage() {
         Separate from the <code>isActive</code> flag (account enabled/disabled).
       </Alert>
 
+      <Box sx={{ mb: 2 }}>
+        <FilterBar
+          searchValue={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          onSearchClear={() => setSearch('')}
+          searchPlaceholder="Search users (email/name)..."
+          filters={[]}
+          filterValues={{}}
+          onFilterChange={() => {}}
+          onClearFilters={() => setSearch('')}
+          showViewToggle={false}
+          rightActions={(
+            <Button
+              variant="contained"
+              onClick={fetchAll}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+              sx={{ textTransform: 'none' }}
+            >
+              Refresh
+            </Button>
+          )}
+        />
+      </Box>
+
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-          <TextField
-            label="Search (email/name)"
-            size="small"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1, minWidth: 240 }}
-          />
-          <Button
-            variant="contained"
-            onClick={fetchAll}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            Refresh
-          </Button>
-        </Stack>
-
-        <Divider sx={{ my: 2 }} />
-
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <StatusChip label={`Total users: ${userSummary.total}`} color="primary" />
           <StatusChip label={`Recently active (${ACTIVE_WINDOW_DAYS}d): ${userSummary.recentlyActive}`} color="success" />

@@ -23,9 +23,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Paper,
-  Collapse,
   Checkbox,
-  FormControlLabel,
   useMediaQuery,
   useTheme,
   InputAdornment,
@@ -58,12 +56,10 @@ import {
   ViewList as ViewListIcon,
   TableChart as TableChartIcon,
   CalendarMonth as CalendarMonthIcon,
-  Search as SearchIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
-  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { Tooltip } from '@mui/material';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -71,6 +67,7 @@ import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import JobForm from '../components/JobForm';
+import FilterBar from '../components/FilterBar/FilterBar';
 import ensureArray from '../utils/ensureArray';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import moment from 'moment';
@@ -95,7 +92,6 @@ import logger from '../utils/logger';
 
 const KANBAN_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
-
 const JobsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,7 +106,6 @@ const JobsPage = () => {
     filter: '',
     includeArchived: false,
   });
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   // View state
@@ -706,361 +701,70 @@ const JobsPage = () => {
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
-      <Paper
-        sx={{
-          p: { xs: 2, sm: 2.5, md: 3.5 },
-          mb: 3,
-          borderRadius: { xs: 2, md: 2 },
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-          animation: 'fade-in-up 0.6s ease-out',
-        }}
-      >
-        <Stack spacing={{ xs: 1.5, md: 0 }}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-            sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
-          >
-            <TextField
-              placeholder="Search jobs..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                    <SearchIcon />
-                  </Box>
-                ),
-                endAdornment: searchTerm && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={() => setSearchTerm('')}
-                      edge="end"
-                      size="small"
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ),
-              }}
-              size="small"
-              sx={{
-                width: { xs: '100%', md: 'auto' },
-                flex: { md: '1 0 260px' },
-                minWidth: { md: 260 },
-                maxWidth: { md: 420 },
-              }}
-            />
-
-            {isMobile ? (
-              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<FilterListIcon />}
-                  onClick={() => setFiltersExpanded((prev) => !prev)}
-                  sx={{ textTransform: 'none', flex: 1 }}
-                >
-                  Filters
-                  {activeFilterCount > 0 && (
-                    <Chip
-                      label={activeFilterCount}
-                      size="small"
-                      color="primary"
-                      sx={{ ml: 1, height: 20, minWidth: 20 }}
-                    />
-                  )}
-                </Button>
-
-                {hasAnyActiveFilters && (
-                  <Button
-                    variant="text"
-                    color="inherit"
-                    size="small"
-                    onClick={handleClearFilters}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                    startIcon={<CloseIcon />}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </Stack>
-            ) : (
-              <Stack
-                direction="row"
-                spacing={1.5}
-                sx={{
-                  flexWrap: 'wrap',
-                  gap: 1.5,
-                  width: 'auto',
-                  flexShrink: 0,
-                  overflow: 'visible',
-                  whiteSpace: 'normal',
-                  alignItems: 'center',
-                }}
-              >
-                <TextField
-                  select
-                  label="Status"
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  size="small"
-                  sx={{ minWidth: 150, flexShrink: 0 }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="OPEN">Open</MenuItem>
-                  <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                  <MenuItem value="COMPLETED">Completed</MenuItem>
-                  <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                </TextField>
-
-                <TextField
-                  select
-                  label="Priority"
-                  value={filters.priority}
-                  onChange={(e) => handleFilterChange('priority', e.target.value)}
-                  size="small"
-                  sx={{ minWidth: 150, flexShrink: 0 }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="LOW">Low</MenuItem>
-                  <MenuItem value="MEDIUM">Medium</MenuItem>
-                  <MenuItem value="HIGH">High</MenuItem>
-                  <MenuItem value="URGENT">Urgent</MenuItem>
-                </TextField>
-
-                <TextField
-                  select
-                  label="Quick Filter"
-                  value={filters.filter}
-                  onChange={(e) => handleFilterChange('filter', e.target.value)}
-                  size="small"
-                  sx={{ minWidth: 150, flexShrink: 0 }}
-                >
-                  <MenuItem value="">None</MenuItem>
-                  <MenuItem value="overdue">Overdue</MenuItem>
-                  <MenuItem value="unassigned">Unassigned</MenuItem>
-                </TextField>
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={!!filters.includeArchived}
-                      onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                      Show Archived
-                    </Typography>
-                  }
-                  sx={{ ml: 0, flexShrink: 0 }}
-                />
-
-                {hasAnyActiveFilters && (
-                  <Button
-                    variant="text"
-                    color="inherit"
-                    size="small"
-                    onClick={handleClearFilters}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                    startIcon={<CloseIcon />}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </Stack>
-            )}
-
-            {!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
-
-            {!isMobile && (
-              <ToggleButtonGroup
-                value={view}
-                exclusive
-                onChange={handleViewChange}
-                aria-label="View mode toggle"
-                size="small"
-                sx={{
-                  backgroundColor: 'background.paper',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  flexShrink: 0,
-                  '& .MuiToggleButtonGroup-grouped': {
-                    minWidth: 40,
-                    border: 'none',
-                    '&:not(:first-of-type)': {
-                      borderRadius: 2,
-                    },
-                    '&:first-of-type': {
-                      borderRadius: 2,
-                    },
-                  },
-                  '& .MuiToggleButton-root': {
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                  },
-                  '& .Mui-selected': {
-                    color: 'error.main',
-                    backgroundColor: 'transparent !important',
-                    '&:hover': {
-                      backgroundColor: 'action.hover !important',
-                    },
-                  },
-                }}
-              >
-                <ToggleButton value="kanban" aria-label="kanban view">
-                  <Tooltip title="Kanban View">
-                    <ViewKanbanIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="list" aria-label="list view">
-                  <Tooltip title="List View">
-                    <ViewListIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="table" aria-label="table view">
-                  <Tooltip title="Table View">
-                    <TableChartIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-          </Stack>
-
-          {isMobile && (
-            <>
-              <Collapse in={filtersExpanded} timeout="auto" unmountOnExit>
-                <Stack spacing={1.5} sx={{ pt: 1 }}>
-                  <TextField
-                    select
-                    fullWidth
-                    label="Status"
-                    value={filters.status}
-                    onChange={(e) => handleFilterChange('status', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="OPEN">Open</MenuItem>
-                    <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                    <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                    <MenuItem value="COMPLETED">Completed</MenuItem>
-                    <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                  </TextField>
-
-                  <TextField
-                    select
-                    fullWidth
-                    label="Priority"
-                    value={filters.priority}
-                    onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="LOW">Low</MenuItem>
-                    <MenuItem value="MEDIUM">Medium</MenuItem>
-                    <MenuItem value="HIGH">High</MenuItem>
-                    <MenuItem value="URGENT">Urgent</MenuItem>
-                  </TextField>
-
-                  <TextField
-                    select
-                    fullWidth
-                    label="Quick Filter"
-                    value={filters.filter}
-                    onChange={(e) => handleFilterChange('filter', e.target.value)}
-                    size="small"
-                  >
-                    <MenuItem value="">None</MenuItem>
-                    <MenuItem value="overdue">Overdue</MenuItem>
-                    <MenuItem value="unassigned">Unassigned</MenuItem>
-                  </TextField>
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={!!filters.includeArchived}
-                        onChange={(e) => handleFilterChange('includeArchived', e.target.checked)}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                        Show Archived
-                      </Typography>
-                    }
-                    sx={{ ml: 0, flexShrink: 0 }}
-                  />
-                </Stack>
-              </Collapse>
-
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
-                <ToggleButtonGroup
-                  value={view}
-                  exclusive
-                  onChange={handleViewChange}
-                  aria-label="View mode toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
-                      },
-                      '&:first-of-type': {
-                        borderRadius: 2,
-                      },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    },
-                    '& .Mui-selected': {
-                      color: 'error.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="kanban" aria-label="kanban view">
-                    <Tooltip title="Kanban View">
-                      <ViewKanbanIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="list" aria-label="list view">
-                    <Tooltip title="List View">
-                      <ViewListIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="table" aria-label="table view">
-                    <Tooltip title="Table View">
-                      <TableChartIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-            </>
-          )}
-        </Stack>
-      </Paper>
+        <Box sx={{ mb: 3 }}>
+          <FilterBar
+            searchValue={searchTerm}
+            onSearchChange={handleSearchChange}
+            onSearchClear={() => setSearchTerm('')}
+            searchPlaceholder="Search jobs..."
+            filters={[
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All' },
+                  { value: 'OPEN', label: 'Open' },
+                  { value: 'ASSIGNED', label: 'Assigned' },
+                  { value: 'IN_PROGRESS', label: 'In Progress' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'CANCELLED', label: 'Cancelled' },
+                ],
+              },
+              {
+                key: 'priority',
+                label: 'Priority',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All' },
+                  { value: 'LOW', label: 'Low' },
+                  { value: 'MEDIUM', label: 'Medium' },
+                  { value: 'HIGH', label: 'High' },
+                  { value: 'URGENT', label: 'Urgent' },
+                ],
+              },
+              {
+                key: 'filter',
+                label: 'Quick Filter',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'None' },
+                  { value: 'overdue', label: 'Overdue' },
+                  { value: 'unassigned', label: 'Unassigned' },
+                ],
+              },
+              {
+                key: 'includeArchived',
+                label: 'Show Archived',
+                type: 'checkbox',
+                primary: false,
+              },
+            ]}
+            filterValues={filters}
+            onFilterChange={(key, value) => handleFilterChange(key, value)}
+            onClearFilters={handleClearFilters}
+            viewMode={view}
+            onViewModeChange={handleViewChange}
+            viewModes={['kanban', 'list', 'table']}
+            maxDesktopInlineFilters={3}
+          />
+        </Box>
 
       {selectedCount > 0 && (
         <Paper
