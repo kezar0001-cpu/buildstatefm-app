@@ -94,7 +94,13 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     queryKey: queryKeys.serviceRequests.detail(requestId),
     queryFn: async () => {
       const response = await apiClient.get(`/service-requests/${requestId}`);
-      return response.data?.request || response.data;
+      if (!response?.data) return null;
+
+      if (Object.prototype.hasOwnProperty.call(response.data, 'request')) {
+        return response.data.request;
+      }
+
+      return response.data;
     },
     enabled: open && !!requestId,
   });

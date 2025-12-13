@@ -191,39 +191,39 @@ describe('ServiceRequestDetailModal', () => {
     await renderModal();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add Cost Estimate' })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Cost Estimate' }));
 
-    const confirmButton = await screen.findByRole('button', { name: 'Approve' });
-    fireEvent.click(confirmButton);
+    const submitEstimateButton = await screen.findByRole('button', { name: 'Submit Estimate' });
+    fireEvent.click(submitEstimateButton);
 
-    expect(apiClient.patch).not.toHaveBeenCalled();
-    expect(toast.error).toHaveBeenCalledWith('Please enter review notes');
+    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Please enter a valid cost estimate');
   });
 
-  it('approves a request and invalidates related caches', async () => {
+  it('adds a cost estimate and invalidates related caches', async () => {
     await renderModal();
 
-    apiClient.patch.mockResolvedValue({ data: { success: true } });
+    apiClient.post.mockResolvedValue({ data: { success: true } });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add Cost Estimate' })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Cost Estimate' }));
 
-    const notesInput = await screen.findByLabelText('Review Notes');
-    fireEvent.change(notesInput, { target: { value: 'Approved - urgent' } });
+    const estimateInput = await screen.findByLabelText('Estimated Cost');
+    fireEvent.change(estimateInput, { target: { value: '250' } });
 
-    const confirmButton = screen.getByRole('button', { name: 'Approve' });
-    fireEvent.click(confirmButton);
+    const submitEstimateButton = screen.getByRole('button', { name: 'Submit Estimate' });
+    fireEvent.click(submitEstimateButton);
 
     await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith('/service-requests/sr-123', {
-        status: 'APPROVED',
-        reviewNotes: 'Approved - urgent',
+      expect(apiClient.post).toHaveBeenCalledWith('/service-requests/sr-123/estimate', {
+        managerEstimatedCost: 250,
+        costBreakdownNotes: '',
       });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.serviceRequests.all() })
@@ -231,28 +231,27 @@ describe('ServiceRequestDetailModal', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.serviceRequests.detail('sr-123') })
       );
-      expect(toast.success).toHaveBeenCalledWith('Request approved');
-      expect(mockOnClose).toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalledWith('Cost estimate added - awaiting owner approval');
     });
   });
 
   it('rejects a request and invalidates related caches', async () => {
     await renderModal();
 
-    apiClient.patch.mockResolvedValue({ data: { success: true } });
+    apiClient.post.mockResolvedValue({ data: { success: true } });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
 
-    const notesInput = await screen.findByLabelText('Review Notes');
-    fireEvent.change(notesInput, { target: { value: 'Not within scope' } });
+    const reasonInput = await screen.findByLabelText('Rejection Reason');
+    fireEvent.change(reasonInput, { target: { value: 'Not within scope' } });
 
     const confirmButton = screen.getByRole('button', { name: 'Reject' });
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith('/service-requests/sr-123', {
-        status: 'REJECTED',
-        reviewNotes: 'Not within scope',
+      expect(apiClient.post).toHaveBeenCalledWith('/service-requests/sr-123/manager-reject', {
+        rejectionReason: 'Not within scope',
+        reviewNotes: undefined,
       });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.serviceRequests.all() })
@@ -260,7 +259,7 @@ describe('ServiceRequestDetailModal', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.serviceRequests.detail('sr-123') })
       );
-      expect(toast.success).toHaveBeenCalledWith('Request rejected');
+      expect(toast.success).toHaveBeenCalledWith('Service request rejected');
       expect(mockOnClose).toHaveBeenCalled();
     });
   });

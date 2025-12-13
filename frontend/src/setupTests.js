@@ -27,7 +27,21 @@ const createLocalStorageMock = () => {
   };
 };
 
-if (!globalThis.localStorage || typeof globalThis.localStorage.getItem !== 'function') {
+let shouldMockLocalStorage = false;
+try {
+  shouldMockLocalStorage =
+    !globalThis.localStorage ||
+    typeof globalThis.localStorage.getItem !== 'function' ||
+    typeof globalThis.localStorage.setItem !== 'function';
+
+  if (!shouldMockLocalStorage) {
+    globalThis.localStorage.getItem('__storage_test__');
+  }
+} catch {
+  shouldMockLocalStorage = true;
+}
+
+if (shouldMockLocalStorage) {
   Object.defineProperty(globalThis, 'localStorage', {
     value: createLocalStorageMock(),
     configurable: true,
