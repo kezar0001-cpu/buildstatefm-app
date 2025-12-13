@@ -21,11 +21,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
 
   const perEntityTake = Math.max(1, Math.ceil(searchLimit / 6));
 
-  const propertySearchOr = [
-    { name: { contains: searchTerm, mode: 'insensitive' } },
-    { address: { contains: searchTerm, mode: 'insensitive' } },
-    { city: { contains: searchTerm, mode: 'insensitive' } },
-  ];
+  const normalizedTerm = searchTerm.trim().toUpperCase();
 
   console.log(`[GlobalSearch] Searching for "${searchTerm}" by user ${req.user.id} (${req.user.role})`);
 
@@ -125,8 +121,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     where: {
       ...propertyFilter,
       OR: [
-        ...propertySearchOr,
-        { state: { contains: searchTerm, mode: 'insensitive' } }
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { address: { contains: searchTerm, mode: 'insensitive' } },
       ]
     },
     take: perEntityTake,
@@ -140,17 +136,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     },
     orderBy: { name: 'asc' }
   });
-
-  // Get property IDs for filtering jobs and inspections
-  const propertyIds = properties.map(p => p.id);
-
-  // Use accessiblePropertyIds if available (for role-based access control)
-  // Otherwise, if user has access to all properties, use propertyIds from search results
-  let relatedPropertyIds = Array.isArray(accessiblePropertyIds) 
-    ? accessiblePropertyIds 
-    : propertyIds.length > 0 
-      ? propertyIds 
-      : null;
+  const relatedPropertyIds = Array.isArray(accessiblePropertyIds) ? accessiblePropertyIds : null;
 
   // Search jobs
   const jobs = await prisma.job.findMany({
@@ -161,7 +147,6 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         { description: { contains: searchTerm, mode: 'insensitive' } },
         { notes: { contains: searchTerm, mode: 'insensitive' } },
         { technicianNotes: { contains: searchTerm, mode: 'insensitive' } },
-        { property: { is: { OR: propertySearchOr } } },
       ]
     },
     take: perEntityTake,
@@ -188,13 +173,14 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       OR: [
         { title: { contains: searchTerm, mode: 'insensitive' } },
         { notes: { contains: searchTerm, mode: 'insensitive' } },
-        { property: { OR: propertySearchOr } },
+        { findings: { contains: searchTerm, mode: 'insensitive' } },
       ]
     },
     take: perEntityTake,
     select: {
       id: true,
       title: true,
+      type: true,
       notes: true,
       status: true,
       scheduledDate: true,
@@ -234,7 +220,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
           { title: { contains: searchTerm, mode: 'insensitive' } },
           { description: { contains: searchTerm, mode: 'insensitive' } },
           { reviewNotes: { contains: searchTerm, mode: 'insensitive' } },
-          { property: { OR: propertySearchOr } },
+          { rejectionReason: { contains: searchTerm, mode: 'insensitive' } },
         ]
       },
       take: perEntityTake,
@@ -244,6 +230,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         description: true,
         status: true,
         priority: true,
+        category: true,
+        rejectionReason: true,
         property: {
           select: {
             name: true,
@@ -265,7 +253,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         OR: [
           { name: { contains: searchTerm, mode: 'insensitive' } },
           { description: { contains: searchTerm, mode: 'insensitive' } },
-          { property: { OR: propertySearchOr } },
+          { frequency: { contains: searchTerm, mode: 'insensitive' } },
         ]
       },
       take: perEntityTake,
@@ -315,7 +303,6 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
           { description: { contains: searchTerm, mode: 'insensitive' } },
           { rejectionReason: { contains: searchTerm, mode: 'insensitive' } },
           { managerResponse: { contains: searchTerm, mode: 'insensitive' } },
-          { property: { OR: propertySearchOr } },
         ],
       },
       take: perEntityTake,
@@ -337,6 +324,44 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   }
 
   // Format results
+  const maybeJobStatus = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybeInspectionStatus = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'ARCHIVED'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybeInspectionType = ['MOVE_IN', 'MOVE_OUT', 'ROUTINE', 'EMERGENCY'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybeServiceRequestStatus = ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'CONVERTED_TO_JOB', 'REJECTED', 'COMPLETED', 'PENDING_MANAGER_REVIEW', 'PENDING_OWNER_APPROVAL', 'APPROVED_BY_OWNER', 'REJECTED_BY_OWNER', 'ARCHIVED'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybeServiceRequestCategory = ['PLUMBING', 'ELECTRICAL', 'HVAC', 'APPLIANCE', 'STRUCTURAL', 'PEST_CONTROL', 'LANDSCAPING', 'GENERAL', 'OTHER'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybeRecommendationStatus = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'IMPLEMENTED', 'ARCHIVED'].includes(normalizedTerm)
+    ? normalizedTerm
+    : null;
+  const maybePlanActive = normalizedTerm === 'ACTIVE'
+    ? true
+    : normalizedTerm === 'INACTIVE'
+      ? false
+      : null;
+
+  // If the term is an exact status/category/etc, do a second-pass filter in-memory.
+  // This avoids widening the DB query with relational match conditions.
+  const filteredJobs = maybeJobStatus ? jobs.filter((j) => j.status === maybeJobStatus) : jobs;
+  const filteredInspections = inspections
+    .filter((i) => (maybeInspectionStatus ? i.status === maybeInspectionStatus : true))
+    .filter((i) => (maybeInspectionType ? i.type === maybeInspectionType : true));
+  const filteredServiceRequests = serviceRequests
+    .filter((sr) => (maybeServiceRequestStatus ? sr.status === maybeServiceRequestStatus : true))
+    .filter((sr) => (maybeServiceRequestCategory ? sr.category === maybeServiceRequestCategory : true));
+  const filteredRecommendations = maybeRecommendationStatus ? recommendations.filter((r) => r.status === maybeRecommendationStatus) : recommendations;
+  const filteredPlans = typeof maybePlanActive === 'boolean'
+    ? maintenancePlans.filter((p) => p.isActive === maybePlanActive)
+    : maintenancePlans;
+
   const results = [
     ...properties.map(property => ({
       id: property.id,
@@ -347,7 +372,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       status: property.status,
       link: `/properties/${property.id}`
     })),
-    ...jobs.map(job => ({
+    ...filteredJobs.map(job => ({
       id: job.id,
       type: 'job',
       title: job.title,
@@ -357,7 +382,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       priority: job.priority,
       link: `/jobs/${job.id}`
     })),
-    ...inspections.map(inspection => ({
+    ...filteredInspections.map(inspection => ({
       id: inspection.id,
       type: 'inspection',
       title: inspection.title,
@@ -367,7 +392,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       scheduledDate: inspection.scheduledDate,
       link: `/inspections/${inspection.id}`
     })),
-    ...serviceRequests.map(request => ({
+    ...filteredServiceRequests.map(request => ({
       id: request.id,
       type: 'service_request',
       title: request.title,
@@ -377,7 +402,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       priority: request.priority,
       link: `/service-requests`
     })),
-    ...recommendations.map(rec => ({
+    ...filteredRecommendations.map(rec => ({
       id: rec.id,
       type: 'recommendation',
       title: rec.title,
@@ -387,7 +412,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       priority: rec.priority,
       link: `/recommendations`
     })),
-    ...maintenancePlans.map(plan => ({
+    ...filteredPlans.map(plan => ({
       id: plan.id,
       type: 'plan',
       title: plan.name,
