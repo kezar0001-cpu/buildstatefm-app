@@ -55,6 +55,9 @@
 - **Production-safe health endpoints (backend):**
   - `GET /api/v2/uploads/health` in `backend/src/routes/uploadsV2.js` avoids leaking storage configuration in production (returns only `ok` + `timestamp`).
 
+- **Render/Linux case-sensitivity gotcha (backend):**
+  - Route import paths must match filename casing exactly (e.g. `uploadsV2.js` vs `uploadsv2.js`) or Render will crash with `ERR_MODULE_NOT_FOUND`.
+
 - **Resource-scoped list endpoints (backend):**
   - `backend/src/routes/recurringInspections.js` and `backend/src/routes/inspectionTemplates.js` enforce role-based property scoping to avoid cross-tenant data leaks.
   - Non-admin/non-PM access is gated by the property manager subscription state for the underlying property.

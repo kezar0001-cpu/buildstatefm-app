@@ -194,7 +194,7 @@ import inspectionTemplatesRoutes from './src/routes/inspectionTemplates.js';
 import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
-import uploadsv2Routes from './src/routes/uploadsv2.js';
+import uploadsv2Routes from './src/routes/uploadsV2.js'; // Fix case-sensitive import path
 import recommendationsRoutes from './src/routes/recommendations.js';
 import plansRoutes from './src/routes/plans.js';
 import dashboardRoutes from './src/routes/dashboard.js';
@@ -233,7 +233,7 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/uploads', uploadsRoutes);
 
 // New v2 Upload Engine
-app.use('/api/v2/uploads', uploadsv2Routes);
+app.use('/api/v2/uploads', uploadsv2Routes); // Fix case-sensitive import path
 
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
