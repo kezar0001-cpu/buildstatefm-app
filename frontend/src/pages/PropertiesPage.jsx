@@ -24,6 +24,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  FormControlLabel,
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
@@ -55,6 +56,8 @@ import {
   Close as CloseIcon,
   Visibility as VisibilityIcon,
   FilterList as FilterListIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -76,6 +79,7 @@ import { formatPropertyAddressLine } from '../utils/formatPropertyLocation';
 import { queryKeys } from '../utils/queryKeys.js';
 import logger from '../utils/logger';
 import { getCurrentUser } from '../lib/auth';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 // Helper function to get status color - defined outside component to avoid recreation on every render
 const getStatusColor = (status) => {
@@ -84,6 +88,7 @@ const getStatusColor = (status) => {
     INACTIVE: 'default',
     UNDER_MAINTENANCE: 'warning',
   };
+
   return colors[status] || 'default';
 };
 
@@ -109,6 +114,9 @@ export default function PropertiesPage() {
   // This allows bookmarking, sharing, and proper back/forward navigation
   const searchTerm = searchParams.get('search') || '';
   const filterStatus = searchParams.get('status') || 'all';
+  const filterPropertyType = searchParams.get('propertyType') || 'all';
+  const filterState = searchParams.get('state') || 'all';
+  const includeArchived = searchParams.get('includeArchived') === 'true';
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   // Bug Fix: Track local search input to avoid URL pollution on every keystroke
@@ -136,6 +144,44 @@ export default function PropertiesPage() {
   const [editMode, setEditMode] = useState(false);
   const [paginationError, setPaginationError] = useState(null);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState([]);
+
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+
+  const archiveMutation = useMutation({
+    mutationFn: async (propertyId) => {
+      const response = await apiClient.patch(`/properties/${propertyId}/archive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.properties.all() });
+      setIsArchiveDialogOpen(false);
+      handleMenuClose();
+    },
+    onError: () => {
+      setIsArchiveDialogOpen(false);
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (propertyId) => {
+      const response = await apiClient.patch(`/properties/${propertyId}/unarchive`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.properties.all() });
+      setIsArchiveDialogOpen(false);
+      handleMenuClose();
+    },
+    onError: () => {
+      setIsArchiveDialogOpen(false);
+    },
+  });
+
+  const handleToggleArchive = (property = null) => {
+    if (!canManageProperties) return;
+    if (property) setSelectedProperty(property);
+    setIsArchiveDialogOpen(true);
+  };
 
   // Handle property selection
   const handleTogglePropertySelection = (propertyId) => {
@@ -166,8 +212,11 @@ export default function PropertiesPage() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filterStatus && filterStatus !== 'all') count += 1;
+    if (filterPropertyType && filterPropertyType !== 'all') count += 1;
+    if (filterState && filterState !== 'all') count += 1;
+    if (includeArchived) count += 1;
     return count;
-  }, [filterStatus]);
+  }, [filterPropertyType, filterState, filterStatus, includeArchived]);
 
   const hasFilters = debouncedSearchTerm || activeFilterCount > 0;
 
@@ -175,13 +224,16 @@ export default function PropertiesPage() {
     setLocalSearchInput('');
     updateSearchParam('search', '');
     updateSearchParam('status', 'all');
+    updateSearchParam('propertyType', 'all');
+    updateSearchParam('state', 'all');
+    updateSearchParam('includeArchived', '');
   };
 
   // Bug Fix: Clear pagination errors when search or filter changes
   // This prevents stale error messages from persisting after user changes query
   useEffect(() => {
     setPaginationError(null);
-  }, [debouncedSearchTerm, filterStatus]);
+  }, [debouncedSearchTerm, filterStatus, filterPropertyType, filterState, includeArchived]);
 
   // Bug Fix: Auto-dismiss pagination errors after 5 seconds for better UX
   useEffect(() => {
@@ -229,7 +281,13 @@ export default function PropertiesPage() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: queryKeys.properties.list({ search: debouncedSearchTerm, status: filterStatus }),
+    queryKey: queryKeys.properties.list({
+      search: debouncedSearchTerm,
+      status: filterStatus,
+      propertyType: filterPropertyType,
+      state: filterState,
+      includeArchived,
+    }),
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams({
         limit: PROPERTIES_PAGE_SIZE.toString(),
@@ -242,6 +300,18 @@ export default function PropertiesPage() {
 
       if (filterStatus && filterStatus !== 'all') {
         params.append('status', filterStatus);
+      }
+
+      if (filterPropertyType && filterPropertyType !== 'all') {
+        params.append('propertyType', filterPropertyType);
+      }
+
+      if (filterState && filterState !== 'all') {
+        params.append('state', filterState);
+      }
+
+      if (includeArchived) {
+        params.append('includeArchived', 'true');
       }
 
       const response = await apiClient.get(`/properties?${params.toString()}`);
@@ -647,6 +717,48 @@ export default function PropertiesPage() {
                     </Select>
                   </FormControl>
 
+                  <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
+                    <InputLabel>Type</InputLabel>
+                    <Select
+                      value={filterPropertyType}
+                      label="Type"
+                      onChange={(e) => updateSearchParam('propertyType', e.target.value)}
+                    >
+                      <MenuItem value="all">All Types</MenuItem>
+                      <MenuItem value="Residential">Residential</MenuItem>
+                      <MenuItem value="Commercial">Commercial</MenuItem>
+                      <MenuItem value="Mixed-Use">Mixed-Use</MenuItem>
+                      <MenuItem value="Industrial">Industrial</MenuItem>
+                      <MenuItem value="Retail">Retail</MenuItem>
+                      <MenuItem value="Office">Office</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label="State"
+                    size="small"
+                    value={filterState === 'all' ? '' : filterState}
+                    placeholder="Any"
+                    onChange={(e) => updateSearchParam('state', e.target.value || 'all')}
+                    sx={{ minWidth: 140, flexShrink: 0 }}
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!includeArchived}
+                        onChange={(e) => updateSearchParam('includeArchived', e.target.checked ? 'true' : '')}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                        Show Archived
+                      </Typography>
+                    }
+                    sx={{ ml: 0, flexShrink: 0 }}
+                  />
+
                   {hasFilters && (
                     <Button
                       variant="text"
@@ -735,6 +847,48 @@ export default function PropertiesPage() {
                       <MenuItem value="UNDER_MAINTENANCE">Under Maintenance</MenuItem>
                     </Select>
                   </FormControl>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Type</InputLabel>
+                    <Select
+                      value={filterPropertyType}
+                      label="Type"
+                      onChange={(e) => updateSearchParam('propertyType', e.target.value)}
+                    >
+                      <MenuItem value="all">All Types</MenuItem>
+                      <MenuItem value="Residential">Residential</MenuItem>
+                      <MenuItem value="Commercial">Commercial</MenuItem>
+                      <MenuItem value="Mixed-Use">Mixed-Use</MenuItem>
+                      <MenuItem value="Industrial">Industrial</MenuItem>
+                      <MenuItem value="Retail">Retail</MenuItem>
+                      <MenuItem value="Office">Office</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label="State"
+                    size="small"
+                    value={filterState === 'all' ? '' : filterState}
+                    placeholder="Any"
+                    onChange={(e) => updateSearchParam('state', e.target.value || 'all')}
+                    sx={{ minWidth: 140, flexShrink: 0 }}
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!includeArchived}
+                        onChange={(e) => updateSearchParam('includeArchived', e.target.checked ? 'true' : '')}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ userSelect: 'none' }}>
+                        Show Archived
+                      </Typography>
+                    }
+                    sx={{ ml: 0, flexShrink: 0 }}
+                  />
                 </Stack>
               </Collapse>
             )}
@@ -767,84 +921,383 @@ export default function PropertiesPage() {
             onRetry={refetch}
           />
         ) : properties.length === 0 ? (
-            <EmptyState
-              icon={HomeIcon}
-              title={debouncedSearchTerm || filterStatus !== 'all' ? 'No properties match your filters' : 'No properties yet'}
-              description={
-                debouncedSearchTerm || filterStatus !== 'all'
-                  ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
-                  : 'Get started by adding your first property. You can manage units, track maintenance, and monitor inspections all in one place.'
-              }
-              actionLabel={debouncedSearchTerm || filterStatus !== 'all' ? undefined : 'Add First Property'}
-              onAction={debouncedSearchTerm || filterStatus !== 'all' ? undefined : handleCreate}
-            />
-          ) : (
-            <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
-              {/* Grid View */}
-              {effectiveViewMode === 'grid' && (
-                <Grid container spacing={3}>
-                  {properties.map((property) => (
-                    <Grid item xs={12} sm={6} md={4} key={property.id}>
-                      <Card
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          cursor: 'pointer',
-                          borderRadius: 3,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-                          overflow: 'hidden',
-                          position: 'relative',
-                          transition: 'all 0.3s ease-in-out',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                            opacity: 0,
-                            transition: 'opacity 0.3s ease-in-out',
-                          },
-                          '@media (hover: hover)': {
-                            '&:hover': {
-                              transform: 'translateY(-4px)',
-                              boxShadow: 6,
-                              borderColor: 'primary.main',
-                              '&::before': {
-                                opacity: 1,
-                              },
+          <EmptyState
+            icon={HomeIcon}
+            title={debouncedSearchTerm || filterStatus !== 'all' ? 'No properties match your filters' : 'No properties yet'}
+            description={
+              debouncedSearchTerm || filterStatus !== 'all'
+                ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+                : 'Get started by adding your first property. You can manage units, track maintenance, and monitor inspections all in one place.'
+            }
+            actionLabel={debouncedSearchTerm || filterStatus !== 'all' ? undefined : 'Add First Property'}
+            onAction={debouncedSearchTerm || filterStatus !== 'all' ? undefined : handleCreate}
+          />
+        ) : (
+          <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
+            {/* Grid View */}
+            {effectiveViewMode === 'grid' && (
+              <Grid container spacing={3}>
+                {properties.map((property) => (
+                  <Grid item xs={12} sm={6} md={4} key={property.id}>
+                    <Card
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        transition: 'all 0.3s ease-in-out',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: '4px',
+                          background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                          opacity: 0,
+                          transition: 'opacity 0.3s ease-in-out',
+                        },
+                        '@media (hover: hover)': {
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: 6,
+                            borderColor: 'primary.main',
+                            '&::before': {
+                              opacity: 1,
                             },
                           },
-                        }}
-                        onClick={() => handleCardClick(property.id)}
-                      >
-                        <PropertyImageCarousel
-                          images={property.processedImages}
-                          fallbackText={property.name}
-                          height={{ xs: 180, sm: 200 }}
-                          showDots={property.hasMultipleImages}
-                          showArrows={property.hasMultipleImages}
-                          showCounter={property.hasMultipleImages}
-                          containerSx={gridCarouselContainerSx}
-                        />
+                        },
+                      }}
+                      onClick={() => handleCardClick(property.id)}
+                    >
+                      <PropertyImageCarousel
+                        images={property.processedImages}
+                        fallbackText={property.name}
+                        height={{ xs: 180, sm: 200 }}
+                        showDots={property.hasMultipleImages}
+                        showArrows={property.hasMultipleImages}
+                        showCounter={property.hasMultipleImages}
+                        containerSx={gridCarouselContainerSx}
+                      />
 
-                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                          <Box
+                      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            {property.name}
+                          </Typography>
+                          {/* Bug Fix: Add ARIA label for accessibility */}
+                          {canManageProperties && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleMenuOpen(e, property)}
+                              aria-label={`Actions for ${property.name}`}
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LocationIcon fontSize="small" color="action" />
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ flexGrow: 1, minWidth: 0 }}
+                          >
+                            {property.formattedAddress}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Chip
+                            size="small"
+                            label={property.formattedStatus}
+                            color={property.statusColor}
+                          />
+                          <Chip
+                            size="small"
+                            icon={<ApartmentIcon />}
+                            label={`${property.totalUnits} units`}
+                            variant="outlined"
+                          />
+                        </Box>
+
+                        {property.description && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
                             sx={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              gap: 1,
-                              flexWrap: 'wrap',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
                             }}
                           >
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            {property.description}
+                          </Typography>
+                        )}
+                      </CardContent>
+
+                      <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+                        <Stack spacing={0.5} sx={{ width: '100%' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Type: {property.propertyType || 'N/A'}
+                          </Typography>
+                          {property._count && (
+                            <Typography variant="caption" color="text.secondary">
+                              {property._count.jobs ?? 0} active jobs • {property._count.inspections ?? 0} inspections
+                            </Typography>
+                          )}
+                        </Stack>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+
+            {/* List View */}
+            {effectiveViewMode === 'list' && (
+              <Stack spacing={1.5}>
+                {properties.map((property) => {
+                  const isSelected = selectedPropertyIds.includes(property.id);
+                  return (
+                    <Card
+                      key={property.id}
+                      sx={{
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          boxShadow: 3,
+                        },
+                      }}
+                      onClick={() => handleCardClick(property.id)}
+                    >
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Stack
+                          direction={{ xs: 'column', md: 'row' }}
+                          spacing={2}
+                          alignItems={{ xs: 'flex-start', md: 'center' }}
+                        >
+                          {/* Property Image Thumbnail */}
+                          <Box
+                            sx={{
+                              width: { xs: '100%', md: 80 },
+                              height: 80,
+                              flexShrink: 0,
+                              borderRadius: 1.5,
+                              overflow: 'hidden',
+                              bgcolor: 'action.hover',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {property.processedImages && property.processedImages.length > 0 ? (
+                              <img
+                                src={property.processedImages[0].imageUrl}
+                                alt={property.name}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                }}
+                              />
+                            ) : (
+                              <HomeIcon sx={{ fontSize: 32, color: 'text.disabled' }} />
+                            )}
+                          </Box>
+
+                          {/* Property Name & Type */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                              variant="subtitle1"
+                              sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >
                               {property.name}
                             </Typography>
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {property.propertyType || 'Property'}
+                            </Typography>
+                          </Box>
+
+                          {/* Address */}
+                          <Stack spacing={0.5} sx={{ minWidth: { xs: '100%', md: 200 } }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Address
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <LocationIcon fontSize="small" color="action" />
+                              <Typography variant="body2" noWrap>
+                                {property.formattedAddress || 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Stack>
+
+                          {/* Units */}
+                          <Stack spacing={0.5} sx={{ minWidth: 100 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Units
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <ApartmentIcon fontSize="small" color="action" />
+                              <Typography variant="body2">
+                                {property.totalUnits}
+                              </Typography>
+                            </Box>
+                          </Stack>
+
+                          {/* Status */}
+                          <Stack spacing={0.5} sx={{ minWidth: 120 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Status
+                            </Typography>
+                            <Chip
+                              label={property.formattedStatus}
+                              color={property.statusColor}
+                              size="small"
+                            />
+                          </Stack>
+
+                          {/* Actions */}
+                          <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
+                            <Tooltip title="View details">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCardClick(property.id);
+                                }}
+                                aria-label="View property"
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            {canManageProperties && (
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(property);
+                                  }}
+                                  aria-label="Edit property"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canManageProperties && (
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(property);
+                                  }}
+                                  aria-label="Delete property"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            )}
+
+            {/* Table View */}
+            {effectiveViewMode === 'table' && (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                <Table size="small" aria-label="properties table view">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Property</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">
+                        Units
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">
+                        Jobs
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">
+                        Inspections
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">
+                        Actions
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {properties.map((property) => {
+                      const jobsCount = property._count?.jobs ?? 0;
+                      const inspectionsCount = property._count?.inspections ?? 0;
+
+                      return (
+                        <TableRow
+                          key={property.id}
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => handleCardClick(property.id)}
+                        >
+                          <TableCell>
+                            <Stack spacing={0.5}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                {property.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {property.propertyType || '—'}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {property.formattedAddress || '—'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight={600}>
+                              {property.totalUnits}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2">{jobsCount}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2">{inspectionsCount}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={property.formattedStatus || 'Unknown'}
+                              color={property.statusColor}
+                              sx={{ textTransform: 'capitalize' }}
+                            />
+                          </TableCell>
+                          <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                             {/* Bug Fix: Add ARIA label for accessibility */}
                             {canManageProperties && (
                               <IconButton
@@ -855,339 +1308,40 @@ export default function PropertiesPage() {
                                 <MoreVertIcon />
                               </IconButton>
                             )}
-                          </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
 
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <LocationIcon fontSize="small" color="action" />
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ flexGrow: 1, minWidth: 0 }}
-                            >
-                              {property.formattedAddress}
-                            </Typography>
-                          </Box>
+            {/* Load More Button */}
+            {hasNextPage && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={handleLoadMore}
+                  disabled={isFetchingNextPage}
+                  startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
+                >
+                  {/* Bug Fix: Show remaining count for better user awareness */}
+                  {(() => {
+                    const totalFetched = data?.pages?.reduce((sum, page) => sum + (page.items?.length || 0), 0) || 0;
+                    const total = data?.pages?.[0]?.total;
+                    const remaining = total && total > totalFetched ? total - totalFetched : null;
 
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Chip
-                              size="small"
-                              label={property.formattedStatus}
-                              color={property.statusColor}
-                            />
-                            <Chip
-                              size="small"
-                              icon={<ApartmentIcon />}
-                              label={`${property.totalUnits} units`}
-                              variant="outlined"
-                            />
-                          </Box>
-
-                          {property.description && (
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {property.description}
-                            </Typography>
-                          )}
-                        </CardContent>
-
-                        <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-                          <Stack spacing={0.5} sx={{ width: '100%' }}>
-                            <Typography variant="caption" color="text.secondary">
-                              Type: {property.propertyType || 'N/A'}
-                            </Typography>
-                            {property._count && (
-                              <Typography variant="caption" color="text.secondary">
-                                {property._count.jobs ?? 0} active jobs • {property._count.inspections ?? 0} inspections
-                              </Typography>
-                            )}
-                          </Stack>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-
-              {/* List View */}
-              {effectiveViewMode === 'list' && (
-                <Stack spacing={1.5}>
-                  {properties.map((property) => {
-                    const isSelected = selectedPropertyIds.includes(property.id);
-                    return (
-                      <Card
-                        key={property.id}
-                        sx={{
-                          borderRadius: 2,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          transition: 'all 0.2s ease',
-                          cursor: 'pointer',
-                          '&:hover': {
-                            boxShadow: 3,
-                          },
-                        }}
-                        onClick={() => handleCardClick(property.id)}
-                      >
-                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Stack
-                            direction={{ xs: 'column', md: 'row' }}
-                            spacing={2}
-                            alignItems={{ xs: 'flex-start', md: 'center' }}
-                          >
-                            {/* Property Image Thumbnail */}
-                            <Box
-                              sx={{
-                                width: { xs: '100%', md: 80 },
-                                height: 80,
-                                flexShrink: 0,
-                                borderRadius: 1.5,
-                                overflow: 'hidden',
-                                bgcolor: 'action.hover',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              {property.processedImages && property.processedImages.length > 0 ? (
-                                <img
-                                  src={property.processedImages[0].imageUrl}
-                                  alt={property.name}
-                                  style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                  }}
-                                />
-                              ) : (
-                                <HomeIcon sx={{ fontSize: 32, color: 'text.disabled' }} />
-                              )}
-                            </Box>
-
-                            {/* Property Name & Type */}
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography
-                                variant="subtitle1"
-                                sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                              >
-                                {property.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" noWrap>
-                                {property.propertyType || 'Property'}
-                              </Typography>
-                            </Box>
-
-                            {/* Address */}
-                            <Stack spacing={0.5} sx={{ minWidth: { xs: '100%', md: 200 } }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Address
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <LocationIcon fontSize="small" color="action" />
-                                <Typography variant="body2" noWrap>
-                                  {property.formattedAddress || 'N/A'}
-                                </Typography>
-                              </Box>
-                            </Stack>
-
-                            {/* Units */}
-                            <Stack spacing={0.5} sx={{ minWidth: 100 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Units
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <ApartmentIcon fontSize="small" color="action" />
-                                <Typography variant="body2">
-                                  {property.totalUnits || 0}
-                                </Typography>
-                              </Box>
-                            </Stack>
-
-                            {/* Status */}
-                            <Stack spacing={0.5} sx={{ minWidth: 120 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Status
-                              </Typography>
-                              <Chip
-                                label={property.formattedStatus}
-                                color={property.statusColor}
-                                size="small"
-                              />
-                            </Stack>
-
-                            {/* Actions */}
-                            <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
-                              <Tooltip title="View details">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCardClick(property.id);
-                                  }}
-                                  aria-label="View property"
-                                >
-                                  <VisibilityIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              {canManageProperties && (
-                                <Tooltip title="Edit">
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEdit(property);
-                                    }}
-                                    aria-label="Edit property"
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              {canManageProperties && (
-                                <Tooltip title="Delete">
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(property);
-                                    }}
-                                    aria-label="Delete property"
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Stack>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </Stack>
-              )}
-
-              {/* Table View */}
-              {effectiveViewMode === 'table' && (
-                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-                  <Table size="small" aria-label="properties table view">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>Property</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }} align="right">
-                          Units
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 700 }} align="right">
-                          Jobs
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 700 }} align="right">
-                          Inspections
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }} align="right">
-                          Actions
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {properties.map((property) => {
-                        const jobsCount = property._count?.jobs ?? 0;
-                        const inspectionsCount = property._count?.inspections ?? 0;
-
-                        return (
-                          <TableRow
-                            key={property.id}
-                            hover
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => handleCardClick(property.id)}
-                          >
-                            <TableCell>
-                              <Stack spacing={0.5}>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                  {property.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {property.propertyType || '—'}
-                                </Typography>
-                              </Stack>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" color="text.secondary">
-                                {property.formattedAddress || '—'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" fontWeight={600}>
-                                {property.totalUnits}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2">{jobsCount}</Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2">{inspectionsCount}</Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                size="small"
-                                label={property.formattedStatus || 'Unknown'}
-                                color={property.statusColor}
-                                sx={{ textTransform: 'capitalize' }}
-                              />
-                            </TableCell>
-                            <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                              {/* Bug Fix: Add ARIA label for accessibility */}
-                              {canManageProperties && (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => handleMenuOpen(e, property)}
-                                  aria-label={`Actions for ${property.name}`}
-                                >
-                                  <MoreVertIcon />
-                                </IconButton>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-
-              {/* Load More Button */}
-              {hasNextPage && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={handleLoadMore}
-                    disabled={isFetchingNextPage}
-                    startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
-                  >
-                    {/* Bug Fix: Show remaining count for better user awareness */}
-                    {(() => {
-                      const totalFetched = data?.pages?.reduce((sum, page) => sum + (page.items?.length || 0), 0) || 0;
-                      const total = data?.pages?.[0]?.total;
-                      const remaining = total && total > totalFetched ? total - totalFetched : null;
-
-                      if (isFetchingNextPage) return 'Loading...';
-                      if (remaining !== null && remaining > 0) return `Load More (${remaining} remaining)`;
-                      return 'Load More';
-                    })()}
-                  </Button>
-                </Box>
-              )}
-            </Stack>
-          )}
+                    if (isFetchingNextPage) return 'Loading...';
+                    if (remaining !== null && remaining > 0) return `Load More (${remaining} remaining)`;
+                    return 'Load More';
+                  })()}
+                </Button>
+              </Box>
+            )}
+          </Stack>
+        )}
       </PageShell>
 
       {/* Action Menu */}
@@ -1203,12 +1357,43 @@ export default function PropertiesPage() {
           </MenuItem>
         )}
         {canManageProperties && (
+          <MenuItem onClick={() => handleToggleArchive(selectedProperty)}>
+            {selectedProperty?.archivedAt ? (
+              <UnarchiveIcon fontSize="small" sx={{ mr: 1 }} />
+            ) : (
+              <ArchiveIcon fontSize="small" sx={{ mr: 1 }} />
+            )}
+            {selectedProperty?.archivedAt ? 'Restore' : 'Archive'}
+          </MenuItem>
+        )}
+        {canManageProperties && (
           <MenuItem onClick={() => handleDelete(selectedProperty)} sx={{ color: 'error.main' }}>
             <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
             Delete
           </MenuItem>
         )}
       </Menu>
+
+      <ConfirmDialog
+        open={isArchiveDialogOpen}
+        onClose={() => setIsArchiveDialogOpen(false)}
+        onConfirm={() => {
+          if (!selectedProperty) return;
+          if (selectedProperty.archivedAt) {
+            unarchiveMutation.mutate(selectedProperty.id);
+          } else {
+            archiveMutation.mutate(selectedProperty.id);
+          }
+        }}
+        title={selectedProperty?.archivedAt ? 'Restore Property' : 'Archive Property'}
+        message={
+          selectedProperty?.archivedAt
+            ? `Restore "${selectedProperty?.name}"?`
+            : `Archive "${selectedProperty?.name}"? You can restore it later by enabling Show Archived.`
+        }
+        confirmText={selectedProperty?.archivedAt ? 'Restore' : 'Archive'}
+        severity="warning"
+      />
 
       {/* Property Onboarding Wizard */}
       <PropertyOnboardingWizard

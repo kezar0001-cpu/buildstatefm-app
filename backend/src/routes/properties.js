@@ -94,6 +94,7 @@ const propertyListSelect = {
   totalArea: true,
   yearBuilt: true,
   managerId: true,
+  archivedAt: true,
   createdAt: true,
   updatedAt: true,
   propertyImages: propertyImagesListSelection,
@@ -157,6 +158,68 @@ router.get('/image-diagnostic/:id', async (req, res) => {
     res.json(diagnosticInfo);
   } catch (error) {
     res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+// PATCH /:id/archive - Archive a property (Property Manager only, requires active subscription)
+router.patch('/:id/archive', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const updated = await prisma.property.update({
+      where: { id: property.id },
+      data: { archivedAt: new Date() },
+    });
+
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches(cacheUserIds);
+
+    res.json({ success: true, property: toPublicProperty({ ...property, ...updated }) });
+  } catch (error) {
+    console.error('Archive property error:', error);
+    return sendError(res, 500, 'Failed to archive property', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+// PATCH /:id/unarchive - Unarchive a property (Property Manager only, requires active subscription)
+router.patch('/:id/unarchive', requireRole('PROPERTY_MANAGER'), requireActiveSubscription, async (req, res) => {
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      include: {
+        owners: { select: { ownerId: true } },
+      },
+    });
+
+    const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
+    if (!access.allowed) {
+      const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;
+      return sendError(res, access.status, access.reason, errorCode);
+    }
+
+    const updated = await prisma.property.update({
+      where: { id: property.id },
+      data: { archivedAt: null },
+    });
+
+    const cacheUserIds = collectPropertyCacheUserIds(property, req.user.id);
+    await invalidatePropertyCaches(cacheUserIds);
+
+    res.json({ success: true, property: toPublicProperty({ ...property, ...updated }) });
+  } catch (error) {
+    console.error('Unarchive property error:', error);
+    return sendError(res, 500, 'Failed to unarchive property', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
@@ -1291,6 +1354,8 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
     const now = new Date();
     const shouldGateByManagerSubscription = !['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
 
+    const includeArchived = String(req.query.includeArchived || '').toLowerCase() === 'true';
+
     // Role-scoped property list
     if (req.user.role === 'ADMIN') {
       where = {};
@@ -1339,6 +1404,15 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
       };
     }
 
+    if (!includeArchived) {
+      where = {
+        AND: [
+          where,
+          { archivedAt: null },
+        ],
+      };
+    }
+
     // Parse pagination parameters
     // Bug Fix: Properly handle NaN from parseInt to prevent database query failures
     const MAX_OFFSET = 10000; // Reasonable limit to prevent abuse
@@ -1352,6 +1426,8 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
     const searchInput = req.query.search?.trim() || '';
     const rawSearch = searchInput.length <= 200 ? searchInput : searchInput.substring(0, 200);
     const status = req.query.status?.trim().toUpperCase() || '';
+    const propertyType = req.query.propertyType?.trim() || '';
+    const state = req.query.state?.trim() || '';
 
     // Bug Fix: Log warning when search string is truncated so admins are aware
     if (searchInput.length > 200) {
@@ -1375,6 +1451,14 @@ router.get('/', cacheMiddleware({ ttl: 60 }), async (req, res) => {
     // Add status filter
     if (status && status !== 'ALL' && STATUS_VALUES.includes(status)) {
       where.status = status;
+    }
+
+    if (propertyType) {
+      where.propertyType = propertyType;
+    }
+
+    if (state) {
+      where.state = state;
     }
 
     // Bug Fix: Streamlined pagination - always use limit+1 pattern, count only when needed
@@ -1772,6 +1856,7 @@ router.get('/:id', cacheMiddleware({ ttl: 60 }), async (req, res) => {
       code: error?.code,
       meta: error?.meta,
     });
+
     return sendError(res, 500, 'Failed to fetch property', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
@@ -1787,6 +1872,11 @@ router.patch('/:id', requireRole('PROPERTY_MANAGER'), requireActiveSubscription,
         },
       },
     });
+
+    if (property?.archivedAt) {
+      return sendError(res, 403, 'Archived properties cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
     const access = ensurePropertyAccess(property, req.user, { requireWrite: true });
     if (!access.allowed) {
       const errorCode = access.status === 404 ? ErrorCodes.RES_PROPERTY_NOT_FOUND : ErrorCodes.ACC_PROPERTY_ACCESS_DENIED;

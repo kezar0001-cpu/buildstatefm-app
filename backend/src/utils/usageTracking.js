@@ -17,6 +17,7 @@ export async function getPropertyCount(userId) {
     where: {
       managerId: userId,
       status: 'ACTIVE',
+      archivedAt: null,
     },
   });
 }

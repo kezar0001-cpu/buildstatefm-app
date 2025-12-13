@@ -175,6 +175,7 @@ model Property {
   annualPropertyTax   Float?
   annualInsurance     Float?
   monthlyHOA          Float?
+  archivedAt           DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   managerId           String
@@ -199,6 +200,7 @@ model Property {
   @@index([city, state])
   @@index([managerId, status])
   @@index([status], map: "idx_property_status")
+  @@index([archivedAt])
 }
 
 model PropertyImage {
