@@ -114,15 +114,17 @@ const InspectionsPage = () => {
 
   // Inspections are only accessible to Property Managers and Technicians
   useEffect(() => {
-    if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN'].includes(currentUser.role)) {
+    if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN', 'OWNER'].includes(currentUser.role)) {
       navigate('/dashboard', { replace: true });
     }
   }, [currentUser, navigate]);
 
   // Don't render if user doesn't have access
-  if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN'].includes(currentUser.role)) {
+  if (currentUser && !['PROPERTY_MANAGER', 'TECHNICIAN', 'OWNER'].includes(currentUser.role)) {
     return null;
   }
+
+  const isOwner = currentUser?.role === 'OWNER';
 
   // State management
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
@@ -342,7 +344,7 @@ const InspectionsPage = () => {
   };
 
   const handleView = (id) => {
-    navigate(`/inspections/${id}`);
+    navigate(isOwner ? `/inspections/${id}/report` : `/inspections/${id}`);
   };
 
   const handleViewReport = (id) => {
@@ -420,6 +422,7 @@ const InspectionsPage = () => {
   };
 
   const handleSelectAll = (event) => {
+    if (isOwner) return;
     if (event.target.checked) {
       setSelectedIds(inspectionsWithOverdue.map(i => i.id));
     } else {
@@ -428,6 +431,7 @@ const InspectionsPage = () => {
   };
 
   const handleSelectOne = (id) => {
+    if (isOwner) return;
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
@@ -747,18 +751,22 @@ const InspectionsPage = () => {
       <PageShell
         title="Inspections"
         subtitle="Schedule and manage property inspections"
-        actions={(
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-            <GradientButton
-              startIcon={<AddIcon />}
-              onClick={handleCreate}
-              size="large"
-              sx={{ width: { xs: '100%', md: 'auto' } }}
-            >
-              Schedule Inspection
-            </GradientButton>
-          </Stack>
-        )}
+        actions={
+          isOwner
+            ? undefined
+            : (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                <GradientButton
+                  startIcon={<AddIcon />}
+                  onClick={handleCreate}
+                  size="large"
+                  sx={{ width: { xs: '100%', md: 'auto' } }}
+                >
+                  Schedule Inspection
+                </GradientButton>
+              </Stack>
+            )
+        }
         contentSpacing={{ xs: 3, md: 3 }}
       >
         {/* Filters */}
@@ -768,7 +776,47 @@ const InspectionsPage = () => {
             onSearchChange={(e) => setSearchInput(e.target.value)}
             onSearchClear={() => setSearchInput('')}
             searchPlaceholder="Search inspections..."
-            filters={[
+            filters={isOwner ? [
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                primary: true,
+                minWidth: 150,
+                options: [
+                  { value: '', label: 'All Statuses' },
+                  { value: 'SCHEDULED', label: 'Scheduled' },
+                  { value: 'IN_PROGRESS', label: 'In Progress' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'CANCELLED', label: 'Cancelled' },
+                ],
+              },
+              {
+                key: 'property',
+                label: 'Property',
+                type: 'select',
+                primary: true,
+                minWidth: 180,
+                options: [
+                  { value: '', label: 'All Properties' },
+                  ...properties.map((p) => ({ value: p.id, label: p.name })),
+                ],
+              },
+              {
+                key: 'dateFrom',
+                label: 'From',
+                type: 'date',
+                primary: false,
+                minWidth: 140,
+              },
+              {
+                key: 'dateTo',
+                label: 'To',
+                type: 'date',
+                primary: false,
+                minWidth: 140,
+              },
+            ] : [
               {
                 key: 'status',
                 label: 'Status',
@@ -877,7 +925,7 @@ const InspectionsPage = () => {
         </Box>
 
       {/* Bulk Actions Toolbar - only show when items are selected */}
-      {selectedIds.length > 0 && (
+      {!isOwner && selectedIds.length > 0 && (
         <Paper
           sx={{
             mb: 2,
@@ -933,8 +981,8 @@ const InspectionsPage = () => {
               ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
               : 'Get started by scheduling your first property inspection. Stay on top of maintenance, document findings, and ensure compliance with ease.'
           }
-          actionLabel={hasFilters ? undefined : 'Schedule First Inspection'}
-          onAction={hasFilters ? undefined : handleCreate}
+          actionLabel={hasFilters || isOwner ? undefined : 'Schedule First Inspection'}
+          onAction={hasFilters || isOwner ? undefined : handleCreate}
         />
       ) : (
         <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
@@ -944,13 +992,13 @@ const InspectionsPage = () => {
               inspections={inspectionsWithOverdue}
               onView={handleView}
               onViewReport={handleViewReport}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onStartInspection={handleStartInspection}
-              onCompleteInspection={handleCompleteInspection}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onCancel={handleCancelInspection}
+              onEdit={isOwner ? undefined : handleEdit}
+              onDelete={isOwner ? undefined : handleDeleteClick}
+              onStartInspection={isOwner ? undefined : handleStartInspection}
+              onCompleteInspection={isOwner ? undefined : handleCompleteInspection}
+              onApprove={isOwner ? undefined : handleApprove}
+              onReject={isOwner ? undefined : handleReject}
+              onCancel={isOwner ? undefined : handleCancelInspection}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               formatStatusText={formatStatusText}
@@ -970,10 +1018,10 @@ const InspectionsPage = () => {
               onSelectAll={handleSelectAll}
               onSelect={handleSelectOne}
               onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onCancel={handleCancelInspection}
-              onStatusMenuOpen={handleStatusMenuOpen}
+              onEdit={isOwner ? undefined : handleEdit}
+              onDelete={isOwner ? undefined : handleDeleteClick}
+              onCancel={isOwner ? undefined : handleCancelInspection}
+              onStatusMenuOpen={isOwner ? undefined : handleStatusMenuOpen}
               getStatusColor={getStatusColor}
               formatStatusText={formatStatusText}
             />

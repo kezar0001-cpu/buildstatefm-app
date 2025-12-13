@@ -305,10 +305,12 @@ function NavBar() {
               Profile
             </MenuItem>
             
-            <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
-              <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
-              Subscriptions
-            </MenuItem>
+            {(user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') && (
+              <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
+                <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
+                Subscriptions
+              </MenuItem>
+            )}
 
             {user?.role === 'PROPERTY_MANAGER' && (
               <MenuItem onClick={() => handleUserMenuNavigation('/team')}>
@@ -396,10 +398,12 @@ function NavBar() {
             Profile
           </MenuItem>
           
-          <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
-            <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
-            Subscriptions
-          </MenuItem>
+          {(user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') && (
+            <MenuItem onClick={() => handleUserMenuNavigation('/subscriptions')}>
+              <SubscriptionsIcon fontSize="small" sx={{ mr: 1.5 }} />
+              Subscriptions
+            </MenuItem>
+          )}
 
           {user?.role === 'PROPERTY_MANAGER' && (
             <MenuItem onClick={() => handleUserMenuNavigation('/team')}>

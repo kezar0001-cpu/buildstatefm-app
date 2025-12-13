@@ -324,7 +324,7 @@ export default function OwnerDashboard() {
                         <Button
                           size="small"
                           startIcon={<VisibilityIcon />}
-                          onClick={() => navigate(`/inspections/${inspection.id}`)}
+                          onClick={() => navigate(`/inspections/${inspection.id}/report`)}
                         >
                           View
                         </Button>

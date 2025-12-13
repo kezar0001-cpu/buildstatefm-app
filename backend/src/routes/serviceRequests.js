@@ -546,6 +546,19 @@ router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(r
     if (unauthorizedFields.length > 0) {
       return sendError(res, 403, `You can only update the following fields: ${allowedFields.join(', ')}`, ErrorCodes.ACC_ACCESS_DENIED);
     }
+
+    if (
+      req.user.role === 'PROPERTY_MANAGER' &&
+      updates.status !== undefined &&
+      ['PENDING_OWNER_APPROVAL', 'APPROVED', 'APPROVED_BY_OWNER'].includes(updates.status)
+    ) {
+      return sendError(
+        res,
+        403,
+        'Property managers cannot set this status directly. Add a cost estimate and have the owner approve before converting to a job.',
+        ErrorCodes.BIZ_OPERATION_NOT_ALLOWED
+      );
+    }
     
     // Validate status transition if status is being changed
     if (updates.status !== undefined && updates.status !== existing.status) {
@@ -703,8 +716,14 @@ router.post('/:id/estimate', requireAuth, requireRole('PROPERTY_MANAGER'), async
     }
 
     // Verify it's in the correct status
-    if (serviceRequest.status !== 'PENDING_MANAGER_REVIEW') {
-      return sendError(res, 400, 'Service request must be in PENDING_MANAGER_REVIEW status', ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
+    const validStatuses = ['SUBMITTED', 'UNDER_REVIEW', 'PENDING_MANAGER_REVIEW'];
+    if (!validStatuses.includes(serviceRequest.status)) {
+      return sendError(
+        res,
+        400,
+        `Service request must be in ${validStatuses.join(' or ')} status`,
+        ErrorCodes.BIZ_INVALID_STATUS_TRANSITION
+      );
     }
 
     // Update service request with cost estimate
@@ -987,122 +1006,12 @@ router.post('/:id/reject', requireAuth, requireRole('OWNER'), async (req, res) =
 // Property Manager directly approves service request (bypasses owner approval for simple requests)
 router.post('/:id/manager-approve', requireAuth, requireRole('PROPERTY_MANAGER'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { reviewNotes, approvedBudget } = req.body;
-
-    // Get service request
-    const serviceRequest = await prisma.serviceRequest.findUnique({
-      where: { id },
-      include: {
-        property: {
-          include: {
-            manager: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          }
-        },
-        requestedBy: {
-          select: {
-            id: true,
-            role: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      },
-    });
-
-    if (!serviceRequest) {
-      return sendError(res, 404, 'Service request not found', ErrorCodes.RES_SERVICE_REQUEST_NOT_FOUND);
-    }
-
-    // Archived requests cannot be approved
-    if (serviceRequest.status === 'ARCHIVED') {
-      return sendError(res, 403, 'Archived service requests cannot be modified', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
-    }
-
-    // Verify it's the property manager
-    if (serviceRequest.property.managerId !== req.user.id) {
-      return sendError(res, 403, 'Only the property manager can approve service requests', ErrorCodes.ACC_ROLE_REQUIRED);
-    }
-
-    // Verify it's in a valid status for approval
-    const validStatuses = ['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'];
-    if (!validStatuses.includes(serviceRequest.status)) {
-      return sendError(res, 400, `Cannot approve request with status ${serviceRequest.status}`, ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
-    }
-
-    // Update service request to approved
-    const updatedRequest = await prisma.serviceRequest.update({
-      where: { id },
-      data: {
-        status: 'APPROVED',
-        reviewNotes: reviewNotes || null,
-        approvedBudget: approvedBudget || serviceRequest.managerEstimatedCost || serviceRequest.ownerEstimatedBudget,
-        approvedById: req.user.id,
-        approvedAt: new Date(),
-        lastReviewedById: req.user.id,
-        lastReviewedAt: new Date(),
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            name: true,
-            address: true
-          }
-        },
-        requestedBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      }
-    });
-
-    // Log audit
-    await logAudit({
-      entityType: 'ServiceRequest',
-      entityId: id,
-      action: 'APPROVED_BY_MANAGER',
-      userId: req.user.id,
-      changes: {
-        reviewNotes,
-        approvedBudget,
-        status: { before: serviceRequest.status, after: 'APPROVED' }
-      },
-      req
-    });
-
-    // Clear cache
-    await redisDel(`property:${serviceRequest.propertyId}:*`);
-
-    // Send notification to requester
-    try {
-      await sendNotification({
-        userId: serviceRequest.requestedById,
-        type: 'SERVICE_REQUEST_APPROVED',
-        title: 'Service Request Approved',
-        message: `Your service request "${serviceRequest.title}" has been approved by the property manager.`,
-        data: {
-          serviceRequestId: id,
-          propertyId: serviceRequest.propertyId
-        }
-      });
-    } catch (notifError) {
-      console.error('Failed to send approval notification:', notifError);
-    }
-
-    res.json({ success: true, request: updatedRequest });
+    return sendError(
+      res,
+      403,
+      'Direct manager approval is disabled. Add a cost estimate to send to the owner for approval.',
+      ErrorCodes.BIZ_OPERATION_NOT_ALLOWED
+    );
   } catch (error) {
     console.error('Error approving service request:', error);
     return sendError(res, 500, 'Failed to approve service request', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -1162,7 +1071,7 @@ router.post('/:id/manager-reject', requireAuth, requireRole('PROPERTY_MANAGER'),
     }
 
     // Verify it's in a valid status for rejection
-    const validStatuses = ['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'];
+    const validStatuses = ['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW', 'PENDING_OWNER_APPROVAL', 'APPROVED_BY_OWNER', 'APPROVED'];
     if (!validStatuses.includes(serviceRequest.status)) {
       return sendError(res, 400, `Cannot reject request with status ${serviceRequest.status}`, ErrorCodes.BIZ_INVALID_STATUS_TRANSITION);
     }
@@ -1280,8 +1189,13 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
     }
 
     // Check if service request is approved (for owner-initiated requests)
-    if (serviceRequest.status === 'PENDING_MANAGER_REVIEW' || serviceRequest.status === 'PENDING_OWNER_APPROVAL') {
-      return sendError(res, 400, 'Cannot convert service request that is still pending approval', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    if (serviceRequest.status !== 'APPROVED_BY_OWNER') {
+      return sendError(
+        res,
+        400,
+        'Cannot convert service request until it has been approved by the owner',
+        ErrorCodes.BIZ_OPERATION_NOT_ALLOWED
+      );
     }
 
     // Use approved budget if available, otherwise use provided or existing estimated cost

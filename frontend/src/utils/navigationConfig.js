@@ -134,6 +134,7 @@ export const MOBILE_NAV_ITEMS = {
     { name: 'Dashboard', href: '/owner/dashboard', icon: DashboardIcon },
     { name: 'Properties', href: '/properties', icon: HomeIcon },
     { name: 'Inspections', href: '/inspections', icon: AssignmentIcon },
+    { name: 'Requests', href: '/service-requests', icon: ServiceRequestIcon },
   ],
   TENANT: [
     { name: 'Home', href: '/tenant/dashboard', icon: DashboardIcon },

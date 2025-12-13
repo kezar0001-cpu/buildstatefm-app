@@ -266,7 +266,7 @@ describe('ServiceRequestDetailModal', () => {
   });
 
   it('converts a request to a job and refreshes caches', async () => {
-    const request = createRequest({ status: 'APPROVED' });
+    const request = createRequest({ status: 'APPROVED_BY_OWNER' });
     await renderModal({ request });
 
     apiClient.post.mockResolvedValue({ data: { success: true } });
@@ -285,7 +285,7 @@ describe('ServiceRequestDetailModal', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.jobs.all() })
       );
-      expect(toast.success).toHaveBeenCalledWith('Converted to job successfully');
+      expect(toast.success).toHaveBeenCalledWith('Service request converted to job successfully');
       expect(mockOnClose).toHaveBeenCalled();
     });
   });

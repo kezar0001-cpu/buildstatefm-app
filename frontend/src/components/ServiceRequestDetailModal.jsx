@@ -190,27 +190,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     },
   });
 
-  // Manager direct approval mutation
-  const managerApproveMutation = useMutation({
-    mutationFn: async ({ reviewNotes, approvedBudget }) => {
-      const response = await apiClient.post(`/service-requests/${requestId}/manager-approve`, {
-        reviewNotes,
-        approvedBudget: approvedBudget ? parseFloat(approvedBudget) : undefined,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
-      toast.success('Service request approved');
-      handleCancelReview();
-      onClose();
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to approve request');
-    },
-  });
-
   // Manager direct rejection mutation
   const managerRejectMutation = useMutation({
     mutationFn: async ({ rejectionReason, reviewNotes }) => {
@@ -239,13 +218,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
   const handleReject = () => {
     setReviewAction('reject');
-    setShowReviewInput(true);
-  };
-
-  const handleManagerApprove = () => {
-    setReviewAction('manager-approve');
-    setReviewNotes('');
-    setApprovedBudget('');
     setShowReviewInput(true);
   };
 
@@ -282,11 +254,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
       updateMutation.mutate({
         status: reviewAction === 'approve' ? 'APPROVED' : 'REJECTED',
         reviewNotes: reviewNotes.trim(),
-      });
-    } else if (reviewAction === 'manager-approve') {
-      managerApproveMutation.mutate({
-        reviewNotes: reviewNotes.trim() || undefined,
-        approvedBudget: approvedBudget || undefined,
       });
     } else if (reviewAction === 'manager-reject') {
       if (!rejectionReason.trim()) {
@@ -371,7 +338,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
   const isPendingMutation = updateMutation.isPending || 
     addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
-    managerApproveMutation.isPending || managerRejectMutation.isPending;
+    managerRejectMutation.isPending;
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -632,7 +599,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                   <Typography variant="subtitle2" gutterBottom fontWeight={600}>
                     {reviewAction === 'approve' && 'Approve Request'}
                     {reviewAction === 'reject' && 'Reject Request'}
-                    {reviewAction === 'manager-approve' && 'Approve Service Request'}
                     {reviewAction === 'manager-reject' && 'Reject Service Request'}
                     {reviewAction === 'add-estimate' && 'Add Cost Estimate'}
                     {reviewAction === 'owner-approve' && 'Approve Service Request (Owner)'}
@@ -656,35 +622,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                       disabled={isPendingMutation}
                       sx={{ mt: 1 }}
                     />
-                  )}
-
-                  {/* Manager direct approve */}
-                  {reviewAction === 'manager-approve' && (
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Review Notes (Optional)"
-                        value={reviewNotes}
-                        onChange={(e) => setReviewNotes(e.target.value)}
-                        placeholder="Add any notes about the approval..."
-                        disabled={isPendingMutation}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Approved Budget (Optional)"
-                        type="number"
-                        value={approvedBudget}
-                        onChange={(e) => setApprovedBudget(e.target.value)}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                        }}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        disabled={isPendingMutation}
-                        helperText="Specify budget if applicable"
-                      />
-                    </Stack>
                   )}
 
                   {/* Manager direct reject */}
@@ -791,21 +728,17 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                     </Button>
                     <Button
                       onClick={handleSubmitReview}
-                      variant="contained"
-                      color={
-                        ['approve', 'manager-approve', 'owner-approve', 'add-estimate'].includes(reviewAction)
-                          ? 'success'
-                          : 'error'
-                      }
+                      color={reviewAction === 'add-estimate' ? 'primary' : reviewAction === 'owner-reject' || reviewAction === 'reject' ? 'error' : 'success'}
+                      variant={reviewAction === 'add-estimate' ? 'contained' : 'contained'}
                       disabled={isPendingMutation}
                       startIcon={
                         reviewAction === 'add-estimate' ? <MoneyIcon /> :
-                        ['approve', 'manager-approve', 'owner-approve'].includes(reviewAction) ? <CheckCircleIcon /> : <CancelIcon />
+                        ['approve', 'owner-approve'].includes(reviewAction) ? <CheckCircleIcon /> : <CancelIcon />
                       }
                     >
                       {isPendingMutation
                         ? 'Submitting...'
-                        : ['approve', 'manager-approve', 'owner-approve'].includes(reviewAction)
+                        : ['approve', 'owner-approve'].includes(reviewAction)
                         ? 'Approve'
                         : reviewAction === 'add-estimate'
                         ? 'Submit Estimate'
@@ -832,15 +765,6 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                   disabled={isPendingMutation}
                 >
                   Reject
-                </Button>
-                <Button
-                  onClick={handleManagerApprove}
-                  color="success"
-                  variant="contained"
-                  startIcon={<CheckCircleIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Approve
                 </Button>
                 <Button
                   onClick={handleAddEstimate}
@@ -878,7 +802,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
             )}
 
             {/* Schedule Inspection or Convert to Job for APPROVED status */}
-            {(data.status === 'APPROVED' || data.status === 'APPROVED_BY_OWNER') && userRole === 'PROPERTY_MANAGER' && (
+            {data.status === 'APPROVED_BY_OWNER' && userRole === 'PROPERTY_MANAGER' && (
               <>
                 <Button
                   onClick={() => {

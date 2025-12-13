@@ -142,7 +142,7 @@ export default function ConvertServiceRequestToJobDialog({
   if (!serviceRequest) return null;
 
   // Check if request can be converted
-  const canConvert = !['CONVERTED_TO_JOB', 'ARCHIVED', 'PENDING_MANAGER_REVIEW', 'PENDING_OWNER_APPROVAL'].includes(serviceRequest.status);
+  const canConvert = serviceRequest.status === 'APPROVED_BY_OWNER';
 
   return (
     <Dialog

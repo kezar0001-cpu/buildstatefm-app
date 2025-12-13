@@ -369,6 +369,10 @@ const ServiceRequestsPage = () => {
   };
 
   const handleConvert = (request) => {
+    if (request?.status !== 'APPROVED_BY_OWNER') {
+      toast.error('This request must be approved by the owner before it can be converted to a job');
+      return;
+    }
     setConvertDialog(request);
   };
 
@@ -1589,7 +1593,7 @@ const ServiceRequestKanban = ({
 
                       {/* Actions */}
                       <Stack direction="column" spacing={1} sx={{ mt: 'auto', pt: 1 }}>
-                        {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                        {userRole !== 'TENANT' && ['SUBMITTED', 'UNDER_REVIEW', 'PENDING_MANAGER_REVIEW'].includes(request.status) && (
                           <Stack direction="row" spacing={1}>
                             <Button
                               size="small"
@@ -1602,6 +1606,10 @@ const ServiceRequestKanban = ({
                             >
                               Review
                             </Button>
+                          </Stack>
+                        )}
+                        {userRole === 'PROPERTY_MANAGER' && request.status === 'APPROVED_BY_OWNER' && (
+                          <Stack direction="row" spacing={1}>
                             <Button
                               size="small"
                               variant="contained"
@@ -1711,7 +1719,6 @@ const ReviewDialog = ({ request, onClose, onSuccess }) => {
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             >
               <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-              <MenuItem value="APPROVED">Approved</MenuItem>
               <MenuItem value="REJECTED">Rejected</MenuItem>
             </TextField>
             <TextField

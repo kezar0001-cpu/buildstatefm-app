@@ -196,8 +196,8 @@ router.get('/inspectors', requireAuth, async (req, res) => {
   }
 });
 
-// Inspections are only accessible to Property Managers and Technicians
-router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_ADMIN), hydrateInspectionUser, inspectionController.listInspections);
+// Inspections are only accessible to Property Managers, Owners and Technicians
+router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_OWNER, ROLE_ADMIN), hydrateInspectionUser, inspectionController.listInspections);
 
 router.post(
   '/',

@@ -43,7 +43,7 @@ export const InspectionContextActions = ({
   showSecondaryActions = false,
 }) => {
   const { user: currentUser } = useCurrentUser();
-  const isManager = currentUser?.role === 'MANAGER';
+  const isManager = currentUser?.role === 'PROPERTY_MANAGER' || currentUser?.role === 'ADMIN';
   const isAssigned = inspection?.assignedToId === currentUser?.id;
 
   // Determine primary action based on status
