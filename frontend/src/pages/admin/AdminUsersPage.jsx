@@ -18,8 +18,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import apiClient from '../../api/client';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const ACTIVE_WINDOW_DAYS = 30;
 
@@ -45,14 +46,27 @@ export default function AdminUsersPage() {
   const [tab, setTab] = useState('users');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [users, setUsers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [search, setSearch] = useState('');
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = useState(false);
+  const [hardDeleteUser, setHardDeleteUser] = useState(null);
+  const [hardDeleteLoading, setHardDeleteLoading] = useState(false);
+  const [hardDeleteError, setHardDeleteError] = useState('');
+  const [hardDeletePreview, setHardDeletePreview] = useState(null);
 
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError('');
+      setSuccess('');
 
       const [usersRes, invitesRes] = await Promise.all([
         apiClient.get('/admin/users', { params: { limit: 200, search: search || undefined } }),
@@ -65,6 +79,104 @@ export default function AdminUsersPage() {
       setError(err?.response?.data?.message || 'Failed to load user data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openHardDeleteDialog = async (user) => {
+    if (!user?.id) return;
+    try {
+      setHardDeleteError('');
+      setHardDeletePreview(null);
+      setHardDeleteUser(user);
+      setHardDeleteDialogOpen(true);
+      setHardDeleteLoading(true);
+
+      const previewRes = await apiClient.get(`/admin/users/${user.id}/deletion-preview`);
+      setHardDeletePreview(previewRes?.data?.data || null);
+    } catch (err) {
+      setHardDeleteError(err?.response?.data?.message || 'Failed to load deletion preview');
+    } finally {
+      setHardDeleteLoading(false);
+    }
+  };
+
+  const closeHardDeleteDialog = () => {
+    if (hardDeleteLoading) return;
+    setHardDeleteDialogOpen(false);
+    setHardDeleteUser(null);
+    setHardDeletePreview(null);
+    setHardDeleteError('');
+  };
+
+  const confirmHardDelete = async () => {
+    if (!hardDeleteUser?.id) return;
+    try {
+      setHardDeleteLoading(true);
+      setHardDeleteError('');
+
+      const res = await apiClient.delete(`/admin/users/${hardDeleteUser.id}/hard`, { params: { force: true } });
+      setSuccess(res?.data?.message || 'User hard-deleted');
+      closeHardDeleteDialog();
+      await fetchAll();
+    } catch (err) {
+      setHardDeleteError(err?.response?.data?.message || 'Failed to hard delete user');
+    } finally {
+      setHardDeleteLoading(false);
+    }
+  };
+
+  const hardDeleteMessage = useMemo(() => {
+    const email = hardDeleteUser?.email || 'this user';
+    const counts = hardDeletePreview?.counts;
+    if (!counts) {
+      return `Hard delete ${email}? This will permanently remove the user record and may cascade-delete related data.`;
+    }
+
+    const summary = [
+      `Managed properties: ${counts.managedProperties ?? 0}`,
+      `Owned properties: ${counts.ownedProperties ?? 0}`,
+      `Service requests requested: ${counts.serviceRequestsRequested ?? 0}`,
+      `Jobs created: ${counts.jobsCreated ?? 0}`,
+      `Jobs assigned: ${counts.jobsAssigned ?? 0}`,
+      `Job comments: ${counts.jobComments ?? 0}`,
+      `Recommendation comments: ${counts.recommendationComments ?? 0}`,
+      `Invites accepted (linked): ${counts.invitesAccepted ?? 0}`,
+    ].join(' | ');
+
+    const warning = hardDeletePreview?.wouldCascadeDeleteCoreData
+      ? 'WARNING: core data detected (use extreme caution; this can cascade-delete data).'
+      : 'No core data detected, but this is still irreversible.';
+
+    return `Hard delete ${email}? ${warning} ${summary}`;
+  }, [hardDeletePreview, hardDeleteUser]);
+
+  const openDeleteDialog = (user) => {
+    setDeleteError('');
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteLoading) return;
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+    setDeleteError('');
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete?.id) return;
+    try {
+      setDeleteLoading(true);
+      setDeleteError('');
+
+      const res = await apiClient.delete(`/admin/users/${userToDelete.id}`);
+      setSuccess(res?.data?.message || 'User deleted');
+      closeDeleteDialog();
+      await fetchAll();
+    } catch (err) {
+      setDeleteError(err?.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -129,6 +241,12 @@ export default function AdminUsersPage() {
         </Alert>
       )}
 
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
+
       <Tabs
         value={tab}
         onChange={(_, next) => setTab(next)}
@@ -150,18 +268,19 @@ export default function AdminUsersPage() {
                 <TableCell>Recently Active</TableCell>
                 <TableCell>Last Login</TableCell>
                 <TableCell>Created</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     No users found
                   </TableCell>
                 </TableRow>
@@ -188,6 +307,29 @@ export default function AdminUsersPage() {
                     </TableCell>
                     <TableCell>{formatDateTime(u.lastLoginAt)}</TableCell>
                     <TableCell>{formatDateTime(u.createdAt)}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          size="small"
+                          startIcon={<DeleteIcon />}
+                          onClick={() => openDeleteDialog(u)}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="error"
+                          size="small"
+                          onClick={() => openHardDeleteDialog(u)}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          Hard Delete
+                        </Button>
+                      </Stack>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -255,6 +397,34 @@ export default function AdminUsersPage() {
           </Table>
         )}
       </Paper>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={confirmDelete}
+        title="Delete User Account"
+        message={`Delete ${userToDelete?.email || 'this user'}? This will disable their account and anonymize their identity. This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={deleteLoading}
+        error={deleteError}
+        disableBackdropClick
+      />
+
+      <ConfirmDialog
+        open={hardDeleteDialogOpen}
+        onClose={closeHardDeleteDialog}
+        onConfirm={confirmHardDelete}
+        title="Hard Delete User"
+        message={hardDeleteMessage}
+        confirmLabel="Hard Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={hardDeleteLoading}
+        error={hardDeleteError}
+        disableBackdropClick
+      />
     </Box>
   );
 }

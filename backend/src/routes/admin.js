@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import prisma from '../config/prismaClient.js';
 import { requireAdmin, logAdminAction } from '../middleware/adminAuth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
@@ -491,6 +492,285 @@ router.patch('/users/:id', requireAdmin, logAdminAction('update_user'), async (r
   } catch (error) {
     console.error('[Admin] Update user error:', error);
     return sendError(res, 500, 'Failed to update user', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+/**
+ * GET /api/admin/users/:id/deletion-preview
+ * Returns dependency counts and whether a hard delete would cascade-delete core data.
+ */
+router.get('/users/:id/deletion-preview', requireAdmin, logAdminAction('view_user_deletion_preview'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return sendError(res, 400, 'User id is required', ErrorCodes.ERR_VALIDATION);
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
+
+    if (!targetUser) {
+      return sendError(res, 404, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    const [
+      managedProperties,
+      ownedProperties,
+      serviceRequestsRequested,
+      jobsCreated,
+      jobsAssigned,
+      jobComments,
+      recommendationComments,
+      recommendationsApproved,
+      inspectionsAssigned,
+      inspectionsCompleted,
+      inspectionsApproved,
+      inspectionsRejected,
+      invitesAccepted,
+    ] = await Promise.all([
+      prisma.property.count({ where: { managerId: id } }),
+      prisma.propertyOwner.count({ where: { ownerId: id } }),
+      prisma.serviceRequest.count({ where: { requestedById: id } }),
+      prisma.job.count({ where: { createdById: id } }),
+      prisma.job.count({ where: { assignedToId: id } }),
+      prisma.jobComment.count({ where: { userId: id } }),
+      prisma.recommendationComment.count({ where: { userId: id } }),
+      prisma.recommendation.count({ where: { approvedById: id } }),
+      prisma.inspection.count({ where: { assignedToId: id } }),
+      prisma.inspection.count({ where: { completedById: id } }),
+      prisma.inspection.count({ where: { approvedById: id } }),
+      prisma.inspection.count({ where: { rejectedById: id } }),
+      prisma.invite.count({ where: { invitedUserId: id } }),
+    ]);
+
+    const wouldCascadeDeleteCoreData =
+      managedProperties > 0 ||
+      ownedProperties > 0 ||
+      serviceRequestsRequested > 0 ||
+      jobsCreated > 0;
+
+    return res.json({
+      success: true,
+      data: {
+        user: targetUser,
+        counts: {
+          managedProperties,
+          ownedProperties,
+          serviceRequestsRequested,
+          jobsCreated,
+          jobsAssigned,
+          jobComments,
+          recommendationComments,
+          recommendationsApproved,
+          inspectionsAssigned,
+          inspectionsCompleted,
+          inspectionsApproved,
+          inspectionsRejected,
+          invitesAccepted,
+        },
+        wouldCascadeDeleteCoreData,
+        notes: {
+          hardDeletePermanentlyRemovesRows: true,
+          forceRequiredIfCoreData: true,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] User deletion preview error:', error);
+    return sendError(res, 500, 'Failed to load deletion preview', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id/hard
+ * Permanently deletes the user row and (depending on schema) cascades to related data.
+ *
+ * Safety:
+ * - blocks self-delete
+ * - prevents deleting last active admin
+ * - blocks unless `force=true` when it would cascade-delete core data
+ * - explicitly deletes / NULLs non-cascading FK references so the delete does not fail
+ */
+router.delete('/users/:id/hard', requireAdmin, logAdminAction('hard_delete_user'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const force = String(req.query.force || '').toLowerCase() === 'true';
+
+    if (!id) {
+      return sendError(res, 400, 'User id is required', ErrorCodes.ERR_VALIDATION);
+    }
+
+    if (req.user?.id === id) {
+      return sendError(res, 400, 'You cannot delete your own admin account', ErrorCodes.ERR_VALIDATION);
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
+
+    if (!targetUser) {
+      return sendError(res, 404, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    if (targetUser.role === 'ADMIN' && targetUser.isActive) {
+      const remainingActiveAdmins = await prisma.user.count({
+        where: {
+          role: 'ADMIN',
+          isActive: true,
+          NOT: { id: targetUser.id },
+        },
+      });
+
+      if (remainingActiveAdmins < 1) {
+        return sendError(res, 400, 'Cannot delete the last active admin account', ErrorCodes.ERR_VALIDATION);
+      }
+    }
+
+    const [managedProperties, ownedProperties, serviceRequestsRequested, jobsCreated] = await Promise.all([
+      prisma.property.count({ where: { managerId: id } }),
+      prisma.propertyOwner.count({ where: { ownerId: id } }),
+      prisma.serviceRequest.count({ where: { requestedById: id } }),
+      prisma.job.count({ where: { createdById: id } }),
+    ]);
+
+    const wouldCascadeDeleteCoreData =
+      managedProperties > 0 ||
+      ownedProperties > 0 ||
+      serviceRequestsRequested > 0 ||
+      jobsCreated > 0;
+
+    if (wouldCascadeDeleteCoreData && !force) {
+      return sendError(
+        res,
+        400,
+        'Hard delete would cascade-delete core data (properties/service requests/jobs). Re-run with ?force=true or use safe delete.',
+        ErrorCodes.ERR_VALIDATION
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // NULL optional refs that do not cascade
+      await Promise.all([
+        tx.invite.updateMany({ where: { invitedUserId: id }, data: { invitedUserId: null } }),
+        tx.job.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } }),
+        tx.inspection.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } }),
+        tx.inspection.updateMany({ where: { completedById: id }, data: { completedById: null } }),
+        tx.inspection.updateMany({ where: { approvedById: id }, data: { approvedById: null } }),
+        tx.inspection.updateMany({ where: { rejectedById: id }, data: { rejectedById: null } }),
+        tx.serviceRequest.updateMany({ where: { approvedById: id }, data: { approvedById: null } }),
+        tx.serviceRequest.updateMany({ where: { rejectedById: id }, data: { rejectedById: null } }),
+        tx.serviceRequest.updateMany({ where: { lastReviewedById: id }, data: { lastReviewedById: null } }),
+        tx.recommendation.updateMany({ where: { approvedById: id }, data: { approvedById: null } }),
+        tx.maintenancePlan.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } }),
+      ]);
+
+      // Delete required non-cascading refs
+      await Promise.all([
+        tx.jobComment.deleteMany({ where: { userId: id } }),
+        tx.recommendationComment.deleteMany({ where: { userId: id } }),
+      ]);
+
+      // Jobs created by this user reference userId in a required non-cascading relation (createdById).
+      // If we are hard-deleting the user, we must delete those jobs first.
+      await tx.job.deleteMany({ where: { createdById: id } });
+
+      await tx.user.delete({ where: { id } });
+    });
+
+    return res.json({
+      success: true,
+      message: 'User hard-deleted successfully',
+    });
+  } catch (error) {
+    console.error('[Admin] Hard delete user error:', error);
+    return sendError(res, 500, 'Failed to hard delete user', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Safe-delete a user account.
+ *
+ * Hard deleting users in this schema can cascade-delete properties/audit logs.
+ * So we do a "safe delete": disable account + revoke credentials + anonymize identity.
+ */
+router.delete('/users/:id', requireAdmin, logAdminAction('delete_user'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return sendError(res, 400, 'User id is required', ErrorCodes.ERR_VALIDATION);
+    }
+
+    if (req.user?.id === id) {
+      return sendError(res, 400, 'You cannot delete your own admin account', ErrorCodes.ERR_VALIDATION);
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!targetUser) {
+      return sendError(res, 404, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
+    }
+
+    if (targetUser.role === 'ADMIN' && targetUser.isActive) {
+      const remainingActiveAdmins = await prisma.user.count({
+        where: {
+          role: 'ADMIN',
+          isActive: true,
+          NOT: { id: targetUser.id },
+        },
+      });
+
+      if (remainingActiveAdmins < 1) {
+        return sendError(res, 400, 'Cannot delete the last active admin account', ErrorCodes.ERR_VALIDATION);
+      }
+    }
+
+    const anonymizedEmail = `deleted+${targetUser.id}+${Date.now()}@deleted.invalid`;
+    const newPasswordHash = crypto.randomBytes(48).toString('hex');
+
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUser.id },
+      data: {
+        isActive: false,
+        emailVerified: false,
+        refreshTokenHash: null,
+        lastLoginAt: null,
+        email: anonymizedEmail,
+        firstName: 'Deleted',
+        lastName: 'User',
+        phone: null,
+        passwordHash: newPasswordHash,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedUser,
+      message: 'User account deleted (disabled + anonymized) successfully',
+    });
+  } catch (error) {
+    console.error('[Admin] Delete user error:', error);
+    return sendError(res, 500, 'Failed to delete user', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 

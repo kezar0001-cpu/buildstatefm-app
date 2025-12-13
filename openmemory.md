@@ -42,6 +42,11 @@
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
   - Disabled backend mounts for reports by removing `reports`/`new-reports` from `backend/src/routes/index.js` and `/api/reports` from `backend/src/index.js`.
 
+- **Admin user deletion policy**:
+  - Default: *safe-delete* (disable + anonymize + revoke credentials) via `DELETE /api/admin/users/:id`.
+  - Hard delete: `GET /api/admin/users/:id/deletion-preview` + `DELETE /api/admin/users/:id/hard?force=true`.
+  - Hard delete blocks without `force=true` when it would cascade-delete core data (properties/service requests/jobs).
+
 ## CI
 - **GitHub Actions:** `.github/workflows/ci.yml`
   - Runs **frontend** `npm ci`, **smoke tests** (small subset), then `npm run build`.
