@@ -19,6 +19,14 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   const searchTerm = q.trim();
   const searchLimit = Math.min(parseInt(limit, 10) || 20, 50);
 
+  const perEntityTake = Math.max(1, Math.ceil(searchLimit / 6));
+
+  const propertySearchOr = [
+    { name: { contains: searchTerm, mode: 'insensitive' } },
+    { address: { contains: searchTerm, mode: 'insensitive' } },
+    { city: { contains: searchTerm, mode: 'insensitive' } },
+  ];
+
   console.log(`[GlobalSearch] Searching for "${searchTerm}" by user ${req.user.id} (${req.user.role})`);
 
   // Build search filters based on user role
@@ -117,12 +125,11 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     where: {
       ...propertyFilter,
       OR: [
-        { name: { contains: searchTerm, mode: 'insensitive' } },
-        { address: { contains: searchTerm, mode: 'insensitive' } },
-        { city: { contains: searchTerm, mode: 'insensitive' } }
+        ...propertySearchOr,
+        { state: { contains: searchTerm, mode: 'insensitive' } }
       ]
     },
-    take: Math.ceil(searchLimit / 4),
+    take: perEntityTake,
     select: {
       id: true,
       name: true,
@@ -151,10 +158,13 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       ...(Array.isArray(relatedPropertyIds) ? { propertyId: { in: relatedPropertyIds } } : {}),
       OR: [
         { title: { contains: searchTerm, mode: 'insensitive' } },
-        { description: { contains: searchTerm, mode: 'insensitive' } }
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+        { notes: { contains: searchTerm, mode: 'insensitive' } },
+        { technicianNotes: { contains: searchTerm, mode: 'insensitive' } },
+        { property: { is: { OR: propertySearchOr } } },
       ]
     },
-    take: Math.ceil(searchLimit / 4),
+    take: perEntityTake,
     select: {
       id: true,
       title: true,
@@ -177,10 +187,11 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       ...(Array.isArray(relatedPropertyIds) ? { propertyId: { in: relatedPropertyIds } } : {}),
       OR: [
         { title: { contains: searchTerm, mode: 'insensitive' } },
-        { notes: { contains: searchTerm, mode: 'insensitive' } }
+        { notes: { contains: searchTerm, mode: 'insensitive' } },
+        { property: { OR: propertySearchOr } },
       ]
     },
-    take: Math.ceil(searchLimit / 4),
+    take: perEntityTake,
     select: {
       id: true,
       title: true,
@@ -197,14 +208,22 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     orderBy: { scheduledDate: 'desc' }
   });
 
-  // Search service requests (only for property managers and tenants)
+  // Search service requests (property managers, owners, and tenants)
   let serviceRequests = [];
-  if (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'TENANT') {
+  if (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'OWNER' || req.user.role === 'TENANT') {
     const serviceRequestFilter = req.user.role === 'TENANT'
       ? { requestedById: req.user.id }
-      : Array.isArray(relatedPropertyIds)
-        ? { propertyId: { in: relatedPropertyIds } }
-        : {};
+      : req.user.role === 'OWNER'
+        ? {
+          property: {
+            owners: {
+              some: { ownerId: req.user.id },
+            },
+          },
+        }
+        : Array.isArray(relatedPropertyIds)
+          ? { propertyId: { in: relatedPropertyIds } }
+          : {};
 
     serviceRequests = await prisma.serviceRequest.findMany({
       where: {
@@ -213,10 +232,12 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         status: { not: 'ARCHIVED' },
         OR: [
           { title: { contains: searchTerm, mode: 'insensitive' } },
-          { description: { contains: searchTerm, mode: 'insensitive' } }
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+          { reviewNotes: { contains: searchTerm, mode: 'insensitive' } },
+          { property: { OR: propertySearchOr } },
         ]
       },
-      take: Math.ceil(searchLimit / 4),
+      take: perEntityTake,
       select: {
         id: true,
         title: true,
@@ -243,10 +264,11 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         archivedAt: null,
         OR: [
           { name: { contains: searchTerm, mode: 'insensitive' } },
-          { description: { contains: searchTerm, mode: 'insensitive' } }
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+          { property: { OR: propertySearchOr } },
         ]
       },
-      take: Math.ceil(searchLimit / 4),
+      take: perEntityTake,
       select: {
         id: true,
         name: true,
@@ -261,6 +283,56 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
         }
       },
       orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Search recommendations (property managers, owners, technicians)
+  let recommendations = [];
+  if (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'OWNER' || req.user.role === 'TECHNICIAN' || req.user.role === 'ADMIN') {
+    const recommendationRoleWhere = {};
+
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      recommendationRoleWhere.property = { managerId: req.user.id };
+    } else if (req.user.role === 'OWNER') {
+      recommendationRoleWhere.property = {
+        owners: {
+          some: { ownerId: req.user.id },
+        },
+      };
+    } else if (req.user.role === 'TECHNICIAN') {
+      recommendationRoleWhere.OR = [
+        { createdById: req.user.id },
+        { report: { is: { inspection: { is: { assignedToId: req.user.id } } } } },
+      ];
+    }
+
+    recommendations = await prisma.recommendation.findMany({
+      where: {
+        ...recommendationRoleWhere,
+        ...(Array.isArray(relatedPropertyIds) ? { propertyId: { in: relatedPropertyIds } } : {}),
+        OR: [
+          { title: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+          { rejectionReason: { contains: searchTerm, mode: 'insensitive' } },
+          { managerResponse: { contains: searchTerm, mode: 'insensitive' } },
+          { property: { OR: propertySearchOr } },
+        ],
+      },
+      take: perEntityTake,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        priority: true,
+        property: {
+          select: {
+            name: true,
+            address: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -305,6 +377,16 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       priority: request.priority,
       link: `/service-requests`
     })),
+    ...recommendations.map(rec => ({
+      id: rec.id,
+      type: 'recommendation',
+      title: rec.title,
+      description: rec.description,
+      subtitle: `${rec.property.name} - ${rec.status}`,
+      status: rec.status,
+      priority: rec.priority,
+      link: `/recommendations`
+    })),
     ...maintenancePlans.map(plan => ({
       id: plan.id,
       type: 'plan',
@@ -316,7 +398,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     }))
   ];
 
-  console.log(`[GlobalSearch] Found ${results.length} results (${properties.length} properties, ${jobs.length} jobs, ${inspections.length} inspections, ${serviceRequests.length} service requests, ${maintenancePlans.length} plans)`);
+  console.log(`[GlobalSearch] Found ${results.length} results (${properties.length} properties, ${jobs.length} jobs, ${inspections.length} inspections, ${serviceRequests.length} service requests, ${recommendations.length} recommendations, ${maintenancePlans.length} plans)`);
   
   res.json({ success: true, results, total: results.length });
 }));

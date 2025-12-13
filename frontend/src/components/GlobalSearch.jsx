@@ -26,6 +26,7 @@ import {
   Close as CloseIcon,
   RequestPage as RequestPageIcon,
   EventNote as EventNoteIcon,
+  Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -36,6 +37,7 @@ const TYPE_ICONS = {
   job: <BuildIcon fontSize="small" />,
   inspection: <AssignmentIcon fontSize="small" />,
   service_request: <RequestPageIcon fontSize="small" />,
+  recommendation: <LightbulbIcon fontSize="small" />,
   plan: <EventNoteIcon fontSize="small" />,
 };
 
@@ -44,6 +46,7 @@ const TYPE_LABELS = {
   job: 'Job',
   inspection: 'Inspection',
   service_request: 'Service Request',
+  recommendation: 'Recommendation',
   plan: 'Plan',
 };
 
@@ -170,7 +173,7 @@ export default function GlobalSearch({ open, onClose }) {
       groups.get(type).push(r);
     }
 
-    const order = ['property', 'job', 'inspection', 'service_request', 'plan', 'other'];
+    const order = ['property', 'job', 'inspection', 'service_request', 'recommendation', 'plan', 'other'];
     return order
       .filter((key) => groups.has(key))
       .map((key) => ({
