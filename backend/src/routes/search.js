@@ -7,7 +7,7 @@ const router = express.Router();
 
 /**
  * Global search endpoint
- * Searches across properties, jobs, inspections, and service requests
+ * Searches across properties, jobs, inspections, service requests, and maintenance plans
  */
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
   const { q, limit = 20 } = req.query;
@@ -234,6 +234,36 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     });
   }
 
+  // Search maintenance plans (property managers only)
+  let maintenancePlans = [];
+  if (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'ADMIN') {
+    maintenancePlans = await prisma.maintenancePlan.findMany({
+      where: {
+        ...(Array.isArray(relatedPropertyIds) ? { propertyId: { in: relatedPropertyIds } } : {}),
+        archivedAt: null,
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } }
+        ]
+      },
+      take: Math.ceil(searchLimit / 4),
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        frequency: true,
+        property: {
+          select: {
+            name: true,
+            address: true,
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
   // Format results
   const results = [
     ...properties.map(property => ({
@@ -253,7 +283,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       subtitle: `${job.property.name} - ${job.status}`,
       status: job.status,
       priority: job.priority,
-      link: `/jobs`
+      link: `/jobs/${job.id}`
     })),
     ...inspections.map(inspection => ({
       id: inspection.id,
@@ -274,10 +304,19 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
       status: request.status,
       priority: request.priority,
       link: `/service-requests`
+    })),
+    ...maintenancePlans.map(plan => ({
+      id: plan.id,
+      type: 'plan',
+      title: plan.name,
+      description: plan.description || 'No description',
+      subtitle: `${plan.property.name} - ${plan.frequency}`,
+      status: plan.isActive ? 'ACTIVE' : 'INACTIVE',
+      link: `/plans`
     }))
   ];
 
-  console.log(`[GlobalSearch] Found ${results.length} results (${properties.length} properties, ${jobs.length} jobs, ${inspections.length} inspections, ${serviceRequests.length} service requests)`);
+  console.log(`[GlobalSearch] Found ${results.length} results (${properties.length} properties, ${jobs.length} jobs, ${inspections.length} inspections, ${serviceRequests.length} service requests, ${maintenancePlans.length} plans)`);
   
   res.json({ success: true, results, total: results.length });
 }));
