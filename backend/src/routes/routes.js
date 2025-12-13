@@ -2,6 +2,13 @@
 // This file is kept for reference only and should be removed in a future cleanup.
 // See: auth.js, properties.js, units.js, inspections.js, jobs.js, etc.
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('Deprecated router loaded: backend/src/routes/routes.js (this file is not used and must not be mounted in production)');
+} else {
+  // eslint-disable-next-line no-console
+  console.warn('Deprecated router loaded: backend/src/routes/routes.js (reference-only; do not mount)');
+}
+
 const express = require('express');
 const router = express.Router();
 const propertyController = require('../../controllers/propertyController');

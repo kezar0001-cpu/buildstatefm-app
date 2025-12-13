@@ -494,6 +494,109 @@ router.patch('/users/:id', requireAdmin, logAdminAction('update_user'), async (r
   }
 });
 
+/**
+ * GET /api/admin/invites
+ * Get all invites with filtering and pagination
+ */
+router.get('/invites', requireAdmin, logAdminAction('view_invites'), async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      role,
+      status,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (search) {
+      where.email = { contains: search, mode: 'insensitive' };
+    }
+
+    const [invites, total] = await Promise.all([
+      prisma.invite.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+          expiresAt: true,
+          createdAt: true,
+          invitedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          invitedUser: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              createdAt: true,
+              lastLoginAt: true,
+              isActive: true,
+            },
+          },
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          unit: {
+            select: {
+              id: true,
+              unitNumber: true,
+              propertyId: true,
+            },
+          },
+        },
+      }),
+      prisma.invite.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        invites,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Get invites error:', error);
+    return sendError(res, 500, 'Failed to fetch invites', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 // ==================== SYSTEM HEALTH ====================
 
 /**

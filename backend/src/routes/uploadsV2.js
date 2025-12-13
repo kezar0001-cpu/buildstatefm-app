@@ -44,7 +44,8 @@
 
 import express from 'express';
 import multer from 'multer';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, isSubscriptionActive } from '../middleware/auth.js';
+import prisma from '../config/prismaClient.js';
 import { createRedisRateLimiter } from '../middleware/redisRateLimiter.js';
 import {
   uploadFile,
@@ -55,6 +56,232 @@ import {
 } from '../services/unifiedUploadService.js';
 
 const router = express.Router();
+
+const ensureManagerSubscriptionActive = async (property, user) => {
+  if (!property) return { allowed: false, status: 404, reason: 'Property not found' };
+  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') return { allowed: true };
+  if (isSubscriptionActive(property.manager)) return { allowed: true };
+  return {
+    allowed: false,
+    status: 403,
+    reason: "This property's subscription has expired. Please contact your property manager.",
+  };
+};
+
+const ensureUploadEntityAccess = async (user, entityType, entityId) => {
+  if (!user?.id || !user?.role) return { allowed: false, status: 401, reason: 'Unauthorized' };
+
+  if (user.role === 'ADMIN') {
+    return { allowed: true };
+  }
+
+  // Property
+  if (entityType === EntityTypes.PROPERTY) {
+    if (user.role === 'PROPERTY_MANAGER') {
+      const property = await prisma.property.findFirst({
+        where: { id: entityId, managerId: user.id },
+        include: { manager: { select: { subscriptionStatus: true, trialEndDate: true } } },
+      });
+      return { allowed: !!property, status: property ? 200 : 403, reason: 'Access denied to this property' };
+    }
+
+    if (user.role === 'OWNER') {
+      const ownership = await prisma.propertyOwner.findFirst({
+        where: { propertyId: entityId, ownerId: user.id },
+        include: { property: { include: { manager: { select: { subscriptionStatus: true, trialEndDate: true } } } } },
+      });
+      if (!ownership?.property) return { allowed: false, status: 403, reason: 'Access denied to this property' };
+      return ensureManagerSubscriptionActive(ownership.property, user);
+    }
+
+    if (user.role === 'TECHNICIAN') {
+      const job = await prisma.job.findFirst({
+        where: { propertyId: entityId, assignedToId: user.id },
+        include: { property: { include: { manager: { select: { subscriptionStatus: true, trialEndDate: true } } } } },
+      });
+      if (!job?.property) return { allowed: false, status: 403, reason: 'Access denied to this property' };
+      return ensureManagerSubscriptionActive(job.property, user);
+    }
+
+    if (user.role === 'TENANT') {
+      const tenancy = await prisma.unitTenant.findFirst({
+        where: { tenantId: user.id, isActive: true, unit: { propertyId: entityId } },
+        include: { unit: { include: { property: { include: { manager: { select: { subscriptionStatus: true, trialEndDate: true } } } } } } },
+      });
+      const property = tenancy?.unit?.property;
+      if (!property) return { allowed: false, status: 403, reason: 'Access denied to this property' };
+      return ensureManagerSubscriptionActive(property, user);
+    }
+  }
+
+  // Unit
+  if (entityType === EntityTypes.UNIT) {
+    const unit = await prisma.unit.findUnique({
+      where: { id: entityId },
+      select: { id: true, propertyId: true, property: { include: { manager: { select: { subscriptionStatus: true, trialEndDate: true } } } } },
+    });
+    if (!unit) return { allowed: false, status: 404, reason: 'Unit not found' };
+
+    if (user.role === 'PROPERTY_MANAGER') {
+      if (unit.property?.managerId === user.id) return { allowed: true };
+      return { allowed: false, status: 403, reason: 'Access denied to this unit' };
+    }
+
+    if (user.role === 'OWNER') {
+      const ownership = await prisma.propertyOwner.findFirst({
+        where: { propertyId: unit.propertyId, ownerId: user.id },
+      });
+      if (!ownership) return { allowed: false, status: 403, reason: 'Access denied to this unit' };
+      return ensureManagerSubscriptionActive(unit.property, user);
+    }
+
+    if (user.role === 'TECHNICIAN') {
+      const job = await prisma.job.findFirst({
+        where: {
+          assignedToId: user.id,
+          OR: [{ unitId: entityId }, { propertyId: unit.propertyId }],
+        },
+      });
+      if (!job) return { allowed: false, status: 403, reason: 'Access denied to this unit' };
+      return ensureManagerSubscriptionActive(unit.property, user);
+    }
+
+    if (user.role === 'TENANT') {
+      const tenancy = await prisma.unitTenant.findFirst({
+        where: { unitId: entityId, tenantId: user.id, isActive: true },
+      });
+      if (!tenancy) return { allowed: false, status: 403, reason: 'Access denied to this unit' };
+      return ensureManagerSubscriptionActive(unit.property, user);
+    }
+  }
+
+  // Job
+  if (entityType === EntityTypes.JOB) {
+    const job = await prisma.job.findUnique({
+      where: { id: entityId },
+      include: {
+        property: {
+          include: {
+            manager: { select: { subscriptionStatus: true, trialEndDate: true } },
+            owners: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+    if (!job) return { allowed: false, status: 404, reason: 'Job not found' };
+
+    if (user.role === 'PROPERTY_MANAGER') {
+      if (job.property?.managerId === user.id) return { allowed: true };
+      return { allowed: false, status: 403, reason: 'Access denied to this job' };
+    }
+
+    if (user.role === 'OWNER') {
+      const isOwner = job.property?.owners?.some((o) => o.ownerId === user.id);
+      if (!isOwner) return { allowed: false, status: 403, reason: 'Access denied to this job' };
+      return ensureManagerSubscriptionActive(job.property, user);
+    }
+
+    if (user.role === 'TECHNICIAN') {
+      if (job.assignedToId !== user.id) return { allowed: false, status: 403, reason: 'Access denied to this job' };
+      return ensureManagerSubscriptionActive(job.property, user);
+    }
+
+    // Tenants should not access jobs.
+    return { allowed: false, status: 403, reason: 'Access denied to this job' };
+  }
+
+  // Inspection
+  if (entityType === EntityTypes.INSPECTION) {
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: entityId },
+      include: {
+        property: {
+          include: {
+            manager: { select: { subscriptionStatus: true, trialEndDate: true } },
+            owners: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+    if (!inspection) return { allowed: false, status: 404, reason: 'Inspection not found' };
+
+    if (user.role === 'PROPERTY_MANAGER') {
+      if (inspection.property?.managerId === user.id) return { allowed: true };
+      return { allowed: false, status: 403, reason: 'Access denied to this inspection' };
+    }
+
+    if (user.role === 'OWNER') {
+      const isOwner = inspection.property?.owners?.some((o) => o.ownerId === user.id);
+      if (!isOwner) return { allowed: false, status: 403, reason: 'Access denied to this inspection' };
+      return ensureManagerSubscriptionActive(inspection.property, user);
+    }
+
+    if (user.role === 'TECHNICIAN') {
+      if (inspection.assignedToId !== user.id) return { allowed: false, status: 403, reason: 'Access denied to this inspection' };
+      return ensureManagerSubscriptionActive(inspection.property, user);
+    }
+
+    if (user.role === 'TENANT') {
+      if (!inspection.unitId) return { allowed: false, status: 403, reason: 'Access denied to this inspection' };
+      const tenancy = await prisma.unitTenant.findFirst({
+        where: { unitId: inspection.unitId, tenantId: user.id, isActive: true },
+      });
+      if (!tenancy) return { allowed: false, status: 403, reason: 'Access denied to this inspection' };
+      return ensureManagerSubscriptionActive(inspection.property, user);
+    }
+  }
+
+  // Service Request
+  if (entityType === EntityTypes.SERVICE_REQUEST) {
+    const request = await prisma.serviceRequest.findUnique({
+      where: { id: entityId },
+      include: {
+        property: {
+          include: {
+            manager: { select: { subscriptionStatus: true, trialEndDate: true } },
+            owners: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+    if (!request) return { allowed: false, status: 404, reason: 'Service request not found' };
+
+    if (user.role === 'PROPERTY_MANAGER') {
+      if (request.property?.managerId === user.id) return { allowed: true };
+      return { allowed: false, status: 403, reason: 'Access denied to this service request' };
+    }
+
+    if (user.role === 'OWNER') {
+      const isOwner = request.property?.owners?.some((o) => o.ownerId === user.id);
+      if (!isOwner) return { allowed: false, status: 403, reason: 'Access denied to this service request' };
+      return ensureManagerSubscriptionActive(request.property, user);
+    }
+
+    if (user.role === 'TENANT') {
+      if (request.requestedById !== user.id) return { allowed: false, status: 403, reason: 'Access denied to this service request' };
+      return ensureManagerSubscriptionActive(request.property, user);
+    }
+
+    return { allowed: false, status: 403, reason: 'Access denied to this service request' };
+  }
+
+  // Document/Profile uploads are not currently used by the UI via v2.
+  // Keep conservative access: only allow property managers.
+  if (entityType === EntityTypes.DOCUMENT || entityType === EntityTypes.PROFILE) {
+    if (user.role === 'PROPERTY_MANAGER') return { allowed: true };
+    return { allowed: false, status: 403, reason: 'Access denied' };
+  }
+
+  return { allowed: false, status: 400, reason: 'Invalid entity type' };
+};
+
+const parseEntityFromKey = (key) => {
+  if (!key || typeof key !== 'string') return null;
+  const parts = key.split('/').filter(Boolean);
+  if (parts.length < 4) return null;
+  if (parts[0] !== 'uploads') return null;
+  return { entityType: parts[1], entityId: parts[2] };
+};
 
 // ============================================================================
 // RATE LIMITING
@@ -266,6 +493,16 @@ router.post(
         });
       }
 
+      // Authorization: ensure the caller can upload to this entity
+      const access = await ensureUploadEntityAccess(req.user, entityType, entityId);
+      if (!access.allowed) {
+        return res.status(access.status || 403).json({
+          success: false,
+          error: UploadErrorTypes.VALIDATION_ERROR,
+          message: access.reason || 'Access denied',
+        });
+      }
+
       // Validate file
       const isDocument = entityType === 'document' || fileType === 'document';
       const validation = validateFile(req.file, isDocument ? 'document' : 'image');
@@ -353,6 +590,25 @@ router.delete('/*', requireAuth, async (req, res) => {
 
     // URL decode the key
     key = decodeURIComponent(key);
+
+    // Authorization: derive entity from key and ensure caller can delete from it
+    const parsed = parseEntityFromKey(key);
+    if (!parsed?.entityType || !parsed?.entityId) {
+      return res.status(400).json({
+        success: false,
+        error: UploadErrorTypes.VALIDATION_ERROR,
+        message: 'Invalid file key format',
+      });
+    }
+
+    const access = await ensureUploadEntityAccess(req.user, parsed.entityType, parsed.entityId);
+    if (!access.allowed) {
+      return res.status(access.status || 403).json({
+        success: false,
+        error: UploadErrorTypes.VALIDATION_ERROR,
+        message: access.reason || 'Access denied',
+      });
+    }
 
     // Delete the file
     const result = await deleteFile(key);

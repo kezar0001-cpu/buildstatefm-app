@@ -214,7 +214,7 @@ const adminSetupSchema = z.object({
 
 // The secret PIN to bypass the single-admin restriction
 // In production, this should strictly come from environment variables
-const ADMIN_SETUP_PIN = process.env.ADMIN_SETUP_PIN || 'Buildstate FM-2025-Secure-Setup';
+const ADMIN_SETUP_PIN = process.env.ADMIN_SETUP_PIN || null;
 
 // ========================================
 // GET /api/auth/setup/check
@@ -249,8 +249,19 @@ router.post('/setup', async (req, res) => {
       where: { role: 'ADMIN' },
     });
 
-    // Allow bypass if the correct secret PIN is provided
-    const isRecoveryMode = adminSecret === ADMIN_SETUP_PIN;
+    // Allow bypass only if an explicit recovery PIN is configured.
+    // This prevents a hardcoded default PIN from being used in production.
+    const recoveryEnabled = Boolean(ADMIN_SETUP_PIN);
+    const isRecoveryMode = recoveryEnabled && adminSecret === ADMIN_SETUP_PIN;
+
+    if (isProduction && adminExists && !recoveryEnabled) {
+      return sendError(
+        res,
+        403,
+        'Admin recovery is not configured. Please set ADMIN_SETUP_PIN to enable recovery mode.',
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS
+      );
+    }
 
     if (adminExists && !isRecoveryMode) {
       return sendError(res, 403, 'Admin account already exists', ErrorCodes.BIZ_SETUP_ALREADY_COMPLETED);
