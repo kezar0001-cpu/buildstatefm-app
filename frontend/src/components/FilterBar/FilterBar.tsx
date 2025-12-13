@@ -497,55 +497,6 @@ export default function FilterBar({
             {rightActions ? (
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>{rightActions}</Box>
             ) : null}
-
-            {showViewToggle && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <ToggleButtonGroup
-                  value={viewMode}
-                  exclusive
-                  onChange={onViewModeChange}
-                  aria-label="View mode toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
-                      },
-                      '&:first-of-type': {
-                        borderRadius: 2,
-                      },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    },
-                    '& .Mui-selected': {
-                      color: 'error.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  {viewModes.map((mode) => (
-                    <ToggleButton key={mode} value={mode} aria-label={`${mode} view`}>
-                      <Tooltip title={`${mode.charAt(0).toUpperCase() + mode.slice(1)} View`}>
-                        <span>{icons[mode]}</span>
-                      </Tooltip>
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </Box>
-            )}
           </Stack>
         )}
       </Stack>

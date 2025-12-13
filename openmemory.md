@@ -14,9 +14,10 @@
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
   - Swipe uses pointer capture (no framer drag) for smoothness; snap-on-release removed.
 
-- **Service Requests filters (mobile-friendly):** `frontend/src/pages/ServiceRequestsPage.jsx`
-  - On mobile, search is full-width and filters are in a `Collapse` toggled by a "Filters" button with an active-count chip.
-  - On desktop, filters remain inline in a single row.
+- **Standardized FilterBar (app-wide):** `frontend/src/components/FilterBar/FilterBar.tsx`
+  - Desktop: single-line, no wrapping; secondary filters live in a "More filters" Popover.
+  - Mobile: search full-width + a single "Filters" button (Drawer) + optional Clear; never overflows.
+  - View toggles are desktop-only (FilterBar enforces this).
 - **Navigation config:** `frontend/src/utils/navigationConfig.js`
   - Defines `NAVIGATION_ITEMS` and `MOBILE_NAV_ITEMS` by role.
 
@@ -45,12 +46,13 @@
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
   - Disabled backend mount for reports by removing `/api/reports` from `backend/server.js`.
 
-- **List page filter toolbars (responsive, view toggle stays inside wrapper):**
-  - Pattern lives in several pages (e.g. `frontend/src/pages/RecommendationsPage.jsx`, `JobsPage.jsx`, `ServiceRequestsPage.jsx`, `PlansPage.jsx`, `InspectionsPage.jsx`, `PropertiesPage.jsx`).
-  - Outer header row `Stack` uses `flexWrap: { md: 'wrap' }`.
-  - Desktop filter group uses `flexWrap: 'wrap'` + `whiteSpace: 'normal'`.
-  - Insert a spacer before view toggle: `!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />`.
-  - View toggle `ToggleButtonGroup` stays in the same row (after spacer) with `flexShrink: 0`.
+- **List page filter toolbars (standardized FilterBar):**
+  - Canonical UI is `frontend/src/components/FilterBar/FilterBar.tsx`.
+  - Desktop: search + limited inline primary filters + "More filters" Popover; never wraps.
+  - Mobile: search + "Filters" (Drawer); no view toggle.
+  - Pages migrated include:
+    - `frontend/src/pages/{Jobs,Properties,Inspections,Plans,ServiceRequests,Recommendations,Reports}Page.jsx`
+    - `frontend/src/pages/admin/{AdminUsers,BlogAdmin}Page.jsx`
 
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
