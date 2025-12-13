@@ -714,7 +714,7 @@ const InspectionsPage = () => {
     );
   }
 
-  const activeFilterCount = useMemo(() => {
+  const activeFilterCount = (() => {
     let count = 0;
     if (statusFilter) count += 1;
     if (propertyFilter) count += 1;
@@ -723,7 +723,7 @@ const InspectionsPage = () => {
     if (dateTo) count += 1;
     if (includeArchived) count += 1;
     return count;
-  }, [dateFrom, dateTo, includeArchived, propertyFilter, statusFilter, technicianFilter]);
+  })();
 
   const hasFilters = debouncedSearch || activeFilterCount > 0;
 
