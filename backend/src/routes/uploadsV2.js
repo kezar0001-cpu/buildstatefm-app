@@ -649,6 +649,13 @@ router.delete('/*', requireAuth, async (req, res) => {
  * }
  */
 router.get('/health', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   const isS3Configured = !!(
     process.env.AWS_REGION &&
     process.env.AWS_ACCESS_KEY_ID &&

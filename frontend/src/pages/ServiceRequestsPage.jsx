@@ -80,6 +80,14 @@ const ServiceRequestsPage = () => {
   const { user } = useCurrentUser();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'TECHNICIAN') {
+      navigate('/technician/dashboard', { replace: true });
+    }
+  }, [navigate, user]);
+
   const [filters, setFilters] = useState({
     status: '',
     category: '',

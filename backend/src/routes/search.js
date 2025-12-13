@@ -52,11 +52,14 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     propertyFilter = { id: { in: accessiblePropertyIds } };
   } else if (req.user.role === 'TENANT') {
     // Get properties where user is a tenant
-    const units = await prisma.unit.findMany({
-      where: { tenantId: req.user.id },
-      select: { propertyId: true }
+    const tenancies = await prisma.unitTenant.findMany({
+      where: { tenantId: req.user.id, isActive: true },
+      select: { unit: { select: { propertyId: true } } },
     });
-    accessiblePropertyIds = units.map(u => u.propertyId);
+
+    accessiblePropertyIds = tenancies
+      .map((t) => t.unit?.propertyId)
+      .filter(Boolean);
 
     if (accessiblePropertyIds.length === 0) {
       return res.json({ success: true, results: [], total: 0 });

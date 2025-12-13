@@ -195,7 +195,6 @@ import recurringInspectionsRoutes from './src/routes/recurringInspections.js';
 import subscriptionsRoutes from './src/routes/subscriptions.js';
 import uploadsRoutes from './src/routes/uploads.js';
 import uploadsv2Routes from './src/routes/uploadsv2.js';
-import reportsRoutes from './src/routes/reports.js';
 import recommendationsRoutes from './src/routes/recommendations.js';
 import plansRoutes from './src/routes/plans.js';
 import dashboardRoutes from './src/routes/dashboard.js';
@@ -236,7 +235,6 @@ app.use('/api/uploads', uploadsRoutes);
 // New v2 Upload Engine
 app.use('/api/v2/uploads', uploadsv2Routes);
 
-app.use('/api/reports', reportsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/plans', plansRoutes);
 app.use('/api/dashboard', dashboardRoutes);

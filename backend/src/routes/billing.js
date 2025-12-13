@@ -6,7 +6,7 @@ import {
   StripeNotConfiguredError,
 } from '../utils/stripeClient.js';
 import { sendEmail } from '../utils/email.js';
-import { verifyAccessToken } from '../utils/jwt.js';
+import { requireAuth } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = express.Router();
@@ -102,24 +102,9 @@ async function applySubscriptionUpdate({ userId, orgId, data }) {
 }
 
 // POST /api/billing/checkout
-router.post('/checkout', async (req, res) => {
+router.post('/checkout', requireAuth, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    if (!token) return sendError(res, 401, 'No token', ErrorCodes.AUTH_NO_TOKEN);
-
-    let user;
-    try {
-      user = verifyAccessToken(token);
-    } catch {
-      return sendError(res, 401, 'Invalid token', ErrorCodes.AUTH_INVALID_TOKEN);
-    }
-
-    // Get full user data to check role
-    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-    if (!dbUser) {
-      return sendError(res, 401, 'User not found', ErrorCodes.RES_USER_NOT_FOUND);
-    }
+    const dbUser = req.user;
 
     // Only property managers (and admins) can access subscription checkout
     if (dbUser.role !== 'PROPERTY_MANAGER' && dbUser.role !== 'ADMIN') {
@@ -147,8 +132,8 @@ router.post('/checkout', async (req, res) => {
     const cancel = cancelUrl || process.env.STRIPE_CANCEL_URL || `${process.env.FRONTEND_URL}/subscriptions?canceled=1`;
 
     const metadata = {
-      orgId: user.orgId || '',
-      userId: user.id || '',
+      orgId: dbUser.orgId || '',
+      userId: dbUser.id || '',
       plan: normalisedPlan,
     };
 
@@ -200,141 +185,104 @@ router.post('/checkout', async (req, res) => {
 
     // If promo code is provided, try to apply it
     if (promoCode) {
+      const promoCodeUpper = promoCode.toUpperCase();
+
       try {
-        const promoCodeUpper = promoCode.toUpperCase();
-        
-        // First, try to find it as a Stripe promotion code (works with codes created in Stripe dashboard)
-        try {
-          const promotionCodes = await stripe.promotionCodes.list({
-            code: promoCodeUpper,
-            limit: 1,
-            active: true,
-          });
+        // 1) Stripe Promotion Code
+        const promotionCodes = await stripe.promotionCodes.list({
+          code: promoCodeUpper,
+          limit: 1,
+          active: true,
+        });
 
-          if (promotionCodes.data.length > 0) {
-            const promotionCode = promotionCodes.data[0];
-            // Use the promotion code directly
-            sessionConfig.discounts = [{ promotion_code: promotionCode.id }];
-            metadata.promoCode = promoCodeUpper;
-            console.log(`Applied Stripe promotion code: ${promoCodeUpper}`);
-          } else {
-            // Fallback: Try to find coupon by ID or name
+        if (promotionCodes.data.length > 0) {
+          const promotionCode = promotionCodes.data[0];
+          sessionConfig.discounts = [{ promotion_code: promotionCode.id }];
+          metadata.promoCode = promoCodeUpper;
+          console.log(`Applied Stripe promotion code: ${promoCodeUpper}`);
+        } else {
+          // 2) Stripe Coupon (by id or name)
+          let coupon = null;
+          try {
+            coupon = await stripe.coupons.retrieve(promoCodeUpper);
+          } catch {
+            coupon = null;
+          }
+
+          if (!coupon) {
             const coupons = await stripe.coupons.list({ limit: 100 });
-            const existingCoupon = coupons.data.find(
-              c => c.id === promoCodeUpper || c.name?.toUpperCase() === promoCodeUpper
-            );
+            coupon = coupons.data.find(c => c.name?.toUpperCase() === promoCodeUpper) || null;
+          }
 
-            // Check if existing coupon is valid (not expired, not fully redeemed)
-            const isCouponValid = existingCoupon && existingCoupon.valid;
+          if (coupon?.valid) {
+            sessionConfig.discounts = [{ coupon: coupon.id }];
+            metadata.promoCode = promoCodeUpper;
+            console.log(`Applied Stripe coupon: ${coupon.id}`);
+          } else {
+            // 3) DB promo code -> create/reuse Stripe coupon
+            const promo = await prisma.promoCode.findUnique({ where: { code: promoCodeUpper } });
 
-            if (isCouponValid) {
-              sessionConfig.discounts = [{ coupon: existingCoupon.id }];
-              metadata.promoCode = promoCodeUpper;
-              console.log(`Applied existing Stripe coupon: ${existingCoupon.id}`);
-            } else {
-              if (existingCoupon && !existingCoupon.valid) {
-                console.log(`Found existing coupon ${existingCoupon.id} but it's expired/invalid, will try to create new one`);
-              }
-              // Last resort: Check database and create if needed
-              const promo = await prisma.promoCode.findUnique({
-                where: { code: promoCodeUpper },
-              });
+            if (promo && promo.isActive) {
+              if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+                console.log(`Promo code ${promoCodeUpper} has expired`);
+              } else if (promo.maxUses && promo.currentUses >= promo.maxUses) {
+                console.log(`Promo code ${promoCodeUpper} has reached max uses`);
+              } else if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
+                const hasValidPercentage =
+                  promo.discountType === 'PERCENTAGE' && promo.discountPercentage && promo.discountPercentage > 0;
+                const hasValidFixed =
+                  promo.discountType === 'FIXED' && promo.discountAmount && promo.discountAmount > 0;
 
-              if (promo && promo.isActive) {
-                // Check if expired
-                if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
-                  console.log(`Promo code ${promoCodeUpper} has expired`);
-                } else if (promo.maxUses && promo.currentUses >= promo.maxUses) {
-                  console.log(`Promo code ${promoCodeUpper} has reached max uses`);
+                if (!hasValidPercentage && !hasValidFixed) {
+                  console.error(`Promo code ${promoCodeUpper} has invalid discount configuration`);
                 } else {
-                  // Check if applicable to this plan
-                  if (promo.applicablePlans.length === 0 || promo.applicablePlans.includes(normalisedPlan)) {
-                    // Validate promo code has valid discount values
-                    const hasValidPercentage = promo.discountType === 'PERCENTAGE' && promo.discountPercentage && promo.discountPercentage > 0;
-                    const hasValidFixed = promo.discountType === 'FIXED' && promo.discountAmount && promo.discountAmount > 0;
+                  const couponData = {
+                    id: promoCodeUpper,
+                    name: promo.description || `${promoCodeUpper} Discount`,
+                    duration: promo.duration ? promo.duration.toLowerCase() : 'once',
+                  };
 
-                    if (!hasValidPercentage && !hasValidFixed) {
-                      console.error(`Promo code ${promoCodeUpper} has invalid discount configuration:`, {
-                        discountType: promo.discountType,
-                        discountPercentage: promo.discountPercentage,
-                        discountAmount: promo.discountAmount,
-                      });
-                      // Skip this promo code - invalid configuration
-                      console.log('Skipping promo code due to invalid discount configuration');
-                    } else {
-                      // Create Stripe coupon from database promo
-                      const couponData = {
-                        id: promoCodeUpper,
-                        name: promo.description || `${promoCodeUpper} Discount`,
-                      };
+                  if (couponData.duration === 'repeating' && promo.durationInMonths) {
+                    couponData.duration_in_months = promo.durationInMonths;
+                  }
 
-                      if (promo.discountType === 'PERCENTAGE' && promo.discountPercentage) {
-                        couponData.percent_off = promo.discountPercentage;
-                      } else if (promo.discountType === 'FIXED' && promo.discountAmount) {
-                        couponData.amount_off = Math.round(promo.discountAmount * 100);
-                        couponData.currency = 'usd';
-                      }
+                  if (promo.discountType === 'PERCENTAGE') {
+                    couponData.percent_off = promo.discountPercentage;
+                  } else {
+                    couponData.amount_off = Math.round(promo.discountAmount * 100);
+                    couponData.currency = 'usd';
+                  }
 
-                    // Set duration - required field for Stripe coupons
-                    // Use promo.duration if available, otherwise default to 'once'
-                    if (promo.duration) {
-                      couponData.duration = promo.duration.toLowerCase();
-                      // If duration is 'repeating', include duration_in_months
-                      if (promo.duration.toLowerCase() === 'repeating' && promo.durationInMonths) {
-                        couponData.duration_in_months = promo.durationInMonths;
-                      }
-                    } else {
-                      // Default to 'once' for first invoice only
-                      couponData.duration = 'once';
-                    }
-
-                    try {
-                      console.log(`Creating Stripe coupon with data:`, JSON.stringify(couponData, null, 2));
-                      const coupon = await stripe.coupons.create(couponData);
-                      sessionConfig.discounts = [{ coupon: coupon.id }];
-                      metadata.promoCode = promoCodeUpper;
-                      console.log(`Created and applied coupon from database: ${promoCodeUpper}`);
-                    } catch (stripeError) {
-                      // Coupon might already exist
-                      if (stripeError.code === 'resource_already_exists') {
-                        console.log(`Coupon ${promoCodeUpper} already exists in Stripe, checking if it's valid...`);
-
-                        // Retrieve the existing coupon to check if it's valid
-                        try {
-                          const existingCoupon = await stripe.coupons.retrieve(promoCodeUpper);
-                          if (existingCoupon.valid) {
-                            sessionConfig.discounts = [{ coupon: promoCodeUpper }];
-                            metadata.promoCode = promoCodeUpper;
-                            console.log(`Using existing valid coupon: ${promoCodeUpper}`);
-                          } else {
-                            console.log(`Existing coupon ${promoCodeUpper} is expired/invalid, cannot apply discount`);
-                            console.log('Proceeding without promo code discount');
-                          }
-                        } catch (retrieveError) {
-                          console.error('Error retrieving existing coupon:', retrieveError);
-                          console.log('Proceeding without promo code discount');
+                  try {
+                    const created = await stripe.coupons.create(couponData);
+                    sessionConfig.discounts = [{ coupon: created.id }];
+                    metadata.promoCode = promoCodeUpper;
+                    console.log(`Created and applied coupon from database: ${promoCodeUpper}`);
+                  } catch (stripeError) {
+                    if (stripeError?.code === 'resource_already_exists') {
+                      try {
+                        const existing = await stripe.coupons.retrieve(promoCodeUpper);
+                        if (existing?.valid) {
+                          sessionConfig.discounts = [{ coupon: promoCodeUpper }];
+                          metadata.promoCode = promoCodeUpper;
+                          console.log(`Using existing valid coupon: ${promoCodeUpper}`);
                         }
-                      } else {
-                        console.error('Error creating Stripe coupon:', stripeError);
-                        console.error('Coupon data that failed:', JSON.stringify(couponData, null, 2));
-                        // Don't apply discount if coupon creation fails
-                        console.log('Proceeding without promo code discount due to coupon creation error');
+                      } catch (retrieveError) {
+                        console.error('Error retrieving existing coupon:', retrieveError);
                       }
-                    }
+                    } else {
+                      console.error('Error creating Stripe coupon:', stripeError);
                     }
                   }
                 }
-              } else {
-                console.log(`Promo code ${promoCodeUpper} not found in database or inactive`);
               }
+            } else {
+              console.log(`Promo code ${promoCodeUpper} not found in database or inactive`);
             }
           }
-        } catch (stripeError) {
-          console.error('Error looking up Stripe promotion code:', stripeError);
         }
       } catch (error) {
         console.error('Error processing promo code:', error);
-        // Continue without promo code if there's an error
       }
     }
 
@@ -371,11 +319,9 @@ router.post('/checkout', async (req, res) => {
 });
 
 // POST /api/billing/confirm  { sessionId }
-router.post('/confirm', async (req, res) => {
+router.post('/confirm', requireAuth, async (req, res) => {
   try {
-    // Require authentication
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     if (!stripeAvailable) {
       return sendError(res, 503, 'Stripe is not configured', ErrorCodes.EXT_STRIPE_NOT_CONFIGURED);
@@ -515,24 +461,10 @@ router.post('/confirm', async (req, res) => {
   }
 });
 
-// Helper function to authenticate requests
-async function authenticateRequest(req) {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) return null;
-
-  try {
-    return verifyAccessToken(token);
-  } catch {
-    return null;
-  }
-}
-
 // GET /api/billing/invoices - List Stripe invoices for the current user
-router.get('/invoices', async (req, res) => {
+router.get('/invoices', requireAuth, async (req, res) => {
   try {
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     // Verify user is a property manager or admin and load latest subscription with a Stripe customer ID
     const dbUser = await prisma.user.findUnique({
@@ -599,10 +531,9 @@ router.get('/invoices', async (req, res) => {
 });
 
 // POST /api/billing/payment-method - Update payment method
-router.post('/payment-method', async (req, res) => {
+router.post('/payment-method', requireAuth, async (req, res) => {
   try {
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
@@ -660,10 +591,9 @@ router.post('/payment-method', async (req, res) => {
 });
 
 // GET /api/billing/portal - Create billing portal session
-router.get('/portal', async (req, res) => {
+router.get('/portal', requireAuth, async (req, res) => {
   try {
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
@@ -721,10 +651,9 @@ router.get('/portal', async (req, res) => {
 });
 
 // POST /api/billing/change-plan - Change subscription plan (upgrade/downgrade)
-router.post('/change-plan', async (req, res) => {
+router.post('/change-plan', requireAuth, async (req, res) => {
   try {
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
@@ -850,10 +779,9 @@ router.post('/change-plan', async (req, res) => {
 });
 
 // POST /api/billing/cancel - Cancel subscription
-router.post('/cancel', async (req, res) => {
+router.post('/cancel', requireAuth, async (req, res) => {
   try {
-    const user = await authenticateRequest(req);
-    if (!user) return sendError(res, 401, 'Authentication required', ErrorCodes.AUTH_UNAUTHORIZED);
+    const user = req.user;
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({

@@ -11,6 +11,7 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
 } from '../utils/jwt.js';
+import { requireAuth as requireAuthMiddleware } from '../middleware/auth.js';
 import { validatePassword, getPasswordErrorMessage } from '../utils/passwordValidation.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
@@ -152,29 +153,7 @@ const router = Router();
 // ========================================
 // AUTH MIDDLEWARE
 // ========================================
-const requireAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return sendError(res, 401, 'No token provided', ErrorCodes.AUTH_NO_TOKEN);
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = verifyAccessToken(token);
-    if (decoded.tokenType !== 'access') {
-      throw new Error('Invalid token type');
-    }
-    req.user = {
-      id: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
-      // orgId removed (not in schema)
-    };
-    next();
-  } catch {
-    return sendError(res, 401, 'Invalid or expired token', ErrorCodes.AUTH_INVALID_TOKEN);
-  }
-};
+const requireAuth = requireAuthMiddleware;
 
 // ========================================
 // VALIDATION SCHEMAS

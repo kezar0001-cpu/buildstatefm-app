@@ -30,6 +30,10 @@ router.get('/activity', asyncHandler(async (req, res) => {
 router.get('/analytics', requireActiveSubscription, asyncHandler(async (req, res) => {
   const { startDate, endDate, propertyId, months = 6 } = req.query;
 
+  if (!['ADMIN', 'PROPERTY_MANAGER', 'OWNER'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
   // Default to last 6 months if no date range specified
   const endDateObj = endDate ? new Date(endDate) : new Date();
   const monthsToFetch = parseInt(months) || 6;
@@ -42,7 +46,9 @@ router.get('/analytics', requireActiveSubscription, asyncHandler(async (req, res
 
   // Build property filter based on user role
   let propertyIds = [];
-  if (req.user.role === 'PROPERTY_MANAGER') {
+  if (req.user.role === 'ADMIN') {
+    propertyIds = null;
+  } else if (req.user.role === 'PROPERTY_MANAGER') {
     const properties = await prisma.property.findMany({
       where: { managerId: req.user.id },
       select: { id: true }
@@ -57,11 +63,14 @@ router.get('/analytics', requireActiveSubscription, asyncHandler(async (req, res
   }
 
   // If specific property requested, filter to just that one
-  if (propertyId && propertyIds.includes(propertyId)) {
+  if (propertyId) {
+    if (Array.isArray(propertyIds) && !propertyIds.includes(propertyId)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     propertyIds = [propertyId];
   }
 
-  const propertyFilter = propertyIds.length > 0 ? { propertyId: { in: propertyIds } } : {};
+  const propertyFilter = Array.isArray(propertyIds) ? { propertyId: { in: propertyIds } } : {};
 
   // Helper function to generate month labels
   const generateMonthLabels = (start, end) => {
@@ -112,7 +121,7 @@ router.get('/analytics', requireActiveSubscription, asyncHandler(async (req, res
   // Fetch inspections data for completion rate
   const inspectionsData = await prisma.inspection.findMany({
     where: {
-      property: propertyIds.length > 0 ? { id: { in: propertyIds } } : undefined,
+      property: Array.isArray(propertyIds) ? { id: { in: propertyIds } } : undefined,
       createdAt: dateFilter
     },
     select: {
@@ -188,14 +197,14 @@ router.get('/analytics', requireActiveSubscription, asyncHandler(async (req, res
     }),
     prisma.inspection.count({
       where: {
-        property: propertyIds.length > 0 ? { id: { in: propertyIds } } : undefined,
+        property: Array.isArray(propertyIds) ? { id: { in: propertyIds } } : undefined,
         status: 'COMPLETED',
         completedDate: { gte: thisMonthStart }
       }
     }),
     prisma.inspection.count({
       where: {
-        property: propertyIds.length > 0 ? { id: { in: propertyIds } } : undefined,
+        property: Array.isArray(propertyIds) ? { id: { in: propertyIds } } : undefined,
         status: 'COMPLETED',
         completedDate: { gte: lastMonthStart, lte: lastMonthEnd }
       }

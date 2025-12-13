@@ -181,7 +181,6 @@ router.get('/:token', async (req, res) => {
           select: {
             firstName: true,
             lastName: true,
-            email: true,
           },
         },
         property: true,

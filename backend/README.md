@@ -71,7 +71,7 @@ The API follows a RESTful structure.  All requests and responses are JSON.  The 
 | `/reports/owner` | POST | Request an owner report (stub) |
 | `/reports/:id.pdf` | GET | Retrieve a generated report (stub) |
 
-Authentication is stubbed for now; every request assumes a user with `orgId` of `demo‑org` and role `owner`.  Integrate your own auth provider (e.g. Clerk or Auth0) by populating `req.user` in `src/index.js`.
+Authentication is handled via JWT access tokens and refresh tokens (see `src/routes/auth.js`). Protected routes use middleware in `src/middleware/auth.js` to validate tokens and attach the authenticated user to `req.user`.
 
 ## Inspection API schema alignment
 
@@ -91,7 +91,8 @@ After running `npx prisma migrate deploy` followed by `npx prisma generate`, the
 
 ## Next steps
 
-1. **Authentication**: Replace the hard‑coded user in `src/index.js` with a real auth provider.  Ensure that `req.user` contains the user’s `id`, `orgId` and `role` for use by the route guards.
+1. **Authentication**: Ensure your deployment config includes the required environment variables (e.g. JWT/session secrets) and that your clients send a valid `Authorization: Bearer <token>` header for protected routes.
+
 2. **File uploads**: Implement S3 (or compatible) pre‑signed uploads for inspection photo storage.
 3. **Notifications**: Integrate Resend or SendGrid for email notifications and a WhatsApp Business API for WhatsApp messages.
 4. **Admin UI**: Build out the front‑end (see `agentfm-frontend` folder) to consume this API.

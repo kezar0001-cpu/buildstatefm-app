@@ -87,14 +87,8 @@ router.get('/', requireAuth, async (req, res) => {
       // Tenants see only their own requests
       where.requestedById = req.user.id;
     } else {
-      // Other roles (e.g., TECHNICIAN) do not have access to service requests
-      // They only see jobs assigned to them
-      return res.json({
-        items: [],
-        total: 0,
-        page: 1,
-        hasMore: false,
-      });
+      // Other roles (e.g., TECHNICIAN) do not have access to service requests.
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ROLE_REQUIRED);
     }
 
     // Parse pagination parameters
@@ -178,13 +172,8 @@ router.get('/archived', requireAuth, async (req, res) => {
     } else if (req.user.role === 'TENANT') {
       where.requestedById = req.user.id;
     } else {
-      // Other roles (e.g., TECHNICIAN) do not have access to archived service requests
-      return res.json({
-        items: [],
-        total: 0,
-        page: 1,
-        hasMore: false,
-      });
+      // Other roles (e.g., TECHNICIAN) do not have access to archived service requests.
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ROLE_REQUIRED);
     }
 
     // Parse pagination parameters

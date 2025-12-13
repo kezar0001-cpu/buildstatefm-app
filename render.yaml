@@ -11,7 +11,7 @@ services:
     plan: free
     # Run migrations during build (preDeploy not available on Free)
     buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy
-    startCommand: node src/index.js
+    startCommand: node server.js
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL

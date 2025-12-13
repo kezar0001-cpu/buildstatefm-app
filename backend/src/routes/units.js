@@ -1476,10 +1476,18 @@ unitImagesRouter.get('/', async (req, res) => {
   const unitId = req.params.id;
 
   try {
-    const unit = await prisma.unit.findUnique({
-      where: { id: unitId },
-      include: { property: { include: { owners: { select: { ownerId: true } } } } },
-    });
+    const access = await ensureUnitAccess(unitId, req.user);
+
+    if (!access.allowed) {
+      return sendError(
+        res,
+        403,
+        access.reason || 'Access denied to this unit',
+        ErrorCodes.ACC_ACCESS_DENIED
+      );
+    }
+
+    const unit = access.unit;
 
     if (!unit) {
       return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
@@ -1767,30 +1775,18 @@ router.get('/:id/activity', async (req, res) => {
   try {
     const unitId = req.params.id;
 
-    // Fetch the unit with property ownership info for access control
-    const unit = await prisma.unit.findUnique({
-      where: { id: unitId },
-      include: {
-        property: {
-          include: {
-            owners: {
-              select: { ownerId: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!unit) {
-      return sendError(res, 404, 'Unit not found', ErrorCodes.RES_UNIT_NOT_FOUND);
+    const access = await ensureUnitAccess(unitId, req.user);
+    if (!access.allowed) {
+      return sendError(
+        res,
+        access.status || 403,
+        access.reason || 'Access denied',
+        ErrorCodes.ACC_PROPERTY_ACCESS_DENIED
+      );
     }
 
-    // Check access (managers and property owners can access)
-    const isManager = req.user.role === 'PROPERTY_MANAGER';
-    const isOwner = unit.property?.owners?.some(o => o.ownerId === req.user.id);
-    const hasAccess = isManager || isOwner;
-
-    if (!hasAccess) {
+    // Keep behavior: only property managers/owners/admin can access unit activity.
+    if (!['PROPERTY_MANAGER', 'OWNER', 'ADMIN'].includes(req.user.role)) {
       return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
     }
 

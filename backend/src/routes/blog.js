@@ -158,7 +158,6 @@ router.get('/posts', async (req, res) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true
             }
           },
           categories: {
@@ -210,7 +209,6 @@ router.get('/posts/:slug', async (req, res) => {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
           }
         },
         categories: {

@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { requireAuth, requireActiveSubscription } from '../middleware/auth.js';
+import { requireAuth, requireActiveSubscription, requireRole } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { optimizeImage, isImage, getOptimizationSettings } from '../utils/imageOptimization.js';
 import {
@@ -64,7 +64,12 @@ router.get('/rate-limit-status', requireAuth, async (req, res) => {
  * Returns the current storage configuration (S3 vs local)
  * Useful for debugging upload issues
  */
-router.get('/storage-config', requireAuth, async (req, res) => {
+router.get('/storage-config', requireAuth, (req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    return requireRole('ADMIN')(req, res, next);
+  }
+  return next();
+}, async (req, res) => {
   try {
     const usingS3 = isUsingCloudStorage();
     const hasAwsRegion = !!process.env.AWS_REGION;
@@ -272,7 +277,7 @@ router.post('/documents', requireAuth, requireActiveSubscription, rateLimitUploa
  * Supports: JPEG, PNG, WebP (up to 10MB each, max 20 files)
  * Requires authentication
  */
-router.post('/inspection-photos', requireAuth, rateLimitUpload, inspectionPhotoUpload.array('photos', 20), async (req, res) => {
+router.post('/inspection-photos', requireAuth, requireActiveSubscription, rateLimitUpload, inspectionPhotoUpload.array('photos', 20), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return sendError(res, 400, 'No photos uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
@@ -363,7 +368,7 @@ const responsiveImageUpload = multer({
   },
 });
 
-router.post('/responsive-image', requireAuth, rateLimitUpload, responsiveImageUpload.single('image'), async (req, res) => {
+router.post('/responsive-image', requireAuth, requireActiveSubscription, rateLimitUpload, responsiveImageUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return sendError(res, 400, 'No image uploaded', ErrorCodes.FILE_NO_FILE_UPLOADED);
@@ -410,7 +415,7 @@ router.post('/responsive-image', requireAuth, rateLimitUpload, responsiveImageUp
  * }
  * Returns: { url: 'https://cloudfront.net/properties/image.jpg?w=800&h=600&f=webp&q=85&fit=cover' }
  */
-router.post('/cloudfront-url', requireAuth, (req, res) => {
+router.post('/cloudfront-url', requireAuth, requireActiveSubscription, (req, res) => {
   try {
     if (!isCloudFrontConfigured()) {
       return sendError(res, 400, 'CloudFront is not configured', ErrorCodes.CONFIGURATION_ERROR);
@@ -445,7 +450,7 @@ router.post('/cloudfront-url', requireAuth, (req, res) => {
  *   srcSet: 'srcset string'
  * }
  */
-router.post('/cloudfront-responsive-urls', requireAuth, (req, res) => {
+router.post('/cloudfront-responsive-urls', requireAuth, requireActiveSubscription, (req, res) => {
   try {
     if (!isCloudFrontConfigured()) {
       return sendError(res, 400, 'CloudFront is not configured', ErrorCodes.CONFIGURATION_ERROR);

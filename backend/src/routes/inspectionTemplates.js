@@ -13,6 +13,106 @@ const requireActiveSubscriptionUnlessAdmin = (req, res, next) => {
   return requireActiveSubscription(req, res, next);
 };
 
+const subscriptionGateForNonManagers = () => {
+  const now = new Date();
+  return {
+    OR: [
+      { manager: { subscriptionStatus: 'ACTIVE' } },
+      { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+    ],
+  };
+};
+
+const getAccessiblePropertyIds = async (user) => {
+  if (!user) return [];
+
+  switch (user.role) {
+    case 'ADMIN':
+      return null;
+    case 'PROPERTY_MANAGER': {
+      const properties = await prisma.property.findMany({
+        where: { managerId: user.id },
+        select: { id: true },
+      });
+      return properties.map(p => p.id);
+    }
+    case 'OWNER': {
+      const ownerships = await prisma.propertyOwner.findMany({
+        where: { ownerId: user.id },
+        select: { propertyId: true },
+      });
+      return ownerships.map(o => o.propertyId);
+    }
+    case 'TENANT': {
+      const tenancies = await prisma.unitTenant.findMany({
+        where: { tenantId: user.id, isActive: true },
+        select: { unit: { select: { propertyId: true } } },
+      });
+      return tenancies.map(t => t.unit?.propertyId).filter(Boolean);
+    }
+    case 'TECHNICIAN': {
+      const jobs = await prisma.job.findMany({
+        where: { assignedToId: user.id, archivedAt: null },
+        select: { propertyId: true },
+      });
+      return Array.from(new Set(jobs.map(j => j.propertyId).filter(Boolean)));
+    }
+    default:
+      return [];
+  }
+};
+
+const ensureTemplateAccess = async (templateId, user) => {
+  const template = await prisma.inspectionTemplate.findUnique({
+    where: { id: templateId },
+    select: { id: true, propertyId: true, isDefault: true },
+  });
+
+  if (!template) {
+    return { allowed: false, status: 404, reason: 'Template not found' };
+  }
+
+  // Global/default templates are visible to any authenticated role.
+  if (!template.propertyId || template.isDefault) {
+    return { allowed: true, template };
+  }
+
+  const accessiblePropertyIds = await getAccessiblePropertyIds(user);
+  if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(template.propertyId)) {
+    return { allowed: false, status: 403, reason: 'Access denied' };
+  }
+
+  if (user.role !== 'PROPERTY_MANAGER' && user.role !== 'ADMIN') {
+    const property = await prisma.property.findUnique({
+      where: { id: template.propertyId },
+      include: { manager: true },
+    });
+
+    if (!property) {
+      return { allowed: false, status: 404, reason: 'Property not found' };
+    }
+
+    const gate = subscriptionGateForNonManagers();
+    const managerOk = gate.OR.some((clause) => {
+      const manager = property.manager;
+      if (!manager) return false;
+      if (clause.manager?.subscriptionStatus === 'ACTIVE') {
+        return manager.subscriptionStatus === 'ACTIVE';
+      }
+      if (clause.manager?.subscriptionStatus === 'TRIAL') {
+        return manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date();
+      }
+      return false;
+    });
+
+    if (!managerOk) {
+      return { allowed: false, status: 403, reason: "This property's subscription has expired. Please contact your property manager." };
+    }
+  }
+
+  return { allowed: true, template };
+};
+
 // Get all inspection templates
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -22,13 +122,32 @@ router.get('/', requireAuth, async (req, res) => {
     if (type) where.type = type;
     if (isActive !== undefined) where.isActive = isActive === 'true';
 
-    // Property managers can see default templates and their property-specific templates
-    if (req.user.role === 'PROPERTY_MANAGER') {
+    const accessiblePropertyIds = await getAccessiblePropertyIds(req.user);
+    const requestedPropertyId = propertyId || null;
+
+    if (requestedPropertyId) {
+      if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(requestedPropertyId)) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
       where.OR = [
         { isDefault: true },
         { propertyId: null },
-        { propertyId: propertyId || undefined }
+        { propertyId: requestedPropertyId },
       ];
+    } else {
+      if (Array.isArray(accessiblePropertyIds)) {
+        where.OR = [
+          { isDefault: true },
+          { propertyId: null },
+          { propertyId: { in: accessiblePropertyIds } },
+        ];
+      } else {
+        // ADMIN: show all
+      }
+    }
+
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
+      where.property = subscriptionGateForNonManagers();
     }
 
     const templates = await prisma.inspectionTemplate.findMany({
@@ -72,6 +191,11 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const access = await ensureTemplateAccess(id, req.user);
+    if (!access.allowed) {
+      return sendError(res, access.status, access.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
     const template = await prisma.inspectionTemplate.findUnique({
       where: { id },
       include: {
@@ -96,6 +220,16 @@ router.get('/:id', requireAuth, async (req, res) => {
       return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
     }
 
+    if (req.user.role === 'PROPERTY_MANAGER' && template.propertyId) {
+      const property = await prisma.property.findFirst({
+        where: { id: template.propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
+    }
+
     res.json(template);
   } catch (error) {
     console.error('Error fetching inspection template:', error);
@@ -110,6 +244,16 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireA
 
     if (!name || !type) {
       return sendError(res, 400, 'Name and type are required', ErrorCodes.VAL_MISSING_FIELD);
+    }
+
+    if (req.user.role === 'PROPERTY_MANAGER' && propertyId) {
+      const property = await prisma.property.findFirst({
+        where: { id: propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
     }
 
     // Only admins can create default templates
@@ -175,6 +319,16 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requ
 
     if (!existingTemplate) {
       return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    if (req.user.role === 'PROPERTY_MANAGER' && existingTemplate.propertyId) {
+      const property = await prisma.property.findFirst({
+        where: { id: existingTemplate.propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
     }
 
     // Build update data
@@ -288,6 +442,16 @@ router.post('/:id/duplicate', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMI
     const { id } = req.params;
     const { name, propertyId } = req.body;
 
+    if (req.user.role === 'PROPERTY_MANAGER' && propertyId) {
+      const property = await prisma.property.findFirst({
+        where: { id: propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
+    }
+
     // Get the original template
     const originalTemplate = await prisma.inspectionTemplate.findUnique({
       where: { id },
@@ -302,6 +466,11 @@ router.post('/:id/duplicate', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMI
 
     if (!originalTemplate) {
       return sendError(res, 404, 'Template not found', ErrorCodes.RES_NOT_FOUND);
+    }
+
+    const originalAccess = await ensureTemplateAccess(id, req.user);
+    if (!originalAccess.allowed) {
+      return sendError(res, originalAccess.status, originalAccess.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
     }
 
     // Create a duplicate

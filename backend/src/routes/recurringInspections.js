@@ -12,6 +12,101 @@ const requireActiveSubscriptionUnlessAdmin = (req, res, next) => {
   return requireActiveSubscription(req, res, next);
 };
 
+const subscriptionGateForNonManagers = () => {
+  const now = new Date();
+  return {
+    OR: [
+      { manager: { subscriptionStatus: 'ACTIVE' } },
+      { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+    ],
+  };
+};
+
+const getAccessiblePropertyIds = async (user) => {
+  if (!user) return [];
+
+  switch (user.role) {
+    case 'ADMIN':
+      return null; // all
+    case 'PROPERTY_MANAGER': {
+      const properties = await prisma.property.findMany({
+        where: { managerId: user.id },
+        select: { id: true },
+      });
+      return properties.map(p => p.id);
+    }
+    case 'OWNER': {
+      const ownerships = await prisma.propertyOwner.findMany({
+        where: { ownerId: user.id },
+        select: { propertyId: true },
+      });
+      return ownerships.map(o => o.propertyId);
+    }
+    case 'TENANT': {
+      const tenancies = await prisma.unitTenant.findMany({
+        where: { tenantId: user.id, isActive: true },
+        select: { unit: { select: { propertyId: true } } },
+      });
+      return tenancies.map(t => t.unit?.propertyId).filter(Boolean);
+    }
+    case 'TECHNICIAN': {
+      const jobs = await prisma.job.findMany({
+        where: { assignedToId: user.id, archivedAt: null },
+        select: { propertyId: true },
+      });
+      return Array.from(new Set(jobs.map(j => j.propertyId).filter(Boolean)));
+    }
+    default:
+      return [];
+  }
+};
+
+const ensureRecurringInspectionAccess = async (recurringInspectionId, user) => {
+  const recurringInspection = await prisma.recurringInspection.findUnique({
+    where: { id: recurringInspectionId },
+    select: { id: true, propertyId: true, unitId: true },
+  });
+
+  if (!recurringInspection) {
+    return { allowed: false, status: 404, reason: 'Recurring inspection not found' };
+  }
+
+  const accessiblePropertyIds = await getAccessiblePropertyIds(user);
+  if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(recurringInspection.propertyId)) {
+    return { allowed: false, status: 403, reason: 'Access denied' };
+  }
+
+  if (user.role !== 'PROPERTY_MANAGER' && user.role !== 'ADMIN') {
+    const property = await prisma.property.findUnique({
+      where: { id: recurringInspection.propertyId },
+      include: { manager: true },
+    });
+
+    if (!property) {
+      return { allowed: false, status: 404, reason: 'Property not found' };
+    }
+
+    const gate = subscriptionGateForNonManagers();
+    const managerOk = gate.OR.some((clause) => {
+      const manager = property.manager;
+      if (!manager) return false;
+      if (clause.manager?.subscriptionStatus === 'ACTIVE') {
+        return manager.subscriptionStatus === 'ACTIVE';
+      }
+      if (clause.manager?.subscriptionStatus === 'TRIAL') {
+        return manager.subscriptionStatus === 'TRIAL' && manager.trialEndDate && new Date(manager.trialEndDate) > new Date();
+      }
+      return false;
+    });
+
+    if (!managerOk) {
+      return { allowed: false, status: 403, reason: "This property's subscription has expired. Please contact your property manager." };
+    }
+  }
+
+  return { allowed: true, recurringInspection };
+};
+
 // Helper function to calculate next due date
 function calculateNextDueDate(frequency, interval, startDate, dayOfMonth, dayOfWeek) {
   const date = new Date(startDate);
@@ -81,9 +176,36 @@ router.get('/', requireAuth, async (req, res) => {
     const { propertyId, unitId, isActive } = req.query;
 
     const where = {};
-    if (propertyId) where.propertyId = propertyId;
-    if (unitId) where.unitId = unitId;
+
+    const accessiblePropertyIds = await getAccessiblePropertyIds(req.user);
+    if (Array.isArray(accessiblePropertyIds)) {
+      where.propertyId = { in: accessiblePropertyIds };
+    }
+
+    if (propertyId) {
+      if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(propertyId)) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
+      where.propertyId = propertyId;
+    }
+
+    if (unitId) {
+      const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { id: true, propertyId: true } });
+      if (!unit) {
+        return sendError(res, 404, 'Unit not found', ErrorCodes.RES_NOT_FOUND);
+      }
+      if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(unit.propertyId)) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
+      where.unitId = unitId;
+      where.propertyId = unit.propertyId;
+    }
+
     if (isActive !== undefined) where.isActive = isActive === 'true';
+
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
+      where.property = subscriptionGateForNonManagers();
+    }
 
     const recurringInspections = await prisma.recurringInspection.findMany({
       where,
@@ -136,6 +258,11 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const access = await ensureRecurringInspectionAccess(id, req.user);
+    if (!access.allowed) {
+      return sendError(res, access.status, access.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
+
     const recurringInspection = await prisma.recurringInspection.findUnique({
       where: { id },
       include: {
@@ -183,6 +310,16 @@ router.get('/:id', requireAuth, async (req, res) => {
 
     if (!recurringInspection) {
       return res.status(404).json({ error: 'Recurring inspection not found' });
+    }
+
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      const property = await prisma.property.findFirst({
+        where: { id: recurringInspection.propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
     }
 
     res.json(recurringInspection);
@@ -243,6 +380,26 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireA
       return res.status(400).json({
         error: 'Title, type, propertyId, frequency, interval, and startDate are required'
       });
+    }
+
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      const property = await prisma.property.findFirst({
+        where: { id: propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
+    }
+
+    if (unitId) {
+      const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { id: true, propertyId: true } });
+      if (!unit) {
+        return sendError(res, 404, 'Unit not found', ErrorCodes.RES_NOT_FOUND);
+      }
+      if (unit.propertyId !== propertyId) {
+        return sendError(res, 400, 'Unit does not belong to property', ErrorCodes.VAL_INVALID_REQUEST);
+      }
     }
 
     // Calculate the first next due date
@@ -332,6 +489,16 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requ
 
     if (!existing) {
       return res.status(404).json({ error: 'Recurring inspection not found' });
+    }
+
+    if (req.user.role === 'PROPERTY_MANAGER') {
+      const property = await prisma.property.findFirst({
+        where: { id: existing.propertyId, managerId: req.user.id },
+        select: { id: true },
+      });
+      if (!property) {
+        return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+      }
     }
 
     // Build update data
@@ -443,6 +610,11 @@ router.get('/:id/preview', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { count = 10 } = req.query;
+
+    const access = await ensureRecurringInspectionAccess(id, req.user);
+    if (!access.allowed) {
+      return sendError(res, access.status, access.reason, ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
+    }
 
     const recurringInspection = await prisma.recurringInspection.findUnique({
       where: { id }

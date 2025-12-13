@@ -26,6 +26,9 @@
   - `/properties/:id/edit` remains blocked for non-edit roles.
   - Backend supports scoped read access and gates non-PM roles by the property manager subscription.
 
+- **Units (backend):** `backend/src/routes/units.js`
+  - `GET /units/:id/activity` uses `ensureUnitAccess(unitId, req.user)` for resource-level authorization.
+
 - **Jobs (backend):** `backend/src/routes/jobs.js`
   - TENANT cannot access jobs endpoints (use service requests).
   - OWNER/TECHNICIAN reads and technician actions (`/accept`, `/reject`, status updates) are gated by the *property manager* subscription (ACTIVE or TRIAL not expired).
@@ -40,7 +43,18 @@
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
-  - Disabled backend mounts for reports by removing `reports`/`new-reports` from `backend/src/routes/index.js` and `/api/reports` from `backend/src/index.js`.
+  - Disabled backend mount for reports by removing `/api/reports` from `backend/server.js`.
+
+- **Canonical auth middleware (backend):**
+  - Prefer `requireAuth` from `backend/src/middleware/auth.js` for protected routes to ensure DB user lookup + `isActive` enforcement.
+  - Billing routes in `backend/src/routes/billing.js` standardized on `requireAuth` across `/checkout`, `/confirm`, `/invoices`, `/payment-method`, `/portal`, `/change-plan`, `/cancel`.
+
+- **Production-safe health endpoints (backend):**
+  - `GET /api/v2/uploads/health` in `backend/src/routes/uploadsV2.js` avoids leaking storage configuration in production (returns only `ok` + `timestamp`).
+
+- **Resource-scoped list endpoints (backend):**
+  - `backend/src/routes/recurringInspections.js` and `backend/src/routes/inspectionTemplates.js` enforce role-based property scoping to avoid cross-tenant data leaks.
+  - Non-admin/non-PM access is gated by the property manager subscription state for the underlying property.
 
 - **Admin user deletion policy**:
   - Default: *safe-delete* (disable + anonymize + revoke credentials) via `DELETE /api/admin/users/:id`.
