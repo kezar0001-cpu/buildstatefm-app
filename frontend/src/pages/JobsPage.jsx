@@ -722,7 +722,7 @@ const JobsPage = () => {
             direction={{ xs: 'column', md: 'row' }}
             spacing={2}
             alignItems={{ xs: 'stretch', md: 'center' }}
-            sx={{ gap: { xs: 1.5, lg: 2 } }}
+            sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
           >
             <TextField
               placeholder="Search jobs..."
@@ -794,12 +794,12 @@ const JobsPage = () => {
                 direction="row"
                 spacing={1.5}
                 sx={{
-                  flexWrap: 'nowrap',
+                  flexWrap: 'wrap',
                   gap: 1.5,
                   width: 'auto',
                   flexShrink: 0,
                   overflow: 'visible',
-                  whiteSpace: 'nowrap',
+                  whiteSpace: 'normal',
                   alignItems: 'center',
                 }}
               >
@@ -877,6 +877,8 @@ const JobsPage = () => {
                 )}
               </Stack>
             )}
+
+            {!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
 
             {!isMobile && (
               <ToggleButtonGroup

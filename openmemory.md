@@ -45,6 +45,13 @@
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
   - Disabled backend mount for reports by removing `/api/reports` from `backend/server.js`.
 
+- **List page filter toolbars (responsive, view toggle stays inside wrapper):**
+  - Pattern lives in several pages (e.g. `frontend/src/pages/RecommendationsPage.jsx`, `JobsPage.jsx`, `ServiceRequestsPage.jsx`, `PlansPage.jsx`, `InspectionsPage.jsx`, `PropertiesPage.jsx`).
+  - Outer header row `Stack` uses `flexWrap: { md: 'wrap' }`.
+  - Desktop filter group uses `flexWrap: 'wrap'` + `whiteSpace: 'normal'`.
+  - Insert a spacer before view toggle: `!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />`.
+  - View toggle `ToggleButtonGroup` stays in the same row (after spacer) with `flexShrink: 0`.
+
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
 

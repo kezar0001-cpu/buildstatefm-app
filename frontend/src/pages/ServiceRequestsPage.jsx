@@ -488,7 +488,7 @@ const ServiceRequestsPage = () => {
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
               alignItems={{ xs: 'stretch', md: 'center' }}
-              sx={{ gap: { xs: 1.5, lg: 2 } }}
+              sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
             >
               {/* Search */}
               <TextField
@@ -564,12 +564,12 @@ const ServiceRequestsPage = () => {
                     direction="row"
                     spacing={1.5}
                     sx={{
-                      flexWrap: 'nowrap',
+                      flexWrap: 'wrap',
                       gap: 1.5,
                       width: 'auto',
                       flexShrink: 0,
                       overflow: 'visible',
-                      whiteSpace: 'nowrap',
+                      whiteSpace: 'normal',
                       alignItems: 'center',
                     }}
                   >
@@ -665,60 +665,65 @@ const ServiceRequestsPage = () => {
                       Clear filters
                     </Button>
                   )}
-
-                  <ToggleButtonGroup
-                    value={viewMode}
-                    exclusive
-                    onChange={handleViewModeChange}
-                    aria-label="View mode toggle"
-                    size="small"
-                    sx={{
-                      backgroundColor: 'background.paper',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      '& .MuiToggleButtonGroup-grouped': {
-                        minWidth: 40,
-                        border: 'none',
-                        '&:not(:first-of-type)': {
-                          borderRadius: 2,
-                        },
-                        '&:first-of-type': {
-                          borderRadius: 2,
-                        },
-                      },
-                      '& .MuiToggleButton-root': {
-                        color: 'text.secondary',
-                        '&:hover': {
-                          backgroundColor: 'action.hover',
-                        },
-                      },
-                      '& .Mui-selected': {
-                        color: 'error.main',
-                        backgroundColor: 'transparent !important',
-                        '&:hover': {
-                          backgroundColor: 'action.hover !important',
-                        },
-                      },
-                    }}
-                  >
-                    <ToggleButton value="grid" aria-label="grid view">
-                      <Tooltip title="Grid View">
-                        <ViewModuleIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="kanban" aria-label="kanban view">
-                      <Tooltip title="Kanban View">
-                        <ViewKanbanIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="table" aria-label="table view">
-                      <Tooltip title="Table View">
-                        <TableChartIcon fontSize="small" />
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
                 </>
+              )}
+
+              {!isMobile && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
+
+              {!isMobile && (
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={handleViewModeChange}
+                  aria-label="View mode toggle"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                    '& .MuiToggleButtonGroup-grouped': {
+                      minWidth: 40,
+                      border: 'none',
+                      '&:not(:first-of-type)': {
+                        borderRadius: 2,
+                      },
+                      '&:first-of-type': {
+                        borderRadius: 2,
+                      },
+                    },
+                    '& .MuiToggleButton-root': {
+                      color: 'text.secondary',
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    },
+                    '& .Mui-selected': {
+                      color: 'error.main',
+                      backgroundColor: 'transparent !important',
+                      '&:hover': {
+                        backgroundColor: 'action.hover !important',
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="grid" aria-label="grid view">
+                    <Tooltip title="Grid View">
+                      <ViewModuleIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="kanban" aria-label="kanban view">
+                    <Tooltip title="Kanban View">
+                      <ViewKanbanIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="table" aria-label="table view">
+                    <Tooltip title="Table View">
+                      <TableChartIcon fontSize="small" />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
               )}
             </Stack>
 

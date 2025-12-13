@@ -622,7 +622,7 @@ export default function PropertiesPage() {
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
               alignItems={{ xs: 'stretch', md: 'center' }}
-              sx={{ gap: { xs: 1.5, lg: 2 } }}
+              sx={{ gap: { xs: 1.5, lg: 2 }, flexWrap: { md: 'wrap' } }}
             >
               <TextField
                 placeholder="Search properties by name, address, or city..."
@@ -694,12 +694,10 @@ export default function PropertiesPage() {
                   direction="row"
                   spacing={1.5}
                   sx={{
-                    flexWrap: 'nowrap',
+                    flexWrap: 'wrap',
                     gap: 1.5,
-                    width: 'auto',
-                    flexShrink: 0,
-                    overflow: 'visible',
-                    whiteSpace: 'nowrap',
+                    width: '100%',
+                    flexGrow: 1,
                     alignItems: 'center',
                   }}
                 >
@@ -771,63 +769,63 @@ export default function PropertiesPage() {
                       Clear
                     </Button>
                   )}
-                </Stack>
-              )}
 
-              {!isMobile && (
-                <ToggleButtonGroup
-                  value={viewMode}
-                  exclusive
-                  onChange={handleViewModeChange}
-                  aria-label="View mode toggle"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    flexShrink: 0,
-                    '& .MuiToggleButtonGroup-grouped': {
-                      minWidth: 40,
-                      border: 'none',
-                      '&:not(:first-of-type)': {
-                        borderRadius: 2,
+                  <Box sx={{ flexGrow: 1 }} />
+
+                  <ToggleButtonGroup
+                    value={viewMode}
+                    exclusive
+                    onChange={handleViewModeChange}
+                    aria-label="View mode toggle"
+                    size="small"
+                    sx={{
+                      backgroundColor: 'background.paper',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      flexShrink: 0,
+                      '& .MuiToggleButtonGroup-grouped': {
+                        minWidth: 40,
+                        border: 'none',
+                        '&:not(:first-of-type)': {
+                          borderRadius: 2,
+                        },
+                        '&:first-of-type': {
+                          borderRadius: 2,
+                        },
                       },
-                      '&:first-of-type': {
-                        borderRadius: 2,
+                      '& .MuiToggleButton-root': {
+                        color: 'text.secondary',
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                        },
                       },
-                    },
-                    '& .MuiToggleButton-root': {
-                      color: 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
+                      '& .Mui-selected': {
+                        color: 'error.main',
+                        backgroundColor: 'transparent !important',
+                        '&:hover': {
+                          backgroundColor: 'action.hover !important',
+                        },
                       },
-                    },
-                    '& .Mui-selected': {
-                      color: 'error.main',
-                      backgroundColor: 'transparent !important',
-                      '&:hover': {
-                        backgroundColor: 'action.hover !important',
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="grid" aria-label="grid view">
-                    <Tooltip title="Grid View">
-                      <ViewModuleIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="list" aria-label="list view">
-                    <Tooltip title="List View">
-                      <ViewListIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                  <ToggleButton value="table" aria-label="table view">
-                    <Tooltip title="Table View">
-                      <TableChartIcon fontSize="small" />
-                    </Tooltip>
-                  </ToggleButton>
-                </ToggleButtonGroup>
+                    }}
+                  >
+                    <ToggleButton value="grid" aria-label="grid view">
+                      <Tooltip title="Grid View">
+                        <ViewModuleIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="list" aria-label="list view">
+                      <Tooltip title="List View">
+                        <ViewListIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="table" aria-label="table view">
+                      <Tooltip title="Table View">
+                        <TableChartIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Stack>
               )}
             </Stack>
 
@@ -871,7 +869,7 @@ export default function PropertiesPage() {
                     value={filterState === 'all' ? '' : filterState}
                     placeholder="Any"
                     onChange={(e) => updateSearchParam('state', e.target.value || 'all')}
-                    sx={{ minWidth: 140, flexShrink: 0 }}
+                    fullWidth
                   />
 
                   <FormControlLabel
@@ -887,7 +885,7 @@ export default function PropertiesPage() {
                         Show Archived
                       </Typography>
                     }
-                    sx={{ ml: 0, flexShrink: 0 }}
+                    sx={{ ml: 0 }}
                   />
                 </Stack>
               </Collapse>
