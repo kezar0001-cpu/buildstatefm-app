@@ -42,7 +42,7 @@ describe('uploadPropertyImages', () => {
 
     expect(postSpy).toHaveBeenCalledTimes(1);
     const [url, body, config] = postSpy.mock.calls[0];
-    expect(url).toBe('/upload/multiple');
+    expect(url).toBe('/api/uploads/multiple');
     expect(body).toBeInstanceOf(FormData);
     expect(config).toBeUndefined();
     expect(result).toEqual([
@@ -65,7 +65,7 @@ describe('uploadPropertyImages', () => {
 
     const file = new File(['first'], 'one.png', { type: 'image/png' });
 
-    await expect(uploadPropertyImages([file])).rejects.toThrow('Upload failed');
+    await expect(uploadPropertyImages([file])).rejects.toThrow('Upload failed - no URLs returned from server');
   });
 });
 

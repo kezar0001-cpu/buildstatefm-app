@@ -6,6 +6,13 @@ import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const requireActiveSubscriptionUnlessAdmin = (req, res, next) => {
+  if (req.user?.role === 'ADMIN') {
+    return next();
+  }
+  return requireActiveSubscription(req, res, next);
+};
+
 // Get all inspection templates
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -97,7 +104,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // Create a new inspection template
-router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { name, description, type, propertyId, rooms, isDefault } = req.body;
 
@@ -156,7 +163,7 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireA
 });
 
 // Update an inspection template
-router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, isActive, isDefault, rooms } = req.body;
@@ -232,7 +239,7 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requ
 });
 
 // Delete an inspection template
-router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -276,7 +283,7 @@ router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), req
 });
 
 // Duplicate an inspection template
-router.post('/:id/duplicate', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.post('/:id/duplicate', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, propertyId } = req.body;

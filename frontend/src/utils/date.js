@@ -18,9 +18,9 @@ export function formatDate(dateInput) {
     return '—';
   }
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
 
   return `${day}-${month}-${year}`;
 }
@@ -38,11 +38,11 @@ export function formatDateTime(dateInput) {
     return '—';
   }
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
 
   return `${day}-${month}-${year} ${hours}:${minutes}`;
 }
@@ -61,13 +61,13 @@ export function parseDate(dateString) {
 
   if (match) {
     const [, day, month, year] = match;
-    const date = new Date(year, month - 1, day);
+    const date = new Date(Date.UTC(year, month - 1, day));
 
     // Validate the date is real (e.g., not 31-02-2025)
     if (
-      date.getDate() === parseInt(day, 10) &&
-      date.getMonth() === parseInt(month, 10) - 1 &&
-      date.getFullYear() === parseInt(year, 10)
+      date.getUTCDate() === parseInt(day, 10) &&
+      date.getUTCMonth() === parseInt(month, 10) - 1 &&
+      date.getUTCFullYear() === parseInt(year, 10)
     ) {
       return date;
     }
@@ -92,9 +92,9 @@ export function formatDateForInput(dateInput) {
     return '';
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
 }
@@ -112,11 +112,11 @@ export function formatDateTimeForInput(dateInput) {
     return '';
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
@@ -164,13 +164,13 @@ export function isValidDateFormat(dateString) {
   if (!match) return false;
 
   const [, day, month, year] = match;
-  const date = new Date(year, month - 1, day);
+  const date = new Date(Date.UTC(year, month - 1, day));
 
   // Check if the date is valid
   return (
-    date.getDate() === parseInt(day, 10) &&
-    date.getMonth() === parseInt(month, 10) - 1 &&
-    date.getFullYear() === parseInt(year, 10)
+    date.getUTCDate() === parseInt(day, 10) &&
+    date.getUTCMonth() === parseInt(month, 10) - 1 &&
+    date.getUTCFullYear() === parseInt(year, 10)
   );
 }
 

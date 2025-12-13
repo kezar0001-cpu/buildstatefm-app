@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install (frontend)
+        run: npm ci
+        working-directory: frontend
+
+      - name: Smoke tests (frontend)
+        run: npm test -- --run src/__tests__/api.test.js src/__tests__/date.test.js src/api/client.test.js
+        working-directory: frontend
+
+      - name: Build (frontend)
+        run: npm run build
+        working-directory: frontend

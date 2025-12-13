@@ -2,7 +2,12 @@ import express from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import validate from '../middleware/validate.js';
-import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requireRole,
+  requireActiveSubscription,
+  isSubscriptionActive,
+} from '../middleware/auth.js';
 import { prisma } from '../config/prismaClient.js';
 import { notifyJobAssigned, notifyJobCompleted, notifyJobStarted, notifyJobReassigned } from '../utils/notificationService.js';
 import { invalidate } from '../utils/cache.js';
@@ -112,6 +117,34 @@ const jobListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+const managerSubscriptionWhere = (now) => ({
+  OR: [
+    { manager: { subscriptionStatus: 'ACTIVE' } },
+    { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+  ],
+});
+
+const ensureManagerSubscriptionActiveForJob = (job, user) => {
+  if (!job) {
+    return { allowed: false, status: 404, reason: 'Job not found', errorCode: ErrorCodes.RES_JOB_NOT_FOUND };
+  }
+
+  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
+    return { allowed: true };
+  }
+
+  if (isSubscriptionActive(job?.property?.manager)) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    status: 403,
+    reason: "This property's subscription has expired. Please contact your property manager.",
+    errorCode: ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED,
+  };
+};
+
 // GET / - List jobs (role-based filtering)
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -131,7 +164,13 @@ router.get('/', requireAuth, async (req, res) => {
     const where = {};
 
     // Role-based filtering
-    if (req.user.role === 'TECHNICIAN') {
+    if (req.user.role === 'TENANT') {
+      return sendError(res, 403, 'Tenants cannot access jobs. Please use service requests.', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    if (req.user.role === 'ADMIN') {
+      // Admins can view all jobs
+    } else if (req.user.role === 'TECHNICIAN') {
       // Technicians only see jobs assigned to them
       where.assignedToId = req.user.id;
     } else if (req.user.role === 'PROPERTY_MANAGER') {
@@ -148,6 +187,19 @@ router.get('/', requireAuth, async (req, res) => {
           },
         },
       };
+    } else {
+      return sendError(res, 403, 'Access denied', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    // Subscription gate for non-PM, non-admin roles
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
+      const now = new Date();
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        {
+          property: managerSubscriptionWhere(now),
+        },
+      ];
     }
 
     // Apply query filters
@@ -766,10 +818,19 @@ const statusUpdateSchema = z.object({
   status: z.enum(STATUSES),
 });
 
-router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), requireActiveSubscription, validate(statusUpdateSchema), async (req, res) => {
+router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), validate(statusUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    if (req.user.role === 'PROPERTY_MANAGER' && !isSubscriptionActive(req.user)) {
+      return sendError(
+        res,
+        403,
+        'Your trial period has expired. Please upgrade your plan to continue.',
+        ErrorCodes.SUB_TRIAL_EXPIRED
+      );
+    }
 
     // Fetch existing job with related data
     const existingJob = await prisma.job.findUnique({
@@ -781,6 +842,13 @@ router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNI
             name: true,
             address: true,
             managerId: true,
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
           },
         },
         unit: {
@@ -802,6 +870,11 @@ router.patch('/:id/status', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNI
 
     if (!existingJob) {
       return sendError(res, 404, 'Job not found', ErrorCodes.RES_JOB_NOT_FOUND);
+    }
+
+    const gate = ensureManagerSubscriptionActiveForJob(existingJob, req.user);
+    if (!gate.allowed) {
+      return sendError(res, gate.status, gate.reason, gate.errorCode);
     }
 
     // Access control: Technicians can only update jobs assigned to them
@@ -940,6 +1013,13 @@ router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, r
             id: true,
             name: true,
             managerId: true,
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
           },
         },
         assignedTo: {
@@ -954,6 +1034,11 @@ router.post('/:id/accept', requireAuth, requireRole('TECHNICIAN'), async (req, r
 
     if (!job) {
       return sendError(res, 404, 'Job not found', ErrorCodes.RES_JOB_NOT_FOUND);
+    }
+
+    const gate = ensureManagerSubscriptionActiveForJob(job, req.user);
+    if (!gate.allowed) {
+      return sendError(res, gate.status, gate.reason, gate.errorCode);
     }
 
     // Verify job is assigned to the technician
@@ -1040,6 +1125,13 @@ router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, r
             id: true,
             name: true,
             managerId: true,
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
           },
         },
         assignedTo: {
@@ -1054,6 +1146,11 @@ router.post('/:id/reject', requireAuth, requireRole('TECHNICIAN'), async (req, r
 
     if (!job) {
       return sendError(res, 404, 'Job not found', ErrorCodes.RES_JOB_NOT_FOUND);
+    }
+
+    const gate = ensureManagerSubscriptionActiveForJob(job, req.user);
+    if (!gate.allowed) {
+      return sendError(res, gate.status, gate.reason, gate.errorCode);
     }
 
     // Verify job is assigned to the technician
@@ -1143,6 +1240,13 @@ router.get('/:id', requireAuth, async (req, res) => {
             city: true,
             state: true,
             managerId: true,
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
             owners: {
               select: { ownerId: true },
             },
@@ -1172,6 +1276,9 @@ router.get('/:id', requireAuth, async (req, res) => {
     // Access control: Check user has permission to view this job
     let hasAccess = false;
 
+    if (req.user.role === 'ADMIN') {
+      hasAccess = true;
+    } else 
     if (req.user.role === 'PROPERTY_MANAGER') {
       // Property managers can view jobs for properties they manage
       hasAccess = job.property.managerId === req.user.id;
@@ -1189,6 +1296,11 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!hasAccess) {
       return sendError(res, 403, 'Access denied. You do not have permission to view this job.', ErrorCodes.ACC_ACCESS_DENIED);
     }
+
+    const gate = ensureManagerSubscriptionActiveForJob(job, req.user);
+    if (!gate.allowed) {
+      return sendError(res, gate.status, gate.reason, gate.errorCode);
+    }
     
     // Remove sensitive fields before sending response
     const { property, ...jobData } = job;
@@ -1205,16 +1317,35 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // PATCH /:id - Update job (PROPERTY_MANAGER and TECHNICIAN can update, requires active subscription for managers)
-router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), requireActiveSubscription, validate(jobUpdateSchema), async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'TECHNICIAN'), validate(jobUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    if (req.user.role === 'PROPERTY_MANAGER' && !isSubscriptionActive(req.user)) {
+      return sendError(
+        res,
+        403,
+        'Your trial period has expired. Please upgrade your plan to continue.',
+        ErrorCodes.SUB_TRIAL_EXPIRED
+      );
+    }
     
     // Check if job exists
     const existingJob = await prisma.job.findUnique({
       where: { id },
       include: {
-        property: true,
+        property: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                subscriptionStatus: true,
+                trialEndDate: true,
+              },
+            },
+          },
+        },
       },
     });
     

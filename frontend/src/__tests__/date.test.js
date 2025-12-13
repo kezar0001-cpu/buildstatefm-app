@@ -72,7 +72,7 @@ describe('parseDate', () => {
 
   it('should return null for invalid dates', () => {
     expect(parseDate('31-02-2024')).toBe(null); // Invalid date
-    expect(parseDate('invalid-date')).not.toBe(null); // Falls back to Date constructor
+    expect(parseDate('invalid-date')).toBe(null);
   });
 
   it('should return null for null or undefined', () => {

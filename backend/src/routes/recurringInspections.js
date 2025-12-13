@@ -1,10 +1,16 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription } from '../middleware/auth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
+const requireActiveSubscriptionUnlessAdmin = (req, res, next) => {
+  if (req.user?.role === 'ADMIN') {
+    return next();
+  }
+  return requireActiveSubscription(req, res, next);
+};
 
 // Helper function to calculate next due date
 function calculateNextDueDate(frequency, interval, startDate, dayOfMonth, dayOfWeek) {
@@ -216,7 +222,7 @@ router.post('/preview', requireAuth, async (req, res) => {
 });
 
 // Create a new recurring inspection
-router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const {
       title,
@@ -303,7 +309,7 @@ router.post('/', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireA
 });
 
 // Update a recurring inspection
-router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -408,7 +414,7 @@ router.patch('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requ
 });
 
 // Delete a recurring inspection
-router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscription, async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('PROPERTY_MANAGER', 'ADMIN'), requireActiveSubscriptionUnlessAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import multer from 'multer';
 import prisma from '../config/prismaClient.js';
-import { requireAuth, requireRole, requireActiveSubscription, requireUsage } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requireRole,
+  requireActiveSubscription,
+  requireUsage,
+  isSubscriptionActive,
+} from '../middleware/auth.js';
+
 import { getInspectionsThisMonth } from '../utils/usageTracking.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { isValidInspectionTransition } from '../utils/statusTransitions.js';
@@ -15,6 +22,14 @@ const ROLE_MANAGER = 'PROPERTY_MANAGER';
 const ROLE_TECHNICIAN = 'TECHNICIAN';
 const ROLE_OWNER = 'OWNER';
 const ROLE_TENANT = 'TENANT';
+const ROLE_ADMIN = 'ADMIN';
+
+const requireActiveSubscriptionUnlessAdmin = (req, res, next) => {
+  if (req.user?.role === ROLE_ADMIN) {
+    return next();
+  }
+  return requireActiveSubscription(req, res, next);
+};
 
 // Middleware: Hydrate User
 const hydrateInspectionUser = async (req, res, next) => {
@@ -70,7 +85,9 @@ const ensureInspectionAccess = async (req, res, next) => {
     const user = req.user;
     let hasAccess = false;
 
-    if (user.role === ROLE_MANAGER) {
+    if (user.role === ROLE_ADMIN) {
+      hasAccess = true;
+    } else if (user.role === ROLE_MANAGER) {
       // Manager can access if they manage the property (or if it's a system-wide admin, but we assume property manager scope here)
       hasAccess = inspection.propertyId ? user.managedPropertyIds.includes(inspection.propertyId) : true; 
     } else if (user.role === ROLE_OWNER) {
@@ -90,6 +107,55 @@ const ensureInspectionAccess = async (req, res, next) => {
   } catch (error) {
     console.error('Failed to check inspection access', error);
     sendError(res, 500, 'Failed to verify permissions', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+};
+
+const ensureManagerSubscriptionActiveForInspection = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 401, 'Unauthorized', ErrorCodes.AUTH_UNAUTHORIZED);
+    }
+
+    if (req.user.role === ROLE_MANAGER || req.user.role === ROLE_ADMIN) {
+      return next();
+    }
+
+    const propertyId = req.inspection?.propertyId;
+    if (!propertyId) {
+      return next();
+    }
+
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        id: true,
+        manager: {
+          select: {
+            id: true,
+            subscriptionStatus: true,
+            trialEndDate: true,
+          },
+        },
+      },
+    });
+
+    if (!property) {
+      return next();
+    }
+
+    if (isSubscriptionActive(property.manager)) {
+      return next();
+    }
+
+    return sendError(
+      res,
+      403,
+      "This property's subscription has expired. Please contact your property manager.",
+      ErrorCodes.SUB_MANAGER_SUBSCRIPTION_REQUIRED,
+    );
+  } catch (error) {
+    console.error('Failed to verify manager subscription for inspection', error);
+    return sendError(res, 500, 'Failed to verify subscription', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 };
 
@@ -131,42 +197,43 @@ router.get('/inspectors', requireAuth, async (req, res) => {
 });
 
 // Inspections are only accessible to Property Managers and Technicians
-router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), hydrateInspectionUser, inspectionController.listInspections);
+router.get('/', requireAuth, requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_ADMIN), hydrateInspectionUser, inspectionController.listInspections);
+
 router.post(
   '/',
   requireRole(ROLE_MANAGER),
-  requireActiveSubscription,
+  requireActiveSubscriptionUnlessAdmin,
   requireUsage('inspectionsPerMonth', async (userId) => await getInspectionsThisMonth(userId)),
   inspectionController.createInspection
 );
 router.post(
   '/bulk',
   requireRole(ROLE_MANAGER),
-  requireActiveSubscription,
+  requireActiveSubscriptionUnlessAdmin,
   requireUsage('inspectionsPerMonth', async (userId) => await getInspectionsThisMonth(userId)),
   inspectionController.bulkCreateInspections
 );
-router.get('/:id', ensureInspectionAccess, inspectionController.getInspection);
-router.get('/:id/batch', ensureInspectionAccess, inspectionDetailsController.getBatchedInspectionDetails);
-router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), requireActiveSubscription, ensureInspectionAccess, inspectionController.updateInspection);
-router.delete('/:id', requireRole(ROLE_MANAGER), requireActiveSubscription, ensureInspectionAccess, inspectionController.deleteInspection);
+router.get('/:id', ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionController.getInspection);
+router.get('/:id/batch', ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionDetailsController.getBatchedInspectionDetails);
+router.patch('/:id', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_ADMIN), ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionController.updateInspection);
+router.delete('/:id', requireRole(ROLE_MANAGER, ROLE_ADMIN), requireActiveSubscriptionUnlessAdmin, ensureInspectionAccess, inspectionController.deleteInspection);
 
 // --- Workflow Actions ---
 
 router.post('/:id/reminders', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.createReminder);
 
-router.post('/:id/complete', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.completeInspection);
-router.post('/:id/generate-summary', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN), ensureInspectionAccess, inspectionController.generateSummary);
-router.post('/:id/approve', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.approveInspection);
-router.post('/:id/reject', requireRole(ROLE_MANAGER), ensureInspectionAccess, inspectionController.rejectInspection);
-router.post('/:id/signature', requireAuth, ensureInspectionAccess, signatureUpload.single('signature'), inspectionController.uploadSignature);
-router.get('/:id/report/pdf', requireAuth, ensureInspectionAccess, inspectionController.generatePDF);
+router.post('/:id/complete', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_ADMIN), ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionController.completeInspection);
+router.post('/:id/generate-summary', requireRole(ROLE_MANAGER, ROLE_TECHNICIAN, ROLE_ADMIN), ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionController.generateSummary);
+router.post('/:id/approve', requireRole(ROLE_MANAGER, ROLE_ADMIN), ensureInspectionAccess, inspectionController.approveInspection);
+router.post('/:id/reject', requireRole(ROLE_MANAGER, ROLE_ADMIN), ensureInspectionAccess, inspectionController.rejectInspection);
+router.post('/:id/signature', requireAuth, ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, signatureUpload.single('signature'), inspectionController.uploadSignature);
+router.get('/:id/report/pdf', requireAuth, ensureInspectionAccess, ensureManagerSubscriptionActiveForInspection, inspectionController.generatePDF);
 
 // --- Sub-resources: Rooms ---
 
 router.get('/:id/rooms', ensureInspectionAccess, inspectionDetailsController.getRooms);
 router.post('/:id/rooms', ensureInspectionAccess, inspectionDetailsController.addRoom);
-router.patch('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsController.updateRoom); // Note: param name might be different in controller if not handled carefully
+router.patch('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsController.updateRoom); 
 // Correction: The route param is :id for inspection, but we need the room id.
 // The controller expects :roomId.
 // Express routes match:

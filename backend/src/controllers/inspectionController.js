@@ -183,7 +183,24 @@ function buildInspectionWhere(query, user) {
 
 export const listInspections = async (req, res) => {
   try {
-    const where = buildInspectionWhere(req.query, req.user);
+    let where = buildInspectionWhere(req.query, req.user);
+
+    if (req.user?.role === ROLE_TECHNICIAN) {
+      const now = new Date();
+      where = {
+        AND: [
+          where,
+          {
+            property: {
+              OR: [
+                { manager: { subscriptionStatus: 'ACTIVE' } },
+                { manager: { subscriptionStatus: 'TRIAL', trialEndDate: { gt: now } } },
+              ],
+            },
+          },
+        ],
+      };
+    }
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
     

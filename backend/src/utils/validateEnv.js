@@ -77,8 +77,22 @@ export function validateEnvironment(failFast = true) {
     }
   }
 
+  // Validate SESSION_SECRET strength and prevent insecure defaults
+  if (process.env.SESSION_SECRET) {
+    if (process.env.SESSION_SECRET.length < 32) {
+      warnings.push('SESSION_SECRET should be at least 32 characters for security');
+    }
+    if (process.env.SESSION_SECRET === 'replace-this-session-secret') {
+      errors.push('SESSION_SECRET must be changed from default value!');
+    }
+  }
+
   // Production-specific checks
   if (isProduction) {
+    if (!process.env.SESSION_SECRET) {
+      errors.push('Missing production-required variable: SESSION_SECRET');
+    }
+
     for (const varName of PRODUCTION_REQUIRED_VARS) {
       if (!process.env[varName]) {
         errors.push(`Missing production-required variable: ${varName} (file uploads will fail)`);

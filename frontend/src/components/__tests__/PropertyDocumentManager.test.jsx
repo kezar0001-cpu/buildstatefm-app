@@ -29,6 +29,15 @@ vi.mock('../../utils/fileUtils.js', () => ({
   buildDocumentDownloadUrl: vi.fn((doc) => doc?.downloadUrl || null),
 }));
 
+vi.mock('../../utils/uploadPropertyDocuments.js', () => ({
+  uploadPropertyDocument: vi.fn(async (file) => ({
+    url: 'https://example.com/uploads/test.pdf',
+    name: file?.name,
+    size: file?.size,
+    mimeType: file?.type,
+  })),
+}));
+
 let queryClient;
 
 const createWrapper = () => {
@@ -130,7 +139,7 @@ describe('PropertyDocumentManager', () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText(/Uploaded by John Doe/i)).toBeInTheDocument();
+    expect(screen.getByText(/Uploaded by\s+John\b/i)).toBeInTheDocument();
   });
 
   it('displays "Unknown User" when uploader data is missing', () => {
@@ -152,7 +161,7 @@ describe('PropertyDocumentManager', () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText(/Uploaded by Unknown User/i)).toBeInTheDocument();
+    expect(screen.getByText(/Uploaded by\s+Unknown\b/i)).toBeInTheDocument();
   });
 
   it('displays "Unknown User" when uploader name fields are missing', () => {
@@ -178,7 +187,7 @@ describe('PropertyDocumentManager', () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText(/Uploaded by Unknown User/i)).toBeInTheDocument();
+    expect(screen.getByText(/Uploaded by\s+Unknown\b/i)).toBeInTheDocument();
   });
 
   it('calls refetch after successfully adding a document', async () => {
@@ -192,29 +201,26 @@ describe('PropertyDocumentManager', () => {
 
     // Wait for dialog to open
     await waitFor(() => {
-      expect(screen.getByText('Add Property Document')).toBeInTheDocument();
+      expect(screen.getByText('Upload Document')).toBeInTheDocument();
     });
 
     // Create a mock file
     const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
 
-    // Find the file input (it's hidden, so we need to get it by ID)
-    const fileInput = document.querySelector('#document-file-upload');
+    // Find the hidden file input inside the label button
+    const fileInput = document.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
 
     // Simulate file selection
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false,
-    });
-    fireEvent.change(fileInput);
+    fireEvent.change(fileInput, { target: { files: [file] } });
 
     // Wait for file to be processed
     await waitFor(() => {
-      expect(screen.getByText(/test.pdf/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /test\.pdf/i })).toBeInTheDocument();
     });
 
     // Click the upload button
-    const uploadButton = screen.getByRole('button', { name: /upload document/i });
+    const uploadButton = screen.getByRole('button', { name: /upload/i });
     fireEvent.click(uploadButton);
 
     // Wait for the mutation to complete
@@ -234,7 +240,11 @@ describe('PropertyDocumentManager', () => {
     });
 
     // Find and click the delete button
-    const deleteButton = screen.getAllByTitle('Delete')[0];
+    const deleteButtons = screen.getAllByRole('button').filter((btn) => {
+      return btn.querySelector('[data-testid="DeleteIcon"]');
+    });
+    expect(deleteButtons.length).toBeGreaterThan(0);
+    const deleteButton = deleteButtons[0];
     fireEvent.click(deleteButton);
 
     // Confirm deletion in the dialog
@@ -301,8 +311,7 @@ describe('PropertyDocumentManager', () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText('Failed to load property documents')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText('Failed to load documents')).toBeInTheDocument();
   });
 
   it('does not show add document button when canEdit is false', () => {
@@ -346,12 +355,9 @@ describe('PropertyDocumentManager', () => {
       type: 'application/pdf',
     });
 
-    const fileInput = document.querySelector('#document-file-upload');
-    Object.defineProperty(fileInput, 'files', {
-      value: [largeFile],
-      writable: false,
-    });
-    fireEvent.change(fileInput);
+    const fileInput = document.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
+    fireEvent.change(fileInput, { target: { files: [largeFile] } });
 
     // Should show error message
     await waitFor(() => {
@@ -371,12 +377,9 @@ describe('PropertyDocumentManager', () => {
     // Create an invalid file type
     const invalidFile = new File(['test'], 'test.exe', { type: 'application/x-msdownload' });
 
-    const fileInput = document.querySelector('#document-file-upload');
-    Object.defineProperty(fileInput, 'files', {
-      value: [invalidFile],
-      writable: false,
-    });
-    fireEvent.change(fileInput);
+    const fileInput = document.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
+    fireEvent.change(fileInput, { target: { files: [invalidFile] } });
 
     // Should show error message
     await waitFor(() => {

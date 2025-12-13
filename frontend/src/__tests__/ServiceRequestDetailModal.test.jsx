@@ -17,12 +17,18 @@ vi.mock('react-hot-toast', () => ({
   default: toastMock,
 }));
 
-vi.mock('../api/client.js', () => ({
+vi.mock('../api/client', () => ({
   apiClient: {
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
   },
+}));
+
+vi.mock('../context/UserContext.jsx', () => ({
+  useCurrentUser: () => ({
+    user: { role: 'PROPERTY_MANAGER' },
+  }),
 }));
 
 const createRequest = (overrides = {}) => ({

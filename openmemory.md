@@ -26,8 +26,23 @@
   - `/properties/:id/edit` remains blocked for non-edit roles.
   - Backend supports scoped read access and gates non-PM roles by the property manager subscription.
 
+- **Jobs (backend):** `backend/src/routes/jobs.js`
+  - TENANT cannot access jobs endpoints (use service requests).
+  - OWNER/TECHNICIAN reads and technician actions (`/accept`, `/reject`, status updates) are gated by the *property manager* subscription (ACTIVE or TRIAL not expired).
+  - ADMIN is not subscription-gated.
+
+- **Inspections (backend):**
+  - `backend/src/routes/inspections.js` gates non-PM/non-admin inspection access by the *property manager* subscription (not technician subscription).
+  - `backend/src/controllers/inspectionController.js` filters technician list results to only properties whose manager subscription is active.
+  - ADMIN is not subscription-gated (uses `requireActiveSubscriptionUnlessAdmin` where needed).
+
 ## Patterns
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
   - Disabled backend mounts for reports by removing `reports`/`new-reports` from `backend/src/routes/index.js` and `/api/reports` from `backend/src/index.js`.
+
+## CI
+- **GitHub Actions:** `.github/workflows/ci.yml`
+  - Runs **frontend** `npm ci`, **smoke tests** (small subset), then `npm run build`.
+  - Intentionally does **not** run the full `vitest` suite to keep checks fast and avoid flaky/slow UI tests.

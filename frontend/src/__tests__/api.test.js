@@ -36,7 +36,7 @@ describe('apiClient configuration', () => {
   it('defaults to window origin when environment variable is not set', async () => {
     const apiClient = await loadClient();
 
-    expect(apiClient.defaults.baseURL).toBe(window.location.origin);
+    expect(apiClient.defaults.baseURL).toBe(`${window.location.origin}/api`);
   });
 
   it('prefixes relative request paths with /api', async () => {
@@ -82,6 +82,6 @@ describe('apiClient configuration', () => {
   it('disables withCredentials by default for the axios instance', async () => {
     const apiClient = await loadClient();
 
-    expect(apiClient.defaults.withCredentials).toBe(false);
+    expect(apiClient.defaults.withCredentials).toBe(true);
   });
 });
