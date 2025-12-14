@@ -28,7 +28,7 @@ import {
   Wifi as WifiIcon,
   Pets as PetsIcon,
   Description as DocumentIcon,
-  Emergency as EmergencyIcon,
+  MedicalServices as EmergencyIcon,
   Person as PersonIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
