@@ -216,6 +216,7 @@ router.get('/:token', async (req, res) => {
     res.json({
       success: true,
       invite: {
+        email: invite.email,
         role: invite.role,
         invitedBy: invite.invitedBy,
         property: invite.property,

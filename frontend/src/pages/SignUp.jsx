@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Container, Box, TextField, Button, Typography, Paper, Alert, Divider,
+  Container, Box, TextField, Button, Typography, Paper, Alert,
   IconButton, InputAdornment, Grid, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
-import { Visibility, VisibilityOff, Google as GoogleIcon, ArrowBack } from '@mui/icons-material';
+import { Visibility, VisibilityOff, ArrowBack } from '@mui/icons-material';
 import { saveTokenFromUrl, setCurrentUser } from '../lib/auth';
 import { apiClient } from '../api/client.js';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
@@ -16,7 +16,6 @@ export default function SignUp() {
   const inviteToken = searchParams.get('invite');
   const selectedPlan = searchParams.get('plan'); // Get plan from URL params
 
-  // MINIMAL CHANGE: Add 'role' to the initial state
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', password: '', confirmPassword: '', phone: '', company: '', role: 'PROPERTY_MANAGER'
   });
@@ -33,7 +32,6 @@ export default function SignUp() {
     if (token) navigate('/dashboard');
   }, [navigate]);
 
-  // Fetch invite details if invite token is present
   useEffect(() => {
     const fetchInviteDetails = async () => {
       if (!inviteToken) return;
@@ -44,7 +42,6 @@ export default function SignUp() {
         const res = response?.data ?? response;
         const inviteDetails = res.invite || res;
         setInviteData(inviteDetails);
-        // Pre-fill email and role from invite
         setFormData(prev => ({
           ...prev,
           email: inviteDetails.email || prev.email,
@@ -61,14 +58,6 @@ export default function SignUp() {
     fetchInviteDetails();
   }, [inviteToken]);
 
-  const googleUrl = useMemo(() => {
-    const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-    if (!BASE) return null;
-    const url = new URL('/api/auth/google', BASE + '/');
-    url.searchParams.set('role', 'PROPERTY_MANAGER');
-    return url.toString();
-  }, []);
-
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
     setError('');
@@ -83,7 +72,6 @@ export default function SignUp() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) { setError('Please enter a valid email address'); return false; }
 
-    // Validate password requirements
     const passwordRequirements = {
       minLength: password.length >= 12,
       hasUppercase: /[A-Z]/.test(password),
@@ -110,7 +98,6 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      // MINIMAL CHANGE: Include the selected 'role' from the form data
       const payload = {
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
@@ -120,7 +107,6 @@ export default function SignUp() {
         role: formData.role,
       };
 
-      // Add invite token if present
       if (inviteToken) {
         payload.inviteToken = inviteToken;
       }
@@ -134,7 +120,6 @@ export default function SignUp() {
       localStorage.setItem('auth_token', res.token);
       setCurrentUser(res.user);
 
-      // If a plan was selected, redirect to subscriptions page with plan parameter
       if (selectedPlan) {
         navigate(`/subscriptions?plan=${selectedPlan}`);
       } else {
@@ -151,11 +136,6 @@ export default function SignUp() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogle = () => {
-    if (!googleUrl) { setError('Google sign-up is not configured'); return; }
-    window.location.href = googleUrl;
   };
 
   return (
@@ -193,19 +173,6 @@ export default function SignUp() {
 
           {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-          <Button
-            fullWidth variant="outlined" onClick={handleGoogle}
-            disabled={loading || !googleUrl} startIcon={<GoogleIcon />}
-            sx={{ mb: 2, textTransform: 'none', borderColor: '#e0e0e0', color: '#757575',
-              '&:hover': { borderColor: '#bdbdbd', backgroundColor: '#f5f5f5' } }}
-          >
-            Continue with Google
-          </Button>
-
-          <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="text.secondary">or sign up with email</Typography>
-          </Divider>
-
           <Box component="form" onSubmit={handleSubmit}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
@@ -227,7 +194,7 @@ export default function SignUp() {
             <TextField
               margin="normal" required fullWidth id="email" label="Email Address" name="email"
               type="email" autoComplete="email" value={formData.email}
-              onChange={handleChange} disabled={loading || inviteData}
+              onChange={handleChange} disabled={loading || !!inviteData}
               InputProps={{
                 readOnly: !!inviteData,
               }}

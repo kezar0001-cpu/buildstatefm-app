@@ -46,6 +46,11 @@
   - Avoid broad `url.includes('/units/unit-123')` mocks because it also matches nested endpoints like `/units/unit-123/tenants`; prefer exact matching (`url === '/units/unit-123'`).
   - RBAC-gated UI in pages using `getCurrentUser()` can be tested by seeding `localStorage.setItem('user', JSON.stringify({ role: 'ADMIN' }))`.
 
+- **Invite-based signup (prefill email + simplified UI):**
+  - Backend invite verification endpoint `GET /api/invites/:token` returns `invite.email` so the signup page can prefill and lock the email field.
+  - Signup UI no longer shows Google signup or the "or sign up with email" divider.
+  - Regression test: `frontend/src/__tests__/SignUp.invite.test.jsx`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
