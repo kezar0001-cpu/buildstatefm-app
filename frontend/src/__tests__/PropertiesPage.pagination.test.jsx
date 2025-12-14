@@ -118,7 +118,7 @@ describe('PropertiesPage pagination', () => {
     expect(mockedGet).toHaveBeenCalledWith('/properties?limit=50&offset=0');
 
     // Click "Load More" button
-    const loadMoreButton = screen.getByText('Load More');
+    const loadMoreButton = screen.getByRole('button', { name: /load more/i });
     await userEvent.click(loadMoreButton);
 
     // Wait for second page to load
@@ -167,13 +167,13 @@ describe('PropertiesPage pagination', () => {
     });
 
     // Load second page
-    await userEvent.click(screen.getByText('Load More'));
+    await userEvent.click(screen.getByRole('button', { name: /load more/i }));
     await waitFor(() => {
       expect(screen.getByText('Property 50')).toBeInTheDocument();
     });
 
     // Load third page
-    await userEvent.click(screen.getByText('Load More'));
+    await userEvent.click(screen.getByRole('button', { name: /load more/i }));
     await waitFor(() => {
       expect(screen.getByText('Property 100')).toBeInTheDocument();
     });
@@ -220,7 +220,7 @@ describe('PropertiesPage pagination', () => {
     });
 
     // Load second page
-    await userEvent.click(screen.getByText('Load More'));
+    await userEvent.click(screen.getByRole('button', { name: /load more/i }));
 
     // Wait for second page and verify no properties were skipped
     await waitFor(() => {
@@ -238,13 +238,29 @@ describe('PropertiesPage pagination', () => {
   });
 
   it('should show filtered empty state when search returns no results', async () => {
-    mockedGet.mockResolvedValueOnce({
+    const initialResponse = {
       data: {
         items: [createMockProperty('prop-1', 'Property 1')],
         total: 1,
         page: 1,
         hasMore: false,
       },
+    };
+
+    const emptySearchResponse = {
+      data: {
+        items: [],
+        total: 0,
+        page: 1,
+        hasMore: false,
+      },
+    };
+
+    mockedGet.mockImplementation((url) => {
+      if (typeof url === 'string' && url.startsWith('/properties?') && /[?&]search=/.test(url)) {
+        return Promise.resolve(emptySearchResponse);
+      }
+      return Promise.resolve(initialResponse);
     });
 
     const queryClient = new QueryClient({
@@ -311,6 +327,6 @@ describe('PropertiesPage pagination', () => {
     });
 
     // Verify Load More button is not present
-    expect(screen.queryByText('Load More')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
   });
 });

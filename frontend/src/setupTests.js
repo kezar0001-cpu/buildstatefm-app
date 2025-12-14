@@ -48,6 +48,23 @@ if (shouldMockLocalStorage) {
   });
 }
 
+if (!globalThis.IntersectionObserver) {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    constructor(callback) {
+      this._callback = callback;
+    }
+
+    observe(target) {
+      // Immediately mark as intersecting for deterministic tests
+      this._callback([{ isIntersecting: true, target }]);
+    }
+
+    unobserve() {}
+
+    disconnect() {}
+  };
+}
+
 // Initialize i18next for tests
 i18n.init({
   lng: 'en',

@@ -362,7 +362,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
       </DialogTitle>
 
       <DialogContent dividers>
-        <DataState isLoading={isLoading} error={error} isEmpty={!data}>
+        <DataState isLoading={isLoading} isError={!!error} error={error} isEmpty={!data}>
           {data && (
             <Stack spacing={3}>
               {/* Title and Status */}

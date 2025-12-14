@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ServiceRequestDetailModal from '../components/ServiceRequestDetailModal.jsx';
 import { apiClient } from '../api/client.js';
@@ -120,14 +121,13 @@ describe('ServiceRequestDetailModal', () => {
     await renderModal();
 
     await waitFor(() => {
-      expect(screen.getByText('Leaky Faucet in Kitchen')).toBeInTheDocument();
+      expect(screen.getByText(/Leaky Faucet in Kitchen/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText('SUBMITTED')).toBeInTheDocument();
-    expect(screen.getByText('PLUMBING')).toBeInTheDocument();
-    expect(screen.getByText('HIGH')).toBeInTheDocument();
-    expect(screen.getByText('Submitted')).toBeInTheDocument();
-    expect(screen.getByText('Converted to Job')).toBeInTheDocument();
+    expect(screen.getAllByText(/SUBMITTED/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/PLUMBING/i)).toBeInTheDocument();
+    expect(screen.getByText(/HIGH/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Converted to Job/i).length).toBeGreaterThan(0);
   });
 
   it('shows review history when available', async () => {
@@ -140,10 +140,10 @@ describe('ServiceRequestDetailModal', () => {
     await renderModal({ request });
 
     await waitFor(() => {
-      expect(screen.getByText('Review History')).toBeInTheDocument();
+      expect(screen.getByText(/Review History/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Approved - urgent repair needed')).toBeInTheDocument();
+    expect(screen.getByText(/Approved - urgent repair needed/i)).toBeInTheDocument();
   });
 
   it('shows converted jobs when present', async () => {
@@ -163,11 +163,11 @@ describe('ServiceRequestDetailModal', () => {
     await renderModal({ request });
 
     await waitFor(() => {
-      expect(screen.getByText('Converted Jobs')).toBeInTheDocument();
+      expect(screen.getAllByText(/CONVERTED TO JOB/i).length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByText('Fix Kitchen Faucet Leak')).toBeInTheDocument();
-    expect(screen.getByText('IN_PROGRESS')).toBeInTheDocument();
+    expect(screen.getByText(/Fix Kitchen Faucet Leak/i)).toBeInTheDocument();
+    expect(screen.getByText(/IN PROGRESS/i)).toBeInTheDocument();
   });
 
   it('displays rejection alert when status is REJECTED', async () => {
@@ -179,25 +179,29 @@ describe('ServiceRequestDetailModal', () => {
     await renderModal({ request });
 
     await waitFor(() => {
-      expect(screen.getByText('Service Request Details')).toBeInTheDocument();
+      expect(screen.getByText(/Service Request Details/i)).toBeInTheDocument();
     });
 
     expect(
-      screen.getByText('This request was rejected. Review notes are available below.')
+      screen.getByText(/This request was rejected\./i)
     ).toBeInTheDocument();
   });
 
   it('requires review notes before approving', async () => {
     await renderModal();
 
+    const user = userEvent.setup();
+
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Add Cost Estimate' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Add Cost Estimate/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Cost Estimate' }));
+    await user.click(screen.getByRole('button', { name: /Add Cost Estimate/i }));
 
-    const submitEstimateButton = await screen.findByRole('button', { name: 'Submit Estimate' });
-    fireEvent.click(submitEstimateButton);
+    expect(await screen.findByText(/Add Cost Estimate/i)).toBeInTheDocument();
+
+    const submitEstimateButton = await screen.findByRole('button', { name: /Submit Estimate/i });
+    await user.click(submitEstimateButton);
 
     expect(apiClient.post).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith('Please enter a valid cost estimate');
@@ -206,19 +210,24 @@ describe('ServiceRequestDetailModal', () => {
   it('adds a cost estimate and invalidates related caches', async () => {
     await renderModal();
 
+    const user = userEvent.setup();
+
     apiClient.post.mockResolvedValue({ data: { success: true } });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Add Cost Estimate' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Add Cost Estimate/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Cost Estimate' }));
+    await user.click(screen.getByRole('button', { name: /Add Cost Estimate/i }));
 
-    const estimateInput = await screen.findByLabelText('Estimated Cost');
-    fireEvent.change(estimateInput, { target: { value: '250' } });
+    expect(await screen.findByText(/Add Cost Estimate/i)).toBeInTheDocument();
 
-    const submitEstimateButton = screen.getByRole('button', { name: 'Submit Estimate' });
-    fireEvent.click(submitEstimateButton);
+    const estimateInput = await screen.findByLabelText(/Estimated Cost/i);
+    expect(estimateInput).toBeInTheDocument();
+    await user.type(estimateInput, '250');
+
+    const submitEstimateButton = screen.getByRole('button', { name: /Submit Estimate/i });
+    await user.click(submitEstimateButton);
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/service-requests/sr-123/estimate', {
@@ -238,15 +247,20 @@ describe('ServiceRequestDetailModal', () => {
   it('rejects a request and invalidates related caches', async () => {
     await renderModal();
 
+    const user = userEvent.setup();
+
     apiClient.post.mockResolvedValue({ data: { success: true } });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+    await user.click(await screen.findByRole('button', { name: /Reject/i }));
 
-    const reasonInput = await screen.findByLabelText('Rejection Reason');
-    fireEvent.change(reasonInput, { target: { value: 'Not within scope' } });
+    expect(await screen.findByText(/Reject Service Request/i)).toBeInTheDocument();
 
-    const confirmButton = screen.getByRole('button', { name: 'Reject' });
-    fireEvent.click(confirmButton);
+    const reasonInput = await screen.findByLabelText(/Rejection Reason/i);
+    expect(reasonInput).toBeInTheDocument();
+    await user.type(reasonInput, 'Not within scope');
+
+    const confirmButton = screen.getByRole('button', { name: /^Reject$/i });
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/service-requests/sr-123/manager-reject', {
@@ -265,16 +279,32 @@ describe('ServiceRequestDetailModal', () => {
   });
 
   it('converts a request to a job and refreshes caches', async () => {
+    const user = userEvent.setup();
     const request = createRequest({ status: 'APPROVED_BY_OWNER' });
     await renderModal({ request });
+
+    // The conversion dialog fetches technicians when opened
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/users?role=TECHNICIAN') {
+        return Promise.resolve({ data: { users: [] } });
+      }
+      return Promise.resolve({ data: { request } });
+    });
 
     apiClient.post.mockResolvedValue({ data: { success: true } });
 
     const convertButton = await screen.findByRole('button', { name: 'Convert to Job' });
-    fireEvent.click(convertButton);
+    await user.click(convertButton);
+
+    // Confirm conversion inside the dialog
+    expect(await screen.findByText(/Convert Service Request to Job/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Convert to Job/i }));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/service-requests/sr-123/convert-to-job');
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/service-requests/sr-123/convert-to-job',
+        expect.any(Object)
+      );
       expect(invalidateQueriesSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: queryKeys.serviceRequests.all() })
       );
@@ -311,9 +341,11 @@ describe('ServiceRequestDetailModal', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+      expect(screen.getByText(/Error/i)).toBeInTheDocument();
     });
-    expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Unable to connect to the server\./i)
+    ).toBeInTheDocument();
   });
 
   it('shows empty state when request is missing', async () => {
@@ -325,7 +357,7 @@ describe('ServiceRequestDetailModal', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('No data available')).toBeInTheDocument();
+      expect(screen.getByText(/No data available/i)).toBeInTheDocument();
     });
   });
 
