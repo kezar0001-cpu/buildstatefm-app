@@ -12,118 +12,43 @@ import {
   Typography,
   Button,
   Paper,
-  Avatar,
-  IconButton,
-  alpha,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Build as BuildIcon,
   Assignment as AssignmentIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  CalendarMonth as CalendarIcon,
-  AttachMoney as MoneyIcon,
-  LocalParking as ParkingIcon,
-  Wifi as WifiIcon,
-  Pets as PetsIcon,
-  Description as DocumentIcon,
-  MedicalServices as EmergencyIcon,
-  Person as PersonIcon,
+  KingBed as BedroomIcon,
+  Bathtub as BathroomIcon,
+  LocationOn as LocationIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
-  Error as ErrorIcon,
   ChevronRight as ChevronRightIcon,
+  Apartment as ApartmentIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import PropertyImageCarousel from '../components/PropertyImageCarousel';
+import PageShell from '../components/PageShell';
+import Breadcrumbs from '../components/Breadcrumbs';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys';
 import { format } from 'date-fns';
 
-// Quick Action Button Component
-const QuickActionButton = ({ icon: Icon, label, onClick, color = 'primary' }) => (
-  <Button
-    variant="contained"
-    color={color}
-    size="large"
-    startIcon={<Icon />}
-    onClick={onClick}
-    sx={{
-      py: 1.5,
-      textTransform: 'none',
-      fontSize: '1rem',
-      fontWeight: 600,
-      boxShadow: 3,
-      '&:hover': {
-        boxShadow: 6,
-        transform: 'translateY(-2px)',
-      },
-      transition: 'all 0.3s ease',
-    }}
-  >
-    {label}
-  </Button>
-);
-
-// Info Card Component
-const InfoCard = ({ title, icon: Icon, children, color = 'primary.main' }) => (
-  <Card
-    sx={{
-      height: '100%',
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        boxShadow: 6,
-        transform: 'translateY(-4px)',
-      },
-    }}
-  >
-    <CardContent>
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Box
-            sx={{
-              bgcolor: alpha(color, 0.1),
-              color: color,
-              borderRadius: 2,
-              p: 1,
-              display: 'flex',
-            }}
-          >
-            <Icon />
-          </Box>
-          <Typography variant="h6" fontWeight={700}>
-            {title}
-          </Typography>
-        </Stack>
-        <Divider />
-        {children}
-      </Stack>
-    </CardContent>
-  </Card>
-);
-
 // Inspection Card Component
 const InspectionCard = ({ inspection, onClick }) => {
-  const getStatusIcon = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'COMPLETED':
-        return <CheckCircleIcon color="success" />;
-      case 'SCHEDULED':
-        return <ScheduleIcon color="info" />;
-      default:
-        return <AssignmentIcon color="action" />;
-    }
-  };
-
   const getStatusColor = (status) => {
     switch (status?.toUpperCase()) {
       case 'COMPLETED':
         return 'success';
       case 'SCHEDULED':
         return 'info';
+      case 'IN_PROGRESS':
+        return 'warning';
       default:
         return 'default';
     }
@@ -131,46 +56,47 @@ const InspectionCard = ({ inspection, onClick }) => {
 
   return (
     <Card
+      variant="outlined"
       sx={{
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.2s ease',
         '&:hover': {
-          boxShadow: 6,
-          transform: 'translateY(-2px)',
+          boxShadow: 4,
+          borderColor: 'primary.main',
         },
       }}
       onClick={onClick}
     >
       <CardContent>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
-            <Stack direction="row" spacing={1.5} alignItems="center" flex={1}>
-              {getStatusIcon(inspection.status)}
-              <Box flex={1}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  {inspection.title || 'Inspection'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {inspection.scheduledDate
-                    ? format(new Date(inspection.scheduledDate), 'EEEE, MMMM dd, yyyy')
-                    : 'Date not scheduled'}
-                </Typography>
-              </Box>
-            </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
+          <Stack direction="row" spacing={2} alignItems="center" flex={1}>
+            <AssignmentIcon color="primary" />
+            <Box flex={1}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {inspection.title || 'Inspection'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {inspection.scheduledDate
+                  ? format(new Date(inspection.scheduledDate), 'EEEE, MMM dd, yyyy')
+                  : 'Date not scheduled'}
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
             <Chip
-              label={inspection.status || 'N/A'}
+              label={inspection.status?.replace(/_/g, ' ') || 'N/A'}
               size="small"
               color={getStatusColor(inspection.status)}
             />
+            <Button
+              variant="text"
+              size="small"
+              endIcon={<ChevronRightIcon />}
+              sx={{ textTransform: 'none' }}
+            >
+              View
+            </Button>
           </Stack>
-          <Button
-            variant="outlined"
-            size="small"
-            endIcon={<ChevronRightIcon />}
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            View Report
-          </Button>
         </Stack>
       </CardContent>
     </Card>
@@ -180,6 +106,7 @@ const InspectionCard = ({ inspection, onClick }) => {
 export default function TenantUnitPage() {
   const navigate = useNavigate();
 
+  // Fetch tenant's assigned units
   const { data: units = [], isLoading: unitsLoading, error: unitsError, refetch: refetchUnits } = useQuery({
     queryKey: queryKeys.dashboard.tenantUnits(),
     queryFn: async () => {
@@ -218,6 +145,7 @@ export default function TenantUnitPage() {
   const unitId = selectedUnit?.id;
   const propertyId = selectedUnit?.propertyId || selectedUnit?.property?.id || null;
 
+  // Fetch property details
   const { data: propertyResponse, isLoading: propertyLoading } = useQuery({
     queryKey: queryKeys.properties.detail(propertyId || 'none'),
     queryFn: async () => {
@@ -229,8 +157,13 @@ export default function TenantUnitPage() {
   });
 
   const property = propertyResponse?.property ?? null;
-  const propertyImages = Array.isArray(property?.images) ? property.images : [];
 
+  // Combine unit images and property images for the gallery
+  const unitImages = Array.isArray(selectedUnit?.images) ? selectedUnit.images : [];
+  const propertyImages = Array.isArray(property?.images) ? property.images : [];
+  const allImages = [...unitImages, ...propertyImages];
+
+  // Fetch inspections for this unit
   const {
     data: inspections = [],
     isLoading: inspectionsLoading,
@@ -246,28 +179,7 @@ export default function TenantUnitPage() {
     retry: 1,
   });
 
-  if (unitsLoading) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <DataState isLoading={true} />
-      </Container>
-    );
-  }
-
-  if (unitsError || !selectedUnit) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <DataState
-          isError={true}
-          error={unitsError}
-          isEmpty={!unitsError && !selectedUnit}
-          emptyMessage="You don't have a unit assigned yet"
-          onRetry={refetchUnits}
-        />
-      </Container>
-    );
-  }
-
+  // Build the full address
   const fullAddress = [
     property?.address,
     property?.city,
@@ -278,370 +190,258 @@ export default function TenantUnitPage() {
     .join(', ');
 
   return (
-    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-      {/* Hero Section with Property Images */}
-      <Box
-        sx={{
-          position: 'relative',
-          height: { xs: 300, md: 400 },
-          bgcolor: 'grey.900',
-          overflow: 'hidden',
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+      <Breadcrumbs
+        labelOverrides={{
+          '/tenant/unit': 'My Home',
         }}
+      />
+      <PageShell
+        title="My Home"
+        subtitle="View your assigned home and inspection reports"
+        contentSpacing={{ xs: 3, md: 3 }}
       >
-        <PropertyImageCarousel
-          images={propertyImages}
-          fallbackText={property?.name || 'Your Unit'}
-          height={{ xs: 300, md: 400 }}
-          showArrows
-          showDots
-          autoPlay
-        />
-        {/* Overlay with Unit Info */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)',
-            color: 'white',
-            p: { xs: 2, md: 4 },
-          }}
+        <DataState
+          isLoading={unitsLoading}
+          isError={!!unitsError}
+          error={unitsError}
+          isEmpty={!unitsLoading && !unitsError && uniqueUnits.length === 0}
+          emptyMessage="You don't have a home assigned yet. Contact your property manager."
+          onRetry={refetchUnits}
         >
-          <Container maxWidth="xl">
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                <Typography variant="h3" fontWeight={800} sx={{ color: 'white' }}>
-                  Unit {selectedUnit.unitNumber}
-                </Typography>
-                <Chip
-                  label={selectedUnit.status || 'OCCUPIED'}
-                  color="success"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    bgcolor: 'success.main',
-                    color: 'white',
-                  }}
+          {/* Unit Selector (if multiple units) */}
+          {uniqueUnits.length > 1 && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <FormControl fullWidth>
+                  <InputLabel id="tenant-unit-select-label">Select Home</InputLabel>
+                  <Select
+                    labelId="tenant-unit-select-label"
+                    label="Select Home"
+                    value={resolvedSelectedUnitId}
+                    onChange={(e) => setSelectedUnitId(e.target.value)}
+                  >
+                    {uniqueUnits.map((unit) => (
+                      <MenuItem key={unit.id} value={unit.id}>
+                        {unit.property?.name ? `${unit.property.name} — ` : ''}Unit {unit.unitNumber}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedUnit && (
+            <>
+              {/* Photo Gallery */}
+              <Card sx={{ mb: 3, overflow: 'hidden' }}>
+                <PropertyImageCarousel
+                  images={allImages}
+                  fallbackText={property?.name || `Unit ${selectedUnit.unitNumber}`}
+                  height={{ xs: 200, sm: 280, md: 360 }}
+                  showArrows
+                  showDots
+                  showCounter
+                  showFullscreenButton
+                  borderRadius={0}
                 />
-              </Stack>
-              <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                {fullAddress || property?.name || 'Your Property'}
-              </Typography>
-              <Stack direction="row" spacing={3} sx={{ mt: 1 }}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <HomeIcon sx={{ fontSize: 20, color: 'rgba(255,255,255,0.8)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                    {selectedUnit.bedrooms || 0} Bedrooms
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <HomeIcon sx={{ fontSize: 20, color: 'rgba(255,255,255,0.8)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                    {selectedUnit.bathrooms || 0} Bathrooms
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Stack>
-          </Container>
-        </Box>
-      </Box>
+              </Card>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Quick Actions */}
-        <Paper
-          elevation={3}
-          sx={{
-            p: 3,
-            mb: 4,
-            borderRadius: 3,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          }}
-        >
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              <QuickActionButton
-                icon={BuildIcon}
-                label="Request Maintenance"
-                onClick={() => navigate('/service-requests')}
-                color="error"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <QuickActionButton
-                icon={DocumentIcon}
-                label="View Lease"
-                onClick={() => { }}
-                color="primary"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <QuickActionButton
-                icon={PersonIcon}
-                label="Contact Manager"
-                onClick={() => { }}
-                color="success"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <QuickActionButton
-                icon={MoneyIcon}
-                label="Payment Portal"
-                onClick={() => { }}
-                color="warning"
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {/* Key Information Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Lease Details */}
-          <Grid item xs={12} md={6} lg={3}>
-            <InfoCard title="Lease Details" icon={CalendarIcon} color="#3b82f6">
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Move-in Date
-                  </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {selectedUnit.moveInDate
-                      ? format(new Date(selectedUnit.moveInDate), 'MMM dd, yyyy')
-                      : 'Not available'}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Lease End
-                  </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {selectedUnit.leaseEndDate
-                      ? format(new Date(selectedUnit.leaseEndDate), 'MMM dd, yyyy')
-                      : 'Not available'}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Monthly Rent
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="primary.main">
-                    ${selectedUnit.rentAmount || '---'}/mo
-                  </Typography>
-                </Box>
-              </Stack>
-            </InfoCard>
-          </Grid>
-
-          {/* Property Manager */}
-          <Grid item xs={12} md={6} lg={3}>
-            <InfoCard title="Property Manager" icon={PersonIcon} color="#10b981">
-              <Stack spacing={2}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.main' }}>
-                    <PersonIcon />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body1" fontWeight={600}>
-                      {property?.manager?.name || 'Not assigned'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Property Manager
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Divider />
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <PhoneIcon fontSize="small" color="action" />
-                    <Typography variant="body2">
-                      {property?.manager?.phone || '(555) 123-4567'}
-                    </Typography>
-                  </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <EmailIcon fontSize="small" color="action" />
-                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                      {property?.manager?.email || 'manager@property.com'}
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Stack>
-            </InfoCard>
-          </Grid>
-
-          {/* Emergency Contacts */}
-          <Grid item xs={12} md={6} lg={3}>
-            <InfoCard title="Emergency" icon={EmergencyIcon} color="#ef4444">
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                    24/7 Maintenance Hotline
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    fullWidth
-                    startIcon={<PhoneIcon />}
-                    href="tel:+1555999911"
-                    sx={{ justifyContent: 'flex-start' }}
-                  >
-                    (555) 999-0911
-                  </Button>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                    Emergency Services
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    fullWidth
-                    startIcon={<EmergencyIcon />}
-                    href="tel:911"
-                    sx={{ justifyContent: 'flex-start' }}
-                  >
-                    911
-                  </Button>
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  For life-threatening emergencies, call 911 first
-                </Typography>
-              </Stack>
-            </InfoCard>
-          </Grid>
-
-          {/* Amenities */}
-          <Grid item xs={12} md={6} lg={3}>
-            <InfoCard title="Amenities" icon={WifiIcon} color="#8b5cf6">
-              <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <ParkingIcon fontSize="small" color="success" />
-                  <Typography variant="body2">1 Parking Space</Typography>
-                </Stack>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <WifiIcon fontSize="small" color="success" />
-                  <Typography variant="body2">WiFi Included</Typography>
-                </Stack>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <PetsIcon fontSize="small" color={selectedUnit.petsAllowed ? 'success' : 'action'} />
-                  <Typography variant="body2">
-                    {selectedUnit.petsAllowed ? 'Pets Allowed' : 'No Pets'}
-                  </Typography>
-                </Stack>
-                <Divider />
-                <Typography variant="caption" color="text.secondary">
-                  Check your lease for full amenity details
-                </Typography>
-              </Stack>
-            </InfoCard>
-          </Grid>
-        </Grid>
-
-        {/* Inspection Reports */}
-        <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 4 }}>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <AssignmentIcon color="primary" sx={{ fontSize: 32 }} />
-                <Typography variant="h5" fontWeight={700}>
-                  Inspection Reports
-                </Typography>
-              </Stack>
-              <Chip label={`${inspections.length} Total`} color="primary" />
-            </Stack>
-
-            <Divider />
-
-            <DataState
-              isLoading={inspectionsLoading}
-              isError={!!inspectionsError}
-              error={inspectionsError}
-              isEmpty={!inspectionsLoading && !inspectionsError && inspections.length === 0}
-              emptyMessage="No inspections found for your unit"
-              onRetry={refetchInspections}
-            >
-              {inspections.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <AssignmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" gutterBottom>
-                    No Inspections Yet
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    When an inspection is completed for your unit, the report will appear here.
-                  </Typography>
-                </Box>
-              ) : (
-                <Grid container spacing={2}>
-                  {inspections.map((inspection) => (
-                    <Grid item xs={12} key={inspection.id}>
-                      <InspectionCard
-                        inspection={inspection}
-                        onClick={() => navigate(`/inspections/${inspection.id}/report`)}
+              {/* Unit & Property Info */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Stack spacing={3}>
+                    {/* Header */}
+                    <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                      <Box
+                        sx={{
+                          background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                          color: 'white',
+                          borderRadius: 2,
+                          p: 1.5,
+                          display: 'flex',
+                        }}
+                      >
+                        <ApartmentIcon fontSize="large" />
+                      </Box>
+                      <Box flex={1}>
+                        <Typography variant="h5" fontWeight={700}>
+                          Unit {selectedUnit.unitNumber}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {property?.name || selectedUnit.property?.name || 'Property'}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={selectedUnit.status || 'OCCUPIED'}
+                        color={selectedUnit.status === 'OCCUPIED' ? 'success' : 'default'}
+                        size="medium"
                       />
+                    </Stack>
+
+                    <Divider />
+
+                    {/* Unit Details */}
+                    <Grid container spacing={3}>
+                      <Grid item xs={6} sm={3}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <BedroomIcon color="action" fontSize="small" />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Bedrooms
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {selectedUnit.bedrooms ?? 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <BathroomIcon color="action" fontSize="small" />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Bathrooms
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {selectedUnit.bathrooms ?? 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Grid>
+                      {selectedUnit.squareFeet && (
+                        <Grid item xs={6} sm={3}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <HomeIcon color="action" fontSize="small" />
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Size
+                              </Typography>
+                              <Typography variant="body1" fontWeight={600}>
+                                {selectedUnit.squareFeet} sq ft
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Grid>
+                      )}
+                      {selectedUnit.floor && (
+                        <Grid item xs={6} sm={3}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Floor
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {selectedUnit.floor}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      )}
                     </Grid>
-                  ))}
-                </Grid>
-              )}
-            </DataState>
-          </Stack>
-        </Paper>
 
-        {/* Documents & Resources */}
-        <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <DocumentIcon color="primary" sx={{ fontSize: 32 }} />
-              <Typography variant="h5" fontWeight={700}>
-                Documents & Resources
-              </Typography>
-            </Stack>
+                    {/* Address */}
+                    {fullAddress && (
+                      <>
+                        <Divider />
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <LocationIcon color="action" sx={{ mt: 0.25 }} />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Address
+                            </Typography>
+                            <Typography variant="body1">
+                              {fullAddress}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
 
-            <Divider />
+              {/* Quick Actions */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight={700} gutterBottom>
+                    Quick Actions
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        startIcon={<BuildIcon />}
+                        onClick={() => navigate('/service-requests')}
+                        sx={{
+                          py: 1.5,
+                          textTransform: 'none',
+                          background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #991b1b 0%, #ea580c 100%)',
+                          },
+                        }}
+                      >
+                        Request Maintenance
+                      </Button>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<AssignmentIcon />}
+                        onClick={() => navigate('/service-requests')}
+                        sx={{ py: 1.5, textTransform: 'none' }}
+                      >
+                        View My Requests
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<DocumentIcon />}
-                  sx={{ py: 1.5, textTransform: 'none' }}
-                >
-                  Lease Agreement
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<CheckCircleIcon />}
-                  sx={{ py: 1.5, textTransform: 'none' }}
-                >
-                  Move-in Checklist
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<DocumentIcon />}
-                  sx={{ py: 1.5, textTransform: 'none' }}
-                >
-                  Community Rules
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<DocumentIcon />}
-                  sx={{ py: 1.5, textTransform: 'none' }}
-                >
-                  Utility Info
-                </Button>
-              </Grid>
-            </Grid>
-          </Stack>
-        </Paper>
-      </Container>
-    </Box>
+              {/* Inspection Reports */}
+              <Card>
+                <CardContent>
+                  <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <AssignmentIcon color="primary" />
+                      <Typography variant="h6" fontWeight={700}>
+                        Inspection Reports
+                      </Typography>
+                    </Stack>
+                    {inspections.length > 0 && (
+                      <Chip label={`${inspections.length} Total`} size="small" variant="outlined" />
+                    )}
+                  </Stack>
+
+                  <Divider sx={{ mb: 2 }} />
+
+                  <DataState
+                    isLoading={inspectionsLoading}
+                    isError={!!inspectionsError}
+                    error={inspectionsError}
+                    isEmpty={!inspectionsLoading && !inspectionsError && inspections.length === 0}
+                    emptyMessage="No inspections found for your home yet"
+                    onRetry={refetchInspections}
+                  >
+                    <Stack spacing={2}>
+                      {inspections.map((inspection) => (
+                        <InspectionCard
+                          key={inspection.id}
+                          inspection={inspection}
+                          onClick={() => navigate(`/inspections/${inspection.id}/report`)}
+                        />
+                      ))}
+                    </Stack>
+                  </DataState>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </DataState>
+      </PageShell>
+    </Container>
   );
 }
