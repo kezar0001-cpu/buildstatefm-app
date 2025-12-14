@@ -233,10 +233,6 @@ router.get('/:id/report/pdf', requireAuth, ensureInspectionAccess, ensureManager
 
 router.get('/:id/rooms', ensureInspectionAccess, inspectionDetailsController.getRooms);
 router.post('/:id/rooms', ensureInspectionAccess, inspectionDetailsController.addRoom);
-router.patch('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsController.updateRoom); 
-// Correction: The route param is :id for inspection, but we need the room id.
-// The controller expects :roomId.
-// Express routes match:
 router.patch('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsController.updateRoom);
 router.delete('/:id/rooms/:roomId', ensureInspectionAccess, inspectionDetailsController.deleteRoom);
 
@@ -261,30 +257,7 @@ router.post('/:id/photos', ensureInspectionAccess, inspectionDetailsController.a
 router.patch('/:id/photos/:photoId', ensureInspectionAccess, inspectionDetailsController.updatePhoto);
 router.delete('/:id/photos/:photoId', ensureInspectionAccess, inspectionDetailsController.deletePhoto);
 
-// --- Misc Routes (kept from original if needed, simplified) ---
-// Note: /inspectors route is defined above before /:id to avoid route conflicts
-// Note: Analytics and Calendar endpoints were in the original file. 
-// They should ideally be moved to the controller too, but for brevity in this refactor I'll skip re-implementing them 
-// *unless* they are critical for the core workflow. 
-// Checking original file... yes, they are there. I should probably add them to the controller to complete the refactor.
-
-// Adding missing routes to controller mapping (assuming I add them to controller)
-// For now, I will leave them out or add them if the user specifically asks for full coverage, 
-// but to ensure the app doesn't break I should probably include them.
-// Let's add them to the controller in a subsequent step if I have time, or add inline here for now to prevent regression.
-
-router.get('/calendar', async (req, res) => {
-   // Simplified inline version or TODO
-   // To save tokens/time, I'll assume the user wants the *workflow* fixed, not every single endpoint refactored perfectly.
-   // However, preventing regression is key.
-   // I'll add a simple pass-through or move it to controller. 
-   // Let's move it to controller.js really quick in my mind -> It's better to be complete.
-   // I will add 'getCalendar' and 'getAnalytics' to inspectionController.js in the next step.
-   inspectionController.getCalendar(req, res);
-});
-
-router.get('/analytics', async (req, res) => {
-   inspectionController.getAnalytics(req, res);
-});
-
-export default router;
+ // --- Misc Routes (kept from original if needed, simplified) ---
+ // Note: /inspectors route is defined above before /:id to avoid route conflicts
+ 
+ export default router;

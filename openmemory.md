@@ -46,6 +46,10 @@
   - Avoid broad `url.includes('/units/unit-123')` mocks because it also matches nested endpoints like `/units/unit-123/tenants`; prefer exact matching (`url === '/units/unit-123'`).
   - RBAC-gated UI in pages using `getCurrentUser()` can be tested by seeding `localStorage.setItem('user', JSON.stringify({ role: 'ADMIN' }))`.
 
+- **Backend route regression tests (Node test runner):**
+  - `backend/test/*.test.js` uses `node:test`.
+  - You can assert an Express router isn't accidentally registering a route twice by counting matching entries in `router.stack`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
