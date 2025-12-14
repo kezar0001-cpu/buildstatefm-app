@@ -30,6 +30,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import DataState from '../components/DataState';
+import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys';
 import { format } from 'date-fns';
@@ -73,6 +74,20 @@ export default function TenantUnitPage() {
   );
 
   const unitId = selectedUnit?.id;
+  const propertyId = selectedUnit?.propertyId || selectedUnit?.property?.id || null;
+
+  const { data: propertyResponse, isLoading: propertyLoading } = useQuery({
+    queryKey: queryKeys.properties.detail(propertyId || 'none'),
+    queryFn: async () => {
+      const response = await apiClient.get(`/properties/${propertyId}`);
+      return response.data;
+    },
+    enabled: Boolean(propertyId),
+    retry: 1,
+  });
+
+  const property = propertyResponse?.property ?? null;
+  const propertyImages = Array.isArray(property?.images) ? property.images : [];
 
   const {
     data: inspections = [],
@@ -168,6 +183,50 @@ export default function TenantUnitPage() {
                       <Typography variant="body1">{selectedUnit.bathrooms ?? 'N/A'}</Typography>
                     </Grid>
                   </Grid>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
+          {propertyId && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Typography variant="h6">Property</Typography>
+                  <Divider />
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">Name</Typography>
+                      <Typography variant="body1">{property?.name || selectedUnit?.property?.name || 'N/A'}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">Address</Typography>
+                      <Typography variant="body1">{property?.address || 'N/A'}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">City</Typography>
+                      <Typography variant="body1">{property?.city || 'N/A'}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">Postcode</Typography>
+                      <Typography variant="body1">{property?.postcode || property?.zipCode || 'N/A'}</Typography>
+                    </Grid>
+                  </Grid>
+
+                  <Typography variant="h6" sx={{ pt: 1 }}>Photo Gallery</Typography>
+                  <Divider />
+                  <PropertyImageCarousel
+                    images={propertyImages}
+                    fallbackText={property?.name || selectedUnit?.property?.name || 'Property'}
+                    height={240}
+                    showArrows
+                    showDots
+                    showFullscreenButton
+                    showCounter
+                  />
+                  {propertyLoading && (
+                    <Typography variant="caption" color="text.secondary">Loading property details…</Typography>
+                  )}
                 </Stack>
               </CardContent>
             </Card>

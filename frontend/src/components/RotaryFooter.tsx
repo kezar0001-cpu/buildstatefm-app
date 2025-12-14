@@ -73,6 +73,7 @@ function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
   const ordered: RotaryNavItem[] = [
     { key: 'dashboard', label: 'Dashboard', href: dashboardHref, Icon: DashboardIcon },
     { key: 'properties', label: 'Properties', href: '/properties', Icon: HomeIcon },
+    { key: 'tenant-unit', label: 'My Unit', href: '/tenant/unit', Icon: HomeIcon },
     { key: 'inspections', label: 'Inspections', href: '/inspections', Icon: AssignmentIcon },
     { key: 'jobs', label: 'Jobs', href: '/jobs', Icon: BuildIcon },
     { key: 'service-requests', label: 'Service Requests', href: '/service-requests', Icon: ServiceRequestIcon },

@@ -57,6 +57,22 @@ describe('TenantUnitPage', () => {
         return { data: { items: [] } };
       }
 
+      if (url.startsWith('/properties/')) {
+        return {
+          data: {
+            success: true,
+            property: {
+              id: 'property-1',
+              name: 'hadil',
+              address: '123 Main St',
+              city: 'Testville',
+              postcode: '2000',
+              images: [],
+            },
+          },
+        };
+      }
+
       throw new Error(`Unexpected GET: ${url}`);
     });
 

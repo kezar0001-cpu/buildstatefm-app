@@ -1779,9 +1779,23 @@ router.get('/:id', cacheMiddleware({ ttl: 60 }), async (req, res) => {
     } else if (req.user.role === 'OWNER') {
       allowed = property.owners?.some((o) => o.ownerId === req.user.id);
     } else if (req.user.role === 'TENANT') {
-      allowed = Array.isArray(property.units) && property.units.some((u) =>
-        Array.isArray(u.tenants) && u.tenants.some((t) => t.tenantId === req.user.id && t.isActive)
-      );
+      const hasUnitLease =
+        Array.isArray(property.units) &&
+        property.units.some(
+          (u) => Array.isArray(u.tenants) && u.tenants.some((t) => t.tenantId === req.user.id && t.isActive)
+        );
+
+      const hasPropertyLease =
+        (await prisma.propertyTenant.findFirst({
+          where: {
+            propertyId: property.id,
+            tenantId: req.user.id,
+            isActive: true,
+          },
+          select: { id: true },
+        })) != null;
+
+      allowed = hasUnitLease || hasPropertyLease;
     } else if (req.user.role === 'TECHNICIAN') {
       allowed = await prisma.job.findFirst({
         where: {

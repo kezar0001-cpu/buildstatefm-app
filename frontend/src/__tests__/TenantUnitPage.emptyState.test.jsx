@@ -20,11 +20,26 @@ describe('TenantUnitPage', () => {
   });
 
   it('shows an empty state when tenant has no assigned unit', async () => {
-    apiClient.get.mockResolvedValue({
-      data: {
-        success: true,
-        units: [],
-      },
+    apiClient.get.mockImplementation(async (url) => {
+      if (url === '/tenants/my-units') {
+        return {
+          data: {
+            success: true,
+            units: [],
+          },
+        };
+      }
+
+      if (url.startsWith('/properties/')) {
+        return {
+          data: {
+            success: true,
+            property: null,
+          },
+        };
+      }
+
+      throw new Error(`Unexpected GET: ${url}`);
     });
 
     const queryClient = new QueryClient({
