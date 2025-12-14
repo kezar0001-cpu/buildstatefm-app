@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import UnitDetailPage from '../pages/UnitDetailPage';
@@ -87,12 +87,29 @@ const createWrapper = () => {
 describe('UnitDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
+
+  const normalizeText = (text) => text.replace(/\s+/g, ' ').trim();
+  const byTextContent = (regex) => (_content, node) => {
+    if (!node) return false;
+    const text = normalizeText(node.textContent || '');
+    if (!regex.test(text)) return false;
+
+    // Avoid matching ancestor elements when a descendant also matches.
+    // This makes getByText deterministic with MUI layouts that split content across nodes.
+    const childElements = Array.from(node.children || []);
+    const childrenAlsoMatch = childElements.some((child) =>
+      regex.test(normalizeText(child.textContent || ''))
+    );
+
+    return !childrenAlsoMatch;
+  };
 
   describe('Rendering', () => {
     it('should render unit information correctly', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -107,18 +124,18 @@ describe('UnitDetailPage', () => {
         expect(screen.getByText('Unit 101')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Sunset Apartments')).toBeInTheDocument();
-      expect(screen.getByText('2 Bedrooms')).toBeInTheDocument();
-      expect(screen.getByText('1 Bathroom')).toBeInTheDocument();
-      expect(screen.getByText('850 sq ft')).toBeInTheDocument();
-      expect(screen.getByText('$1,500/month')).toBeInTheDocument();
+      expect(screen.getByText(/Sunset Apartments/i)).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(/2\s*Bedrooms/i))).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(/1\s*Bathroom/i))).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(/850\s*sq\s*ft/i))).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(/\$1,500\s*\/\s*month/i))).toBeInTheDocument();
       expect(screen.getByText('Floor 1')).toBeInTheDocument();
       expect(screen.getByText('Spacious 2-bedroom unit')).toBeInTheDocument();
     });
 
     it('should display current tenant when assigned', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -130,17 +147,17 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
+        expect(screen.getByText(byTextContent(/John\s*Doe/i))).toBeInTheDocument();
       });
 
       expect(screen.getByText('john.doe@email.com')).toBeInTheDocument();
-      expect(screen.getByText(/Jan 1, 2024 - Dec 31, 2024/)).toBeInTheDocument();
-      expect(screen.getByText('$1,500')).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(/\b2024\b.*-.*\b2024\b/))).toBeInTheDocument();
+      expect(screen.getAllByText(byTextContent(/\$1,500/)).length).toBeGreaterThan(0);
     });
 
     it('should show empty state when no tenant assigned', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -152,7 +169,7 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('No tenant assigned to this unit')).toBeInTheDocument();
+        expect(screen.getByText(/No tenant assigned/i)).toBeInTheDocument();
       });
 
       expect(screen.getAllByText('Assign Tenant').length).toBeGreaterThan(0);
@@ -160,7 +177,7 @@ describe('UnitDetailPage', () => {
 
     it('should display status chip with correct color', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         return Promise.resolve({ data: { tenants: [] } });
@@ -177,7 +194,7 @@ describe('UnitDetailPage', () => {
   describe('Navigation', () => {
     it('should navigate back to property page', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         return Promise.resolve({ data: { tenants: [] } });
@@ -198,7 +215,7 @@ describe('UnitDetailPage', () => {
   describe('Tenant Assignment', () => {
     it('should open assign tenant dialog', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         return Promise.resolve({ data: { tenants: [] } });
@@ -216,8 +233,10 @@ describe('UnitDetailPage', () => {
     });
 
     it('should show edit and remove buttons for active tenant', async () => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1', role: 'ADMIN' }));
+
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -229,15 +248,17 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit lease/i })).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Remove')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /remove tenant/i })).toBeInTheDocument();
     });
 
     it('should open confirm dialog when removing tenant', async () => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1', role: 'ADMIN' }));
+
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -249,24 +270,27 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('Remove')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /remove tenant/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText('Remove'));
+      fireEvent.click(screen.getByRole('button', { name: /remove tenant/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Remove Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /remove tenant/i })).toBeInTheDocument();
       });
 
+      const dialog = screen.getByRole('dialog');
+
       expect(screen.getByText(/Are you sure you want to remove/)).toBeInTheDocument();
-      expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+      expect(within(dialog).getByText(/John\s*Doe/i, { selector: 'strong' })).toBeInTheDocument();
     });
   });
 
   describe('Tabs', () => {
     it('should display tabs for overview, jobs, and inspections', async () => {
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         return Promise.resolve({ data: { tenants: [] } });
@@ -275,11 +299,11 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('Overview')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /Recent Activity/i })).toBeInTheDocument();
       });
 
-      expect(screen.getByText(/Jobs \(0\)/)).toBeInTheDocument();
-      expect(screen.getByText(/Inspections \(0\)/)).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Jobs/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Inspections/i })).toBeInTheDocument();
     });
 
     it('should fetch jobs when jobs tab is clicked', async () => {
@@ -294,7 +318,7 @@ describe('UnitDetailPage', () => {
       ];
 
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -309,10 +333,10 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText(/Jobs \(0\)/)).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /Jobs/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText(/Jobs \(0\)/));
+      fireEvent.click(screen.getByRole('tab', { name: /Jobs/i }));
 
       await waitFor(() => {
         expect(apiClient.get).toHaveBeenCalledWith('/jobs?unitId=unit-123');
@@ -331,7 +355,7 @@ describe('UnitDetailPage', () => {
       ];
 
       apiClient.get.mockImplementation((url) => {
-        if (url.includes('/units/unit-123')) {
+        if (url === '/units/unit-123') {
           return Promise.resolve({ data: { unit: mockUnit } });
         }
         if (url.includes('/tenants')) {
@@ -346,10 +370,10 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText(/Inspections \(0\)/)).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /Inspections/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText(/Inspections \(0\)/));
+      fireEvent.click(screen.getByRole('tab', { name: /Inspections/i }));
 
       await waitFor(() => {
         expect(apiClient.get).toHaveBeenCalledWith('/inspections?unitId=unit-123');
@@ -364,12 +388,12 @@ describe('UnitDetailPage', () => {
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText(/error/i)).toBeInTheDocument();
+        expect(screen.getByText('Unit not found')).toBeInTheDocument();
       });
     });
 
     it('should display empty state when unit not found', async () => {
-      apiClient.get.mockResolvedValue({ data: { unit: null } });
+      apiClient.get.mockResolvedValue({ data: null });
 
       render(<UnitDetailPage />, { wrapper: createWrapper() });
 

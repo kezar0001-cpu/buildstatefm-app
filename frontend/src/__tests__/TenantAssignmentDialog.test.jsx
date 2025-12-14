@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TenantAssignmentDialog from '../components/TenantAssignmentDialog';
 import { apiClient } from '../api/client';
@@ -96,7 +97,7 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /tenant/i })).toBeInTheDocument();
       });
     });
 
@@ -109,13 +110,13 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /tenant/i })).toBeInTheDocument();
       });
 
       expect(screen.getByLabelText('Lease Start Date')).toBeInTheDocument();
       expect(screen.getByLabelText('Lease End Date')).toBeInTheDocument();
-      expect(screen.getByLabelText('Monthly Rent')).toBeInTheDocument();
-      expect(screen.getByLabelText('Security Deposit (Optional)')).toBeInTheDocument();
+      expect(screen.getByRole('spinbutton', { name: /Monthly Rent/i })).toBeInTheDocument();
+      expect(screen.getByRole('spinbutton', { name: /Security Deposit/i })).toBeInTheDocument();
     });
 
     it('should show info alert when no tenants available', async () => {
@@ -182,11 +183,11 @@ describe('TenantAssignmentDialog', () => {
         { wrapper: createWrapper() }
       );
 
-      const rentInput = screen.getByLabelText('Monthly Rent');
-      const depositInput = screen.getByLabelText('Security Deposit (Optional)');
+      const rentInput = screen.getByRole('spinbutton', { name: /Monthly Rent/i });
+      const depositInput = screen.getByRole('spinbutton', { name: /Security Deposit/i });
 
-      expect(rentInput).toHaveValue(1500);
-      expect(depositInput).toHaveValue(1500);
+      expect(rentInput).toHaveValue('1500');
+      expect(depositInput).toHaveValue('1500');
     });
   });
 
@@ -203,15 +204,27 @@ describe('TenantAssignmentDialog', () => {
         expect(screen.getByText('Assign Tenant')).toBeInTheDocument();
       });
 
+      await waitFor(() => {
+        const tenantSelect = screen.getByRole('combobox', { name: /tenant/i });
+        expect(tenantSelect.getAttribute('aria-disabled')).not.toBe('true');
+      });
+
+      await waitFor(() => {
+        const submitButton = screen.getByRole('button', { name: /assign tenant/i });
+        expect(submitButton.disabled).toBe(false);
+      });
+
       fireEvent.click(screen.getByText('Assign Tenant'));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Please select a tenant');
+        expect(screen.getByText(/Please select a tenant/i)).toBeInTheDocument();
       });
     });
 
     it('should show error when lease start date missing', async () => {
       apiClient.get.mockResolvedValue({ data: { users: mockAvailableTenants } });
+
+      const user = userEvent.setup();
 
       render(
         <TenantAssignmentDialog open={true} onClose={mockOnClose} unitId="unit-456" tenant={null} />,
@@ -219,18 +232,23 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /tenant/i })).toBeInTheDocument();
       });
 
       // Select tenant
-      const tenantSelect = screen.getByLabelText('Tenant');
-      fireEvent.change(tenantSelect, { target: { value: 'tenant-1' } });
+      const tenantSelect = screen.getByRole('combobox', { name: /tenant/i });
+      await waitFor(() => {
+        expect(tenantSelect.getAttribute('aria-disabled')).not.toBe('true');
+      });
+      await user.click(tenantSelect);
+      const listbox = await screen.findByRole('listbox');
+      await user.click(within(listbox).getByText(/John Doe/i));
 
       // Try to submit without dates
       fireEvent.click(screen.getByText('Assign Tenant'));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalled();
+        expect(screen.getByText(/Please enter lease start date/i)).toBeInTheDocument();
       });
     });
 
@@ -243,7 +261,7 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /tenant/i })).toBeInTheDocument();
       });
 
       // This would require more complex date picker interaction
@@ -259,16 +277,16 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Monthly Rent')).toBeInTheDocument();
+        expect(screen.getByRole('spinbutton', { name: /Monthly Rent/i })).toBeInTheDocument();
       });
 
-      const rentInput = screen.getByLabelText('Monthly Rent');
+      const rentInput = screen.getByRole('spinbutton', { name: /Monthly Rent/i });
       fireEvent.change(rentInput, { target: { value: '-100' } });
 
       fireEvent.click(screen.getByText('Assign Tenant'));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalled();
+        expect(screen.getByText(/Please enter a valid rent amount/i)).toBeInTheDocument();
       });
     });
 
@@ -281,16 +299,16 @@ describe('TenantAssignmentDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Security Deposit (Optional)')).toBeInTheDocument();
+        expect(screen.getByRole('spinbutton', { name: /Security Deposit/i })).toBeInTheDocument();
       });
 
-      const depositInput = screen.getByLabelText('Security Deposit (Optional)');
+      const depositInput = screen.getByRole('spinbutton', { name: /Security Deposit/i });
       fireEvent.change(depositInput, { target: { value: '-500' } });
 
       fireEvent.click(screen.getByText('Assign Tenant'));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalled();
+        expect(screen.getByText(/Deposit amount cannot be negative/i)).toBeInTheDocument();
       });
     });
   });
@@ -300,20 +318,27 @@ describe('TenantAssignmentDialog', () => {
       apiClient.get.mockResolvedValue({ data: { users: mockAvailableTenants } });
       apiClient.post.mockResolvedValue({ data: { success: true } });
 
+      const user = userEvent.setup();
+
       render(
         <TenantAssignmentDialog open={true} onClose={mockOnClose} unitId="unit-456" tenant={null} />,
         { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Tenant')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /tenant/i })).toBeInTheDocument();
       });
 
       // Fill form (simplified - actual implementation would need date picker interaction)
-      const tenantSelect = screen.getByLabelText('Tenant');
-      fireEvent.change(tenantSelect, { target: { value: 'tenant-1' } });
+      const tenantSelect = screen.getByRole('combobox', { name: /tenant/i });
+      await waitFor(() => {
+        expect(tenantSelect.getAttribute('aria-disabled')).not.toBe('true');
+      });
+      await user.click(tenantSelect);
+      const listbox = await screen.findByRole('listbox');
+      await user.click(within(listbox).getByText(/John Doe/i));
 
-      const rentInput = screen.getByLabelText('Monthly Rent');
+      const rentInput = screen.getByRole('spinbutton', { name: /Monthly Rent/i });
       fireEvent.change(rentInput, { target: { value: '1500' } });
 
       // Submit would require valid dates
@@ -338,7 +363,7 @@ describe('TenantAssignmentDialog', () => {
         expect(screen.getByText('Update Assignment')).toBeInTheDocument();
       });
 
-      const rentInput = screen.getByLabelText('Monthly Rent');
+      const rentInput = screen.getByRole('spinbutton', { name: /Monthly Rent/i });
       fireEvent.change(rentInput, { target: { value: '1600' } });
 
       // Submit would trigger PATCH
@@ -417,7 +442,7 @@ describe('TenantAssignmentDialog', () => {
 
       await waitFor(() => {
         const submitButton = screen.getByText('Assign Tenant');
-        expect(submitButton).toBeDisabled();
+        expect(submitButton.disabled).toBe(true);
       });
     });
 
@@ -494,9 +519,9 @@ describe('TenantAssignmentDialog', () => {
         { wrapper: createWrapper() }
       );
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading tenants...')).toBeInTheDocument();
-      });
+      // While tenants are loading, the Tenant select is disabled
+      const tenantSelect = await screen.findByRole('combobox', { name: /tenant/i });
+      expect(tenantSelect.getAttribute('aria-disabled')).toBe('true');
     });
   });
 });

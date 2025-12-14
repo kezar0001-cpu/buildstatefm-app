@@ -41,6 +41,11 @@
   - ADMIN is not subscription-gated (uses `requireActiveSubscriptionUnlessAdmin` where needed).
 
 ## Patterns
+- **Frontend test patterns (Vitest + Testing Library + MUI):**
+  - In `UnitDetailPage.test.jsx`, prefer role-based queries for MUI (`getByRole('tab'|'button'|'dialog')`) and use a `textContent` matcher helper for labels split across multiple nodes.
+  - Avoid broad `url.includes('/units/unit-123')` mocks because it also matches nested endpoints like `/units/unit-123/tenants`; prefer exact matching (`url === '/units/unit-123'`).
+  - RBAC-gated UI in pages using `getCurrentUser()` can be tested by seeding `localStorage.setItem('user', JSON.stringify({ role: 'ADMIN' }))`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.

@@ -2,10 +2,16 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import userEvent from '@testing-library/user-event';
 import ReportGenerator from '../pages/ReportGenerator';
 import { apiClient } from '../api/client';
 
-jest.mock('../api/client');
+vi.mock('../api/client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}));
 
 const queryClient = new QueryClient();
 
@@ -23,7 +29,22 @@ const renderComponent = (reportType) => {
 
 describe('ReportGenerator', () => {
   beforeEach(() => {
-    apiClient.get.mockResolvedValue({ data: { items: [] } });
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/properties') {
+        return Promise.resolve({
+          data: {
+            items: [{ id: 'prop1', name: 'Property 1' }],
+          },
+        });
+      }
+
+      if (typeof url === 'string' && url.startsWith('/units?propertyId=')) {
+        return Promise.resolve({ data: { items: [] } });
+      }
+
+      return Promise.resolve({ data: { items: [] } });
+    });
+
     apiClient.post.mockResolvedValue({ data: { success: true } });
   });
 
@@ -46,13 +67,17 @@ describe('ReportGenerator', () => {
   });
 
   it('submits the form with the correct data', async () => {
+    const user = userEvent.setup();
     renderComponent('Financial');
 
-    fireEvent.change(screen.getByLabelText('Property'), { target: { value: 'prop1' } });
+    // MUI TextField select renders as a combobox; select the property option
+    await user.click(screen.getByRole('combobox', { name: /Property/i }));
+    await user.click(await screen.findByRole('option', { name: /Property 1/i }));
+
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2023-01-01' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2023-01-31' } });
 
-    fireEvent.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByRole('button', { name: /Generate Report/i }));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/new-reports/financial', {

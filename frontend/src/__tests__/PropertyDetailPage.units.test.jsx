@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PropertyDetailPage from '../pages/PropertyDetailPage.jsx';
+import { apiClient } from '../api/client';
 
 const mockUseApiQuery = vi.fn();
 const mockUseApiMutation = vi.fn();
@@ -16,13 +18,29 @@ vi.mock('../hooks/useApiMutation', () => ({
   default: (options) => mockUseApiMutation(options),
 }));
 
-vi.mock('@tanstack/react-query', () => ({
-  useInfiniteQuery: (options) => mockUseInfiniteQuery(options),
-  useQueryClient: () => ({
-    invalidateQueries: vi.fn(),
-    refetchQueries: vi.fn(),
-  }),
-}));
+vi.mock('../api/client', () => {
+  const client = {
+    get: vi.fn(),
+  };
+
+  return {
+    __esModule: true,
+    apiClient: client,
+    default: client,
+  };
+});
+
+vi.mock('@tanstack/react-query', async () => {
+  const actual = await vi.importActual('@tanstack/react-query');
+  return {
+    ...actual,
+    useInfiniteQuery: (options) => mockUseInfiniteQuery(options),
+    useQueryClient: () => ({
+      invalidateQueries: vi.fn(),
+      refetchQueries: vi.fn(),
+    }),
+  };
+});
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -33,8 +51,47 @@ vi.mock('react-router-dom', async () => {
 });
 
 describe('PropertyDetailPage unit rendering', () => {
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    return ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/properties/property-1') {
+        return Promise.resolve({
+          data: {
+            property: {
+              id: 'property-1',
+              name: 'Test Property',
+              address: '123 Main St',
+              city: 'Springfield',
+              state: 'IL',
+              zipCode: '12345',
+              country: 'USA',
+              status: 'ACTIVE',
+              totalUnits: 1,
+              propertyType: 'MULTI_FAMILY',
+              description: 'A sample property',
+              owners: [],
+            },
+          },
+        });
+      }
+
+      return Promise.resolve({ data: {} });
+    });
+
     mockUseApiMutation.mockReturnValue({
       mutateAsync: vi.fn(),
       isError: false,
@@ -111,6 +168,8 @@ describe('PropertyDetailPage unit rendering', () => {
           <Route path="/properties/:id" element={<PropertyDetailPage />} />
         </Routes>
       </MemoryRouter>
+      ,
+      { wrapper: createWrapper() }
     );
 
     const unitsTab = await screen.findByRole('tab', { name: /Units \(1\)/i });
@@ -126,6 +185,8 @@ describe('PropertyDetailPage unit rendering', () => {
           <Route path="/properties/:id" element={<PropertyDetailPage />} />
         </Routes>
       </MemoryRouter>
+      ,
+      { wrapper: createWrapper() }
     );
 
     const queryOptions = mockUseInfiniteQuery.mock.calls[0][0];
@@ -141,6 +202,8 @@ describe('PropertyDetailPage unit rendering', () => {
           <Route path="/properties/:id" element={<PropertyDetailPage />} />
         </Routes>
       </MemoryRouter>
+      ,
+      { wrapper: createWrapper() }
     );
 
     const mutationOptions = mockUseApiMutation.mock.calls[0][0];
