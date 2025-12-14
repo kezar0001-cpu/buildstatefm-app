@@ -193,14 +193,16 @@ export default function SignUp() {
 
           {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-          <Button
-            fullWidth variant="outlined" onClick={handleGoogle}
-            disabled={loading || !googleUrl} startIcon={<GoogleIcon />}
-            sx={{ mb: 2, textTransform: 'none', borderColor: '#e0e0e0', color: '#757575',
-              '&:hover': { borderColor: '#bdbdbd', backgroundColor: '#f5f5f5' } }}
-          >
-            Continue with Google
-          </Button>
+          {!inviteToken && (
+            <Button
+              fullWidth variant="outlined" onClick={handleGoogle}
+              disabled={loading || !googleUrl} startIcon={<GoogleIcon />}
+              sx={{ mb: 2, textTransform: 'none', borderColor: '#e0e0e0', color: '#757575',
+                '&:hover': { borderColor: '#bdbdbd', backgroundColor: '#f5f5f5' } }}
+            >
+              Continue with Google
+            </Button>
+          )}
 
           <Divider sx={{ my: 3 }}>
             <Typography variant="body2" color="text.secondary">or sign up with email</Typography>
