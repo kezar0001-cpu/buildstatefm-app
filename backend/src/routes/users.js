@@ -146,6 +146,30 @@ router.get('/', asyncHandler(async (req, res) => {
     }
   } else {
     rawUsers = await fetchUsersForManagedProperties(prisma, propertyIds, requestedRole);
+
+    // Tenants can exist without an active unit assignment yet (e.g. invite accepted but not assigned).
+    // Include tenants who accepted an invite created by the current property manager to avoid "missing" tenants
+    // in Team Management.
+    if (requestedRole === 'TENANT') {
+      const invitedTenants = await prisma.invite.findMany({
+        where: {
+          invitedById: req.user.id,
+          role: 'TENANT',
+          status: 'ACCEPTED',
+          invitedUserId: { not: null },
+        },
+        include: {
+          invitedUser: {
+            select: BASIC_USER_SELECT,
+          },
+        },
+      });
+
+      rawUsers = [
+        ...rawUsers,
+        ...invitedTenants.map((record) => record.invitedUser).filter(Boolean),
+      ];
+    }
   }
 
   // Remove duplicates (same owner/tenant might be associated with multiple properties)
