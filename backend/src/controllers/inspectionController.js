@@ -65,8 +65,22 @@ function buildAccessWhere(user) {
     return { propertyId: { in: user.ownedPropertyIds } };
   }
   if (user.role === ROLE_TENANT) {
-    if (!user.tenantUnitIds?.length) return { unitId: { in: ['__none__'] } };
-    return { unitId: { in: user.tenantUnitIds } };
+    const unitIds = Array.isArray(user.tenantUnitIds) ? user.tenantUnitIds.filter(Boolean) : [];
+    const propertyIds = Array.isArray(user.tenantPropertyIds) ? user.tenantPropertyIds.filter(Boolean) : [];
+
+    if (!unitIds.length && !propertyIds.length) {
+      return { id: { in: [] } };
+    }
+
+    const clauses = [];
+    if (unitIds.length) {
+      clauses.push({ unitId: { in: unitIds } });
+    }
+    if (propertyIds.length) {
+      clauses.push({ AND: [{ unitId: null }, { propertyId: { in: propertyIds } }] });
+    }
+
+    return { OR: clauses };
   }
   if (user.role === ROLE_TECHNICIAN) {
     return { assignedToId: user.id };

@@ -44,6 +44,7 @@ const hydrateInspectionUser = async (req, res, next) => {
         managedProperties: { select: { id: true } },
         ownedProperties: { select: { propertyId: true } },
         tenantUnits: { select: { unitId: true, isActive: true } },
+        tenantProperties: { select: { propertyId: true, isActive: true } },
       },
     });
 
@@ -57,6 +58,7 @@ const hydrateInspectionUser = async (req, res, next) => {
       managedPropertyIds: user.managedProperties?.map(p => p.id) ?? [],
       ownedPropertyIds: user.ownedProperties?.map(p => p.propertyId) ?? [],
       tenantUnitIds: user.tenantUnits?.filter(l => l.isActive).map(l => l.unitId) ?? [],
+      tenantPropertyIds: user.tenantProperties?.filter(l => l.isActive).map(l => l.propertyId) ?? [],
     };
     next();
   } catch (error) {
@@ -95,7 +97,13 @@ const ensureInspectionAccess = async (req, res, next) => {
     } else if (user.role === ROLE_TECHNICIAN) {
       hasAccess = inspection.assignedToId === user.id;
     } else if (user.role === ROLE_TENANT) {
-      hasAccess = inspection.unitId ? user.tenantUnitIds.includes(inspection.unitId) : false;
+      if (inspection.unitId) {
+        hasAccess = user.tenantUnitIds.includes(inspection.unitId);
+      } else {
+        hasAccess = inspection.propertyId
+          ? user.tenantPropertyIds.includes(inspection.propertyId)
+          : false;
+      }
     }
 
     if (!hasAccess) {

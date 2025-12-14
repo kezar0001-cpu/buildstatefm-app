@@ -65,6 +65,7 @@ model User {
   TenantProfile                                        TenantProfile?
   UnitOwner                                            UnitOwner[]
   tenantUnits                                          UnitTenant[]
+  tenantProperties                                     PropertyTenant[]
   assignedMaintenancePlans                              MaintenancePlan[]       @relation("AssignedMaintenancePlanTechnician")
   Org                                                  Org?                    @relation(fields: [orgId], references: [id])
 
@@ -194,6 +195,7 @@ model Property {
   ReportRequest       ReportRequest[]
   serviceRequests     ServiceRequest[]
   units               Unit[]
+  tenants             PropertyTenant[]
 
   @@index([managerId])
   @@index([status])
@@ -236,6 +238,27 @@ model PropertyOwner {
   @@unique([propertyId, ownerId])
   @@index([propertyId])
   @@index([ownerId])
+}
+
+model PropertyTenant {
+  id            String   @id @default(cuid())
+  propertyId    String
+  tenantId      String
+  leaseStart    DateTime
+  leaseEnd      DateTime
+  rentAmount    Float
+  depositAmount Float?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tenant        User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, tenantId])
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([tenantId, isActive])
 }
 
 model Unit {

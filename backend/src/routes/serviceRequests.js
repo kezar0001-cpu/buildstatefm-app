@@ -354,28 +354,37 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
     if (req.user.role === 'OWNER') {
       hasAccess = property.owners.some(o => o.ownerId === req.user.id);
     } else if (req.user.role === 'TENANT') {
-      // Verify tenant has active lease for the unit
-      if (!unitId) {
-        return sendError(res, 400, 'Tenants must specify a unit for service requests', ErrorCodes.VAL_VALIDATION_ERROR);
-      }
-      
-      const tenantUnit = await prisma.unitTenant.findFirst({
-        where: {
-          unitId: unitId,
-          tenantId: req.user.id,
-          isActive: true,
-        },
-        include: {
-          unit: {
-            select: {
-              propertyId: true,
+      if (unitId) {
+        // Verify tenant has active lease for the unit
+        const tenantUnit = await prisma.unitTenant.findFirst({
+          where: {
+            unitId: unitId,
+            tenantId: req.user.id,
+            isActive: true,
+          },
+          include: {
+            unit: {
+              select: {
+                propertyId: true,
+              },
             },
           },
-        },
-      });
-      
-      // Verify tenant has lease AND unit belongs to the specified property
-      hasAccess = !!tenantUnit && tenantUnit.unit.propertyId === propertyId;
+        });
+
+        // Verify tenant has lease AND unit belongs to the specified property
+        hasAccess = !!tenantUnit && tenantUnit.unit.propertyId === propertyId;
+      } else {
+        // Property-level tenant assignment (house / no units)
+        const tenantProperty = await prisma.propertyTenant.findFirst({
+          where: {
+            propertyId,
+            tenantId: req.user.id,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+        hasAccess = Boolean(tenantProperty);
+      }
     } else if (req.user.role === 'TECHNICIAN') {
       return sendError(res, 403, 'Technicians cannot create service requests', ErrorCodes.ACC_ROLE_REQUIRED);
     }

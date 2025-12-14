@@ -415,6 +415,20 @@ router.post('/register', async (req, res) => {
         });
       }
 
+      // If the invite was for a property (tenant), create PropertyTenant relationship
+      if (userRole === 'TENANT' && !invite.unitId && invite.propertyId) {
+        await prisma.propertyTenant.create({
+          data: {
+            propertyId: invite.propertyId,
+            tenantId: user.id,
+            leaseStart: new Date(),
+            leaseEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year default
+            rentAmount: 0, // To be filled in later
+            isActive: true,
+          },
+        });
+      }
+
       // If the invite was for a property (owner), create PropertyOwner relationship
       if (userRole === 'OWNER' && invite.propertyId) {
         await prisma.propertyOwner.create({

@@ -50,8 +50,35 @@ function buildTenantUnitAccessFilter(user) {
   return null;
 }
 
+function buildTenantPropertyAccessFilter(user) {
+  if (!user) return null;
+
+  if (user.role === 'PROPERTY_MANAGER') {
+    return {
+      property: {
+        managerId: user.id,
+      },
+    };
+  }
+
+  if (user.role === 'OWNER') {
+    return {
+      property: {
+        owners: {
+          some: {
+            ownerId: user.id,
+          },
+        },
+      },
+    };
+  }
+
+  return null;
+}
+
 function buildTenantInclude(user) {
   const unitAccessFilter = buildTenantUnitAccessFilter(user);
+  const propertyAccessFilter = buildTenantPropertyAccessFilter(user);
 
   return {
     tenantProfile: true,
@@ -67,6 +94,14 @@ function buildTenantInclude(user) {
         },
       },
     },
+    tenantProperties: {
+      ...(propertyAccessFilter ? { where: propertyAccessFilter } : {}),
+      include: {
+        property: {
+          select: PROPERTY_SELECT,
+        },
+      },
+    },
   };
 }
 
@@ -76,34 +111,64 @@ export function buildTenantAccessWhere(user) {
   if (user.role === 'PROPERTY_MANAGER') {
     return {
       role: 'TENANT',
-      tenantUnits: {
-        some: {
-          unit: {
-            property: {
-              managerId: user.id,
+      OR: [
+        {
+          tenantUnits: {
+            some: {
+              unit: {
+                property: {
+                  managerId: user.id,
+                },
+              },
             },
           },
         },
-      },
+        {
+          tenantProperties: {
+            some: {
+              property: {
+                managerId: user.id,
+              },
+            },
+          },
+        },
+      ],
     };
   }
 
   if (user.role === 'OWNER') {
     return {
       role: 'TENANT',
-      tenantUnits: {
-        some: {
-          unit: {
-            property: {
-              owners: {
-                some: {
-                  ownerId: user.id,
+      OR: [
+        {
+          tenantUnits: {
+            some: {
+              unit: {
+                property: {
+                  owners: {
+                    some: {
+                      ownerId: user.id,
+                    },
+                  },
                 },
               },
             },
           },
         },
-      },
+        {
+          tenantProperties: {
+            some: {
+              property: {
+                owners: {
+                  some: {
+                    ownerId: user.id,
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
     };
   }
 
@@ -111,6 +176,75 @@ export function buildTenantAccessWhere(user) {
 }
 
 router.use(requireAuth);
+
+// GET /api/tenants/my-assignments - Get units and properties for current tenant user
+router.get('/my-assignments', async (req, res) => {
+  try {
+    if (req.user.role !== 'TENANT') {
+      return sendError(res, 403, 'Only tenants can access this endpoint', ErrorCodes.ACC_ACCESS_DENIED);
+    }
+
+    const [unitTenants, propertyTenants] = await Promise.all([
+      prisma.unitTenant.findMany({
+        where: {
+          tenantId: req.user.id,
+          isActive: true,
+        },
+        include: {
+          unit: {
+            include: {
+              property: {
+                select: PROPERTY_SELECT,
+              },
+            },
+          },
+        },
+        orderBy: {
+          leaseStart: 'desc',
+        },
+      }),
+      prisma.propertyTenant.findMany({
+        where: {
+          tenantId: req.user.id,
+          isActive: true,
+        },
+        include: {
+          property: {
+            select: PROPERTY_SELECT,
+          },
+        },
+        orderBy: {
+          leaseStart: 'desc',
+        },
+      }),
+    ]);
+
+    const units = unitTenants.map(ut => ({
+      ...ut.unit,
+      leaseStart: ut.leaseStart,
+      leaseEnd: ut.leaseEnd,
+      rentAmount: ut.rentAmount,
+      depositAmount: ut.depositAmount,
+    }));
+
+    const properties = propertyTenants.map(pt => ({
+      ...pt.property,
+      leaseStart: pt.leaseStart,
+      leaseEnd: pt.leaseEnd,
+      rentAmount: pt.rentAmount,
+      depositAmount: pt.depositAmount,
+    }));
+
+    res.json({
+      success: true,
+      units,
+      properties,
+    });
+  } catch (error) {
+    console.error('Get tenant assignments error:', error);
+    return sendError(res, 500, 'Failed to fetch tenant assignments', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
 
 // GET /api/tenants/my-units - Get units for current tenant user
 router.get('/my-units', async (req, res) => {

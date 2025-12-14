@@ -558,14 +558,25 @@ async function checkPropertyAccess(userId, role, propertyId) {
   }
   
   if (role === 'TENANT') {
-    const tenant = await prisma.unitTenant.findFirst({
-      where: {
-        unit: { propertyId },
-        tenantId: userId,
-        isActive: true,
-      },
-    });
-    return !!tenant;
+    const [unitTenant, propertyTenant] = await Promise.all([
+      prisma.unitTenant.findFirst({
+        where: {
+          unit: { propertyId },
+          tenantId: userId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+      prisma.propertyTenant.findFirst({
+        where: {
+          propertyId,
+          tenantId: userId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(unitTenant || propertyTenant);
   }
   
   return false;

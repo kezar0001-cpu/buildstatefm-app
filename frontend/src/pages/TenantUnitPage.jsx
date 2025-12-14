@@ -46,16 +46,30 @@ export default function TenantUnitPage() {
     retry: 1,
   });
 
+  const uniqueUnits = useMemo(
+    () =>
+      Array.isArray(units)
+        ? Array.from(
+            new Map(
+              units
+                .filter(Boolean)
+                .map((unit) => [unit?.id || unit?.unitId || JSON.stringify(unit), unit])
+            ).values()
+          )
+        : [],
+    [units]
+  );
+
   const [selectedUnitId, setSelectedUnitId] = useState('');
 
   const resolvedSelectedUnitId = useMemo(() => {
-    if (selectedUnitId && units.some((u) => u.id === selectedUnitId)) return selectedUnitId;
-    return units[0]?.id || '';
-  }, [selectedUnitId, units]);
+    if (selectedUnitId && uniqueUnits.some((u) => u.id === selectedUnitId)) return selectedUnitId;
+    return uniqueUnits[0]?.id || '';
+  }, [selectedUnitId, uniqueUnits]);
 
   const selectedUnit = useMemo(
-    () => units.find((u) => u.id === resolvedSelectedUnitId) || null,
-    [units, resolvedSelectedUnitId]
+    () => uniqueUnits.find((u) => u.id === resolvedSelectedUnitId) || null,
+    [uniqueUnits, resolvedSelectedUnitId]
   );
 
   const unitId = selectedUnit?.id;
@@ -91,11 +105,11 @@ export default function TenantUnitPage() {
           isLoading={unitsLoading}
           isError={!!unitsError}
           error={unitsError}
-          isEmpty={!unitsLoading && !unitsError && units.length === 0}
+          isEmpty={!unitsLoading && !unitsError && uniqueUnits.length === 0}
           emptyMessage="You don’t have a unit assigned yet"
           onRetry={refetchUnits}
         >
-          {units.length > 1 && (
+          {uniqueUnits.length > 1 && (
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Stack spacing={2}>
@@ -108,7 +122,7 @@ export default function TenantUnitPage() {
                       value={resolvedSelectedUnitId}
                       onChange={(e) => setSelectedUnitId(e.target.value)}
                     >
-                      {units.map((unit) => (
+                      {uniqueUnits.map((unit) => (
                         <MenuItem key={unit.id} value={unit.id}>
                           {unit.property?.name ? `${unit.property.name} — ` : ''}Unit {unit.unitNumber}
                         </MenuItem>
