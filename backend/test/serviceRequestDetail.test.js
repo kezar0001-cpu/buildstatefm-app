@@ -7,7 +7,7 @@ describe('Service Request Detail API - GET /:id', () => {
 
   before(async () => {
     // Create test users
-    const bcrypt = await import('bcrypt');
+    const { default: bcrypt } = await import('bcryptjs');
     const hashedPassword = await bcrypt.hash('password123', 10);
 
     manager = await prisma.user.create({
@@ -228,9 +228,18 @@ describe('Service Request Detail API - GET /:id', () => {
           description: 'Repair kitchen faucet',
           priority: 'HIGH',
           status: 'OPEN',
-          propertyId: property.id,
-          unitId: unit.id,
-          serviceRequestId: serviceRequest.id,
+          property: {
+            connect: { id: property.id },
+          },
+          unit: {
+            connect: { id: unit.id },
+          },
+          serviceRequest: {
+            connect: { id: serviceRequest.id },
+          },
+          User_Job_createdByIdToUser: {
+            connect: { id: manager.id },
+          },
         },
       });
 

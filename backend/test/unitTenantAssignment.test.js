@@ -8,7 +8,7 @@ describe('Unit Tenant Assignment API', () => {
 
   before(async () => {
     // Create test users
-    const bcrypt = await import('bcrypt');
+    const { default: bcrypt } = await import('bcryptjs');
     const hashedPassword = await bcrypt.hash('password123', 10);
 
     manager = await prisma.user.create({
@@ -584,7 +584,7 @@ describe('Unit Tenant Assignment API', () => {
 
     it('should cascade delete when tenant user is deleted', async () => {
       // Create temporary tenant
-      const bcrypt = await import('bcrypt');
+      const { default: bcrypt } = await import('bcryptjs');
       const hashedPassword = await bcrypt.hash('password123', 10);
 
       const tempTenant = await prisma.user.create({
