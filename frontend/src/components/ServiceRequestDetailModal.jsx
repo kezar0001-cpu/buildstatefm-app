@@ -305,7 +305,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   };
 
   const handleClose = () => {
-    const pending = updateMutation.isPending || 
+    const pending = updateMutation.isPending ||
       addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending;
     if (!pending) {
       handleCancelReview();
@@ -314,7 +314,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   };
 
   // Determine which status steps to show based on the workflow
-  const isOwnerWorkflow = data?.ownerEstimatedBudget || 
+  const isOwnerWorkflow = data?.ownerEstimatedBudget ||
     ['PENDING_MANAGER_REVIEW', 'PENDING_OWNER_APPROVAL', 'APPROVED_BY_OWNER', 'REJECTED_BY_OWNER'].includes(data?.status);
 
   const standardStatusSteps = [
@@ -342,7 +342,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const linkedJobs = data?.jobs || [];
   const linkedJob = linkedJobs[0]; // Assuming only one job can be linked for simplicity
 
-  const isPendingMutation = updateMutation.isPending || 
+  const isPendingMutation = updateMutation.isPending ||
     addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
     managerRejectMutation.isPending;
 
@@ -351,288 +351,385 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
   return (
     <>
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
-      <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Service Request Details</Typography>
-          <IconButton onClick={handleClose} disabled={isPendingMutation}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Service Request Details</Typography>
+            <IconButton onClick={handleClose} disabled={isPendingMutation}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
 
-      <DialogContent dividers>
-        <DataState isLoading={isLoading} isError={!!error} error={error} isEmpty={!data}>
-          {data && (
-            <Stack spacing={3}>
-              {/* Title and Status */}
-              <Box>
-                <Typography variant="h5" gutterBottom>
-                  {data.title}
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    label={data.status?.replace(/_/g, ' ')}
-                    color={getStatusColor(data.status)}
-                    size="small"
-                  />
-                  <Chip
-                    label={data.category?.replace(/_/g, ' ')}
-                    color={getCategoryColor(data.category)}
-                    size="small"
-                  />
-                  {data.priority && (
+        <DialogContent dividers>
+          <DataState isLoading={isLoading} isError={!!error} error={error} isEmpty={!data}>
+            {data && (
+              <Stack spacing={3}>
+                {/* Title and Status */}
+                <Box>
+                  <Typography variant="h5" gutterBottom>
+                    {data.title}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
                     <Chip
-                      label={data.priority}
+                      label={data.status?.replace(/_/g, ' ')}
+                      color={getStatusColor(data.status)}
                       size="small"
-                      variant="outlined"
                     />
-                  )}
-                </Stack>
-                <Box sx={{ mt: 2 }}>
-                  <Stepper activeStep={activeStep} alternativeLabel>
-                    {statusSteps.map((step, index) => {
-                      const isStepFailed = isRejectedStatus && step.key === 'UNDER_REVIEW';
-                      const isStepCompleted = activeStep > index || (activeStep === index && !isRejectedStatus);
-                      return (
-                        <Step key={step.key} completed={isStepCompleted}>
-                          <StepLabel error={isStepFailed}>
-                            {step.label}
-                          </StepLabel>
-                        </Step>
-                      );
-                    })}
-                  </Stepper>
-                  {isArchived && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      This service request has been archived and is read-only.
-                    </Alert>
-                  )}
-                  {isRejectedStatus && (data.status === 'REJECTED') && (
-                    <Alert severity="error" sx={{ mt: 2 }}>
-                      This request was rejected. Review notes are available below.
-                    </Alert>
-                  )}
-                </Box>
-              </Box>
-
-              {/* Description */}
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                  Description
-                </Typography>
-                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {data.description}
-                </Typography>
-              </Paper>
-
-              {/* Photos */}
-              {data.photos && data.photos.length > 0 && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                    Photos ({data.photos.length})
-                  </Typography>
-                  <ImageList cols={3} gap={8} sx={{ mt: 1 }}>
-                    {data.photos.map((photo, index) => (
-                      <ImageListItem key={index}>
-                        <img
-                          src={photo}
-                          alt={`Photo ${index + 1}`}
-                          loading="lazy"
-                          style={{
-                            borderRadius: 4,
-                            objectFit: 'cover',
-                            height: 150,
-                          }}
-                        />
-                      </ImageListItem>
-                    ))}
-                  </ImageList>
-                </Paper>
-              )}
-
-              {/* Details */}
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                  Details
-                </Typography>
-                <Stack spacing={1.5} sx={{ mt: 1 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Property
-                    </Typography>
-                    <Typography variant="body2">
-                      {data.property?.name}
-                      {data.property?.address && ` • ${data.property.address}`}
-                    </Typography>
-                  </Box>
-
-                  {data.unit && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Unit
-                      </Typography>
-                      <Typography variant="body2">
-                        Unit {data.unit.unitNumber}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Requested by
-                    </Typography>
-                    <Typography variant="body2">
-                      {data.requestedBy?.firstName} {data.requestedBy?.lastName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {data.requestedBy?.email}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Submitted
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDateTime(data.createdAt)}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Paper>
-
-              {/* Budget Information - for owner-initiated requests */}
-              {(data.ownerEstimatedBudget || data.managerEstimatedCost || data.approvedBudget) && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                    Budget Information
-                  </Typography>
-                  <Stack spacing={1.5} sx={{ mt: 1 }}>
-                    {data.ownerEstimatedBudget && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Owner's Estimated Budget
-                        </Typography>
-                        <Typography variant="body2" fontWeight={500}>
-                          ${data.ownerEstimatedBudget.toLocaleString()}
-                        </Typography>
-                      </Box>
-                    )}
-                    {data.managerEstimatedCost && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Manager's Cost Estimate
-                        </Typography>
-                        <Typography variant="body2" fontWeight={500}>
-                          ${data.managerEstimatedCost.toLocaleString()}
-                        </Typography>
-                        {data.costBreakdownNotes && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {data.costBreakdownNotes}
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                    {data.approvedBudget && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Approved Budget
-                        </Typography>
-                        <Typography variant="body2" fontWeight={500} color="success.main">
-                          ${data.approvedBudget.toLocaleString()}
-                        </Typography>
-                      </Box>
+                    <Chip
+                      label={data.category?.replace(/_/g, ' ')}
+                      color={getCategoryColor(data.category)}
+                      size="small"
+                    />
+                    {data.priority && (
+                      <Chip
+                        label={data.priority}
+                        size="small"
+                        variant="outlined"
+                      />
                     )}
                   </Stack>
-                </Paper>
-              )}
+                  <Box sx={{ mt: 2 }}>
+                    {/* Show simplified status for tenants, full workflow for managers/owners */}
+                    {userRole === 'TENANT' ? (
+                      <Alert
+                        severity={
+                          isRejectedStatus ? 'error' :
+                            data.status === 'COMPLETED' ? 'success' :
+                              ['APPROVED', 'APPROVED_BY_OWNER', 'CONVERTED_TO_JOB'].includes(data.status) ? 'success' :
+                                'info'
+                        }
+                        sx={{ mt: 1 }}
+                      >
+                        {isRejectedStatus ? 'Your request was not approved. Please see details below.' :
+                          data.status === 'COMPLETED' ? 'Your request has been completed!' :
+                            ['APPROVED', 'APPROVED_BY_OWNER'].includes(data.status) ? 'Your request has been approved and will be addressed soon.' :
+                              data.status === 'CONVERTED_TO_JOB' ? 'Your request is being worked on.' :
+                                'Your request is being reviewed by the property manager.'}
+                      </Alert>
+                    ) : (
+                      <Stepper activeStep={activeStep} alternativeLabel>
+                        {statusSteps.map((step, index) => {
+                          const isStepFailed = isRejectedStatus && step.key === 'UNDER_REVIEW';
+                          const isStepCompleted = activeStep > index || (activeStep === index && !isRejectedStatus);
+                          return (
+                            <Step key={step.key} completed={isStepCompleted}>
+                              <StepLabel error={isStepFailed}>
+                                {step.label}
+                              </StepLabel>
+                            </Step>
+                          );
+                        })}
+                      </Stepper>
+                    )}
+                    {isArchived && (
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        This service request has been archived and is read-only.
+                      </Alert>
+                    )}
+                    {isRejectedStatus && (data.status === 'REJECTED') && userRole !== 'TENANT' && (
+                      <Alert severity="error" sx={{ mt: 2 }}>
+                        This request was rejected. Review notes are available below.
+                      </Alert>
+                    )}
+                  </Box>
+                </Box>
 
-              {/* Review History */}
-              {data.reviewNotes && (
+                {/* Description */}
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                    Review History
+                    Description
                   </Typography>
-                  {data.reviewedAt && (
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                      Reviewed at: {formatDateTime(data.reviewedAt)}
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {data.description}
+                  </Typography>
+                </Paper>
+
+                {/* Photos */}
+                {data.photos && data.photos.length > 0 && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      Photos ({data.photos.length})
                     </Typography>
-                  )}
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {data.reviewNotes}
-                  </Typography>
-                </Paper>
-              )}
+                    <ImageList cols={3} gap={8} sx={{ mt: 1 }}>
+                      {data.photos.map((photo, index) => (
+                        <ImageListItem key={index}>
+                          <img
+                            src={photo}
+                            alt={`Photo ${index + 1}`}
+                            loading="lazy"
+                            style={{
+                              borderRadius: 4,
+                              objectFit: 'cover',
+                              height: 150,
+                            }}
+                          />
+                        </ImageListItem>
+                      ))}
+                    </ImageList>
+                  </Paper>
+                )}
 
-              {/* Linked Job */}
-              {linkedJob && (
+                {/* Details */}
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                    Linked Job
+                    Details
                   </Typography>
-                  <List dense disablePadding>
-                    <ListItem key={linkedJob.id} disableGutters>
-                      <ListItemText
-                        primary={linkedJob.title}
-                        secondary={
-                          <>
-                            <Chip
-                              label={linkedJob.status?.replace(/_/g, ' ')}
-                              size="small"
-                              sx={{ mr: 1, mt: 0.5 }}
-                            />
-                            {linkedJob.priority && (
+                  <Stack spacing={1.5} sx={{ mt: 1 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Property
+                      </Typography>
+                      <Typography variant="body2">
+                        {data.property?.name}
+                        {data.property?.address && ` • ${data.property.address}`}
+                      </Typography>
+                    </Box>
+
+                    {data.unit && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Unit
+                        </Typography>
+                        <Typography variant="body2">
+                          Unit {data.unit.unitNumber}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Requested by
+                      </Typography>
+                      <Typography variant="body2">
+                        {data.requestedBy?.firstName} {data.requestedBy?.lastName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {data.requestedBy?.email}
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Submitted
+                      </Typography>
+                      <Typography variant="body2">
+                        {formatDateTime(data.createdAt)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
+
+                {/* Budget Information - for owner-initiated requests (hidden from tenants) */}
+                {userRole !== 'TENANT' && (data.ownerEstimatedBudget || data.managerEstimatedCost || data.approvedBudget) && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      Budget Information
+                    </Typography>
+                    <Stack spacing={1.5} sx={{ mt: 1 }}>
+                      {data.ownerEstimatedBudget && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Owner's Estimated Budget
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            ${data.ownerEstimatedBudget.toLocaleString()}
+                          </Typography>
+                        </Box>
+                      )}
+                      {data.managerEstimatedCost && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Manager's Cost Estimate
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            ${data.managerEstimatedCost.toLocaleString()}
+                          </Typography>
+                          {data.costBreakdownNotes && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              {data.costBreakdownNotes}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                      {data.approvedBudget && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Approved Budget
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500} color="success.main">
+                            ${data.approvedBudget.toLocaleString()}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+                  </Paper>
+                )}
+
+                {/* Review History (hidden from tenants) */}
+                {userRole !== 'TENANT' && data.reviewNotes && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      Review History
+                    </Typography>
+                    {data.reviewedAt && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                        Reviewed at: {formatDateTime(data.reviewedAt)}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {data.reviewNotes}
+                    </Typography>
+                  </Paper>
+                )}
+
+                {/* Linked Job */}
+                {linkedJob && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      Linked Job
+                    </Typography>
+                    <List dense disablePadding>
+                      <ListItem key={linkedJob.id} disableGutters>
+                        <ListItemText
+                          primary={linkedJob.title}
+                          secondary={
+                            <>
                               <Chip
-                                label={linkedJob.priority}
+                                label={linkedJob.status?.replace(/_/g, ' ')}
                                 size="small"
                                 sx={{ mr: 1, mt: 0.5 }}
                               />
-                            )}
-                            <Typography variant="caption" color="text.secondary">
-                              Created: {formatDateTime(linkedJob.createdAt)}
-                            </Typography>
-                          </>
+                              {linkedJob.priority && (
+                                <Chip
+                                  label={linkedJob.priority}
+                                  size="small"
+                                  sx={{ mr: 1, mt: 0.5 }}
+                                />
+                              )}
+                              <Typography variant="caption" color="text.secondary">
+                                Created: {formatDateTime(linkedJob.createdAt)}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    </List>
+                  </Paper>
+                )}
+
+                {/* Review Input */}
+                {showReviewInput && (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                      {reviewAction === 'approve' && 'Approve Request'}
+                      {reviewAction === 'reject' && 'Reject Request'}
+                      {reviewAction === 'manager-reject' && 'Reject Service Request'}
+                      {reviewAction === 'add-estimate' && 'Add Cost Estimate'}
+                      {reviewAction === 'owner-approve' && 'Approve Service Request (Owner)'}
+                      {reviewAction === 'owner-reject' && 'Reject Service Request (Owner)'}
+                    </Typography>
+
+                    {/* Standard approve/reject flow */}
+                    {(reviewAction === 'approve' || reviewAction === 'reject') && (
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Review Notes"
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        placeholder={
+                          reviewAction === 'approve'
+                            ? 'Enter approval notes (e.g., "Approved - urgent repair needed")'
+                            : 'Enter rejection reason (e.g., "Duplicate request - already addressed")'
                         }
+                        disabled={isPendingMutation}
+                        sx={{ mt: 1 }}
                       />
-                    </ListItem>
-                  </List>
-                </Paper>
-              )}
+                    )}
 
-              {/* Review Input */}
-              {showReviewInput && (
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                  <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                    {reviewAction === 'approve' && 'Approve Request'}
-                    {reviewAction === 'reject' && 'Reject Request'}
-                    {reviewAction === 'manager-reject' && 'Reject Service Request'}
-                    {reviewAction === 'add-estimate' && 'Add Cost Estimate'}
-                    {reviewAction === 'owner-approve' && 'Approve Service Request (Owner)'}
-                    {reviewAction === 'owner-reject' && 'Reject Service Request (Owner)'}
-                  </Typography>
+                    {/* Manager direct reject */}
+                    {reviewAction === 'manager-reject' && (
+                      <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          label="Rejection Reason"
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          placeholder="Please explain why you are rejecting this request..."
+                          disabled={isPendingMutation}
+                          required
+                        />
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Review Notes (Optional)"
+                          value={reviewNotes}
+                          onChange={(e) => setReviewNotes(e.target.value)}
+                          placeholder="Add any additional notes..."
+                          disabled={isPendingMutation}
+                        />
+                      </Stack>
+                    )}
 
-                  {/* Standard approve/reject flow */}
-                  {(reviewAction === 'approve' || reviewAction === 'reject') && (
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="Review Notes"
-                      value={reviewNotes}
-                      onChange={(e) => setReviewNotes(e.target.value)}
-                      placeholder={
-                        reviewAction === 'approve'
-                          ? 'Enter approval notes (e.g., "Approved - urgent repair needed")'
-                          : 'Enter rejection reason (e.g., "Duplicate request - already addressed")'
-                      }
-                      disabled={isPendingMutation}
-                      sx={{ mt: 1 }}
-                    />
-                  )}
+                    {/* Manager adds cost estimate */}
+                    {reviewAction === 'add-estimate' && (
+                      <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                          fullWidth
+                          label="Estimated Cost"
+                          type="number"
+                          value={managerEstimatedCost}
+                          onChange={(e) => setManagerEstimatedCost(e.target.value)}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                          inputProps={{ min: 0, step: 0.01 }}
+                          disabled={isPendingMutation}
+                          required
+                        />
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          label="Cost Breakdown Notes (Optional)"
+                          value={costBreakdownNotes}
+                          onChange={(e) => setCostBreakdownNotes(e.target.value)}
+                          placeholder="Explain the cost breakdown..."
+                          disabled={isPendingMutation}
+                        />
+                      </Stack>
+                    )}
 
-                  {/* Manager direct reject */}
-                  {reviewAction === 'manager-reject' && (
-                    <Stack spacing={2} sx={{ mt: 1 }}>
+                    {/* Owner approval */}
+                    {reviewAction === 'owner-approve' && (
+                      <Stack spacing={2} sx={{ mt: 1 }}>
+                        <Alert severity="info">
+                          The manager has estimated the cost at ${data?.managerEstimatedCost?.toLocaleString() || 0}.
+                          You can approve with this amount or specify a different budget.
+                        </Alert>
+                        <TextField
+                          fullWidth
+                          label="Approved Budget"
+                          type="number"
+                          value={approvedBudget}
+                          onChange={(e) => setApprovedBudget(e.target.value)}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                          inputProps={{ min: 0, step: 0.01 }}
+                          disabled={isPendingMutation}
+                          helperText="Leave blank to use the manager's estimate"
+                        />
+                      </Stack>
+                    )}
+
+                    {/* Owner rejection */}
+                    {reviewAction === 'owner-reject' && (
                       <TextField
                         fullWidth
                         multiline
@@ -643,211 +740,133 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                         placeholder="Please explain why you are rejecting this request..."
                         disabled={isPendingMutation}
                         required
+                        sx={{ mt: 1 }}
                       />
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Review Notes (Optional)"
-                        value={reviewNotes}
-                        onChange={(e) => setReviewNotes(e.target.value)}
-                        placeholder="Add any additional notes..."
+                    )}
+
+                    <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                      <Button
+                        onClick={handleCancelReview}
                         disabled={isPendingMutation}
-                      />
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSubmitReview}
+                        color={reviewAction === 'add-estimate' ? 'primary' : reviewAction === 'owner-reject' || reviewAction === 'reject' ? 'error' : 'success'}
+                        variant={reviewAction === 'add-estimate' ? 'contained' : 'contained'}
+                        disabled={isPendingMutation}
+                        startIcon={
+                          reviewAction === 'add-estimate' ? <MoneyIcon /> :
+                            ['approve', 'owner-approve'].includes(reviewAction) ? <CheckCircleIcon /> : <CancelIcon />
+                        }
+                      >
+                        {isPendingMutation
+                          ? 'Submitting...'
+                          : ['approve', 'owner-approve'].includes(reviewAction)
+                            ? 'Approve'
+                            : reviewAction === 'add-estimate'
+                              ? 'Submit Estimate'
+                              : 'Reject'}
+                      </Button>
                     </Stack>
-                  )}
+                  </Paper>
+                )}
+              </Stack>
+            )}
+          </DataState>
+        </DialogContent>
 
-                  {/* Manager adds cost estimate */}
-                  {reviewAction === 'add-estimate' && (
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                      <TextField
-                        fullWidth
-                        label="Estimated Cost"
-                        type="number"
-                        value={managerEstimatedCost}
-                        onChange={(e) => setManagerEstimatedCost(e.target.value)}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                        }}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        disabled={isPendingMutation}
-                        required
-                      />
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Cost Breakdown Notes (Optional)"
-                        value={costBreakdownNotes}
-                        onChange={(e) => setCostBreakdownNotes(e.target.value)}
-                        placeholder="Explain the cost breakdown..."
-                        disabled={isPendingMutation}
-                      />
-                    </Stack>
-                  )}
-
-                  {/* Owner approval */}
-                  {reviewAction === 'owner-approve' && (
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                      <Alert severity="info">
-                        The manager has estimated the cost at ${data?.managerEstimatedCost?.toLocaleString() || 0}. 
-                        You can approve with this amount or specify a different budget.
-                      </Alert>
-                      <TextField
-                        fullWidth
-                        label="Approved Budget"
-                        type="number"
-                        value={approvedBudget}
-                        onChange={(e) => setApprovedBudget(e.target.value)}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                        }}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        disabled={isPendingMutation}
-                        helperText="Leave blank to use the manager's estimate"
-                      />
-                    </Stack>
-                  )}
-
-                  {/* Owner rejection */}
-                  {reviewAction === 'owner-reject' && (
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="Rejection Reason"
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      placeholder="Please explain why you are rejecting this request..."
-                      disabled={isPendingMutation}
-                      required
-                      sx={{ mt: 1 }}
-                    />
-                  )}
-
-                  <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                    <Button
-                      onClick={handleCancelReview}
-                      disabled={isPendingMutation}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSubmitReview}
-                      color={reviewAction === 'add-estimate' ? 'primary' : reviewAction === 'owner-reject' || reviewAction === 'reject' ? 'error' : 'success'}
-                      variant={reviewAction === 'add-estimate' ? 'contained' : 'contained'}
-                      disabled={isPendingMutation}
-                      startIcon={
-                        reviewAction === 'add-estimate' ? <MoneyIcon /> :
-                        ['approve', 'owner-approve'].includes(reviewAction) ? <CheckCircleIcon /> : <CancelIcon />
-                      }
-                    >
-                      {isPendingMutation
-                        ? 'Submitting...'
-                        : ['approve', 'owner-approve'].includes(reviewAction)
-                        ? 'Approve'
-                        : reviewAction === 'add-estimate'
-                        ? 'Submit Estimate'
-                        : 'Reject'}
-                    </Button>
-                  </Stack>
-                </Paper>
+        <DialogActions>
+          {data && !showReviewInput && !isArchived && (
+            <>
+              {/* Property Manager actions for pending requests */}
+              {['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'].includes(data.status) && userRole === 'PROPERTY_MANAGER' && (
+                <>
+                  <Button
+                    onClick={handleManagerReject}
+                    color="error"
+                    startIcon={<CancelIcon />}
+                    disabled={isPendingMutation}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    onClick={handleAddEstimate}
+                    color="primary"
+                    startIcon={<MoneyIcon />}
+                    disabled={isPendingMutation}
+                    sx={{ ml: 1 }}
+                  >
+                    Add Cost Estimate
+                  </Button>
+                </>
               )}
-            </Stack>
+
+              {/* Owner approval/rejection for PENDING_OWNER_APPROVAL */}
+              {data.status === 'PENDING_OWNER_APPROVAL' && userRole === 'OWNER' && (
+                <>
+                  <Button
+                    onClick={handleOwnerReject}
+                    color="error"
+                    startIcon={<CancelIcon />}
+                    disabled={isPendingMutation}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    onClick={handleOwnerApprove}
+                    color="success"
+                    variant="contained"
+                    startIcon={<CheckCircleIcon />}
+                    disabled={isPendingMutation}
+                  >
+                    Approve
+                  </Button>
+                </>
+              )}
+
+              {/* Schedule Inspection or Convert to Job for APPROVED status */}
+              {data.status === 'APPROVED_BY_OWNER' && userRole === 'PROPERTY_MANAGER' && (
+                <>
+                  <Button
+                    onClick={() => {
+                      // Navigate to inspections page with pre-filled data
+                      window.location.href = `/inspections?propertyId=${data.propertyId}&fromServiceRequest=${data.id}`;
+                    }}
+                    variant="outlined"
+                    startIcon={<CalendarIcon />}
+                    disabled={isPendingMutation}
+                  >
+                    Schedule Inspection
+                  </Button>
+                  <Button
+                    onClick={() => setShowConvertDialog(true)}
+                    variant="contained"
+                    startIcon={<BuildIcon />}
+                    disabled={isPendingMutation}
+                  >
+                    Convert to Job
+                  </Button>
+                </>
+              )}
+            </>
           )}
-        </DataState>
-      </DialogContent>
+          <Button onClick={handleClose} disabled={isPendingMutation}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <DialogActions>
-        {data && !showReviewInput && !isArchived && (
-          <>
-            {/* Property Manager actions for pending requests */}
-            {['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'].includes(data.status) && userRole === 'PROPERTY_MANAGER' && (
-              <>
-                <Button
-                  onClick={handleManagerReject}
-                  color="error"
-                  startIcon={<CancelIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Reject
-                </Button>
-                <Button
-                  onClick={handleAddEstimate}
-                  color="primary"
-                  startIcon={<MoneyIcon />}
-                  disabled={isPendingMutation}
-                  sx={{ ml: 1 }}
-                >
-                  Add Cost Estimate
-                </Button>
-              </>
-            )}
-
-            {/* Owner approval/rejection for PENDING_OWNER_APPROVAL */}
-            {data.status === 'PENDING_OWNER_APPROVAL' && userRole === 'OWNER' && (
-              <>
-                <Button
-                  onClick={handleOwnerReject}
-                  color="error"
-                  startIcon={<CancelIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Reject
-                </Button>
-                <Button
-                  onClick={handleOwnerApprove}
-                  color="success"
-                  variant="contained"
-                  startIcon={<CheckCircleIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Approve
-                </Button>
-              </>
-            )}
-
-            {/* Schedule Inspection or Convert to Job for APPROVED status */}
-            {data.status === 'APPROVED_BY_OWNER' && userRole === 'PROPERTY_MANAGER' && (
-              <>
-                <Button
-                  onClick={() => {
-                    // Navigate to inspections page with pre-filled data
-                    window.location.href = `/inspections?propertyId=${data.propertyId}&fromServiceRequest=${data.id}`;
-                  }}
-                  variant="outlined"
-                  startIcon={<CalendarIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Schedule Inspection
-                </Button>
-                <Button
-                  onClick={() => setShowConvertDialog(true)}
-                  variant="contained"
-                  startIcon={<BuildIcon />}
-                  disabled={isPendingMutation}
-                >
-                  Convert to Job
-                </Button>
-              </>
-            )}
-          </>
-        )}
-        <Button onClick={handleClose} disabled={isPendingMutation}>
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
-
-    {/* Convert to Job Dialog */}
-    {data && (
-      <ConvertServiceRequestToJobDialog
-        open={showConvertDialog}
-        onClose={() => setShowConvertDialog(false)}
-        serviceRequest={data}
-        onConvert={handleConversionSuccess}
-      />
-    )}
+      {/* Convert to Job Dialog */}
+      {data && (
+        <ConvertServiceRequestToJobDialog
+          open={showConvertDialog}
+          onClose={() => setShowConvertDialog(false)}
+          serviceRequest={data}
+          onConvert={handleConversionSuccess}
+        />
+      )}
     </>
   );
 }

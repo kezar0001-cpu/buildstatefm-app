@@ -60,7 +60,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
-import ServiceRequestForm from '../components/ServiceRequestForm';
+import ServiceRequestWizard from '../components/ServiceRequestWizard';
 import ServiceRequestDetailModal from '../components/ServiceRequestDetailModal';
 import ensureArray from '../utils/ensureArray';
 import { parseListResponse, parsePaginatedResponse, parseItemResponse } from '../utils/apiResponseParser';
@@ -189,20 +189,27 @@ const ServiceRequestsPage = () => {
   };
 
   const handleEdit = (request) => {
+    // Tenants cannot edit - they should use delete and re-create
+    // For now, just show details for tenants
+    if (userRole === 'TENANT') {
+      handleViewDetails(request);
+      return;
+    }
+
     // Check if request is rejected
     if (request.status === 'REJECTED' || request.status === 'REJECTED_BY_OWNER') {
       toast.error('Cannot edit a rejected service request');
       return;
     }
-    
+
     // Check if user is the creator
     if (request.requestedById !== user?.id) {
       toast.error('You can only edit service requests that you created');
       return;
     }
-    
-    setSelectedRequest(request.id);
-    setOpenDialog(true);
+
+    // For managers/owners who can edit, just show details (manual editing not implemented for non-tenants)
+    handleViewDetails(request);
   };
 
   const handleDelete = (request) => {
@@ -211,7 +218,7 @@ const ServiceRequestsPage = () => {
       toast.error('You can only delete service requests that you created');
       return;
     }
-    
+
     setRequestToDelete(request);
     setDeleteConfirmDialogOpen(true);
   };
@@ -231,10 +238,10 @@ const ServiceRequestsPage = () => {
       // Cancel outgoing refetches for all service request queries
       const queryKey = queryKeys.serviceRequests.list({ ...filters, search: debouncedSearch });
       await queryClient.cancelQueries({ queryKey });
-      
+
       // Snapshot previous value
       const previousData = queryClient.getQueryData(queryKey);
-      
+
       // Optimistically remove from cache
       queryClient.setQueryData(queryKey, (old) => {
         if (!old?.pages) return old;
@@ -247,7 +254,7 @@ const ServiceRequestsPage = () => {
           })),
         };
       });
-      
+
       return { previousData, queryKey };
     },
     onError: (err, requestId, context) => {
@@ -552,379 +559,117 @@ const ServiceRequestsPage = () => {
           />
         </Box>
 
-      {/* Bulk Actions Bar */}
-      {selectedRequestIds.length > 0 && (
-        <Paper
-          elevation={2}
-          sx={{
-            mb: 3,
-            px: { xs: 2, md: 3 },
-            py: { xs: 2, md: 2.5 },
-            borderRadius: { xs: 2, md: 3 },
-          }}
-        >
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={{ xs: 2, md: 3 }}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-            justifyContent="space-between"
+        {/* Bulk Actions Bar */}
+        {selectedRequestIds.length > 0 && (
+          <Paper
+            elevation={2}
+            sx={{
+              mb: 3,
+              px: { xs: 2, md: 3 },
+              py: { xs: 2, md: 2.5 },
+              borderRadius: { xs: 2, md: 3 },
+            }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Checkbox
-                color="primary"
-                checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
-                indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
-                onChange={handleToggleSelectAllVisible}
-                inputProps={{ 'aria-label': 'Select all visible service requests' }}
-              />
-              <Box>
-                <Typography variant="subtitle1">{selectedRequestIds.length} selected</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Delete selected service requests
-                </Typography>
-              </Box>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={{ xs: 2, md: 3 }}
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              justifyContent="space-between"
+            >
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Checkbox
+                  color="primary"
+                  checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
+                  indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
+                  onChange={handleToggleSelectAllVisible}
+                  inputProps={{ 'aria-label': 'Select all visible service requests' }}
+                />
+                <Box>
+                  <Typography variant="subtitle1">{selectedRequestIds.length} selected</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Delete selected service requests
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={handleBulkDelete}
+                  startIcon={<DeleteIcon />}
+                >
+                  Delete Selected
+                </Button>
+              </Stack>
             </Stack>
+          </Paper>
+        )}
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={handleBulkDelete}
-                startIcon={<DeleteIcon />}
-              >
-                Delete Selected
-              </Button>
-            </Stack>
-          </Stack>
-        </Paper>
-      )}
+        {/* Service Requests List */}
+        {requestList.length === 0 ? (
+          <EmptyState
+            icon={AssignmentIcon}
+            iconColor="#dc2626"
+            title={
+              filters.status || filters.category || filters.priority
+                ? 'No service requests match your filters'
+                : 'No service requests yet'
+            }
+            description={
+              filters.status || filters.category || filters.priority
+                ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all requests.'
+                : userRole === 'TENANT'
+                  ? 'Need maintenance or repairs? Submit your first service request and we\'ll take care of it promptly.'
+                  : 'Start managing service requests from your tenants. Track issues, assign jobs, and keep everyone informed.'
+            }
+            actionLabel={
+              filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
+                ? undefined
+                : userRole === 'TENANT'
+                  ? 'Submit First Request'
+                  : 'Create Request'
+            }
+            onAction={
+              filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
+                ? undefined
+                : handleCreate
+            }
+            helperText={
+              filters.status || filters.category || filters.priority
+                ? 'Filters are still applied. Clear them to view all service requests or create a new one from here.'
+                : undefined
+            }
+          />
+        ) : (
+          <Stack spacing={3}>
+            {/* Mobile Card View */}
+            {isMobile ? (
+              <Stack spacing={2}>
+                {requestList.map((request) => {
+                  const description = typeof request.description === 'string' ? request.description : '';
+                  const displayDescription = description
+                    ? description.length > 100
+                      ? `${description.substring(0, 100)}...`
+                      : description
+                    : 'No description provided.';
+                  const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                  const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                  const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
 
-      {/* Service Requests List */}
-      {requestList.length === 0 ? (
-        <EmptyState
-          icon={AssignmentIcon}
-          iconColor="#dc2626"
-          title={
-            filters.status || filters.category || filters.priority
-              ? 'No service requests match your filters'
-              : 'No service requests yet'
-          }
-          description={
-            filters.status || filters.category || filters.priority
-              ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all requests.'
-              : userRole === 'TENANT'
-                ? 'Need maintenance or repairs? Submit your first service request and we\'ll take care of it promptly.'
-                : 'Start managing service requests from your tenants. Track issues, assign jobs, and keep everyone informed.'
-          }
-          actionLabel={
-            filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
-              ? undefined
-              : userRole === 'TENANT'
-                ? 'Submit First Request'
-                : 'Create Request'
-          }
-          onAction={
-            filters.status || filters.category || filters.priority || userRole === 'PROPERTY_MANAGER'
-              ? undefined
-              : handleCreate
-          }
-          helperText={
-            filters.status || filters.category || filters.priority
-              ? 'Filters are still applied. Clear them to view all service requests or create a new one from here.'
-              : undefined
-          }
-        />
-      ) : (
-        <Stack spacing={3}>
-          {/* Mobile Card View */}
-          {isMobile ? (
-            <Stack spacing={2}>
-              {requestList.map((request) => {
-                const description = typeof request.description === 'string' ? request.description : '';
-                const displayDescription = description
-                  ? description.length > 100
-                    ? `${description.substring(0, 100)}...`
-                    : description
-                  : 'No description provided.';
-                const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
-                const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
-                const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+                  const isSelected = selectedRequestIds.includes(request.id);
 
-                const isSelected = selectedRequestIds.includes(request.id);
-
-                return (
-                  <Card
-                    key={request.id}
-                    sx={{
-                      boxShadow: isSelected ? 4 : 2,
-                      borderRadius: 3,
-                      border: '1px solid',
-                      borderColor: isSelected ? 'primary.main' : 'divider',
-                      cursor: 'pointer',
-                      overflow: 'hidden',
-                      position: 'relative',
-                      transition: 'all 0.3s ease-in-out',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '4px',
-                        background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                        opacity: isSelected ? 1 : 0,
-                        transition: 'opacity 0.3s ease-in-out',
-                      },
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: 6,
-                        borderColor: 'primary.main',
-                        '&::before': {
-                          opacity: 1,
-                        },
-                      },
-                    }}
-                    onClick={(e) => {
-                      // Don't open modal if clicking on checkbox or its container
-                      if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
-                        return;
-                      }
-                      handleViewDetails(request);
-                    }}
-                  >
-                    <CardContent 
-                      sx={{ p: 2.5 }}
-                      onClick={(e) => {
-                        // Don't open modal if clicking on checkbox or its container
-                        if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
-                          return;
-                        }
-                        handleViewDetails(request);
-                      }}
-                    >
-                      <Stack spacing={2}>
-                        {/* Header Row */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                              <Checkbox
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleRequestSelection(request.id);
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                color="primary"
-                                sx={{ p: 0.5 }}
-                                inputProps={{ 'aria-label': `Select service request ${request.title}` }}
-                              />
-                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                Title
-                              </Typography>
-                            </Box>
-                            <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
-                              {request.title}
-                            </Typography>
-                            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                              <Chip
-                                label={statusLabel}
-                                color={getStatusColor(request.status)}
-                                size="small"
-                              />
-                              <Chip
-                                label={categoryLabel}
-                                color={getCategoryColor(request.category)}
-                                size="small"
-                                variant="outlined"
-                              />
-                              {priorityLabel && (
-                                <Chip
-                                  label={priorityLabel}
-                                  size="small"
-                                />
-                              )}
-                            </Stack>
-                          </Box>
-                          {request.requestedById === user?.id && (
-                            <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(request);
-                                }}
-                                sx={{ color: 'text.secondary' }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(request);
-                                }}
-                                sx={{ color: 'error.main' }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          )}
-                        </Box>
-                        <Divider />
-
-                        {/* Property */}
-                        <Box
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: 'action.hover',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                          }}
-                        >
-                          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                            Property
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5, wordBreak: 'break-word' }}>
-                            {request.property?.name || 'N/A'}
-                          </Typography>
-                        </Box>
-
-                        {/* Unit */}
-                        {request.unit && (
-                          <Box>
-                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                              Unit
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                              Unit {request.unit.unitNumber}
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {/* Submitted By */}
-                        {userRole !== 'TENANT' && (
-                          <Box>
-                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                              Submitted By
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                              {request.requestedBy?.firstName} {request.requestedBy?.lastName}
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {/* Submitted Date */}
-                        <Box>
-                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                            Submitted
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {formatDate(request.createdAt)}
-                          </Typography>
-                        </Box>
-
-                        {/* Jobs Created */}
-                        {request.jobs && request.jobs.length > 0 && (
-                          <Box>
-                            <Chip
-                              icon={<BuildIcon fontSize="small" />}
-                              label={`${request.jobs.length} Job(s) Created`}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          </Box>
-                        )}
-
-                        {/* Description */}
-                        <Box>
-                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                            Description
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-                            {displayDescription}
-                          </Typography>
-                        </Box>
-
-                        {/* Action Buttons */}
-                        {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
-                          <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
-                            <Button
-                              fullWidth
-                              variant="outlined"
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReview(request);
-                              }}
-                            >
-                              Review
-                            </Button>
-                            <Button
-                              fullWidth
-                              variant="contained"
-                              size="small"
-                              startIcon={<BuildIcon />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleConvert(request);
-                              }}
-                            >
-                              Convert to Job
-                            </Button>
-                          </Stack>
-                        )}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Stack>
-          ) : viewMode === 'kanban' && !isMobile ? (
-            /* Kanban View */
-            <ServiceRequestKanban
-              requests={requestList}
-              onView={handleViewDetails}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onReview={handleReview}
-              onConvert={handleConvert}
-              user={user}
-              userRole={userRole}
-              getCategoryColor={getCategoryColor}
-              getStatusColor={getStatusColor}
-            />
-          ) : viewMode === 'grid' ? (
-            /* Desktop Grid View */
-            <Grid container spacing={{ xs: 2, md: 3 }}>
-              {requestList.map((request) => {
-                const description = typeof request.description === 'string' ? request.description : '';
-                const displayDescription = description
-                  ? description.length > 100
-                    ? `${description.substring(0, 100)}...`
-                    : description
-                  : 'No description provided.';
-                const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
-                const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
-                const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
-
-                const isSelected = selectedRequestIds.includes(request.id);
-
-                return (
-                  <Grid item xs={12} md={6} lg={4} key={request.id}>
+                  return (
                     <Card
+                      key={request.id}
                       sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
+                        boxShadow: isSelected ? 4 : 2,
                         borderRadius: 3,
                         border: '1px solid',
                         borderColor: isSelected ? 'primary.main' : 'divider',
-                        boxShadow: isSelected ? 4 : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        cursor: 'pointer',
                         overflow: 'hidden',
                         position: 'relative',
-                        cursor: 'pointer',
                         transition: 'all 0.3s ease-in-out',
                         '&::before': {
                           content: '""',
@@ -945,266 +690,70 @@ const ServiceRequestsPage = () => {
                             opacity: 1,
                           },
                         },
-                    }}
-                    onClick={(e) => {
-                      // Don't open modal if clicking on checkbox or its container
-                      if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
-                        return;
-                      }
-                      handleViewDetails(request);
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleToggleRequestSelection(request.id);
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              color="primary"
-                              sx={{ p: 0.5 }}
-                              inputProps={{ 'aria-label': `Select service request ${request.title}` }}
-                            />
-                            <Typography variant="h6" sx={{ flex: 1 }}>
-                              {request.title}
-                            </Typography>
-                          </Box>
-                          {request.requestedById === user?.id && (
-                            <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(request);
-                                }}
-                                sx={{ color: 'text.secondary' }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(request);
-                                }}
-                                sx={{ color: 'error.main' }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          )}
-                        </Box>
-                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-                          <Chip
-                            label={statusLabel}
-                            color={getStatusColor(request.status)}
-                            size="small"
-                          />
-                          <Chip
-                            label={categoryLabel}
-                            color={getCategoryColor(request.category)}
-                            size="small"
-                            variant="outlined"
-                          />
-                          {priorityLabel && (
-                            <Chip
-                              label={priorityLabel}
-                              size="small"
-                            />
-                          )}
-                        </Stack>
-
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {displayDescription}
-                        </Typography>
-
-                        <Stack spacing={1}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Property
-                            </Typography>
-                            <Typography variant="body2">
-                              {request.property?.name || 'N/A'}
-                            </Typography>
-                          </Box>
-
-                          {request.unit && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">
-                                Unit
+                      }}
+                      onClick={(e) => {
+                        // Don't open modal if clicking on checkbox or its container
+                        if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                          return;
+                        }
+                        handleViewDetails(request);
+                      }}
+                    >
+                      <CardContent
+                        sx={{ p: 2.5 }}
+                        onClick={(e) => {
+                          // Don't open modal if clicking on checkbox or its container
+                          if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                            return;
+                          }
+                          handleViewDetails(request);
+                        }}
+                      >
+                        <Stack spacing={2}>
+                          {/* Header Row */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleRequestSelection(request.id);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  color="primary"
+                                  sx={{ p: 0.5 }}
+                                  inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                                />
+                                <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                  Title
+                                </Typography>
+                              </Box>
+                              <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, wordBreak: 'break-word' }}>
+                                {request.title}
                               </Typography>
-                              <Typography variant="body2">
-                                Unit {request.unit.unitNumber}
-                              </Typography>
+                              <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                                <Chip
+                                  label={statusLabel}
+                                  color={getStatusColor(request.status)}
+                                  size="small"
+                                />
+                                <Chip
+                                  label={categoryLabel}
+                                  color={getCategoryColor(request.category)}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                                {priorityLabel && (
+                                  <Chip
+                                    label={priorityLabel}
+                                    size="small"
+                                  />
+                                )}
+                              </Stack>
                             </Box>
-                          )}
-
-                          {userRole !== 'TENANT' && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">
-                                Submitted By
-                              </Typography>
-                              <Typography variant="body2">
-                                {request.requestedBy?.firstName} {request.requestedBy?.lastName}
-                              </Typography>
-                            </Box>
-                          )}
-
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">
-                              Submitted
-                            </Typography>
-                            <Typography variant="body2">
-                              {formatDate(request.createdAt)}
-                            </Typography>
-                          </Box>
-
-                          {request.jobs && request.jobs.length > 0 && (
-                            <Box>
-                              <Chip
-                                icon={<BuildIcon fontSize="small" />}
-                                label={`${request.jobs.length} Job(s) Created`}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                            </Box>
-                          )}
-                        </Stack>
-                      </CardContent>
-
-                      {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
-                        <Box
-                          sx={{
-                            p: 2,
-                            pt: 0,
-                            display: 'flex',
-                            gap: 1,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <Button
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            onClick={() => handleReview(request)}
-                          >
-                            Review
-                          </Button>
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            size="small"
-                            startIcon={<BuildIcon />}
-                            onClick={() => handleConvert(request)}
-                          >
-                            Convert to Job
-                          </Button>
-                        </Box>
-                      )}
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          ) : viewMode === 'table' && !isMobile ? (
-            /* Table View - Desktop only */
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 2, md: 3 },
-                borderRadius: 3,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          color="primary"
-                          checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
-                          indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
-                          onChange={handleToggleSelectAllVisible}
-                          inputProps={{ 'aria-label': 'Select all visible service requests' }}
-                        />
-                      </TableCell>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Property</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Category</TableCell>
-                      <TableCell>Priority</TableCell>
-                      <TableCell>Submitted</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {requestList.map((request) => {
-                      const isSelected = selectedRequestIds.includes(request.id);
-                      const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
-                      const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
-                      const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
-                      return (
-                        <TableRow
-                          key={request.id}
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => handleViewDetails(request)}
-                        >
-                          <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleToggleRequestSelection(request.id);
-                              }}
-                              color="primary"
-                              inputProps={{ 'aria-label': `Select service request ${request.title}` }}
-                            />
-                          </TableCell>
-                          <TableCell>{request.title}</TableCell>
-                          <TableCell>{request.property?.name || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={statusLabel}
-                              color={getStatusColor(request.status)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={categoryLabel}
-                              color={getCategoryColor(request.category)}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {priorityLabel && (
-                              <Chip
-                                label={priorityLabel}
-                                size="small"
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>{formatDate(request.createdAt)}</TableCell>
-                          <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                             {request.requestedById === user?.id && (
-                              <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
                                 <IconButton
                                   size="small"
                                   onClick={(e) => {
@@ -1227,54 +776,499 @@ const ServiceRequestsPage = () => {
                                 </IconButton>
                               </Stack>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          ) : null}
+                          </Box>
+                          <Divider />
 
-          {/* Load More Button */}
-          {hasNextPage && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
+                          {/* Property */}
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 2,
+                              bgcolor: 'action.hover',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                              Property
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5, wordBreak: 'break-word' }}>
+                              {request.property?.name || 'N/A'}
+                            </Typography>
+                          </Box>
+
+                          {/* Unit */}
+                          {request.unit && (
+                            <Box>
+                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                Unit
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                Unit {request.unit.unitNumber}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Submitted By */}
+                          {userRole !== 'TENANT' && (
+                            <Box>
+                              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                Submitted By
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {request.requestedBy?.firstName} {request.requestedBy?.lastName}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Submitted Date */}
+                          <Box>
+                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                              Submitted
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              {formatDate(request.createdAt)}
+                            </Typography>
+                          </Box>
+
+                          {/* Jobs Created */}
+                          {request.jobs && request.jobs.length > 0 && (
+                            <Box>
+                              <Chip
+                                icon={<BuildIcon fontSize="small" />}
+                                label={`${request.jobs.length} Job(s) Created`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            </Box>
+                          )}
+
+                          {/* Description */}
+                          <Box>
+                            <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                              Description
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                              {displayDescription}
+                            </Typography>
+                          </Box>
+
+                          {/* Action Buttons */}
+                          {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                            <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReview(request);
+                                }}
+                              >
+                                Review
+                              </Button>
+                              <Button
+                                fullWidth
+                                variant="contained"
+                                size="small"
+                                startIcon={<BuildIcon />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConvert(request);
+                                }}
+                              >
+                                Convert to Job
+                              </Button>
+                            </Stack>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            ) : viewMode === 'kanban' && !isMobile ? (
+              /* Kanban View */
+              <ServiceRequestKanban
+                requests={requestList}
+                onView={handleViewDetails}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onReview={handleReview}
+                onConvert={handleConvert}
+                user={user}
+                userRole={userRole}
+                getCategoryColor={getCategoryColor}
+                getStatusColor={getStatusColor}
+              />
+            ) : viewMode === 'grid' ? (
+              /* Desktop Grid View */
+              <Grid container spacing={{ xs: 2, md: 3 }}>
+                {requestList.map((request) => {
+                  const description = typeof request.description === 'string' ? request.description : '';
+                  const displayDescription = description
+                    ? description.length > 100
+                      ? `${description.substring(0, 100)}...`
+                      : description
+                    : 'No description provided.';
+                  const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                  const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                  const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+
+                  const isSelected = selectedRequestIds.includes(request.id);
+
+                  return (
+                    <Grid item xs={12} md={6} lg={4} key={request.id}>
+                      <Card
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderRadius: 3,
+                          border: '1px solid',
+                          borderColor: isSelected ? 'primary.main' : 'divider',
+                          boxShadow: isSelected ? 4 : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                          overflow: 'hidden',
+                          position: 'relative',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease-in-out',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                            opacity: isSelected ? 1 : 0,
+                            transition: 'opacity 0.3s ease-in-out',
+                          },
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: 6,
+                            borderColor: 'primary.main',
+                            '&::before': {
+                              opacity: 1,
+                            },
+                          },
+                        }}
+                        onClick={(e) => {
+                          // Don't open modal if clicking on checkbox or its container
+                          if (e.target.closest('input[type="checkbox"]') || e.target.closest('.MuiCheckbox-root')) {
+                            return;
+                          }
+                          handleViewDetails(request);
+                        }}
+                      >
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                              <Checkbox
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleRequestSelection(request.id);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                color="primary"
+                                sx={{ p: 0.5 }}
+                                inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                              />
+                              <Typography variant="h6" sx={{ flex: 1 }}>
+                                {request.title}
+                              </Typography>
+                            </Box>
+                            {request.requestedById === user?.id && (
+                              <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(request);
+                                  }}
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(request);
+                                  }}
+                                  sx={{ color: 'error.main' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
+                            )}
+                          </Box>
+                          <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                            <Chip
+                              label={statusLabel}
+                              color={getStatusColor(request.status)}
+                              size="small"
+                            />
+                            <Chip
+                              label={categoryLabel}
+                              color={getCategoryColor(request.category)}
+                              size="small"
+                              variant="outlined"
+                            />
+                            {priorityLabel && (
+                              <Chip
+                                label={priorityLabel}
+                                size="small"
+                              />
+                            )}
+                          </Stack>
+
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {displayDescription}
+                          </Typography>
+
+                          <Stack spacing={1}>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Property
+                              </Typography>
+                              <Typography variant="body2">
+                                {request.property?.name || 'N/A'}
+                              </Typography>
+                            </Box>
+
+                            {request.unit && (
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">
+                                  Unit
+                                </Typography>
+                                <Typography variant="body2">
+                                  Unit {request.unit.unitNumber}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {userRole !== 'TENANT' && (
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">
+                                  Submitted By
+                                </Typography>
+                                <Typography variant="body2">
+                                  {request.requestedBy?.firstName} {request.requestedBy?.lastName}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Submitted
+                              </Typography>
+                              <Typography variant="body2">
+                                {formatDate(request.createdAt)}
+                              </Typography>
+                            </Box>
+
+                            {request.jobs && request.jobs.length > 0 && (
+                              <Box>
+                                <Chip
+                                  icon={<BuildIcon fontSize="small" />}
+                                  label={`${request.jobs.length} Job(s) Created`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              </Box>
+                            )}
+                          </Stack>
+                        </CardContent>
+
+                        {userRole !== 'TENANT' && request.status === 'SUBMITTED' && (
+                          <Box
+                            sx={{
+                              p: 2,
+                              pt: 0,
+                              display: 'flex',
+                              gap: 1,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Button
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleReview(request)}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              size="small"
+                              startIcon={<BuildIcon />}
+                              onClick={() => handleConvert(request)}
+                            >
+                              Convert to Job
+                            </Button>
+                          </Box>
+                        )}
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            ) : viewMode === 'table' && !isMobile ? (
+              /* Table View - Desktop only */
+              <Paper
+                elevation={0}
+                sx={{
+                  p: { xs: 2, md: 3 },
+                  borderRadius: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
               >
-                {isFetchingNextPage ? 'Loading...' : 'Load More'}
-              </Button>
-            </Box>
-          )}
-        </Stack>
-      )}
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            color="primary"
+                            checked={requestList.length > 0 && selectedRequestIds.length === requestList.length}
+                            indeterminate={selectedRequestIds.length > 0 && selectedRequestIds.length < requestList.length}
+                            onChange={handleToggleSelectAllVisible}
+                            inputProps={{ 'aria-label': 'Select all visible service requests' }}
+                          />
+                        </TableCell>
+                        <TableCell>Title</TableCell>
+                        <TableCell>Property</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell>Priority</TableCell>
+                        <TableCell>Submitted</TableCell>
+                        <TableCell align="right">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {requestList.map((request) => {
+                        const isSelected = selectedRequestIds.includes(request.id);
+                        const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+                        const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+                        const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+                        return (
+                          <TableRow
+                            key={request.id}
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => handleViewDetails(request)}
+                          >
+                            <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleRequestSelection(request.id);
+                                }}
+                                color="primary"
+                                inputProps={{ 'aria-label': `Select service request ${request.title}` }}
+                              />
+                            </TableCell>
+                            <TableCell>{request.title}</TableCell>
+                            <TableCell>{request.property?.name || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={statusLabel}
+                                color={getStatusColor(request.status)}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={categoryLabel}
+                                color={getCategoryColor(request.category)}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {priorityLabel && (
+                                <Chip
+                                  label={priorityLabel}
+                                  size="small"
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>{formatDate(request.createdAt)}</TableCell>
+                            <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                              {request.requestedById === user?.id && (
+                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEdit(request);
+                                    }}
+                                    sx={{ color: 'text.secondary' }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(request);
+                                    }}
+                                    sx={{ color: 'error.main' }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            ) : null}
+
+            {/* Load More Button */}
+            {hasNextPage && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
+                >
+                  {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                </Button>
+              </Box>
+            )}
+          </Stack>
+        )}
 
       </PageShell>
 
-      {/* Create Dialog */}
-      <Dialog
+      {/* Create Service Request Wizard */}
+      <ServiceRequestWizard
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{
-          sx: {
-            borderRadius: { xs: 0, md: 3 },
-            maxHeight: { xs: '100vh', md: '90vh' },
-          },
-        }}
-      >
-        <ServiceRequestForm
-          onSuccess={handleSuccess}
-          onCancel={handleCloseDialog}
-        />
-      </Dialog>
+        onSuccess={handleSuccess}
+      />
 
       {/* Review Dialog */}
       {reviewDialog && (
@@ -1366,7 +1360,7 @@ const ServiceRequestKanban = ({
   getStatusColor,
 }) => {
   const { useMemo } = React;
-  
+
   // Group requests by status
   const columns = useMemo(() => {
     const grouped = {
@@ -1408,229 +1402,229 @@ const ServiceRequestKanban = ({
   // Render a kanban column
   const renderKanbanColumn = (column) => (
     <Grid item xs={12} sm={6} md={4} lg={3} key={column.id}>
-          <Paper
-            sx={{
-              p: 2,
-              height: '100%',
-              minHeight: 400,
-              bgcolor: 'background.default',
-              borderRadius: 2,
-            }}
-          >
-            {/* Column Header */}
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                {column.title}
-              </Typography>
-              <Chip
-                label={column.requests.length}
-                size="small"
-                color={column.color}
-              />
-            </Box>
+      <Paper
+        sx={{
+          p: 2,
+          height: '100%',
+          minHeight: 400,
+          bgcolor: 'background.default',
+          borderRadius: 2,
+        }}
+      >
+        {/* Column Header */}
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+            {column.title}
+          </Typography>
+          <Chip
+            label={column.requests.length}
+            size="small"
+            color={column.color}
+          />
+        </Box>
 
-            {/* Column Cards */}
-            <Stack spacing={2} sx={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
-              {column.requests.map(request => {
-                const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
-                const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
-                const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
-                const description = typeof request.description === 'string' ? request.description : '';
-                const displayDescription = description
-                  ? description.length > 100
-                    ? `${description.substring(0, 100)}...`
-                    : description
-                  : 'No description provided.';
+        {/* Column Cards */}
+        <Stack spacing={2} sx={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
+          {column.requests.map(request => {
+            const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
+            const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
+            const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
+            const description = typeof request.description === 'string' ? request.description : '';
+            const displayDescription = description
+              ? description.length > 100
+                ? `${description.substring(0, 100)}...`
+                : description
+              : 'No description provided.';
 
-                return (
-                  <Card
-                    key={request.id}
+            return (
+              <Card
+                key={request.id}
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease-in-out',
+                  },
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 6,
+                    borderColor: 'primary.main',
+                    '&::before': {
+                      opacity: 1,
+                    },
+                  },
+                }}
+                onClick={() => onView(request)}
+              >
+                <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, '&:last-child': { pb: 2 } }}>
+                  {/* Header */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                      {request.title}
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                      {request.requestedById === user?.id && (
+                        <>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(request);
+                              }}
+                              sx={{ color: 'text.secondary' }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(request);
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Stack>
+                  </Box>
+
+                  {/* Status and Category Chips */}
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      size="small"
+                      label={statusLabel}
+                      color={getStatusColor(request.status)}
+                    />
+                    <Chip
+                      size="small"
+                      label={categoryLabel}
+                      color={getCategoryColor(request.category)}
+                      variant="outlined"
+                    />
+                    {priorityLabel && (
+                      <Chip
+                        size="small"
+                        label={priorityLabel}
+                      />
+                    )}
+                  </Box>
+
+                  {/* Details */}
+                  <Box
                     sx={{
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      borderRadius: 2,
+                      p: 1.5,
+                      borderRadius: 1.5,
+                      bgcolor: 'action.hover',
                       border: '1px solid',
                       borderColor: 'divider',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '4px',
-                        background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-                        opacity: 0,
-                        transition: 'opacity 0.3s ease-in-out',
-                      },
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: 6,
-                        borderColor: 'primary.main',
-                        '&::before': {
-                          opacity: 1,
-                        },
-                      },
                     }}
-                    onClick={() => onView(request)}
                   >
-                    <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, '&:last-child': { pb: 2 } }}>
-                      {/* Header */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
-                          {request.title}
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                          Property
                         </Typography>
-                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-                          {request.requestedById === user?.id && (
-                            <>
-                              <Tooltip title="Edit">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(request);
-                                  }}
-                                  sx={{ color: 'text.secondary' }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDelete(request);
-                                  }}
-                                  sx={{ color: 'error.main' }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </>
-                          )}
-                        </Stack>
+                        <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                          {request.property?.name || 'N/A'}
+                        </Typography>
                       </Box>
-
-                      {/* Status and Category Chips */}
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Chip
-                          size="small"
-                          label={statusLabel}
-                          color={getStatusColor(request.status)}
-                        />
-                        <Chip
-                          size="small"
-                          label={categoryLabel}
-                          color={getCategoryColor(request.category)}
-                          variant="outlined"
-                        />
-                        {priorityLabel && (
-                          <Chip
-                            size="small"
-                            label={priorityLabel}
-                          />
-                        )}
-                      </Box>
-
-                      {/* Details */}
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 1.5,
-                          bgcolor: 'action.hover',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        }}
-                      >
-                        <Stack spacing={1}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                              Property
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                              {request.property?.name || 'N/A'}
-                            </Typography>
-                          </Box>
-                          {request.unit && (
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                                Unit
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                Unit {request.unit.unitNumber}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Stack>
-                      </Box>
-
-                      {/* Description */}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          fontSize: '0.875rem',
-                        }}
-                      >
-                        {displayDescription}
-                      </Typography>
-
-                      {/* Rejection Reason */}
-                      {(request.status === 'REJECTED' || request.status === 'REJECTED_BY_OWNER') && request.rejectionReason && (
-                        <Alert severity="error" sx={{ py: 0.5, mt: 'auto' }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Rejection Reason:</Typography>
-                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-                            {request.rejectionReason}
+                      {request.unit && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Unit
                           </Typography>
-                        </Alert>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                            Unit {request.unit.unitNumber}
+                          </Typography>
+                        </Box>
                       )}
+                    </Stack>
+                  </Box>
 
-                      {/* Actions */}
-                      <Stack direction="column" spacing={1} sx={{ mt: 'auto', pt: 1 }}>
-                        {userRole !== 'TENANT' && ['SUBMITTED', 'UNDER_REVIEW', 'PENDING_MANAGER_REVIEW'].includes(request.status) && (
-                          <Stack direction="row" spacing={1}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              fullWidth
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onReview(request);
-                              }}
-                            >
-                              Review
-                            </Button>
-                          </Stack>
-                        )}
-                        {userRole === 'PROPERTY_MANAGER' && request.status === 'APPROVED_BY_OWNER' && (
-                          <Stack direction="row" spacing={1}>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              startIcon={<BuildIcon />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onConvert(request);
-                              }}
-                              fullWidth
-                            >
-                              Convert
-                            </Button>
-                          </Stack>
-                        )}
+                  {/* Description */}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    {displayDescription}
+                  </Typography>
+
+                  {/* Rejection Reason */}
+                  {(request.status === 'REJECTED' || request.status === 'REJECTED_BY_OWNER') && request.rejectionReason && (
+                    <Alert severity="error" sx={{ py: 0.5, mt: 'auto' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Rejection Reason:</Typography>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                        {request.rejectionReason}
+                      </Typography>
+                    </Alert>
+                  )}
+
+                  {/* Actions */}
+                  <Stack direction="column" spacing={1} sx={{ mt: 'auto', pt: 1 }}>
+                    {userRole !== 'TENANT' && ['SUBMITTED', 'UNDER_REVIEW', 'PENDING_MANAGER_REVIEW'].includes(request.status) && (
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          fullWidth
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReview(request);
+                          }}
+                        >
+                          Review
+                        </Button>
                       </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Stack>
-          </Paper>
+                    )}
+                    {userRole === 'PROPERTY_MANAGER' && request.status === 'APPROVED_BY_OWNER' && (
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<BuildIcon />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onConvert(request);
+                          }}
+                          fullWidth
+                        >
+                          Convert
+                        </Button>
+                      </Stack>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Stack>
+      </Paper>
     </Grid>
   );
 
@@ -1666,16 +1660,16 @@ const ReviewDialog = ({ request, onClose, onSuccess }) => {
     onMutate: async (newData) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.serviceRequests.all() });
       const previousData = queryClient.getQueriesData({ queryKey: queryKeys.serviceRequests.all() });
-      
+
       queryClient.setQueriesData({ queryKey: queryKeys.serviceRequests.all() }, (old) => {
         if (!old?.pages) return old;
         return {
           ...old,
           pages: old.pages.map(page => ({
             ...page,
-            items: page.items?.map(item => 
-              item.id === request.id 
-                ? { ...item, ...newData } 
+            items: page.items?.map(item =>
+              item.id === request.id
+                ? { ...item, ...newData }
                 : item
             ) || [],
           })),
