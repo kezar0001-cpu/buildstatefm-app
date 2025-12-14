@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { enGB } from 'date-fns/locale/en-GB';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
@@ -168,7 +169,7 @@ export default function TenantAssignmentDialog({ open, onClose, unitId, tenant }
       </DialogTitle>
 
       <DialogContent>
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             {/* Tenant Selection (only when creating) */}
             {!isEditing && (
@@ -224,6 +225,7 @@ export default function TenantAssignmentDialog({ open, onClose, unitId, tenant }
             {/* Lease Start Date */}
             <DatePicker
               label="Lease Start Date"
+              format="dd/MM/yyyy"
               value={formData.leaseStart}
               onChange={(date) => handleChange('leaseStart', date)}
               slotProps={{
@@ -240,6 +242,7 @@ export default function TenantAssignmentDialog({ open, onClose, unitId, tenant }
             {/* Lease End Date */}
             <DatePicker
               label="Lease End Date"
+              format="dd/MM/yyyy"
               value={formData.leaseEnd}
               onChange={(date) => handleChange('leaseEnd', date)}
               minDate={formData.leaseStart || undefined}

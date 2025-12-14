@@ -9,29 +9,34 @@ const __dirname = dirname(__filename);
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@testing-library/jest-dom': resolve(__dirname, 'src/test-utils/jest-dom-stub.js'),
-      '@mui/material/useMediaQuery': resolve(
-        __dirname,
-        'src/test-utils/mui-useMediaQuery-stub.js'
-      ),
-      '@mui/x-date-pickers': resolve(
-        __dirname,
-        'src/test-utils/mui-x-date-pickers-stub.js'
-      ),
-      '@mui/x-date-pickers/DatePicker': resolve(
-        __dirname,
-        'src/test-utils/mui-x-date-pickers-stub.js'
-      ),
-      '@mui/x-date-pickers/LocalizationProvider': resolve(
-        __dirname,
-        'src/test-utils/mui-x-date-pickers-stub.js'
-      ),
-      '@mui/x-date-pickers/AdapterDateFns': resolve(
-        __dirname,
-        'src/test-utils/mui-x-date-pickers-stub.js'
-      ),
-    },
+    alias: [
+      {
+        find: '@testing-library/jest-dom',
+        replacement: resolve(__dirname, 'src/test-utils/jest-dom-stub.js'),
+      },
+      {
+        find: '@mui/material/useMediaQuery',
+        replacement: resolve(__dirname, 'src/test-utils/mui-useMediaQuery-stub.js'),
+      },
+      // Important: use exact-match aliases; a prefix alias for '@mui/x-date-pickers' can break
+      // nested imports like '@mui/x-date-pickers/AdapterDateFns'.
+      {
+        find: /^@mui\/x-date-pickers$/,
+        replacement: resolve(__dirname, 'src/test-utils/mui-x-date-pickers-stub.js'),
+      },
+      {
+        find: /^@mui\/x-date-pickers\/DatePicker$/,
+        replacement: resolve(__dirname, 'src/test-utils/mui-x-date-pickers-stub.js'),
+      },
+      {
+        find: /^@mui\/x-date-pickers\/LocalizationProvider$/,
+        replacement: resolve(__dirname, 'src/test-utils/mui-x-date-pickers-stub.js'),
+      },
+      {
+        find: /^@mui\/x-date-pickers\/AdapterDateFns$/,
+        replacement: resolve(__dirname, 'src/test-utils/mui-x-date-pickers-stub.js'),
+      },
+    ],
   },
   test: {
     globals: true,

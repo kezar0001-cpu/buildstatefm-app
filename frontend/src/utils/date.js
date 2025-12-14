@@ -1,14 +1,14 @@
 /**
  * Date Utilities
  *
- * Standard format: dd-mm-yyyy (e.g., 05-11-2025)
+ * Standard format: dd/MM/yyyy (e.g., 05/11/2025)
  * This ensures consistent date handling across the application
  */
 
 /**
- * Format a date string or Date object to dd-mm-yyyy format
+ * Format a date string or Date object to dd/MM/yyyy format
  * @param {string|Date} dateInput - Date string or Date object
- * @returns {string} Formatted date string (dd-mm-yyyy) or '—' if invalid
+ * @returns {string} Formatted date string (dd/MM/yyyy) or '—' if invalid
  */
 export function formatDate(dateInput) {
   if (!dateInput) return '—';
@@ -22,11 +22,11 @@ export function formatDate(dateInput) {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const year = date.getUTCFullYear();
 
-  return `${day}-${month}-${year}`;
+  return `${day}/${month}/${year}`;
 }
 
 /**
- * Format a date string or Date object to dd-mm-yyyy HH:MM format
+ * Format a date string or Date object to dd/MM/yyyy HH:MM format
  * @param {string|Date} dateInput - Date string or Date object
  * @returns {string} Formatted datetime string or '—' if invalid
  */
@@ -44,19 +44,19 @@ export function formatDateTime(dateInput) {
   const hours = String(date.getUTCHours()).padStart(2, '0');
   const minutes = String(date.getUTCMinutes()).padStart(2, '0');
 
-  return `${day}-${month}-${year} ${hours}:${minutes}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 /**
- * Parse a dd-mm-yyyy date string to a Date object
- * @param {string} dateString - Date string in dd-mm-yyyy format
+ * Parse a dd/MM/yyyy (or legacy dd-MM-yyyy) date string to a Date object
+ * @param {string} dateString - Date string in dd/MM/yyyy or dd-MM-yyyy format
  * @returns {Date|null} Date object or null if invalid
  */
 export function parseDate(dateString) {
   if (!dateString) return null;
 
-  // Handle dd-mm-yyyy format
-  const ddmmyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})$/;
+  // Handle dd/MM/yyyy (preferred) and dd-MM-yyyy (legacy)
+  const ddmmyyyyPattern = /^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/;
   const match = dateString.match(ddmmyyyyPattern);
 
   if (match) {
@@ -131,9 +131,9 @@ export function toISOString(dateInput) {
 
   let date;
 
-  // If it's a string in dd-mm-yyyy format, parse it first
+  // If it's a string in dd/MM/yyyy (or legacy dd-MM-yyyy) format, parse it first
   if (typeof dateInput === 'string') {
-    const ddmmyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})$/;
+    const ddmmyyyyPattern = /^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/;
     if (ddmmyyyyPattern.test(dateInput)) {
       date = parseDate(dateInput);
     } else {
@@ -158,7 +158,7 @@ export function toISOString(dateInput) {
 export function isValidDateFormat(dateString) {
   if (!dateString) return false;
 
-  const ddmmyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})$/;
+  const ddmmyyyyPattern = /^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/;
   const match = dateString.match(ddmmyyyyPattern);
 
   if (!match) return false;

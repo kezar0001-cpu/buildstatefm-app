@@ -8,7 +8,7 @@ import { RequiredIndicator } from './FormValidationHelper';
  *
  * Uses HTML5 date input which internally uses yyyy-mm-dd format but displays
  * according to user's locale. For display purposes elsewhere in the app,
- * use formatDate() utility to show dates in dd-mm-yyyy format.
+ * use formatDate() utility to show dates in dd/MM/yyyy format.
  *
  * @param {object} props
  * @param {string} props.name - Field name for form registration
@@ -52,7 +52,7 @@ export default function FormDatePicker({
               // The form will convert it to ISO string when submitting to the API
               onChange(e.target.value);
             }}
-            helperText={error?.message || helperText || 'Format: dd-mm-yyyy'}
+            helperText={error?.message || helperText || 'Format: dd/mm/yyyy'}
             InputLabelProps={{
               shrink: true,
             }}

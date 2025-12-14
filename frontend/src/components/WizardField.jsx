@@ -136,6 +136,7 @@ export default function WizardField({
     return (
       <DatePicker
         label={label}
+        format="dd/MM/yyyy"
         value={value || null}
         onChange={handleChange}
         disabled={disabled}
