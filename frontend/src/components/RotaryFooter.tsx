@@ -73,7 +73,7 @@ function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
   const ordered: RotaryNavItem[] = [
     { key: 'dashboard', label: 'Dashboard', href: dashboardHref, Icon: DashboardIcon },
     { key: 'properties', label: 'Properties', href: '/properties', Icon: HomeIcon },
-    { key: 'tenant-unit', label: 'My Unit', href: '/tenant/unit', Icon: HomeIcon },
+    { key: 'tenant-home', label: 'My Home', href: '/tenant/home', Icon: HomeIcon },
     { key: 'inspections', label: 'Inspections', href: '/inspections', Icon: AssignmentIcon },
     { key: 'jobs', label: 'Jobs', href: '/jobs', Icon: BuildIcon },
     { key: 'service-requests', label: 'Service Requests', href: '/service-requests', Icon: ServiceRequestIcon },
@@ -162,9 +162,8 @@ function RotaryWheelItem({
         style={{ width: ITEM_WIDTH, height: ITEM_WIDTH }}
       >
         <motion.div
-          className={`relative z-10 transition-colors duration-200 ${
-            isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
-          }`}
+          className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
+            }`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -172,9 +171,8 @@ function RotaryWheelItem({
         </motion.div>
 
         <div
-          className={`mt-1 w-[72px] text-center text-[10px] leading-none font-medium truncate transition-colors duration-200 ${
-            isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
-          }`}
+          className={`mt-1 w-[72px] text-center text-[10px] leading-none font-medium truncate transition-colors duration-200 ${isActive ? 'text-orange-600' : 'text-gray-500 dark:text-gray-400'
+            }`}
         >
           {item.label}
         </div>

@@ -10,7 +10,7 @@ const getDashboardPath = (role) => {
   const dashboardPaths = {
     TECHNICIAN: '/technician/dashboard',
     OWNER: '/owner/dashboard',
-    TENANT: '/tenant/dashboard',
+    TENANT: '/tenant/home',
     PROPERTY_MANAGER: '/dashboard',
     ADMIN: '/dashboard',
   };

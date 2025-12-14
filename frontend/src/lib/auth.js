@@ -82,7 +82,7 @@ export function portalPathForRole(role) {
     case 'PROPERTY_MANAGER': return '/dashboard';
     case 'OWNER': return '/owner/dashboard';
     case 'TECHNICIAN': return '/technician/dashboard';
-    case 'TENANT': return '/tenant/dashboard';
+    case 'TENANT': return '/tenant/home';
     default: return '/dashboard';
   }
 }
@@ -119,7 +119,7 @@ export function saveTokenFromUrl(autoRedirect = true) {
             window.location.replace(target);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     u.searchParams.delete('token'); u.searchParams.delete('next'); u.searchParams.delete('user');

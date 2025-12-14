@@ -220,10 +220,10 @@ class ErrorBoundary extends React.Component {
     const subject = encodeURIComponent(`Error Report - ${this.state.errorId || 'Unknown'}`);
     const body = encodeURIComponent(
       `I encountered an error while using Buildstate FM.\n\n` +
-        `Error ID: ${this.state.errorId || 'Unknown'}\n` +
-        `Time: ${new Date().toLocaleString()}\n` +
-        `Page: ${window.location.href}\n\n` +
-        `Please describe what you were doing when the error occurred:\n\n`
+      `Error ID: ${this.state.errorId || 'Unknown'}\n` +
+      `Time: ${new Date().toLocaleString()}\n` +
+      `Page: ${window.location.href}\n\n` +
+      `Please describe what you were doing when the error occurred:\n\n`
     );
     window.location.href = `mailto:admin@buildstate.com.au?subject=${subject}&body=${body}`;
   };
@@ -380,8 +380,7 @@ const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage.jsx'));
 const TechnicianDashboard = lazy(() => import('./pages/TechnicianDashboard.jsx'));
 const TechnicianJobDetail = lazy(() => import('./pages/TechnicianJobDetail.jsx'));
 const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard.jsx'));
-const TenantDashboard = lazy(() => import('./pages/TenantDashboard.jsx'));
-const TenantUnitPage = lazy(() => import('./pages/TenantUnitPage.jsx'));
+const TenantHomePage = lazy(() => import('./pages/TenantHomePage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const TeamManagementPage = lazy(() => import('./pages/TeamManagementPage.jsx'));
 const BlogPage = lazy(() => import('./pages/BlogPage.jsx'));
@@ -519,8 +518,10 @@ export default function App() {
           <Route path="/technician/jobs/:id" element={<AuthGate><ProtectedLayout><TechnicianJobDetail /></ProtectedLayout></AuthGate>} />
 
           <Route path="/owner/dashboard" element={<AuthGate><ProtectedLayout><OwnerDashboard /></ProtectedLayout></AuthGate>} />
-          <Route path="/tenant/dashboard" element={<AuthGate><ProtectedLayout><TenantDashboard /></ProtectedLayout></AuthGate>} />
-          <Route path="/tenant/unit" element={<AuthGate><ProtectedLayout><TenantUnitPage /></ProtectedLayout></AuthGate>} />
+          <Route path="/tenant/home" element={<AuthGate><ProtectedLayout><TenantHomePage /></ProtectedLayout></AuthGate>} />
+          {/* Redirects for old tenant routes */}
+          <Route path="/tenant/dashboard" element={<AuthGate><ProtectedLayout><TenantHomePage /></ProtectedLayout></AuthGate>} />
+          <Route path="/tenant/unit" element={<AuthGate><ProtectedLayout><TenantHomePage /></ProtectedLayout></AuthGate>} />
 
           <Route path="/team" element={<AuthGate><ProtectedLayout><TeamManagementPage /></ProtectedLayout></AuthGate>} />
 

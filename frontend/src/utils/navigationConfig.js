@@ -47,7 +47,7 @@ export const NAVIGATION_ITEMS = [
   },
   {
     name: 'My Home',
-    href: '/tenant/unit',
+    href: '/tenant/home',
     icon: HomeIcon,
     roles: ['TENANT'],
   },
@@ -137,8 +137,7 @@ export const MOBILE_NAV_ITEMS = {
     { name: 'Requests', href: '/service-requests', icon: ServiceRequestIcon },
   ],
   TENANT: [
-    { name: 'Dashboard', href: '/tenant/dashboard', icon: DashboardIcon },
-    { name: 'My Home', href: '/tenant/unit', icon: HomeIcon },
+    { name: 'My Home', href: '/tenant/home', icon: HomeIcon },
     { name: 'Requests', href: '/service-requests', icon: ServiceRequestIcon },
     { name: 'Profile', href: '/profile', icon: PersonIcon },
   ],
@@ -223,7 +222,7 @@ export function getDefaultRouteForRole(role) {
   const routes = {
     PROPERTY_MANAGER: '/dashboard',
     OWNER: '/owner/dashboard',
-    TENANT: '/tenant/dashboard',
+    TENANT: '/tenant/home',
     TECHNICIAN: '/technician/dashboard',
     ADMIN: '/dashboard',
   };

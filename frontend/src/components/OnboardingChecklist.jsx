@@ -107,11 +107,11 @@ const ONBOARDING_STEPS = {
   TENANT: [
     {
       id: 'view_unit',
-      title: 'View Your Unit',
-      description: 'Check your lease and unit details',
+      title: 'View Your Home',
+      description: 'Check your home and unit details',
       icon: HomeIcon,
-      action: '/tenant/dashboard',
-      actionLabel: 'View Dashboard',
+      action: '/tenant/home',
+      actionLabel: 'View My Home',
       checkFn: () => true, // Always true if they have access
     },
     {

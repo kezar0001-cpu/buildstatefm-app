@@ -25,7 +25,7 @@ export default function RoleRouter() {
     // Route based on role
     switch (user.role) {
       case 'TENANT':
-        navigate('/tenant/dashboard', { replace: true });
+        navigate('/tenant/home', { replace: true });
         break;
       case 'OWNER':
         navigate('/owner/dashboard', { replace: true });

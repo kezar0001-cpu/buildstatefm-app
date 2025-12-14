@@ -13,6 +13,20 @@ const PROPERTY_SELECT = {
   state: true,
   zipCode: true,
   managerId: true,
+  imageUrl: true,
+  propertyImages: {
+    select: {
+      id: true,
+      imageUrl: true,
+      caption: true,
+      isPrimary: true,
+      displayOrder: true,
+    },
+    orderBy: [
+      { isPrimary: 'desc' },
+      { displayOrder: 'asc' },
+    ],
+  },
   owners: {
     select: {
       ownerId: true,

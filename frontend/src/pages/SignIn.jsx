@@ -14,7 +14,7 @@ const getDashboardPath = (role) => {
   const dashboardPaths = {
     TECHNICIAN: '/technician/dashboard',
     OWNER: '/owner/dashboard',
-    TENANT: '/tenant/dashboard',
+    TENANT: '/tenant/home',
     PROPERTY_MANAGER: '/dashboard',
     ADMIN: '/dashboard',
   };
@@ -73,7 +73,7 @@ export default function SignIn() {
 
       localStorage.setItem('auth_token', payload.token);
       setCurrentUser(payload.user);
-      
+
       // Navigate to role-specific dashboard
       const dashboardPath = getDashboardPath(payload.user?.role);
       navigate(dashboardPath);
@@ -177,7 +177,7 @@ export default function SignIn() {
                 )
               }}
             />
-            
+
             {/* MINIMAL CHANGE: Add the Role selection dropdown */}
             <FormControl fullWidth margin="normal">
               <InputLabel id="role-select-label">Role</InputLabel>
