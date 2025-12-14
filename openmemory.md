@@ -51,6 +51,9 @@
   - Signup UI no longer shows Google signup or the "or sign up with email" divider.
   - Regression test: `frontend/src/__tests__/SignUp.invite.test.jsx`.
 
+- **Auth registration (backend) gotcha:**
+  - `backend/src/routes/auth.js` must only write fields that exist in Prisma `User` model; writing non-existent fields will throw and surface as 500 `Registration failed`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.

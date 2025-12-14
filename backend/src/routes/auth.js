@@ -298,13 +298,12 @@ router.post('/setup', async (req, res) => {
     return sendError(res, 500, 'Admin setup failed', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
-
 // ========================================
 // POST /api/auth/register
 // ========================================
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, role, inviteToken, gdprConsentGiven, marketingConsentGiven } = registerSchema.parse(req.body);
+    const { firstName, lastName, email, password, phone, role, inviteToken } = registerSchema.parse(req.body);
 
     // Validate password strength and requirements
     const passwordValidation = validatePassword(password, [email, firstName, lastName]);
@@ -373,24 +372,7 @@ router.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // A/B testing for trial lengths (only for property managers)
-    // Randomly assign trial variant: 'A' (14 days), 'B' (7 days), 'C' (21 days)
-    let trialVariant = null;
     let trialDays = TRIAL_PERIOD_DAYS;
-
-    if (userRole === 'PROPERTY_MANAGER' && process.env.ENABLE_TRIAL_AB_TESTING === 'true') {
-      const variants = ['A', 'B', 'C'];
-      trialVariant = variants[Math.floor(Math.random() * variants.length)];
-
-      // Variant A: 14 days (default)
-      // Variant B: 7 days
-      // Variant C: 21 days
-      if (trialVariant === 'B') {
-        trialDays = 7;
-      } else if (trialVariant === 'C') {
-        trialDays = 21;
-      }
-    }
 
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
@@ -406,10 +388,6 @@ router.post('/register', async (req, res) => {
         subscriptionPlan: 'FREE_TRIAL',
         subscriptionStatus: 'TRIAL',
         trialEndDate,
-        trialVariant,
-        gdprConsentGiven,
-        gdprConsentDate: gdprConsentGiven ? new Date() : null,
-        marketingConsentGiven,
       },
     });
 
