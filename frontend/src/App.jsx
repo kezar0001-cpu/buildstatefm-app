@@ -381,6 +381,7 @@ const TechnicianDashboard = lazy(() => import('./pages/TechnicianDashboard.jsx')
 const TechnicianJobDetail = lazy(() => import('./pages/TechnicianJobDetail.jsx'));
 const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard.jsx'));
 const TenantDashboard = lazy(() => import('./pages/TenantDashboard.jsx'));
+const TenantUnitPage = lazy(() => import('./pages/TenantUnitPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const TeamManagementPage = lazy(() => import('./pages/TeamManagementPage.jsx'));
 const BlogPage = lazy(() => import('./pages/BlogPage.jsx'));
@@ -519,6 +520,7 @@ export default function App() {
 
           <Route path="/owner/dashboard" element={<AuthGate><ProtectedLayout><OwnerDashboard /></ProtectedLayout></AuthGate>} />
           <Route path="/tenant/dashboard" element={<AuthGate><ProtectedLayout><TenantDashboard /></ProtectedLayout></AuthGate>} />
+          <Route path="/tenant/unit" element={<AuthGate><ProtectedLayout><TenantUnitPage /></ProtectedLayout></AuthGate>} />
 
           <Route path="/team" element={<AuthGate><ProtectedLayout><TeamManagementPage /></ProtectedLayout></AuthGate>} />
 

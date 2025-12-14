@@ -54,6 +54,16 @@
 - **Auth registration (backend) gotcha:**
   - `backend/src/routes/auth.js` must only write fields that exist in Prisma `User` model; writing non-existent fields will throw and surface as 500 `Registration failed`.
 
+- **Tenant routing + My Unit empty-state:**
+  - Tenant **Dashboard** lives at `/tenant/dashboard`.
+  - Tenant **My Unit** lives at `/tenant/unit` and shows:
+    - A clear empty-state when `GET /api/tenants/my-units` returns no units.
+    - Assigned property/unit details + inspection report links (read-only) when units exist.
+  - Navigation updated in `frontend/src/utils/navigationConfig.js` (tenant "My Unit" now points to `/tenant/unit`).
+  - Route added in `frontend/src/App.jsx` (`/tenant/unit` -> `TenantUnitPage`).
+  - Tenant dashboard also shows an empty-state + disables "New Service Request" when no unit is assigned.
+  - Regression test: `frontend/src/__tests__/TenantUnitPage.emptyState.test.jsx`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.

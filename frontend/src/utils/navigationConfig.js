@@ -47,7 +47,7 @@ export const NAVIGATION_ITEMS = [
   },
   {
     name: 'My Unit',
-    href: '/tenant/dashboard',
+    href: '/tenant/unit',
     icon: HomeIcon,
     roles: ['TENANT'],
   },
@@ -138,6 +138,7 @@ export const MOBILE_NAV_ITEMS = {
   ],
   TENANT: [
     { name: 'Home', href: '/tenant/dashboard', icon: DashboardIcon },
+    { name: 'Unit', href: '/tenant/unit', icon: HomeIcon },
     { name: 'Requests', href: '/service-requests', icon: ServiceRequestIcon },
     { name: 'Profile', href: '/profile', icon: PersonIcon },
   ],

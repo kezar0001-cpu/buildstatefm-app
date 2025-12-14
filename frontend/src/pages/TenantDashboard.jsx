@@ -30,6 +30,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
+import EmptyState from '../components/EmptyState';
 import { format } from 'date-fns';
 import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
@@ -138,6 +139,8 @@ export default function TenantDashboard() {
     r => r.status === 'COMPLETED'
   ).length;
 
+  const hasAssignedUnit = Array.isArray(units) && units.length > 0;
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
       <Breadcrumbs
@@ -152,6 +155,7 @@ export default function TenantDashboard() {
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setDialogOpen(true)}
+            disabled={!hasAssignedUnit || unitsLoading}
             size="large"
             sx={{ width: { xs: '100%', md: 'auto' } }}
           >
@@ -160,6 +164,12 @@ export default function TenantDashboard() {
         )}
         contentSpacing={{ xs: 3, md: 3 }}
       >
+
+      {!unitsLoading && !unitsError && !hasAssignedUnit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          You don’t have a unit assigned yet. Once your property manager assigns you to a unit, you’ll be able to view your property details and inspection reports here.
+        </Alert>
+      )}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -213,7 +223,19 @@ export default function TenantDashboard() {
       </Grid>
 
       {/* Unit Information */}
-      {units && units.length > 0 && (
+      {!unitsLoading && !unitsError && !hasAssignedUnit && (
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <EmptyState
+              icon={HomeIcon}
+              title="No unit assigned"
+              description="You don’t have a unit assigned yet. Once assigned, your unit details and inspection information will appear here."
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasAssignedUnit && (
         <Card sx={{ mb: 4 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
