@@ -85,6 +85,16 @@ export default function TenantDashboard() {
     },
   });
 
+  const uniqueUnits = Array.isArray(units)
+    ? Array.from(
+        new Map(
+          units
+            .filter(Boolean)
+            .map((unit) => [unit?.id || unit?.unitId || JSON.stringify(unit), unit])
+        ).values()
+      )
+    : [];
+
   // Submit service request mutation
   const submitMutation = useMutation({
     mutationFn: async (data) => {
@@ -114,7 +124,7 @@ export default function TenantDashboard() {
     }
 
     // Assuming we have the property and unit IDs from the units data
-    const unit = units[0];
+    const unit = uniqueUnits[0];
     if (!unit) {
       setSubmitError('No unit information found');
       return;
@@ -139,7 +149,7 @@ export default function TenantDashboard() {
     r => r.status === 'COMPLETED'
   ).length;
 
-  const hasAssignedUnit = Array.isArray(units) && units.length > 0;
+  const hasAssignedUnit = Array.isArray(uniqueUnits) && uniqueUnits.length > 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
@@ -242,7 +252,7 @@ export default function TenantDashboard() {
               Your Unit
             </Typography>
             <Divider sx={{ my: 2 }} />
-            {units.map((unit) => (
+            {uniqueUnits.map((unit) => (
               <Box key={unit.id}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
@@ -291,9 +301,10 @@ export default function TenantDashboard() {
           <Divider sx={{ my: 2 }} />
           
           <DataState
-            data={serviceRequests}
             isLoading={requestsLoading}
+            isError={Boolean(requestsError)}
             error={requestsError}
+            isEmpty={!requestsLoading && !requestsError && serviceRequests.length === 0}
             emptyMessage="No service requests yet. Click 'New Service Request' to submit one."
           >
             <Stack spacing={2}>

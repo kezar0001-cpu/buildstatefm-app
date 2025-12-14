@@ -64,6 +64,12 @@
   - Tenant dashboard also shows an empty-state + disables "New Service Request" when no unit is assigned.
   - Regression test: `frontend/src/__tests__/TenantUnitPage.emptyState.test.jsx`.
 
+- **Tenant dashboard gotchas (duplicate units + service request empty state):**
+  - `frontend/src/pages/TenantDashboard.jsx`:
+    - Deduplicate `/tenants/my-units` results before rendering (prevents the "Your Unit" section from showing duplicated rows when API returns duplicates).
+    - `DataState` does **not** use a `data` prop; to show an empty state, pass `isEmpty` (and pass `isError` for errors).
+  - Regression test: `frontend/src/__tests__/TenantDashboard.emptyServiceRequests.test.jsx`.
+
 - **MVP feature hiding (Reports):**
   - Removed Reports from `navigationConfig.js` + RotaryFooter + Admin menu.
   - Removed `/reports*` routes from `frontend/src/App.jsx`.
