@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import LogoutButton from './LogoutButton';
 import NotificationBell from './NotificationBell';
-import GlobalSearch from './GlobalSearch';
+// import GlobalSearch from './GlobalSearch';
 import {
   AppBar,
   Toolbar,
@@ -36,20 +36,20 @@ function NavBar() {
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  // const [searchOpen, setSearchOpen] = useState(false);
 
   // Keyboard shortcut for search (Cmd+K or Ctrl+K)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-    };
+  // useEffect(() => {
+  //   const handleKeyDown = (e) => {
+  //     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+  //       e.preventDefault();
+  //       setSearchOpen(true);
+  //     }
+  //   };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  //   window.addEventListener('keydown', handleKeyDown);
+  //   return () => window.removeEventListener('keydown', handleKeyDown);
+  // }, []);
 
   // Get role-aware navigation items
   const navigation = getNavigationForRole(user?.role);
@@ -191,7 +191,7 @@ function NavBar() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {/* Desktop: Search, Notification, Dark Mode */}
           <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
-            <Tooltip title="Search (Ctrl+K)">
+            {/* <Tooltip title="Search (Ctrl+K)">
               <IconButton
                 color="inherit"
                 onClick={() => setSearchOpen(true)}
@@ -199,7 +199,7 @@ function NavBar() {
               >
                 <SearchIcon />
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
 
             <NotificationBell />
 
@@ -242,7 +242,7 @@ function NavBar() {
           
           {/* Mobile: Search, Notification, Dark Mode, Hamburger Menu */}
           <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 0.5 }}>
-            <Tooltip title="Search">
+            {/* <Tooltip title="Search">
               <IconButton
                 color="inherit"
                 onClick={() => setSearchOpen(true)}
@@ -250,7 +250,7 @@ function NavBar() {
               >
                 <SearchIcon />
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
 
             <NotificationBell />
 
@@ -433,7 +433,7 @@ function NavBar() {
         </Menu>
       </Toolbar>
 
-      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      {/* <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} /> */}
     </AppBar>
   );
 }
