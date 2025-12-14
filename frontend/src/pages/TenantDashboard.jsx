@@ -36,6 +36,7 @@ import ensureArray from '../utils/ensureArray';
 import Breadcrumbs from '../components/Breadcrumbs';
 import PageShell from '../components/PageShell';
 import GradientButton from '../components/GradientButton';
+import { getTenantServiceRequestCounts } from '../utils/serviceRequestStatusBuckets.js';
 
 const SERVICE_CATEGORIES = [
   'PLUMBING',
@@ -126,17 +127,11 @@ export default function TenantDashboard() {
     });
   };
 
-  const pendingRequests = serviceRequests.filter(
-    r => r.status === 'SUBMITTED' || r.status === 'UNDER_REVIEW'
-  ).length;
-
-  const approvedRequests = serviceRequests.filter(
-    r => r.status === 'APPROVED' || r.status === 'CONVERTED_TO_JOB'
-  ).length;
-
-  const completedRequests = serviceRequests.filter(
-    r => r.status === 'COMPLETED'
-  ).length;
+  const {
+    pending: pendingRequests,
+    approved: approvedRequests,
+    completed: completedRequests,
+  } = getTenantServiceRequestCounts(serviceRequests);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
