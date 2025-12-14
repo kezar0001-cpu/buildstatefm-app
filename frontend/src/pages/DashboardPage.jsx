@@ -167,6 +167,7 @@ const DashboardPage = () => {
     },
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false, // 5 minutes
+    enabled: currentUser?.role !== 'TENANT',
   });
 
   // Fetch recent activity
@@ -179,6 +180,7 @@ const DashboardPage = () => {
     },
     staleTime: 30 * 1000,
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
+    enabled: currentUser?.role !== 'TENANT',
   });
 
   // Fetch overdue inspections
@@ -190,6 +192,7 @@ const DashboardPage = () => {
     },
     staleTime: 30 * 1000,
     refetchInterval: autoRefresh ? 5 * 60 * 1000 : false,
+    enabled: currentUser?.role !== 'TENANT',
   });
 
   const overdueInspections = overdueData?.inspections || [];
@@ -230,6 +233,11 @@ const DashboardPage = () => {
       }
     }
   }, [summary, isSubscribed, isTrialActive, trialDaysRemaining, canShowUpgradeModal, markUpgradeModalShown]);
+
+  // If user is a tenant, redirect immediately (RoleRouter handles the logic, we just prevent render)
+  if (currentUser?.role === 'TENANT') {
+    return <RoleRouter />;
+  }
 
   // Show skeleton layout while loading - maintains visual structure
   if (isLoading) {
@@ -601,9 +609,9 @@ const StatCard = ({ title, value, icon, color, details, onClick }) => {
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': onClick
           ? {
-              transform: 'translateY(-4px)',
-              boxShadow: 4,
-            }
+            transform: 'translateY(-4px)',
+            boxShadow: 4,
+          }
           : {},
       }}
       onClick={onClick}
@@ -761,8 +769,8 @@ const ActivityItem = ({ item }) => {
         transition: 'background-color 0.2s',
         '&:hover': isClickable
           ? {
-              bgcolor: 'action.hover',
-            }
+            bgcolor: 'action.hover',
+          }
           : undefined,
       }}
       onClick={isClickable ? () => navigate(route) : undefined}

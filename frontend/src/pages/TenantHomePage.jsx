@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -21,6 +21,11 @@ import {
     DialogActions,
     TextField,
     Alert,
+    Paper,
+    IconButton,
+    useMediaQuery,
+    useTheme,
+
 } from '@mui/material';
 import {
     Home as HomeIcon,
@@ -34,11 +39,14 @@ import {
     ChevronRight as ChevronRightIcon,
     Apartment as ApartmentIcon,
     Add as AddIcon,
+    Close as CloseIcon,
+    ArrowBackIos,
+    ArrowForwardIos,
+
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
-import PropertyImageCarousel from '../components/PropertyImageCarousel';
 import PageShell from '../components/PageShell';
 import Breadcrumbs from '../components/Breadcrumbs';
 import GradientButton from '../components/GradientButton';
@@ -137,6 +145,14 @@ export default function TenantHomePage() {
         priority: 'MEDIUM',
     });
     const [submitError, setSubmitError] = useState('');
+
+    const theme = useTheme();
+    // Use md breakpoint to switch between mobile stack and desktop grid
+    const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+
+    // Lightbox state
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     // Fetch tenant's assigned units
     const { data: units = [], isLoading: unitsLoading, error: unitsError, refetch: refetchUnits } = useQuery({
@@ -324,7 +340,45 @@ export default function TenantHomePage() {
         property?.postcode || property?.zipCode,
     ]
         .filter(Boolean)
+        .filter(Boolean)
         .join(', ');
+
+    // Lightbox handlers
+    const handleOpenLightbox = (index) => {
+        setLightboxIndex(index);
+        setLightboxOpen(true);
+    };
+
+    const handleCloseLightbox = () => {
+        setLightboxOpen(false);
+    };
+
+    const handleLightboxPrev = () => {
+        setLightboxIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    };
+
+
+    const handleLightboxNext = () => {
+        setLightboxIndex((prev) => (prev + 1) % allImages.length);
+    };
+
+    // Keyboard navigation for lightbox
+    useEffect(() => {
+        if (!lightboxOpen) return undefined;
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                handleCloseLightbox();
+            } else if (e.key === 'ArrowLeft') {
+                handleLightboxPrev();
+            } else if (e.key === 'ArrowRight') {
+                handleLightboxNext();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [lightboxOpen, allImages.length]); // Re-bind if open state or image count changes
 
     return (
         <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
@@ -441,17 +495,266 @@ export default function TenantHomePage() {
                         <>
                             {/* Photo Gallery */}
                             <Card sx={{ mb: 3, overflow: 'hidden' }}>
-                                <PropertyImageCarousel
-                                    images={allImages}
-                                    fallbackText={property?.name || `Unit ${selectedUnit.unitNumber}`}
-                                    height={{ xs: 200, sm: 280, md: 360 }}
-                                    showArrows
-                                    showDots
-                                    showCounter
-                                    showFullscreenButton
-                                    borderRadius={0}
-                                />
+                                {allImages.length > 0 ? (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: allImages.length === 1 ? '1fr' : { xs: '1fr', md: '2fr 1fr' },
+                                            gap: 0.5,
+                                            height: { xs: 300, md: 400 },
+                                        }}
+                                    >
+                                        {/* Main Large Image */}
+                                        <Paper
+                                            sx={{
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                cursor: 'pointer',
+                                                borderRadius: 0,
+                                                height: '100%',
+                                            }}
+                                            onClick={() => handleOpenLightbox(0)}
+                                            elevation={0}
+                                        >
+                                            <Box
+                                                component="img"
+                                                src={typeof allImages[0] === 'string' ? allImages[0] : allImages[0].imageUrl}
+                                                alt={typeof allImages[0] === 'object' && allImages[0].caption ? allImages[0].caption : `Main image`}
+                                                sx={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                    transition: 'transform 0.3s ease',
+                                                    '&:hover': { transform: 'scale(1.02)' },
+                                                }}
+                                            />
+                                            <Chip
+                                                label="Primary"
+                                                size="small"
+                                                color="primary"
+                                                sx={{ position: 'absolute', top: 12, left: 12, fontSize: '0.7rem' }}
+                                            />
+                                        </Paper>
+
+                                        {/* Desktop: 2x2 Grid of Thumbnails */}
+                                        {allImages.length > 1 && (
+                                            <Box
+                                                sx={{
+                                                    display: { xs: 'none', md: 'grid' },
+                                                    gridTemplateColumns: '1fr 1fr',
+                                                    gridTemplateRows: '1fr 1fr',
+                                                    gap: 0.5,
+                                                    height: '100%',
+                                                }}
+                                            >
+                                                {allImages.slice(1, 5).map((image, idx) => {
+                                                    const imageUrl = typeof image === 'string' ? image : image.imageUrl;
+                                                    const caption = typeof image === 'object' ? image.caption : null;
+                                                    const actualIndex = idx + 1;
+
+                                                    return (
+                                                        <Paper
+                                                            key={actualIndex}
+                                                            sx={{
+                                                                position: 'relative',
+                                                                overflow: 'hidden',
+                                                                cursor: 'pointer',
+                                                                borderRadius: 0,
+                                                            }}
+                                                            onClick={() => handleOpenLightbox(actualIndex)}
+                                                            elevation={0}
+                                                        >
+                                                            <Box
+                                                                component="img"
+                                                                src={imageUrl}
+                                                                alt={caption || `Image ${actualIndex + 1} `}
+                                                                sx={{
+                                                                    width: '100%',
+                                                                    height: '100%',
+                                                                    objectFit: 'cover',
+                                                                    '&:hover': { opacity: 0.9 },
+                                                                }}
+                                                            />
+                                                            {/* Overlay for +N more images on the last block */}
+                                                            {idx === 3 && allImages.length > 5 && (
+                                                                <Box
+                                                                    sx={{
+                                                                        position: 'absolute',
+                                                                        inset: 0,
+                                                                        bgcolor: 'rgba(0,0,0,0.6)',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                    }}
+                                                                >
+                                                                    <Typography variant="h5" color="white" fontWeight={700}>
+                                                                        +{allImages.length - 5}
+                                                                    </Typography>
+                                                                </Box>
+                                                            )}
+                                                        </Paper>
+                                                    );
+                                                })}
+                                            </Box>
+                                        )}
+                                    </Box>
+                                ) : (
+                                    <Paper
+                                        sx={{
+                                            height: { xs: 200, md: 300 },
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            bgcolor: 'grey.100',
+                                        }}
+                                        elevation={0}
+                                    >
+                                        <HomeIcon sx={{ fontSize: 80, color: 'grey.300' }} />
+                                    </Paper>
+                                )}
+
+                                {/* Mobile: scrollable list if > 1 image */}
+                                {allImages.length > 1 && (
+                                    <Box
+                                        sx={{
+                                            display: { xs: 'flex', md: 'none' },
+                                            gap: 1,
+                                            overflowX: 'auto',
+                                            p: 1,
+                                            '&::-webkit-scrollbar': { height: 4 },
+                                        }}
+                                    >
+                                        {allImages.slice(1).map((image, idx) => {
+                                            const imageUrl = typeof image === 'string' ? image : image.imageUrl;
+                                            return (
+                                                <Box
+                                                    key={idx}
+                                                    component="img"
+                                                    src={imageUrl}
+                                                    sx={{
+                                                        width: 80,
+                                                        height: 80,
+                                                        objectFit: 'cover',
+                                                        borderRadius: 1,
+                                                        flexShrink: 0
+                                                    }}
+                                                    onClick={() => handleOpenLightbox(idx + 1)}
+                                                />
+                                            );
+                                        })}
+                                    </Box>
+                                )}
                             </Card>
+
+                            {/* Lightbox Dialog */}
+                            {lightboxOpen && (
+                                <Dialog
+                                    fullScreen
+                                    open={lightboxOpen}
+                                    onClose={handleCloseLightbox}
+                                    PaperProps={{
+                                        style: {
+                                            backgroundColor: 'rgba(0,0,0,0.95)',
+                                            boxShadow: 'none',
+                                        },
+                                    }}
+                                >
+                                    <DialogContent sx={{ position: 'relative', p: 0, overflow: 'hidden' }}>
+                                        <IconButton
+                                            onClick={handleCloseLightbox}
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 16,
+                                                right: 16,
+                                                color: 'white',
+                                                bgcolor: 'rgba(255,255,255,0.1)',
+                                                zIndex: 10,
+                                                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                                            }}
+                                        >
+                                            <CloseIcon />
+                                        </IconButton>
+
+                                        {allImages.length > 1 && (
+                                            <>
+                                                <IconButton
+                                                    onClick={(e) => { e.stopPropagation(); handleLightboxPrev(); }}
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        left: 16,
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        color: 'white',
+                                                        bgcolor: 'rgba(255,255,255,0.1)',
+                                                        zIndex: 10,
+                                                        '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                                                    }}
+                                                >
+                                                    <ArrowBackIos sx={{ ml: 0.5 }} />
+                                                </IconButton>
+                                                <IconButton
+                                                    onClick={(e) => { e.stopPropagation(); handleLightboxNext(); }}
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        right: 16,
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        color: 'white',
+                                                        bgcolor: 'rgba(255,255,255,0.1)',
+                                                        zIndex: 10,
+                                                        '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                                                    }}
+                                                >
+                                                    <ArrowForwardIos />
+                                                </IconButton>
+                                            </>
+                                        )}
+
+                                        <Box
+                                            sx={{
+                                                width: '100%',
+                                                height: '100%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                p: 2
+                                            }}
+                                        >
+                                            <Box
+                                                component="img"
+                                                src={typeof allImages[lightboxIndex] === 'string' ? allImages[lightboxIndex] : allImages[lightboxIndex]?.imageUrl}
+                                                sx={{
+                                                    maxWidth: '100%',
+                                                    maxHeight: '90vh',
+                                                    objectFit: 'contain'
+                                                }}
+                                            />
+                                        </Box>
+
+                                        <Box
+                                            sx={{
+                                                position: 'absolute',
+                                                bottom: 0,
+                                                left: 0,
+                                                right: 0,
+                                                p: 3,
+                                                background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                                                color: 'white',
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {lightboxIndex + 1} / {allImages.length}
+                                            </Typography>
+                                            {typeof allImages[lightboxIndex] === 'object' && allImages[lightboxIndex]?.caption && (
+                                                <Typography variant="body1" sx={{ mt: 1 }}>
+                                                    {allImages[lightboxIndex].caption}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
 
                             {/* Unit & Property Info */}
                             <Card sx={{ mb: 3 }}>
@@ -683,16 +986,16 @@ export default function TenantHomePage() {
                                                     onClick={() => navigate(`/inspections/${inspection.id}/report`)}
                                                 />
                                             ))}
-                                        </Stack>
-                                    </DataState>
-                                </CardContent>
-                            </Card>
+                                        </Stack >
+                                    </DataState >
+                                </CardContent >
+                            </Card >
                         </>
                     )}
-                </DataState>
+                </DataState >
 
                 {/* New Service Request Dialog */}
-                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+                < Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth >
                     <DialogTitle>New Service Request</DialogTitle>
                     <DialogContent>
                         {submitError && (
@@ -762,8 +1065,8 @@ export default function TenantHomePage() {
                             Submit Request
                         </Button>
                     </DialogActions>
-                </Dialog>
-            </PageShell>
-        </Container>
+                </Dialog >
+            </PageShell >
+        </Container >
     );
 }

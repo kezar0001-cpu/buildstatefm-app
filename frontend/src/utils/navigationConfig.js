@@ -32,6 +32,7 @@ export const NAVIGATION_ITEMS = [
     href: '/dashboard',
     icon: DashboardIcon,
     roles: [], // All roles can see dashboard
+    excludeRoles: ['TENANT'],
   },
   {
     name: 'Properties',

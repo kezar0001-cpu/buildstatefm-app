@@ -86,7 +86,10 @@ function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
   const allowed = getNavigationForRole(role);
   const allowedHrefs = new Set(allowed.map((i) => (i.href === '/dashboard' ? dashboardHref : i.href)));
 
-  return ordered.filter((item) => allowedHrefs.has(item.href));
+  return ordered.filter((item) => {
+    if (role === 'TENANT' && item.key === 'dashboard') return false;
+    return allowedHrefs.has(item.href);
+  });
 }
 
 function RotaryWheelItem({
