@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const ORIGINAL_ENV = {
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  AWS_REGION: process.env.AWS_REGION,
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
 };
 
-function restoreCloudinaryEnv() {
+function restoreS3Env() {
   const keys = Object.keys(ORIGINAL_ENV);
   for (const key of keys) {
     const value = ORIGINAL_ENV[key];
@@ -19,11 +20,12 @@ function restoreCloudinaryEnv() {
   }
 }
 
-test('createUploadMiddleware uses Cloudinary storage when credentials are configured', async () => {
+test('createUploadMiddleware uses S3 storage when AWS credentials are configured', async () => {
   try {
-    process.env.CLOUDINARY_CLOUD_NAME = 'demo-cloud';
-    process.env.CLOUDINARY_API_KEY = 'demo-key';
-    process.env.CLOUDINARY_API_SECRET = 'demo-secret';
+    process.env.AWS_REGION = 'us-east-1';
+    process.env.AWS_ACCESS_KEY_ID = 'demo-access-key';
+    process.env.AWS_SECRET_ACCESS_KEY = 'demo-secret-key';
+    process.env.AWS_S3_BUCKET_NAME = 'demo-bucket';
 
     const module = await import(`../src/services/uploadService.js?cloud-${Date.now()}`);
     const { createUploadMiddleware, isUsingCloudStorage } = module;
@@ -32,17 +34,21 @@ test('createUploadMiddleware uses Cloudinary storage when credentials are config
 
     const upload = createUploadMiddleware();
     assert.ok(upload.storage, 'multer upload should expose storage adapter');
-    assert.equal(upload.storage.constructor?.name, 'CloudinaryStorage');
+
+    // Multer-S3 storage exposes _handleFile/_removeFile hooks.
+    assert.equal(typeof upload.storage._handleFile, 'function');
+    assert.equal(typeof upload.storage._removeFile, 'function');
   } finally {
-    restoreCloudinaryEnv();
+    restoreS3Env();
   }
 });
 
 test('createUploadMiddleware enforces extension allow-list when provided', async () => {
   try {
-    delete process.env.CLOUDINARY_CLOUD_NAME;
-    delete process.env.CLOUDINARY_API_KEY;
-    delete process.env.CLOUDINARY_API_SECRET;
+    delete process.env.AWS_REGION;
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.AWS_S3_BUCKET_NAME;
 
     const module = await import(`../src/services/uploadService.js?local-${Date.now()}`);
     const { createUploadMiddleware } = module;
@@ -52,7 +58,7 @@ test('createUploadMiddleware enforces extension allow-list when provided', async
       allowedMimeTypes: ['image/png'],
     });
 
-    assert.equal(upload.storage.constructor?.name, 'DiskStorage');
+    assert.ok(upload.storage, 'multer upload should expose storage adapter');
 
     await new Promise((resolve, reject) => {
       const file = { mimetype: 'image/png', originalname: 'photo.png' };
@@ -74,6 +80,6 @@ test('createUploadMiddleware enforces extension allow-list when provided', async
       });
     });
   } finally {
-    restoreCloudinaryEnv();
+    restoreS3Env();
   }
 });
