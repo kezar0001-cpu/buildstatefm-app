@@ -12,7 +12,8 @@ import {
   Box,
   Alert,
 } from '@mui/material';
-import { DatePicker, LocalizationProvider, AdapterDateFns } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';

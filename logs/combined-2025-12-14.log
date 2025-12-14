@@ -1,0 +1,3 @@
+{"level":"info","message":"No ANTHROPIC_MODEL set, using default: claude-3-5-haiku-20241022","service":"agentfm-backend","timestamp":"2025-12-14 13:41:42"}
+{"level":"info","message":"Blog AI Service initialized with model: claude-3-5-haiku-20241022","service":"agentfm-backend","timestamp":"2025-12-14 13:41:42"}
+{"level":"info","message":"Fallback models available: claude-haiku-4-5-20251001, claude-sonnet-4-20250514, claude-sonnet-4-5-20250929","service":"agentfm-backend","timestamp":"2025-12-14 13:41:42"}
