@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ServiceRequestWizard from '../components/ServiceRequestWizard';
 import {
     Box,
     Card,
@@ -138,13 +139,7 @@ export default function TenantHomePage() {
 
     // Service request dialog state
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        category: 'GENERAL',
-        priority: 'MEDIUM',
-    });
-    const [submitError, setSubmitError] = useState('');
+
 
     const theme = useTheme();
     // Use md breakpoint to switch between mobile stack and desktop grid
@@ -276,46 +271,7 @@ export default function TenantHomePage() {
         retry: 1,
     });
 
-    // Submit service request mutation
-    const submitMutation = useMutation({
-        mutationFn: async (data) => {
-            const response = await apiClient.post('/service-requests', data);
-            return response.data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.tenant() });
-            setDialogOpen(false);
-            setFormData({
-                title: '',
-                description: '',
-                category: 'GENERAL',
-                priority: 'MEDIUM',
-            });
-            setSubmitError('');
-        },
-        onError: (error) => {
-            setSubmitError(error.response?.data?.message || 'Failed to submit service request');
-        },
-    });
 
-    const handleSubmitRequest = () => {
-        if (!formData.title || !formData.description) {
-            setSubmitError('Please fill in all required fields');
-            return;
-        }
-
-        const unit = selectedUnit;
-        if (!unit) {
-            setSubmitError('No unit information found');
-            return;
-        }
-
-        submitMutation.mutate({
-            ...formData,
-            propertyId: unit.propertyId || unit.property?.id,
-            unitId: unit.id,
-        });
-    };
 
     // Service request stats
     const pendingRequests = serviceRequests.filter(
@@ -329,6 +285,15 @@ export default function TenantHomePage() {
     const completedRequests = serviceRequests.filter(
         r => r.status === 'COMPLETED'
     ).length;
+
+    const availableProperties = useMemo(() => {
+        const props = new Map();
+        uniqueUnits.forEach(u => {
+            if (u.property) props.set(u.property.id, u.property);
+        });
+        return Array.from(props.values());
+    }, [uniqueUnits]);
+    const availableUnits = uniqueUnits;
 
     const hasAssignedUnit = uniqueUnits.length > 0;
 
@@ -995,77 +960,18 @@ export default function TenantHomePage() {
                 </DataState >
 
                 {/* New Service Request Dialog */}
-                < Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth >
-                    <DialogTitle>New Service Request</DialogTitle>
-                    <DialogContent>
-                        {submitError && (
-                            <Alert severity="error" sx={{ mb: 2 }}>
-                                {submitError}
-                            </Alert>
-                        )}
-
-                        <TextField
-                            fullWidth
-                            label="Title"
-                            value={formData.title}
-                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            sx={{ mb: 2, mt: 1 }}
-                            required
-                            placeholder="e.g., Leaky faucet in bathroom"
-                        />
-
-                        <TextField
-                            fullWidth
-                            label="Description"
-                            multiline
-                            rows={4}
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            sx={{ mb: 2 }}
-                            required
-                            placeholder="Please describe the issue in detail..."
-                        />
-
-                        <TextField
-                            fullWidth
-                            select
-                            label="Category"
-                            value={formData.category}
-                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                            sx={{ mb: 2 }}
-                        >
-                            {SERVICE_CATEGORIES.map((category) => (
-                                <MenuItem key={category} value={category}>
-                                    {category.replace(/_/g, ' ')}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-
-                        <TextField
-                            fullWidth
-                            select
-                            label="Priority"
-                            value={formData.priority}
-                            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                        >
-                            {PRIORITY_OPTIONS.map((priority) => (
-                                <MenuItem key={priority} value={priority}>
-                                    {priority}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            variant="contained"
-                            onClick={handleSubmitRequest}
-                            disabled={submitMutation.isPending}
-                        >
-                            Submit Request
-                        </Button>
-                    </DialogActions>
-                </Dialog >
+                {/* New Service Request Wizard */}
+                <ServiceRequestWizard
+                    open={dialogOpen}
+                    onClose={() => setDialogOpen(false)}
+                    initialPropertyId={selectedUnit?.propertyId}
+                    initialUnitId={selectedUnit?.id}
+                    availableProperties={availableProperties}
+                    availableUnits={availableUnits}
+                    onSuccess={() => {
+                        setDialogOpen(false);
+                    }}
+                />
             </PageShell >
         </Container >
     );

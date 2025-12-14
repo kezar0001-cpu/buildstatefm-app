@@ -23,22 +23,18 @@ import {
   useMediaQuery,
   useTheme,
   Grid,
-  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
-  CameraAlt as CameraAltIcon,
-  PhotoLibrary as PhotoLibraryIcon,
-  Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useQueryClient } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
 import useApiMutation from '../hooks/useApiMutation.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
+import ServiceRequestPhotoUpload from './ServiceRequestPhotoUpload';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low - Can wait a few days' },
@@ -77,7 +73,7 @@ const initialState = {
 
 const getErrorMessage = (error) => {
   if (!error) return 'Something went wrong while creating the service request.';
-  
+
   // Handle axios error response
   if (error?.response?.data) {
     const errorData = error.response.data;
@@ -90,40 +86,45 @@ const getErrorMessage = (error) => {
       return errorData.error;
     }
   }
-  
+
   // Handle network errors or other error types
   if (error?.message) {
     return error.message;
   }
-  
+
   return 'Something went wrong while creating the service request.';
 };
 
-export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
+export default function ServiceRequestWizard({
+  open,
+  onClose,
+  onSuccess,
+  initialPropertyId,
+  initialUnitId,
+  availableProperties,
+  availableUnits
+}) {
   const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
   const [activeStep, setActiveStep] = useState(0);
   const [formState, setFormState] = useState(initialState);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [photoFiles, setPhotoFiles] = useState([]);
-  const [photoPreviewUrls, setPhotoPreviewUrls] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [photoError, setPhotoError] = useState('');
 
-  // Fetch properties
+  // Fetch properties (if not provided)
   const { data: propertiesData, isLoading: loadingProperties } = useQuery({
     queryKey: queryKeys.properties.selectOptions(),
     queryFn: async () => {
       const response = await apiClient.get('/properties');
       return ensureArray(response.data, ['items', 'data.items', 'properties']);
     },
+    enabled: !availableProperties,
   });
 
-  const properties = propertiesData || [];
+  const properties = availableProperties || propertiesData || [];
 
   // Fetch units for selected property
   const { data: unitsData = [] } = useQuery({
@@ -133,10 +134,12 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
       const response = await apiClient.get(`/units?propertyId=${formState.propertyId}`);
       return ensureArray(response.data, ['items', 'data.items', 'units']);
     },
-    enabled: !!formState.propertyId,
+    enabled: !!formState.propertyId && !availableUnits,
   });
 
-  const units = unitsData || [];
+  const units = availableUnits
+    ? availableUnits.filter(u => u.propertyId === formState.propertyId)
+    : (unitsData || []);
 
   const createServiceRequestMutation = useApiMutation({
     url: '/service-requests',
@@ -145,17 +148,19 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
   });
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
       setActiveStep(0);
-      setFormState(initialState);
+      setFormState({
+        ...initialState,
+        propertyId: initialPropertyId || '',
+        unitId: initialUnitId || '',
+      });
       setErrors({});
       setIsSubmitting(false);
-      setPhotoFiles([]);
-      setPhotoPreviewUrls([]);
+      setPhotos([]);
       setUploadingPhotos(false);
-      setPhotoError('');
     }
-  }, [open]);
+  }, [open, initialPropertyId, initialUnitId]);
 
   const handleChange = (field) => (event) => {
     const { value } = event.target;
@@ -213,65 +218,14 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
     if (onClose) onClose();
   };
 
-  const handleCameraClick = () => {
-    if (cameraInputRef.current) {
-      cameraInputRef.current.click();
-    }
-  };
-
-  const handleLibraryClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    // Validate files
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        setPhotoError('Please select image files only');
-        return false;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        setPhotoError('File size must be less than 10MB');
-        return false;
-      }
-      return true;
-    });
-
-    if (validFiles.length === 0) {
-      if (e.target) e.target.value = '';
-      return;
-    }
-
-    // Create preview URLs
-    const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-    setPhotoFiles(prev => [...prev, ...validFiles]);
-    setPhotoPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-    setPhotoError('');
-    
-    // Reset input
-    if (e.target) e.target.value = '';
-  };
-
-  const handleRemovePhoto = (index) => {
-    // Revoke the preview URL to free memory
-    URL.revokeObjectURL(photoPreviewUrls[index]);
-    setPhotoFiles(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviewUrls(prev => prev.filter((_, i) => i !== index));
-  };
-
   const uploadPhotos = async () => {
-    if (photoFiles.length === 0) return [];
+    if (photos.length === 0) return [];
 
     setUploadingPhotos(true);
     try {
       const formData = new FormData();
-      photoFiles.forEach(file => {
-        formData.append('files', file);
+      photos.forEach(photo => {
+        formData.append('files', photo.file);
       });
 
       const response = await apiClient.post('/api/uploads/multiple', formData, {
@@ -289,13 +243,12 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
         // Legacy format: { success: true, urls: ["url1", "url2"] }
         uploadedUrls = response.data.urls;
       }
-      
+
       return uploadedUrls;
     } catch (error) {
       console.error('Error uploading photos:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';
-      setPhotoError(errorMessage);
-      setErrors(prev => ({ ...prev, photos: errorMessage }));
+      toast.error(errorMessage);
       return [];
     } finally {
       setUploadingPhotos(false);
@@ -317,10 +270,10 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
     try {
       // Upload photos first if there are any
       let photoUrls = [];
-      if (photoFiles.length > 0) {
+      if (photos.length > 0) {
         photoUrls = await uploadPhotos();
-        if (photoUrls.length === 0 && photoFiles.length > 0) {
-          // Upload failed
+        if (photoUrls.length === 0 && photos.length > 0) {
+          // Upload failed (toast shown in uploadPhotos)
           setIsSubmitting(false);
           return;
         }
@@ -337,7 +290,7 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
       };
 
       console.log('[ServiceRequestWizard] Creating service request with payload:', payload);
-      
+
       await createServiceRequestMutation.mutateAsync({
         url: '/service-requests',
         method: 'post',
@@ -345,10 +298,10 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
       });
 
       console.log('[ServiceRequestWizard] Service request created successfully');
-      
+
       toast.success('Service request submitted successfully!');
       queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
-      
+
       if (onSuccess) {
         onSuccess();
       }
@@ -403,11 +356,11 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
       </DialogTitle>
 
       <DialogContent dividers sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
-        <Stepper 
-          activeStep={activeStep} 
+        <Stepper
+          activeStep={activeStep}
           orientation={isMobile ? 'vertical' : 'horizontal'}
-          sx={{ 
-            mb: { xs: 3, sm: 4 }, 
+          sx={{
+            mb: { xs: 3, sm: 4 },
             mt: { xs: 1, sm: 2 },
             '& .MuiStepLabel-root': {
               '& .MuiStepLabel-label': {
@@ -602,135 +555,19 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
 
         {/* Step 2: Photos */}
         {activeStep === 2 && (
-          <Stack spacing={3}>
-            <Typography variant="subtitle2" color="text.primary" gutterBottom>
-              Photos (Optional)
-            </Typography>
-            
-            {/* Hidden file inputs */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              {/* Upload buttons */}
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {isMobile && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<CameraAltIcon />}
-                    onClick={handleCameraClick}
-                    disabled={uploadingPhotos || isLoading}
-                    size="small"
-                  >
-                    Take Photo
-                  </Button>
-                )}
-                <Button
-                  variant="outlined"
-                  startIcon={<PhotoLibraryIcon />}
-                  onClick={handleLibraryClick}
-                  disabled={uploadingPhotos || isLoading}
-                  size="small"
-                >
-                  {isMobile ? 'Choose from Library' : 'Choose Photos'}
-                </Button>
-              </Stack>
-
-              {uploadingPhotos && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="caption" color="text.secondary">
-                    Uploading photos...
-                  </Typography>
-                </Box>
-              )}
-
-              {photoError && (
-                <Alert severity="error" onClose={() => setPhotoError('')}>
-                  {photoError}
-                </Alert>
-              )}
-
-              {/* Photo previews */}
-              {photoPreviewUrls.length > 0 && (
-                <Grid container spacing={1}>
-                  {photoPreviewUrls.map((photoUrl, index) => (
-                    <Grid item xs={6} sm={4} md={3} key={index}>
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          width: '100%',
-                          paddingTop: '100%',
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        }}
-                      >
-                        <Box
-                          component="img"
-                          src={photoUrl}
-                          alt={`Photo ${index + 1}`}
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemovePhoto(index)}
-                          disabled={isLoading}
-                          sx={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            '&:hover': {
-                              backgroundColor: 'rgba(255, 255, 255, 1)',
-                            },
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-
-              {photoPreviewUrls.length === 0 && !uploadingPhotos && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  Add photos to help describe the issue. You can take a photo with your camera or choose from your library.
-                </Alert>
-              )}
-            </Stack>
-          </Stack>
+          <ServiceRequestPhotoUpload
+            photos={photos}
+            onPhotosChange={setPhotos}
+            uploading={uploadingPhotos}
+            disabled={isLoading}
+          />
         )}
       </DialogContent>
 
-      <DialogActions 
-        sx={{ 
-          p: { xs: 2, sm: 2.5 }, 
-          borderTop: '1px solid', 
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 2.5 },
+          borderTop: '1px solid',
           borderColor: 'divider',
           flexDirection: { xs: 'column-reverse', sm: 'row' },
           gap: { xs: 1, sm: 0 },
@@ -745,14 +582,14 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
           Cancel
         </Button>
         <Box sx={{ flex: { xs: 0, sm: 1 } }} />
-        <Stack 
-          direction={{ xs: 'column', sm: 'row' }} 
-          spacing={1} 
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
           sx={{ width: { xs: '100%', sm: 'auto' } }}
         >
           {activeStep > 0 && (
-            <Button 
-              onClick={handleBack} 
+            <Button
+              onClick={handleBack}
               disabled={isLoading || uploadingPhotos}
               fullWidth={isMobile}
               variant={isMobile ? 'outlined' : 'text'}
@@ -791,4 +628,3 @@ export default function ServiceRequestWizard({ open, onClose, onSuccess }) {
     </Dialog>
   );
 }
-
