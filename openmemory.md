@@ -113,6 +113,11 @@
   - Blog post `categories`/`tags` are join rows; the related objects may be under `category`/`tag` *or* `BlogCategory`/`BlogTag` depending on normalization.
   - Blog category/tag endpoints return `publishedPostsCount` (instead of `_count.posts`).
   - Frontend mapping should be null-safe and support both shapes to avoid `Cannot read properties of undefined (reading 'name')`.
+  - Also applies to blog post detail page (`frontend/src/pages/BlogPostPage.jsx`) SEO tags and tag/category chips.
+
+- **Trial days remaining (fix 15 vs 14):**
+  - Backend trial length is 14 days, but frontend `calculateDaysRemaining()` previously forced `endDate` to 23:59:59 and used `Math.ceil()`, which could display 15 days immediately after signup.
+  - Fix: `frontend/src/utils/date.js` now computes remaining days from the exact `trialEndDate` timestamp (no end-of-day bump) and avoids mutating the Date object.
 
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`

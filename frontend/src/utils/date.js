@@ -182,15 +182,18 @@ export function isValidDateFormat(dateString) {
 export function calculateDaysRemaining(endDateInput) {
   if (!endDateInput) return null;
 
-  const endDate = typeof endDateInput === 'string' ? new Date(endDateInput) : endDateInput;
-  if (Number.isNaN(endDate.getTime())) {
+  const parsed = typeof endDateInput === 'string' ? new Date(endDateInput) : endDateInput;
+  if (!parsed || Number.isNaN(parsed.getTime())) {
     return null;
   }
 
+  // Clone to avoid mutating caller-provided Date objects.
+  const endDate = new Date(parsed.getTime());
+
   const now = new Date();
-  // Set to the end of the day to be inclusive
-  endDate.setHours(23, 59, 59, 999);
   const diffTime = endDate.getTime() - now.getTime();
-  if (diffTime < 0) return 0; // Trial has expired
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffTime <= 0) return 0; // Trial has expired
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.ceil(diffTime / msPerDay);
 }

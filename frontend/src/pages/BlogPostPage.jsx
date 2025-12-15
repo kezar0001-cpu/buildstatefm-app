@@ -80,7 +80,11 @@ const BlogPostPage = () => {
         author={authorName}
         publishedDate={post.publishedAt}
         modifiedDate={post.updatedAt}
-        tags={post.tags?.map(pt => pt.tag.name) || []}
+        tags={
+          (post.tags || [])
+            .map((pt) => (pt?.tag || pt?.BlogTag)?.name)
+            .filter(Boolean)
+        }
       />
 
       <BlogPublicNav />
@@ -170,7 +174,7 @@ const BlogPostPage = () => {
                     textTransform: 'uppercase'
                   }}
                 >
-                  {post.categories[0].category.name}
+                  {(post.categories[0]?.category || post.categories[0]?.BlogCategory)?.name || ''}
                 </Typography>
               </Box>
             )}
@@ -382,30 +386,34 @@ const BlogPostPage = () => {
                   Tagged with
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                  {post.tags.map((pt) => (
-                    <Chip
-                      key={pt.tag.id}
-                      label={pt.tag.name}
-                      component={Link}
-                      to={`/blog?tag=${pt.tag.slug}`}
-                      clickable
-                      size="medium"
-                      sx={{
-                        bgcolor: '#f8fafc',
-                        color: '#0f172a',
-                        border: '1px solid rgba(148, 163, 184, 0.25)',
-                        fontWeight: 600,
-                        borderRadius: 2,
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          bgcolor: 'rgba(185, 28, 28, 0.08)',
-                          borderColor: '#b91c1c',
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 12px rgba(185, 28, 28, 0.15)'
-                        }
-                      }}
-                    />
-                  ))}
+                  {post.tags.map((pt) => {
+                    const tag = pt?.tag || pt?.BlogTag;
+                    if (!tag) return null;
+                    return (
+                      <Chip
+                        key={tag.id}
+                        label={tag.name}
+                        component={Link}
+                        to={`/blog?tag=${tag.slug}`}
+                        clickable
+                        size="medium"
+                        sx={{
+                          bgcolor: '#f8fafc',
+                          color: '#0f172a',
+                          border: '1px solid rgba(148, 163, 184, 0.25)',
+                          fontWeight: 600,
+                          borderRadius: 2,
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            bgcolor: 'rgba(185, 28, 28, 0.08)',
+                            borderColor: '#b91c1c',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 12px rgba(185, 28, 28, 0.15)'
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </Box>
               </Box>
             )}
