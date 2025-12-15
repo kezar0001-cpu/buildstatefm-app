@@ -383,7 +383,13 @@ export default function ServiceRequestWizard({
                 value={formState.unitId}
                 label="Unit"
                 onChange={handleChange('unitId')}
-                disabled={!formState.propertyId || !units.length || isLoading}
+                displayEmpty
+                renderValue={(value) => {
+                  if (!value) return 'Property-wide';
+                  const selected = units.find((u) => u.id === value);
+                  return selected ? `Unit ${selected.unitNumber}` : 'Property-wide';
+                }}
+                disabled={!formState.propertyId || isLoading}
               >
                 {units.length === 0 ? (
                   <MenuItem value="">Property-wide (no units)</MenuItem>

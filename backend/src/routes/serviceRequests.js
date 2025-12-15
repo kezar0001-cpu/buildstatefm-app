@@ -41,6 +41,7 @@ const requestUpdateSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   reviewNotes: z.string().optional(),
+  photos: z.array(z.string()).optional(),
 });
 
 router.get('/', requireAuth, async (req, res) => {
@@ -374,16 +375,30 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
         // Verify tenant has lease AND unit belongs to the specified property
         hasAccess = !!tenantUnit && tenantUnit.unit.propertyId === propertyId;
       } else {
-        // Property-level tenant assignment (house / no units)
-        const tenantProperty = await prisma.propertyTenant.findFirst({
-          where: {
-            propertyId,
-            tenantId: req.user.id,
-            isActive: true,
-          },
-          select: { id: true },
-        });
-        hasAccess = Boolean(tenantProperty);
+        // Property-wide request. Allow if tenant is assigned to ANY active unit within the property,
+        // OR if they have a property-level assignment (house / no units).
+        const [tenantUnitWithinProperty, tenantProperty] = await Promise.all([
+          prisma.unitTenant.findFirst({
+            where: {
+              tenantId: req.user.id,
+              isActive: true,
+              unit: {
+                propertyId,
+              },
+            },
+            select: { id: true },
+          }),
+          prisma.propertyTenant.findFirst({
+            where: {
+              propertyId,
+              tenantId: req.user.id,
+              isActive: true,
+            },
+            select: { id: true },
+          }),
+        ]);
+
+        hasAccess = Boolean(tenantUnitWithinProperty || tenantProperty);
       }
     } else if (req.user.role === 'TECHNICIAN') {
       return sendError(res, 403, 'Technicians cannot create service requests', ErrorCodes.ACC_ROLE_REQUIRED);
@@ -493,7 +508,7 @@ router.post('/', requireAuth, validate(requestSchema), async (req, res) => {
   }
 });
 
-router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(requestUpdateSchema), async (req, res) => {
+router.patch('/:id', requireAuth, validate(requestUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -534,7 +549,7 @@ router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(r
     } else if (req.user.role === 'TENANT') {
       hasAccess = existing.requestedById === req.user.id;
       // Tenants can only update their own requests and only certain fields
-      allowedFields = ['title', 'description'];
+      allowedFields = ['title', 'description', 'priority', 'photos'];
       
       // Tenants can only update if request is still in SUBMITTED status
       if (existing.status !== 'SUBMITTED') {
@@ -587,6 +602,7 @@ router.patch('/:id', requireAuth, requirePropertyManagerSubscription, validate(r
     if (updates.priority !== undefined) updateData.priority = updates.priority;
     if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.photos !== undefined) updateData.photos = updates.photos;
     if (updates.reviewNotes !== undefined) {
       updateData.reviewNotes = updates.reviewNotes;
       updateData.reviewedAt = new Date();

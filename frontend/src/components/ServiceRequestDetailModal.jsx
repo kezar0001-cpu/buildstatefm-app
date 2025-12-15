@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,7 @@ import {
   StepLabel,
   Alert,
   InputAdornment,
+  MenuItem,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -33,6 +34,7 @@ import {
   Build as BuildIcon,
   AttachMoney as MoneyIcon,
   CalendarMonth as CalendarIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -43,6 +45,7 @@ import toast from 'react-hot-toast';
 import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 import ConvertServiceRequestToJobDialog from './ConvertServiceRequestToJobDialog';
+import { ServiceRequestImageManager } from '../features/images';
 
 const getStatusColor = (status) => {
   const colors = {
@@ -89,6 +92,13 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const [costBreakdownNotes, setCostBreakdownNotes] = useState('');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
 
+  const [editMode, setEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPriority, setEditPriority] = useState('MEDIUM');
+  const [editPhotos, setEditPhotos] = useState([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+
   // Fetch request details
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.serviceRequests.detail(requestId),
@@ -104,6 +114,47 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     },
     enabled: open && !!requestId,
   });
+
+  const submitterUpdateMutation = useMutation({
+    mutationFn: async ({ title, description, priority, photos }) => {
+      const response = await apiClient.patch(`/service-requests/${requestId}`, {
+        title,
+        description,
+        priority,
+        photos,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.detail(requestId) });
+      toast.success('Service request updated');
+      setEditMode(false);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update service request');
+    },
+  });
+
+  const canEditSubmission = Boolean(
+    (userRole === 'TENANT' || userRole === 'OWNER') &&
+      data &&
+      user?.id &&
+      data.requestedById === user.id &&
+      data.status === 'SUBMITTED'
+  );
+
+  // Sync edit form state when data loads, but do not clobber while editing.
+  useEffect(() => {
+    if (!open) return;
+    if (!data) return;
+    if (editMode) return;
+
+    setEditTitle(data.title || '');
+    setEditDescription(data.description || '');
+    setEditPriority(data.priority || 'MEDIUM');
+    setEditPhotos((data.photos || []).map((url, idx) => ({ id: `existing-${idx}`, imageUrl: url })));
+  }, [open, data, editMode]);
 
   // Update request mutation
   const updateMutation = useMutation({
@@ -307,10 +358,48 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const handleClose = () => {
     const pending = updateMutation.isPending ||
       addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending;
-    if (!pending) {
+    if (!pending && !submitterUpdateMutation.isPending && !isUploadingImages) {
       handleCancelReview();
       onClose();
     }
+  };
+
+  const handleStartEdit = () => {
+    if (!canEditSubmission) {
+      toast.error('You can only edit your own submitted requests');
+      return;
+    }
+    setEditTitle(data.title || '');
+    setEditDescription(data.description || '');
+    setEditPriority(data.priority || 'MEDIUM');
+    setEditPhotos((data.photos || []).map((url, idx) => ({ id: `existing-${idx}`, imageUrl: url })));
+    setEditMode(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editTitle.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    if (!editDescription.trim()) {
+      toast.error('Description is required');
+      return;
+    }
+    if (isUploadingImages) {
+      toast.error('Please wait for images to finish uploading');
+      return;
+    }
+
+    const photoUrls = editPhotos
+      .map((img) => img.imageUrl || img.url)
+      .filter(Boolean);
+
+    submitterUpdateMutation.mutate({
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      priority: editPriority,
+      photos: photoUrls,
+    });
   };
 
   // Determine which status steps to show based on the workflow
@@ -365,6 +454,53 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
           <DataState isLoading={isLoading} isError={!!error} error={error} isEmpty={!data}>
             {data && (
               <Stack spacing={3}>
+                {editMode && canEditSubmission && (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                      Edit Service Request
+                    </Typography>
+                    <Stack spacing={2}>
+                      <TextField
+                        fullWidth
+                        label="Title"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        disabled={submitterUpdateMutation.isPending}
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        label="Description"
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        disabled={submitterUpdateMutation.isPending}
+                      />
+                      <TextField
+                        fullWidth
+                        select
+                        label="Priority"
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        disabled={submitterUpdateMutation.isPending}
+                      >
+                        <MenuItem value="LOW">Low</MenuItem>
+                        <MenuItem value="MEDIUM">Medium</MenuItem>
+                        <MenuItem value="HIGH">High</MenuItem>
+                        <MenuItem value="URGENT">Urgent</MenuItem>
+                      </TextField>
+
+                      <ServiceRequestImageManager
+                        images={editPhotos}
+                        onChange={(nextImages) => setEditPhotos(nextImages)}
+                        onUploadingChange={setIsUploadingImages}
+                        requestKey={requestId}
+                        disabled={submitterUpdateMutation.isPending}
+                      />
+                    </Stack>
+                  </Paper>
+                )}
+
                 {/* Title and Status */}
                 <Box>
                   <Typography variant="h5" gutterBottom>
@@ -780,6 +916,38 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
         <DialogActions>
           {data && !showReviewInput && !isArchived && (
             <>
+              {canEditSubmission && (
+                <>
+                  {editMode ? (
+                    <>
+                      <Button
+                        onClick={() => setEditMode(false)}
+                        disabled={submitterUpdateMutation.isPending || isUploadingImages}
+                      >
+                        Cancel Edit
+                      </Button>
+                      <LoadingButton
+                        onClick={handleSaveEdit}
+                        loading={submitterUpdateMutation.isPending}
+                        variant="contained"
+                        startIcon={<CheckCircleIcon />}
+                        disabled={isUploadingImages}
+                      >
+                        Save
+                      </LoadingButton>
+                    </>
+                  ) : (
+                    <Button
+                      onClick={handleStartEdit}
+                      startIcon={<EditIcon />}
+                      disabled={isPendingMutation}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </>
+              )}
+
               {/* Property Manager actions for pending requests */}
               {['SUBMITTED', 'PENDING_MANAGER_REVIEW', 'UNDER_REVIEW'].includes(data.status) && userRole === 'PROPERTY_MANAGER' && (
                 <>

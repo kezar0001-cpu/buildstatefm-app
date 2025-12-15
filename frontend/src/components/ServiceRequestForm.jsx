@@ -273,11 +273,13 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
               label="Unit"
               value={formData.unitId}
               onChange={(e) => handleChange('unitId', e.target.value)}
-              disabled={!formData.propertyId || !units.length}
-              required={units.length > 0}
+              disabled={!formData.propertyId || isLoading}
             >
+              <MenuItem value="">Property-wide</MenuItem>
               {units.length === 0 && (
-                <MenuItem value="">No units available</MenuItem>
+                <MenuItem value="" disabled>
+                  No units available
+                </MenuItem>
               )}
               {units.map((unit) => (
                 <MenuItem key={unit.id} value={unit.id}>

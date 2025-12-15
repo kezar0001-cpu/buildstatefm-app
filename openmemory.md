@@ -83,6 +83,11 @@
     - `frontend/src/pages/{Jobs,Properties,Inspections,Plans,ServiceRequests,Recommendations,Reports}Page.jsx`
     - `frontend/src/pages/admin/{AdminUsers,BlogAdmin}Page.jsx`
 
+- **Service Requests Kanban card layout (responsive):**
+  - `frontend/src/pages/ServiceRequestsPage.jsx` `ServiceRequestKanban` uses wider columns on desktop (`xs=12 md=6 lg=4 xl=3`) and card internals are optimized for narrow columns.
+  - Card title is line-clamped (2 lines) and chips wrap with row/column gaps.
+  - Property + Unit block always renders (Unit shows `Property-wide` when no unit) and text uses word wrapping to avoid clipped info.
+
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
 

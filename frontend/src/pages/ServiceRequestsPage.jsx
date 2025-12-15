@@ -189,9 +189,11 @@ const ServiceRequestsPage = () => {
   };
 
   const handleEdit = (request) => {
-    // Tenants cannot edit - they should use delete and re-create
-    // For now, just show details for tenants
     if (userRole === 'TENANT') {
+      if (request.requestedById !== user?.id) {
+        toast.error('You can only edit service requests that you created');
+        return;
+      }
       handleViewDetails(request);
       return;
     }
@@ -1401,7 +1403,7 @@ const ServiceRequestKanban = ({
 
   // Render a kanban column
   const renderKanbanColumn = (column) => (
-    <Grid item xs={12} sm={6} md={4} lg={3} key={column.id}>
+    <Grid item xs={12} md={6} lg={4} xl={3} key={column.id}>
       <Paper
         sx={{
           p: 2,
@@ -1472,7 +1474,18 @@ const ServiceRequestKanban = ({
                 <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, '&:last-child': { pb: 2 } }}>
                   {/* Header */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 600,
+                        flex: 1,
+                        pr: 1,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
                       {request.title}
                     </Typography>
                     <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
@@ -1508,7 +1521,7 @@ const ServiceRequestKanban = ({
                   </Box>
 
                   {/* Status and Category Chips */}
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 0.75, columnGap: 0.75 }}>
                     <Chip
                       size="small"
                       label={statusLabel}
@@ -1531,32 +1544,30 @@ const ServiceRequestKanban = ({
                   {/* Details */}
                   <Box
                     sx={{
-                      p: 1.5,
+                      p: 1.25,
                       borderRadius: 1.5,
                       bgcolor: 'action.hover',
                       border: '1px solid',
                       borderColor: 'divider',
                     }}
                   >
-                    <Stack spacing={1}>
+                    <Stack spacing={0.75}>
                       <Box>
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
                           Property
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.25, wordBreak: 'break-word' }}>
                           {request.property?.name || 'N/A'}
                         </Typography>
                       </Box>
-                      {request.unit && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                            Unit
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                            Unit {request.unit.unitNumber}
-                          </Typography>
-                        </Box>
-                      )}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                          Unit
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.25, wordBreak: 'break-word' }}>
+                          {request.unit ? `Unit ${request.unit.unitNumber}` : 'Property-wide'}
+                        </Typography>
+                      </Box>
                     </Stack>
                   </Box>
 
