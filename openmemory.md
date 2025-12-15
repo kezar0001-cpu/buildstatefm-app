@@ -105,9 +105,16 @@
 
 - **Service Requests: unified Convert-to-Job UI + mobile actions:**
   - Removed legacy inline `ConvertToJobDialog` from `frontend/src/pages/ServiceRequestsPage.jsx` to avoid duplicate convert flows.
-  - Convert buttons now open `ServiceRequestDetailModal` and auto-open `ConvertServiceRequestToJobDialog` on first click (no extra intermediate click).
+  - Direct Convert buttons open `ConvertServiceRequestToJobDialog` directly (standalone) and do not open `ServiceRequestDetailModal` behind it.
+  - Convert inside `ServiceRequestDetailModal` continues to open the convert dialog within the modal.
   - Mobile: `ConvertServiceRequestToJobDialog` is `fullScreen` on small devices and `DialogActions` stack full-width.
   - Mobile: `ServiceRequestDetailModal` `DialogActions` and review submit button row stack full-width to prevent overlapping buttons.
+
+## SEO / Crawling
+- **Sitemap + robots:**
+  - Frontend static files live in `frontend/public/` and are copied to Vercel output root by Vite.
+  - `frontend/public/sitemap.xml` is a sitemap index that points to `https://api.buildstate.com.au/sitemap.xml`.
+  - Backend serves dynamic `GET /sitemap.xml` (includes published blog posts from DB) and `GET /robots.txt`.
 
 - **Blog API normalization: join-row shapes + counts:**
   - Blog post `categories`/`tags` are join rows; the related objects may be under `category`/`tag` *or* `BlogCategory`/`BlogTag` depending on normalization.

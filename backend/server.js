@@ -253,6 +253,91 @@ app.use('/api/blog', blogRoutes);
 // ----------------------
 // Health Check
 // ----------------------
+app.get('/sitemap.xml', async (_req, res) => {
+  try {
+    const baseUrl = (process.env.FRONTEND_URL || 'https://www.buildstate.com.au').replace(/\/$/, '');
+
+    const posts = await prisma.blogPost.findMany({
+      where: {
+        status: 'PUBLISHED',
+        publishedAt: { lte: new Date() },
+      },
+      select: {
+        slug: true,
+        updatedAt: true,
+        publishedAt: true,
+      },
+      orderBy: { publishedAt: 'desc' },
+    });
+
+    const escapeXml = (value) => {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    const staticUrls = [
+      { loc: `${baseUrl}/`, changefreq: 'weekly', priority: '1.0' },
+      { loc: `${baseUrl}/blog`, changefreq: 'daily', priority: '0.8' },
+      { loc: `${baseUrl}/signin`, changefreq: 'monthly', priority: '0.2' },
+      { loc: `${baseUrl}/signup`, changefreq: 'monthly', priority: '0.2' },
+      { loc: `${baseUrl}/forgot-password`, changefreq: 'monthly', priority: '0.1' },
+    ];
+
+    const urlEntries = [
+      ...staticUrls.map((u) => {
+        return [
+          '  <url>',
+          `    <loc>${escapeXml(u.loc)}</loc>`,
+          u.lastmod ? `    <lastmod>${escapeXml(u.lastmod)}</lastmod>` : null,
+          u.changefreq ? `    <changefreq>${escapeXml(u.changefreq)}</changefreq>` : null,
+          u.priority ? `    <priority>${escapeXml(u.priority)}</priority>` : null,
+          '  </url>',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      }),
+      ...posts.map((p) => {
+        const lastmod = (p.updatedAt || p.publishedAt || new Date()).toISOString();
+        return [
+          '  <url>',
+          `    <loc>${escapeXml(`${baseUrl}/blog/${p.slug}`)}</loc>`,
+          `    <lastmod>${escapeXml(lastmod)}</lastmod>`,
+          '    <changefreq>weekly</changefreq>',
+          '    <priority>0.6</priority>',
+          '  </url>',
+        ].join('\n');
+      }),
+    ].join('\n');
+
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      urlEntries,
+      '</urlset>',
+      '',
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.status(200).send(xml);
+  } catch (err) {
+    logger.error('Error generating sitemap.xml', { err });
+    return res.status(500).send('Failed to generate sitemap');
+  }
+});
+
+app.get('/robots.txt', (_req, res) => {
+  const baseUrl = (process.env.FRONTEND_URL || 'https://www.buildstate.com.au').replace(/\/$/, '');
+  const content = `User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml\n`;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  return res.status(200).send(content);
+});
+
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
