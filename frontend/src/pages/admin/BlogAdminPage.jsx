@@ -197,14 +197,18 @@ function BlogAdminPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {post.categories?.slice(0, 2).map((pc) => (
+                      {post.categories?.slice(0, 2).map((pc) => {
+                        const category = pc?.category || pc?.BlogCategory;
+                        if (!category) return null;
+                        return (
                         <Chip
-                          key={pc.category.id}
-                          label={pc.category.name}
+                          key={category.id}
+                          label={category.name}
                           size="small"
                           sx={{ mr: 0.5, mb: 0.5 }}
                         />
-                      ))}
+                        );
+                      })}
                     </TableCell>
                     <TableCell>{post.viewCount || 0}</TableCell>
                     <TableCell>
@@ -295,7 +299,7 @@ function BlogAdminPage() {
                       }}
                     />
                   </TableCell>
-                  <TableCell>{category._count?.posts || 0}</TableCell>
+                  <TableCell>{category.publishedPostsCount ?? category._count?.posts ?? 0}</TableCell>
                   <TableCell align="right">
                     <IconButton
                       size="small"
@@ -343,7 +347,7 @@ function BlogAdminPage() {
                     <Chip label={tag.name} variant="outlined" />
                   </TableCell>
                   <TableCell>{tag.slug}</TableCell>
-                  <TableCell>{tag._count?.posts || 0}</TableCell>
+                  <TableCell>{tag.publishedPostsCount ?? tag._count?.posts ?? 0}</TableCell>
                   <TableCell align="right">
                     <IconButton
                       size="small"

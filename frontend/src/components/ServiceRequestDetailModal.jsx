@@ -82,7 +82,13 @@ const getCategoryColor = (category) => {
   return colors[category] || 'default';
 };
 
-export default function ServiceRequestDetailModal({ requestId, open, onClose }) {
+export default function ServiceRequestDetailModal({
+  requestId,
+  open,
+  onClose,
+  autoOpenConvert = false,
+  onAutoOpenConvertConsumed,
+}) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const userRole = user?.role || 'TENANT';
@@ -363,7 +369,8 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
 
   const handleClose = () => {
     const pending = updateMutation.isPending ||
-      addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending;
+      addEstimateMutation.isPending || ownerApproveMutation.isPending || ownerRejectMutation.isPending ||
+      managerRejectMutation.isPending;
     if (!pending && !submitterUpdateMutation.isPending && !isUploadingImages) {
       handleCancelReview();
       onClose();
@@ -442,7 +449,18 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
     managerRejectMutation.isPending;
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  useEffect(() => {
+    if (!open) return;
+    if (!autoOpenConvert) return;
+    if (!data) return;
+
+    setShowConvertDialog(true);
+    if (onAutoOpenConvertConsumed) {
+      onAutoOpenConvertConsumed();
+    }
+  }, [autoOpenConvert, data, onAutoOpenConvertConsumed, open]);
 
   return (
     <>
@@ -977,7 +995,17 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                       />
                     )}
 
-                    <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1}
+                      sx={{
+                        mt: 2,
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        '& .MuiButton-root': {
+                          width: { xs: '100%', sm: 'auto' },
+                        },
+                      }}
+                    >
                       <Button
                         onClick={handleCancelReview}
                         disabled={isPendingMutation}
@@ -1010,7 +1038,16 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
           </DataState>
         </DialogContent>
 
-        <DialogActions>
+        <DialogActions
+          sx={{
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: 1,
+            '& .MuiButton-root': {
+              width: { xs: '100%', sm: 'auto' },
+            },
+          }}
+        >
           {data && !showReviewInput && !isArchived && (
             <>
               {canEditSubmission && (
@@ -1061,7 +1098,7 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                     color="primary"
                     startIcon={<MoneyIcon />}
                     disabled={isPendingMutation}
-                    sx={{ ml: 1 }}
+                    sx={{ ml: { xs: 0, sm: 1 } }}
                   >
                     Add Cost Estimate
                   </Button>

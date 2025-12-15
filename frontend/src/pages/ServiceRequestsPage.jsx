@@ -95,12 +95,13 @@ const ServiceRequestsPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [convertDialog, setConvertDialog] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [openConvertOnOpen, setOpenConvertOnOpen] = useState(false);
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     try {
-      return localStorage.getItem('service-requests-view-mode') || 'kanban';
+      const savedViewMode = localStorage.getItem('serviceRequestsViewMode');
+      return savedViewMode || 'kanban';
     } catch {
       return 'kanban';
     }
@@ -383,7 +384,8 @@ const ServiceRequestsPage = () => {
       toast.error('This request must be approved by the owner before it can be converted to a job');
       return;
     }
-    setConvertDialog(request);
+    setSelectedRequest(request.id);
+    setOpenConvertOnOpen(true);
   };
 
   const getCategoryColor = (category) => {
@@ -1273,23 +1275,16 @@ const ServiceRequestsPage = () => {
         onSuccess={handleSuccess}
       />
 
-      {/* Convert to Job Dialog */}
-      {convertDialog && (
-        <ConvertToJobDialog
-          request={convertDialog}
-          onClose={() => setConvertDialog(null)}
-          onSuccess={() => {
-            refetch();
-            setConvertDialog(null);
-          }}
-        />
-      )}
-
       {/* Service Request Detail Modal */}
       <ServiceRequestDetailModal
         requestId={selectedRequest}
         open={!!selectedRequest}
-        onClose={() => setSelectedRequest(null)}
+        autoOpenConvert={openConvertOnOpen}
+        onAutoOpenConvertConsumed={() => setOpenConvertOnOpen(false)}
+        onClose={() => {
+          setSelectedRequest(null);
+          setOpenConvertOnOpen(false);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1643,104 +1638,6 @@ const ServiceRequestKanban = ({
         </Grid>
       </Box>
     </Stack>
-  );
-};
-
-// Convert to Job Dialog
-const ConvertToJobDialog = ({ request, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    assignedToId: '',
-    scheduledDate: '',
-    estimatedCost: '',
-  });
-
-  const { data: technicians = [] } = useQuery({
-    queryKey: ['technicians'],
-    queryFn: async () => {
-      const response = await apiClient.get('/users?role=TECHNICIAN');
-      return ensureArray(response.data, ['items', 'data.items', 'users']);
-    },
-  });
-
-  const convertMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post(`/service-requests/${request.id}/convert-to-job`, data);
-      return response.data;
-    },
-    onSuccess: () => onSuccess(),
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const payload = {
-      ...formData,
-      estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
-      scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate).toISOString() : undefined,
-    };
-    convertMutation.mutate(payload);
-  };
-
-  return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle>Convert to Job</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <Alert severity="info">
-              This will create a new job and update the service request status.
-            </Alert>
-            <TextField
-              id="service-requests-convert-technician"
-              name="assignedToId"
-              select
-              fullWidth
-              label="Assign to Technician (Optional)"
-              value={formData.assignedToId}
-              onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
-            >
-              <MenuItem value="">Unassigned</MenuItem>
-              {technicians.map((tech) => (
-                <MenuItem key={tech.id} value={tech.id}>
-                  {tech.firstName} {tech.lastName}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              id="service-requests-convert-scheduled-date"
-              name="scheduledDate"
-              fullWidth
-              label="Scheduled Date (Optional)"
-              type="datetime-local"
-              value={formData.scheduledDate}
-              onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              id="service-requests-convert-estimated-cost"
-              name="estimatedCost"
-              fullWidth
-              label="Estimated Cost (Optional)"
-              type="number"
-              value={formData.estimatedCost}
-              onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
-              InputProps={{ startAdornment: '$' }}
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={convertMutation.isPending}
-            startIcon={<BuildIcon />}
-          >
-            Create Job
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
   );
 };
 

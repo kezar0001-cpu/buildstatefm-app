@@ -852,7 +852,7 @@ const BlogPage = () => {
                                 textTransform: 'uppercase'
                               }}
                             >
-                              {post.categories[0].category.name}
+                              {(post.categories[0]?.category || post.categories[0]?.BlogCategory)?.name || ''}
                             </Typography>
                           </Box>
                         )}

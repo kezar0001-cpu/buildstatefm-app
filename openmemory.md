@@ -103,6 +103,17 @@
   - Backend: `POST /api/service-requests/:id/convert-to-job` allows conversion if `property.owners.length === 0`; otherwise requires `APPROVED_BY_OWNER`.
   - Frontend: convert actions are enabled when status is `APPROVED_BY_OWNER` **or** the property has no owners.
 
+- **Service Requests: unified Convert-to-Job UI + mobile actions:**
+  - Removed legacy inline `ConvertToJobDialog` from `frontend/src/pages/ServiceRequestsPage.jsx` to avoid duplicate convert flows.
+  - Convert buttons now open `ServiceRequestDetailModal` and auto-open `ConvertServiceRequestToJobDialog` on first click (no extra intermediate click).
+  - Mobile: `ConvertServiceRequestToJobDialog` is `fullScreen` on small devices and `DialogActions` stack full-width.
+  - Mobile: `ServiceRequestDetailModal` `DialogActions` and review submit button row stack full-width to prevent overlapping buttons.
+
+- **Blog API normalization: join-row shapes + counts:**
+  - Blog post `categories`/`tags` are join rows; the related objects may be under `category`/`tag` *or* `BlogCategory`/`BlogTag` depending on normalization.
+  - Blog category/tag endpoints return `publishedPostsCount` (instead of `_count.posts`).
+  - Frontend mapping should be null-safe and support both shapes to avoid `Cannot read properties of undefined (reading 'name')`.
+
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
 

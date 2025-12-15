@@ -17,6 +17,8 @@ import {
   IconButton,
   CircularProgress,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -62,6 +64,9 @@ export default function ConvertServiceRequestToJobDialog({
   serviceRequest,
   onConvert
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [scheduledDate, setScheduledDate] = useState('');
   const [assignedToId, setAssignedToId] = useState('');
   const [estimatedCost, setEstimatedCost] = useState('');
@@ -152,9 +157,10 @@ export default function ConvertServiceRequestToJobDialog({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: isMobile ? 0 : 3,
         },
       }}
     >
@@ -354,7 +360,21 @@ export default function ConvertServiceRequestToJobDialog({
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+      <DialogActions
+        sx={{
+          px: 3,
+          pb: 2,
+          pt: 2,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: 1,
+          '& .MuiButton-root': {
+            width: { xs: '100%', sm: 'auto' },
+          },
+        }}
+      >
         <Button
           onClick={handleClose}
           variant="outlined"
