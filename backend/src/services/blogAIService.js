@@ -294,10 +294,47 @@ Provide your response in JSON format:
           trimmed.startsWith('<ol') || trimmed.startsWith('<li')) {
         return trimmed;
       }
+      if (trimmed.startsWith('<details') || trimmed.startsWith('</details') || trimmed.startsWith('<summary')) {
+        return trimmed;
+      }
       return `<p>${trimmed}</p>`;
     }).filter(Boolean).join('\n');
 
     return html;
+  }
+
+  _isBulletHeavy(markdown) {
+    const lines = String(markdown || '').split('\n');
+    const listLineCount = lines.filter((line) => {
+      const t = line.trim();
+      if (!t) return false;
+      return /^[-*]\s+/.test(t) || /^\d+\.\s+/.test(t);
+    }).length;
+
+    const textLineCount = lines.filter((line) => line.trim()).length;
+    if (textLineCount === 0) return false;
+    const ratio = listLineCount / textLineCount;
+
+    return listLineCount >= 18 || ratio >= 0.18;
+  }
+
+  _wrapSourcesInDetails(markdown) {
+    const text = String(markdown || '');
+    if (!/\n##\s+Sources\s*\n/i.test(text)) return text;
+    if (/<details>\s*<summary>\s*Sources\s*<\/summary>/i.test(text)) return text;
+
+    const re = /(\n##\s+Sources\s*\n)([\s\S]*?)(\n##\s+[^\n]+\n|$)/i;
+    const match = text.match(re);
+    if (!match) return text;
+
+    const before = text.slice(0, match.index);
+    const header = match[1];
+    const body = (match[2] || '').trimEnd();
+    const tailStart = (match.index || 0) + match[0].length - match[3].length;
+    const after = text.slice(tailStart);
+
+    const wrapped = `${header}<details><summary>Sources</summary>\n\n${body}\n\n</details>\n`;
+    return `${before}${wrapped}${after}`;
   }
 
   /**
@@ -553,13 +590,19 @@ When referencing information from a source, cite it inline using bracketed numbe
 
 IMPORTANT: Write the entire article in clean Markdown format. DO NOT wrap it in JSON or code blocks.
 
+Style rules (STRICT):
+- Write primarily in paragraphs (prose). Avoid bullet lists.
+- Do NOT use bullet points in Executive Summary, Context, Key Findings, Deep Dive, Recommendations, or Conclusion.
+- The ONLY place a list is encouraged is "## Implementation Checklist" (numbered steps).
+- If a list is absolutely necessary elsewhere, keep it to at most 3 items and justify it with one sentence before the list.
+
 Required structure:
 - # Title
-- ## Executive Summary (5-8 bullets)
+- ## Executive Summary (2-4 short paragraphs)
 - ## Context (why this matters now)
-- ## Key Findings (3-7 findings, each with citations)
+- ## Key Findings (3-7 findings as short subsections or paragraphs, each with citations)
 - ## Deep Dive Analysis (multiple sections with ## headers)
-- ## Practical Recommendations (grouped by role: Property Managers, Owners, Maintenance Teams)
+- ## Practical Recommendations (grouped by role: Property Managers, Owners, Maintenance Teams; write as paragraphs)
 - ## Implementation Checklist (numbered steps)
 - ## Risks, Tradeoffs, and Compliance Notes
 - ## Conclusion
@@ -573,7 +616,7 @@ START WRITING THE ARTICLE NOW:`;
         async (model) => {
           return await this.client.messages.create({
             model: model,
-            max_tokens: 4096,
+            max_tokens: 8192,
             messages: [{
               role: 'user',
               content: contentPrompt
@@ -585,6 +628,45 @@ START WRITING THE ARTICLE NOW:`;
 
       let markdownContent = contentMessage.content[0].text.trim();
       markdownContent = markdownContent.replace(/^```markdown?\n/i, '').replace(/\n```$/i, '');
+
+      if (this._isBulletHeavy(markdownContent)) {
+        logger.warn('Report markdown is bullet-heavy; rewriting to prose-first format', {
+          title: topic.title,
+          model: this.model,
+        });
+
+        const rewritePrompt = `Rewrite the following Markdown article to be prose-first and minimize bullet/numbered lists.
+
+Rules:
+- Keep headings and overall structure.
+- Preserve inline citations like [1], [2] and do NOT fabricate new citations.
+- Convert bullet-heavy sections into paragraphs.
+- Keep "## Implementation Checklist" as a numbered list.
+- Keep "## Sources" as a numbered list.
+- Do NOT add new facts beyond what is already present.
+
+ARTICLE TO REWRITE (Markdown):
+${markdownContent}`;
+
+        const rewriteMessage = await this._callWithRetry(
+          async (model) => {
+            return await this.client.messages.create({
+              model: model,
+              max_tokens: 8192,
+              messages: [{
+                role: 'user',
+                content: rewritePrompt
+              }]
+            });
+          },
+          'generateReportContent-rewrite'
+        );
+
+        const rewritten = rewriteMessage.content[0].text.trim();
+        if (rewritten) {
+          markdownContent = rewritten.replace(/^```markdown?\n/i, '').replace(/\n```$/i, '');
+        }
+      }
 
       if (sources.length > 0) {
         const sourcesSection = sources
@@ -598,6 +680,8 @@ START WRITING THE ARTICLE NOW:`;
           markdownContent = `${markdownContent}\n\n## Sources\n${sourcesSection}\n`;
         }
       }
+
+      markdownContent = this._wrapSourcesInDetails(markdownContent);
 
       logger.info('Generated report markdown content', {
         title: topic.title,
