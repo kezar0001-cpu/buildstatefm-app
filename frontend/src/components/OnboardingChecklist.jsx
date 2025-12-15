@@ -133,6 +133,21 @@ export default function OnboardingChecklist({ onDismiss }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const completionKey = useMemo(() => {
+    const identifier = user?.id || user?.email || 'unknown';
+    return `onboarding:completed:${identifier}`;
+  }, [user?.email, user?.id]);
+
+  const [stickyCompleted, setStickyCompleted] = useState(() => {
+    try {
+      const raw = localStorage.getItem(completionKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set();
+    }
+  });
+
   const dismissKey = useMemo(() => {
     const identifier = user?.id || user?.email || 'unknown';
     return `onboarding:dismissed:${identifier}`;
@@ -154,6 +169,16 @@ export default function OnboardingChecklist({ onDismiss }) {
     }
   }, [dismissKey]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(completionKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setStickyCompleted(new Set(Array.isArray(parsed) ? parsed : []));
+    } catch {
+      setStickyCompleted(new Set());
+    }
+  }, [completionKey]);
+
   // Fetch dashboard summary to check completion
   const { data: summary } = useQuery({
     queryKey: queryKeys.dashboard.stats(),
@@ -167,8 +192,36 @@ export default function OnboardingChecklist({ onDismiss }) {
   const userRole = user?.role || 'PROPERTY_MANAGER';
   const steps = ONBOARDING_STEPS[userRole] || ONBOARDING_STEPS.PROPERTY_MANAGER;
 
+  useEffect(() => {
+    const liveCompleted = steps
+      .filter((step) => step.checkFn(summary || {}))
+      .map((step) => step.id);
+
+    if (liveCompleted.length === 0) return;
+
+    let changed = false;
+    const next = new Set(stickyCompleted);
+    for (const id of liveCompleted) {
+      if (!next.has(id)) {
+        next.add(id);
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+
+    try {
+      localStorage.setItem(completionKey, JSON.stringify(Array.from(next)));
+    } catch {
+      // ignore
+    }
+    setStickyCompleted(next);
+  }, [completionKey, steps, stickyCompleted, summary]);
+
   // Calculate completion
-  const completedSteps = steps.filter((step) => step.checkFn(summary || {}));
+  const completedSteps = steps.filter(
+    (step) => stickyCompleted.has(step.id) || step.checkFn(summary || {})
+  );
   const progress = (completedSteps.length / steps.length) * 100;
   const isComplete = progress === 100;
 
@@ -253,7 +306,7 @@ export default function OnboardingChecklist({ onDismiss }) {
         <Collapse in={expanded}>
           <List disablePadding>
             {steps.map((step, index) => {
-              const isCompleted = step.checkFn(summary || {});
+              const isCompleted = stickyCompleted.has(step.id) || step.checkFn(summary || {});
               const StepIcon = step.icon;
 
               const actionButton =

@@ -27,6 +27,7 @@ export const getDashboardSummary = async (req, res) => {
     const summary = {
       properties: { total: 0, active: 0, inactive: 0, underMaintenance: 0 },
       units:      { total: 0, occupied: 0, available: 0, maintenance: 0 },
+      tenants:    { total: 0 },
       jobs:       { total: 0, open: 0, assigned: 0, inProgress: 0, completed: 0, overdue: 0 },
       inspections:{ total: 0, scheduled: 0, inProgress: 0, completed: 0, upcoming: 0 },
       serviceRequests: { total: 0, submitted: 0, underReview: 0, approved: 0, converted: 0, completed: 0 },
@@ -118,6 +119,18 @@ export const getDashboardSummary = async (req, res) => {
         if (r.status === 'AVAILABLE') summary.units.available = r._count._all;
         if (r.status === 'MAINTENANCE') summary.units.maintenance = r._count._all;
       }
+    }
+
+    // ---------- Tenants (active tenant assignments scoped by accessible properties)
+    if (role !== 'TECHNICIAN' && (role !== 'TENANT' || tenantHasAccessibleProperties)) {
+      summary.tenants.total = await prisma.unitTenant.count({
+        where: {
+          isActive: true,
+          unit: {
+            property: propertyFilter,
+          },
+        },
+      });
     }
 
     // ---------- Jobs

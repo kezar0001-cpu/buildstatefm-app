@@ -85,8 +85,9 @@ export default function TenantAssignmentDialog({ open, onClose, unitId, tenant }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.units.detail(unitId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.units.detail(unitId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.units.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.activity() });
       toast.success(isEditing ? 'Tenant assignment updated' : 'Tenant assigned successfully');
       onClose();
     },

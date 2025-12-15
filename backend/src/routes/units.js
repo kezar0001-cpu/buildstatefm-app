@@ -5,6 +5,7 @@ import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription, isSubscriptionActive } from '../middleware/auth.js';
 import { asyncHandler, sendError, ErrorCodes } from '../utils/errorHandler.js';
 import { createUploadMiddleware, getUploadedFileUrl, deleteImage } from '../services/uploadService.js';
+import { invalidatePattern } from '../utils/cache.js';
 
 const router = Router({ mergeParams: true });
 
@@ -38,6 +39,11 @@ const isMultipartRequest = (req) => {
   if (!header) return false;
   const [type] = header.split(';', 1);
   return type?.trim().toLowerCase() === 'multipart/form-data';
+};
+
+const invalidateDashboardSummaryCache = async (userId) => {
+  if (!userId) return;
+  await invalidatePattern(`cache:/api/dashboard/summary:user:${userId}*`);
 };
 
 const maybeHandleImageUpload = (req, res, next) => {
@@ -821,6 +827,8 @@ router.post(
       data: { status: 'OCCUPIED' },
     });
 
+    await invalidateDashboardSummaryCache(req.user?.id);
+
     res.status(201).json({ tenant: toPublicTenant(tenant) });
   })
 );
@@ -874,6 +882,8 @@ router.patch(
       ...tenantIncludeSelection,
     });
 
+    await invalidateDashboardSummaryCache(req.user?.id);
+
     res.json({ tenant: toPublicTenant(tenant) });
   })
 );
@@ -915,6 +925,8 @@ router.delete(
         data: { status: 'AVAILABLE' },
       });
     }
+
+    await invalidateDashboardSummaryCache(req.user?.id);
 
     res.status(204).send();
   })
@@ -1023,6 +1035,8 @@ router.post(
           where: { id: unitId },
           data: { status: 'OCCUPIED' },
         });
+
+        await invalidateDashboardSummaryCache(req.user?.id);
 
         return res.json({ message: 'Lease activated and move-in complete' });
       }

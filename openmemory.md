@@ -14,6 +14,11 @@
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
   - Swipe uses pointer capture (no framer drag) for smoothness; snap-on-release removed.
 
+- **Getting Started checklist (Dashboard):** `frontend/src/components/OnboardingChecklist.jsx`
+  - Uses `/api/dashboard/summary` to detect step completion.
+  - Step completion is *sticky* per-user: once a step is observed as complete, its step id is persisted in `localStorage` under `onboarding:completed:<userId|email>` so it never reverts to unchecked.
+  - Checklist hides once all steps are complete.
+
 - **Standardized FilterBar (app-wide):** `frontend/src/components/FilterBar/FilterBar.tsx`
   - Desktop: single-line, no wrapping; secondary filters live in a "More filters" Popover.
   - Mobile: search full-width + a single "Filters" button (Drawer) + optional Clear; never overflows.
@@ -87,6 +92,10 @@
   - `frontend/src/pages/ServiceRequestsPage.jsx` `ServiceRequestKanban` uses wider columns on desktop (`xs=12 md=6 lg=4 xl=3`) and card internals are optimized for narrow columns.
   - Card title is line-clamped (2 lines) and chips wrap with row/column gaps.
   - Property + Unit block always renders (Unit shows `Property-wide` when no unit) and text uses word wrapping to avoid clipped info.
+
+- **Dashboard summary tenant counts + cache invalidation:**
+  - `backend/controllers/dashboardController.js` includes `summary.tenants.total` (counts active `UnitTenant` assignments scoped to the user-accessible properties).
+  - `backend/src/routes/units.js` invalidates dashboard summary cache pattern `cache:/api/dashboard/summary:user:<userId>*` after tenant assignment updates so dashboard/checklist reflects changes immediately.
 
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
