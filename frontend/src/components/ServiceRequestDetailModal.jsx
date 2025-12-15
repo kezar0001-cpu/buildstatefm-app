@@ -46,6 +46,9 @@ import { queryKeys } from '../utils/queryKeys.js';
 import { useCurrentUser } from '../context/UserContext.jsx';
 import ConvertServiceRequestToJobDialog from './ConvertServiceRequestToJobDialog';
 import { ServiceRequestImageManager } from '../features/images';
+import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import 'yet-another-react-lightbox/styles.css';
 
 const getStatusColor = (status) => {
   const colors = {
@@ -91,6 +94,9 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
   const [managerEstimatedCost, setManagerEstimatedCost] = useState('');
   const [costBreakdownNotes, setCostBreakdownNotes] = useState('');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
+  const [photoLightboxIndex, setPhotoLightboxIndex] = useState(0);
 
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -594,15 +600,106 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                             src={photo}
                             alt={`Photo ${index + 1}`}
                             loading="lazy"
+                            onClick={() => {
+                              setPhotoLightboxIndex(index);
+                              setPhotoLightboxOpen(true);
+                            }}
                             style={{
                               borderRadius: 4,
                               objectFit: 'cover',
                               height: 150,
+                              width: '100%',
+                              cursor: 'pointer',
                             }}
                           />
                         </ImageListItem>
                       ))}
                     </ImageList>
+
+                    <Lightbox
+                      open={photoLightboxOpen}
+                      close={() => setPhotoLightboxOpen(false)}
+                      index={photoLightboxIndex}
+                      slides={(data.photos || []).map((url, idx) => ({
+                        src: url,
+                        alt: `Photo ${idx + 1}`,
+                      }))}
+                      plugins={[Zoom]}
+                      zoom={{
+                        maxZoomPixelRatio: 8,
+                        zoomInMultiplier: 2,
+                        doubleTapDelay: 300,
+                        doubleClickDelay: 300,
+                        doubleClickMaxStops: 2,
+                        keyboardMoveDistance: 60,
+                        wheelZoomDistanceFactor: 100,
+                        pinchZoomDistanceFactor: 100,
+                        scrollToZoom: true,
+                      }}
+                      render={{
+                        slide: ({ slide }) => {
+                          const locationParts = [
+                            data.property?.name,
+                            data.unit?.unitNumber ? `Unit ${data.unit.unitNumber}` : null,
+                            data.property?.address,
+                          ].filter(Boolean);
+                          const locationLabel = locationParts.join(' • ');
+                          return (
+                            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                              <img
+                                src={slide.src}
+                                alt={slide.alt}
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  objectFit: 'contain',
+                                  margin: 'auto',
+                                }}
+                              />
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                  color: 'white',
+                                  px: 2,
+                                  py: 1.5,
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                  gap: 1,
+                                }}
+                              >
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                                    {locationLabel || 'Location unavailable'}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ opacity: 0.9 }} noWrap>
+                                    Submitted: {formatDateTime(data.createdAt)}
+                                  </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                  {photoLightboxIndex + 1} / {data.photos.length}
+                                </Typography>
+                              </Box>
+                            </div>
+                          );
+                        },
+                      }}
+                      on={{
+                        view: ({ index }) => setPhotoLightboxIndex(index),
+                      }}
+                      carousel={{
+                        finite: false,
+                        preload: 2,
+                      }}
+                      styles={{
+                        container: { backgroundColor: 'rgba(0, 0, 0, 0.95)' },
+                      }}
+                    />
                   </Paper>
                 )}
 
@@ -994,8 +1091,11 @@ export default function ServiceRequestDetailModal({ requestId, open, onClose }) 
                 </>
               )}
 
-              {/* Schedule Inspection or Convert to Job for APPROVED status */}
-              {data.status === 'APPROVED_BY_OWNER' && userRole === 'PROPERTY_MANAGER' && (
+              {/* Schedule Inspection or Convert to Job for APPROVED status (or fallback when no owners) */}
+              {userRole === 'PROPERTY_MANAGER' && (
+                data.status === 'APPROVED_BY_OWNER' ||
+                (Array.isArray(data?.property?.owners) && data.property.owners.length === 0)
+              ) && (
                 <>
                   <Button
                     onClick={() => {

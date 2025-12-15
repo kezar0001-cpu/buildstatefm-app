@@ -97,6 +97,11 @@
   - `backend/controllers/dashboardController.js` includes `summary.tenants.total` (counts active `UnitTenant` assignments scoped to the user-accessible properties).
   - `backend/src/routes/units.js` invalidates dashboard summary cache pattern `cache:/api/dashboard/summary:user:<userId>*` after tenant assignment updates so dashboard/checklist reflects changes immediately.
 
+- **Service Request convert-to-job fallback (no owners):**
+  - When a property has **no owners**, the property manager can convert a service request to a job without waiting for owner approval.
+  - Backend: `POST /api/service-requests/:id/convert-to-job` allows conversion if `property.owners.length === 0`; otherwise requires `APPROVED_BY_OWNER`.
+  - Frontend: convert actions are enabled when status is `APPROVED_BY_OWNER` **or** the property has no owners.
+
 - **Backend security audit report:**
   - `BACKEND_SECURITY_AUDIT_REPORT.md`
 

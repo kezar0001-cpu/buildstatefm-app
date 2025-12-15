@@ -142,7 +142,9 @@ export default function ConvertServiceRequestToJobDialog({
   if (!serviceRequest) return null;
 
   // Check if request can be converted
-  const canConvert = serviceRequest.status === 'APPROVED_BY_OWNER';
+  const ownersCount = Array.isArray(serviceRequest?.property?.owners) ? serviceRequest.property.owners.length : 0;
+  const hasOwners = ownersCount > 0;
+  const canConvert = serviceRequest.status === 'APPROVED_BY_OWNER' || !hasOwners;
 
   return (
     <Dialog

@@ -95,7 +95,6 @@ const ServiceRequestsPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [reviewDialog, setReviewDialog] = useState(null);
   const [convertDialog, setConvertDialog] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
@@ -374,11 +373,13 @@ const ServiceRequestsPage = () => {
   }, [location.pathname, location.state, navigate]);
 
   const handleReview = (request) => {
-    setReviewDialog(request);
+    setSelectedRequest(request.id);
   };
 
   const handleConvert = (request) => {
-    if (request?.status !== 'APPROVED_BY_OWNER') {
+    const ownersCount = Array.isArray(request?.property?.owners) ? request.property.owners.length : 0;
+    const hasOwners = ownersCount > 0;
+    if (hasOwners && request?.status !== 'APPROVED_BY_OWNER') {
       toast.error('This request must be approved by the owner before it can be converted to a job');
       return;
     }
@@ -1272,18 +1273,6 @@ const ServiceRequestsPage = () => {
         onSuccess={handleSuccess}
       />
 
-      {/* Review Dialog */}
-      {reviewDialog && (
-        <ReviewDialog
-          request={reviewDialog}
-          onClose={() => setReviewDialog(null)}
-          onSuccess={() => {
-            refetch();
-            setReviewDialog(null);
-          }}
-        />
-      )}
-
       {/* Convert to Job Dialog */}
       {convertDialog && (
         <ConvertToJobDialog
@@ -1613,7 +1602,10 @@ const ServiceRequestKanban = ({
                         </Button>
                       </Stack>
                     )}
-                    {userRole === 'PROPERTY_MANAGER' && request.status === 'APPROVED_BY_OWNER' && (
+                    {userRole === 'PROPERTY_MANAGER' && (
+                      request.status === 'APPROVED_BY_OWNER' ||
+                      (Array.isArray(request?.property?.owners) && request.property.owners.length === 0)
+                    ) && (
                       <Stack direction="row" spacing={1}>
                         <Button
                           size="small"
@@ -1651,102 +1643,6 @@ const ServiceRequestKanban = ({
         </Grid>
       </Box>
     </Stack>
-  );
-};
-
-// Review Dialog Component
-const ReviewDialog = ({ request, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
-    status: 'UNDER_REVIEW',
-    reviewNotes: '',
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.patch(`/service-requests/${request.id}`, data);
-      return response.data;
-    },
-    // Optimistic update: immediately update the UI before server responds
-    onMutate: async (newData) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.serviceRequests.all() });
-      const previousData = queryClient.getQueriesData({ queryKey: queryKeys.serviceRequests.all() });
-
-      queryClient.setQueriesData({ queryKey: queryKeys.serviceRequests.all() }, (old) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map(page => ({
-            ...page,
-            items: page.items?.map(item =>
-              item.id === request.id
-                ? { ...item, ...newData }
-                : item
-            ) || [],
-          })),
-        };
-      });
-
-      return { previousData };
-    },
-    onError: (_err, _data, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        context.previousData.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
-      onSuccess();
-    },
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    updateMutation.mutate(formData);
-  };
-
-  return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle>Review Service Request</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <TextField
-              id="service-requests-review-status"
-              name="status"
-              select
-              fullWidth
-              label="Status"
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            >
-              <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-              <MenuItem value="REJECTED">Rejected</MenuItem>
-            </TextField>
-            <TextField
-              id="service-requests-review-notes"
-              name="reviewNotes"
-              fullWidth
-              label="Review Notes"
-              value={formData.reviewNotes}
-              onChange={(e) => setFormData({ ...formData, reviewNotes: e.target.value })}
-              multiline
-              rows={4}
-              placeholder="Add notes about your review decision..."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={updateMutation.isPending}>
-            Submit Review
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
   );
 };
 

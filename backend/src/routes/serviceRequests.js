@@ -108,6 +108,11 @@ router.get('/', requireAuth, async (req, res) => {
               id: true,
               name: true,
               address: true,
+              owners: {
+                select: {
+                  ownerId: true,
+                },
+              },
             },
           },
           unit: {
@@ -1183,8 +1188,25 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
     const serviceRequest = await prisma.serviceRequest.findUnique({
       where: { id },
       include: {
-        property: true,
+        property: {
+          include: {
+            owners: {
+              select: {
+                ownerId: true,
+              },
+            },
+          },
+        },
         unit: true,
+        requestedBy: {
+          select: {
+            id: true,
+            role: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -1195,6 +1217,10 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
     // Archived requests cannot be converted
     if (serviceRequest.status === 'ARCHIVED') {
       return sendError(res, 403, 'Archived service requests cannot be converted to jobs', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
+    }
+
+    if (serviceRequest.status === 'CONVERTED_TO_JOB') {
+      return sendError(res, 400, 'This service request has already been converted to a job', ErrorCodes.BIZ_OPERATION_NOT_ALLOWED);
     }
 
     // Authorization check: Verify the requesting manager owns the property
@@ -1213,8 +1239,14 @@ router.post('/:id/convert-to-job', requireAuth, requireRole('PROPERTY_MANAGER'),
       }
     }
 
-    // Check if service request is approved (for owner-initiated requests)
-    if (serviceRequest.status !== 'APPROVED_BY_OWNER') {
+    const ownersCount = Array.isArray(serviceRequest.property?.owners)
+      ? serviceRequest.property.owners.length
+      : 0;
+    const hasOwners = ownersCount > 0;
+
+    // If the property has owners, require owner approval before converting.
+    // If there are no owners, allow the property manager to convert immediately.
+    if (hasOwners && serviceRequest.status !== 'APPROVED_BY_OWNER') {
       return sendError(
         res,
         400,
