@@ -62,6 +62,7 @@ import DataState from '../components/DataState';
 import EmptyState from '../components/EmptyState';
 import ServiceRequestWizard from '../components/ServiceRequestWizard';
 import ServiceRequestDetailModal from '../components/ServiceRequestDetailModal';
+import ConvertServiceRequestToJobDialog from '../components/ConvertServiceRequestToJobDialog';
 import ensureArray from '../utils/ensureArray';
 import { parseListResponse, parsePaginatedResponse, parseItemResponse } from '../utils/apiResponseParser';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
@@ -76,6 +77,7 @@ const ServiceRequestsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -96,7 +98,8 @@ const ServiceRequestsPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [openConvertOnOpen, setOpenConvertOnOpen] = useState(false);
+  const [convertDialogRequest, setConvertDialogRequest] = useState(null);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -384,8 +387,8 @@ const ServiceRequestsPage = () => {
       toast.error('This request must be approved by the owner before it can be converted to a job');
       return;
     }
-    setSelectedRequest(request.id);
-    setOpenConvertOnOpen(true);
+    setConvertDialogRequest(request);
+    setConvertDialogOpen(true);
   };
 
   const getCategoryColor = (category) => {
@@ -1279,13 +1282,26 @@ const ServiceRequestsPage = () => {
       <ServiceRequestDetailModal
         requestId={selectedRequest}
         open={!!selectedRequest}
-        autoOpenConvert={openConvertOnOpen}
-        onAutoOpenConvertConsumed={() => setOpenConvertOnOpen(false)}
         onClose={() => {
           setSelectedRequest(null);
-          setOpenConvertOnOpen(false);
         }}
       />
+
+      {/* Convert to Job Dialog (direct from list/kanban) */}
+      {convertDialogRequest && (
+        <ConvertServiceRequestToJobDialog
+          open={convertDialogOpen}
+          onClose={() => {
+            setConvertDialogOpen(false);
+            setConvertDialogRequest(null);
+          }}
+          serviceRequest={convertDialogRequest}
+          onConvert={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests.all() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -1387,7 +1403,14 @@ const ServiceRequestKanban = ({
 
   // Render a kanban column
   const renderKanbanColumn = (column) => (
-    <Grid item xs={12} md={6} lg={4} xl={3} key={column.id}>
+    <Box
+      key={column.id}
+      sx={{
+        flex: '0 0 auto',
+        width: { xs: 320, sm: 340, md: 360 },
+        minWidth: { xs: 320, sm: 340, md: 360 },
+      }}
+    >
       <Paper
         sx={{
           p: 2,
@@ -1623,7 +1646,7 @@ const ServiceRequestKanban = ({
           })}
         </Stack>
       </Paper>
-    </Grid>
+    </Box>
   );
 
   return (
@@ -1633,9 +1656,18 @@ const ServiceRequestKanban = ({
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
           By Status
         </Typography>
-        <Grid container spacing={2}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            pb: 1,
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           {columns.map(renderKanbanColumn)}
-        </Grid>
+        </Box>
       </Box>
     </Stack>
   );

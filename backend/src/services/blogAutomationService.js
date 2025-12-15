@@ -152,6 +152,7 @@ class BlogAutomationService {
 
       const blogPost = await prisma.blogPost.create({
         data: {
+          id: uuidv4(),
           title: topic.title,
           slug: await this.generateUniqueSlug(topic.slug),
           excerpt: topic.excerpt,
@@ -166,6 +167,7 @@ class BlogAutomationService {
           metaTitle: content.metaTitle || topic.title,
           metaDescription: content.metaDescription || topic.excerpt,
           metaKeywords: [...new Set([...topic.keywords, ...topic.keywords])], // Deduplicate
+          updatedAt: new Date(),
           isAutomated: true,
           automationMetadata: {
             generatedAt: new Date().toISOString(),
@@ -183,6 +185,7 @@ class BlogAutomationService {
           },
           BlogPostCategory: {
             create: [{
+              id: uuidv4(),
               BlogCategory: {
                 connect: { id: category.id }
               }
@@ -190,6 +193,7 @@ class BlogAutomationService {
           },
           BlogPostTag: {
             create: tags.map(tag => ({
+              id: uuidv4(),
               BlogTag: {
                 connect: { id: tag.id }
               }
@@ -289,10 +293,12 @@ class BlogAutomationService {
       const slug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       category = await prisma.blogCategory.create({
         data: {
+          id: uuidv4(),
           name: categoryName,
           slug: await this.generateUniqueSlug(slug, 'category'),
           description: `Posts about ${categoryName}`,
-          color: this.getRandomColor()
+          color: this.getRandomColor(),
+          updatedAt: new Date()
         }
       });
       logger.info('Created new category', { category: categoryName });
@@ -326,8 +332,10 @@ class BlogAutomationService {
         const slug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         tag = await prisma.blogTag.create({
           data: {
+            id: uuidv4(),
             name: tagName,
-            slug: await this.generateUniqueSlug(slug, 'tag')
+            slug: await this.generateUniqueSlug(slug, 'tag'),
+            updatedAt: new Date()
           }
         });
         logger.info('Created new tag', { tag: tagName });

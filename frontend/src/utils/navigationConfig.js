@@ -41,6 +41,36 @@ export const NAVIGATION_ITEMS = [
     roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
   },
   {
+    name: 'Inspections',
+    href: '/inspections',
+    icon: AssignmentIcon,
+    roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
+  },
+  {
+    name: 'Recommendations',
+    href: '/recommendations',
+    icon: RecommendationIcon,
+    roles: ['PROPERTY_MANAGER', 'ADMIN'],
+  },
+  {
+    name: 'Service Requests',
+    href: '/service-requests',
+    icon: ServiceRequestIcon,
+    roles: ['PROPERTY_MANAGER', 'TENANT', 'OWNER', 'ADMIN'],
+  },
+  {
+    name: 'Jobs',
+    href: '/jobs',
+    icon: BuildIcon,
+    roles: ['PROPERTY_MANAGER'],
+  },
+  {
+    name: 'Plans',
+    href: '/plans',
+    icon: PlansIcon,
+    roles: ['PROPERTY_MANAGER', 'ADMIN'],
+  },
+  {
     name: 'My Properties',
     href: '/owner/dashboard',
     icon: HomeIcon,
@@ -53,40 +83,10 @@ export const NAVIGATION_ITEMS = [
     roles: ['TENANT'],
   },
   {
-    name: 'Inspections',
-    href: '/inspections',
-    icon: AssignmentIcon,
-    roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
-  },
-  {
-    name: 'Jobs',
-    href: '/jobs',
-    icon: BuildIcon,
-    roles: ['PROPERTY_MANAGER'],
-  },
-  {
     name: 'My Jobs',
     href: '/technician/dashboard',
     icon: BuildIcon,
     roles: ['TECHNICIAN'],
-  },
-  {
-    name: 'Service Requests',
-    href: '/service-requests',
-    icon: ServiceRequestIcon,
-    roles: ['PROPERTY_MANAGER', 'TENANT', 'OWNER', 'ADMIN'],
-  },
-  {
-    name: 'Recommendations',
-    href: '/recommendations',
-    icon: RecommendationIcon,
-    roles: ['PROPERTY_MANAGER', 'ADMIN'],
-  },
-  {
-    name: 'Plans',
-    href: '/plans',
-    icon: PlansIcon,
-    roles: ['PROPERTY_MANAGER', 'ADMIN'],
   },
   {
     name: 'Users',

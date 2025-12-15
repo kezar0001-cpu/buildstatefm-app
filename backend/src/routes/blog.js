@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import prisma from '../config/prismaClient.js';
+import { v4 as uuidv4 } from 'uuid';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { requireAdmin, logAdminAction } from '../middleware/adminAuth.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
@@ -543,19 +544,24 @@ router.post('/admin/posts', requireAuth, requireRole('ADMIN'), validate(blogPost
     // Create post with relations
     const post = await prisma.blogPost.create({
       data: {
+        id: uuidv4(),
         ...postData,
+        updatedAt: new Date(),
         BlogPostCategory: {
           create: categoryIds.map(categoryId => ({
+            id: uuidv4(),
             BlogCategory: { connect: { id: categoryId } }
           }))
         },
         BlogPostTag: {
           create: tagIds.map(tagId => ({
+            id: uuidv4(),
             BlogTag: { connect: { id: tagId } }
           }))
         },
         BlogMedia: {
           create: media.map((item, index) => ({
+            id: uuidv4(),
             url: item.url,
             type: item.type || 'IMAGE',
             caption: item.caption,
@@ -792,10 +798,12 @@ router.post('/admin/categories', requireAuth, requireRole('ADMIN'), async (req, 
 
     const category = await prisma.blogCategory.create({
       data: {
+        id: uuidv4(),
         name,
         slug: await ensureUniqueSlug(slug),
         description,
-        color
+        color,
+        updatedAt: new Date()
       }
     });
 
@@ -881,8 +889,10 @@ router.post('/admin/tags', requireAuth, requireRole('ADMIN'), async (req, res) =
 
     const tag = await prisma.blogTag.create({
       data: {
+        id: uuidv4(),
         name,
-        slug: await ensureUniqueSlug(slug)
+        slug: await ensureUniqueSlug(slug),
+        updatedAt: new Date()
       }
     });
 
