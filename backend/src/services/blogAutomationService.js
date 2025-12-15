@@ -177,44 +177,54 @@ class BlogAutomationService {
             targetWordCount: this.targetWordCount,
             actualWordCount: content.content.split(/\s+/).length
           },
-          categories: {
+          BlogPostCategory: {
             create: [{
-              category: {
+              BlogCategory: {
                 connect: { id: category.id }
               }
             }]
           },
-          tags: {
+          BlogPostTag: {
             create: tags.map(tag => ({
-              tag: {
+              BlogTag: {
                 connect: { id: tag.id }
               }
             }))
           }
         },
         include: {
-          author: true,
-          categories: {
+          User: true,
+          BlogPostCategory: {
             include: {
-              category: true
+              BlogCategory: true
             }
           },
-          tags: {
+          BlogPostTag: {
             include: {
-              tag: true
+              BlogTag: true
             }
           }
         }
       });
 
+      const normalizedBlogPost = {
+        ...blogPost,
+        author: blogPost.User,
+        categories: blogPost.BlogPostCategory,
+        tags: blogPost.BlogPostTag,
+        User: undefined,
+        BlogPostCategory: undefined,
+        BlogPostTag: undefined,
+      };
+
       logger.info('Successfully generated daily blog post', {
-        postId: blogPost.id,
-        title: blogPost.title,
-        status: blogPost.status,
-        slug: blogPost.slug
+        postId: normalizedBlogPost.id,
+        title: normalizedBlogPost.title,
+        status: normalizedBlogPost.status,
+        slug: normalizedBlogPost.slug
       });
 
-      return blogPost;
+      return normalizedBlogPost;
     } catch (error) {
       logger.error('Failed to generate daily blog post', {
         error: error.message,
