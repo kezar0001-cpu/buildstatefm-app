@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import fs from 'fs';
-import multer from 'multer';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import prisma from '../config/prismaClient.js';
 import { requireAuth, requireRole, requireActiveSubscription, isSubscriptionActive } from '../middleware/auth.js';
 import { asyncHandler, sendError, ErrorCodes } from '../utils/errorHandler.js';
+import { createUploadMiddleware, getUploadedFileUrl, deleteImage } from '../services/uploadService.js';
 
 const router = Router({ mergeParams: true });
 
@@ -26,43 +24,27 @@ const UNIT_STATUSES = [
 const unitImagesRouter = Router({ mergeParams: true });
 router.use('/:id/images', unitImagesRouter);
 
-// Multer configuration for image uploads
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '-');
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}-${sanitizedName}`);
-  },
+const unitImageUpload = createUploadMiddleware({
+  folder: 'units',
+  maxFileSize: 10 * 1024 * 1024,
+  maxFiles: 1,
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
 });
 
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed'));
-  }
+const unitImageUploadMiddleware = unitImageUpload.single('image');
+
+const isMultipartRequest = (req) => {
+  const header = req?.headers?.['content-type'];
+  if (!header) return false;
+  const [type] = header.split(';', 1);
+  return type?.trim().toLowerCase() === 'multipart/form-data';
 };
 
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
-
 const maybeHandleImageUpload = (req, res, next) => {
-  const contentType = req.headers['content-type'] || '';
-  if (contentType.includes('multipart/form-data')) {
-    return upload.single('image')(req, res, next);
+  if (isMultipartRequest(req)) {
+    return unitImageUploadMiddleware(req, res, next);
   }
-  next();
+  return next();
 };
 
 // Unit image validation schemas
@@ -1513,12 +1495,15 @@ unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUplo
   const unitId = req.params.id;
 
   const cleanupUploadedFile = async () => {
-    if (req.file?.path) {
-      try {
-        await fs.promises.unlink(req.file.path);
-      } catch (cleanupError) {
-        console.error('Failed to remove uploaded file after error:', cleanupError);
+    if (!req.file) return;
+
+    try {
+      const uploadedUrl = getUploadedFileUrl(req.file);
+      if (uploadedUrl) {
+        await deleteImage(uploadedUrl);
       }
+    } catch (cleanupError) {
+      console.error('Failed to remove uploaded file after error:', cleanupError);
     }
   };
 
@@ -1534,8 +1519,11 @@ unitImagesRouter.post('/', requireRole('PROPERTY_MANAGER'), maybeHandleImageUplo
     }
 
     const body = { ...(req.body ?? {}) };
-    if (req.file?.filename) {
-      body.imageUrl = `/uploads/${req.file.filename}`;
+    if (req.file) {
+      const derivedUrl = getUploadedFileUrl(req.file);
+      if (derivedUrl) {
+        body.imageUrl = derivedUrl;
+      }
     }
 
     const parsed = unitImageCreateSchema.parse(body);
@@ -1680,6 +1668,10 @@ unitImagesRouter.delete('/:imageId', requireRole('PROPERTY_MANAGER'), requireAct
       const existing = await tx.unitImage.findUnique({ where: { id: imageId } });
       if (!existing || existing.unitId !== unitId) {
         return null;
+      }
+
+      if (existing.imageUrl) {
+        await deleteImage(existing.imageUrl);
       }
 
       await tx.unitImage.delete({ where: { id: imageId } });

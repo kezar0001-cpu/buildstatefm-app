@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -34,7 +34,7 @@ import toast from 'react-hot-toast';
 import useApiMutation from '../hooks/useApiMutation.js';
 import { queryKeys } from '../utils/queryKeys.js';
 import ensureArray from '../utils/ensureArray';
-import ServiceRequestPhotoUpload from './ServiceRequestPhotoUpload';
+import { ServiceRequestImageManager } from '../features/images';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low - Can wait a few days' },
@@ -111,8 +111,8 @@ export default function ServiceRequestWizard({
   const [formState, setFormState] = useState(initialState);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [photos, setPhotos] = useState([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Fetch properties (if not provided)
   const { data: propertiesData, isLoading: loadingProperties } = useQuery({
@@ -157,8 +157,8 @@ export default function ServiceRequestWizard({
       });
       setErrors({});
       setIsSubmitting(false);
-      setPhotos([]);
-      setUploadingPhotos(false);
+      setUploadedImages([]);
+      setIsUploadingImages(false);
     }
   }, [open, initialPropertyId, initialUnitId]);
 
@@ -215,48 +215,17 @@ export default function ServiceRequestWizard({
 
   const handleCancel = () => {
     if (isSubmitting || createServiceRequestMutation.isPending) return;
+    if (isUploadingImages) return;
     if (onClose) onClose();
-  };
-
-  const uploadPhotos = async () => {
-    if (photos.length === 0) return [];
-
-    setUploadingPhotos(true);
-    try {
-      const formData = new FormData();
-      photos.forEach(photo => {
-        formData.append('files', photo.file);
-      });
-
-      const response = await apiClient.post('/api/uploads/multiple', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      // Support both new standardized format and legacy format
-      let uploadedUrls = [];
-      if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
-        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
-        uploadedUrls = response.data.files.map(f => f.url);
-      } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
-        // Legacy format: { success: true, urls: ["url1", "url2"] }
-        uploadedUrls = response.data.urls;
-      }
-
-      return uploadedUrls;
-    } catch (error) {
-      console.error('Error uploading photos:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';
-      toast.error(errorMessage);
-      return [];
-    } finally {
-      setUploadingPhotos(false);
-    }
   };
 
   const handleFinish = async () => {
     if (isSubmitting || createServiceRequestMutation.isPending) {
+      return;
+    }
+
+    if (isUploadingImages) {
+      toast.error('Please wait for images to finish uploading');
       return;
     }
 
@@ -268,16 +237,9 @@ export default function ServiceRequestWizard({
     setIsSubmitting(true);
 
     try {
-      // Upload photos first if there are any
-      let photoUrls = [];
-      if (photos.length > 0) {
-        photoUrls = await uploadPhotos();
-        if (photoUrls.length === 0 && photos.length > 0) {
-          // Upload failed (toast shown in uploadPhotos)
-          setIsSubmitting(false);
-          return;
-        }
-      }
+      const photoUrls = uploadedImages
+        .map((img) => img.imageUrl || img.url)
+        .filter(Boolean);
 
       const payload = {
         title: formState.title.trim(),
@@ -347,7 +309,7 @@ export default function ServiceRequestWizard({
           </Typography>
           <IconButton
             onClick={handleCancel}
-            disabled={isLoading || uploadingPhotos}
+            disabled={isLoading || isUploadingImages}
             size="small"
           >
             <CloseIcon />
@@ -555,10 +517,11 @@ export default function ServiceRequestWizard({
 
         {/* Step 2: Photos */}
         {activeStep === 2 && (
-          <ServiceRequestPhotoUpload
-            photos={photos}
-            onPhotosChange={setPhotos}
-            uploading={uploadingPhotos}
+          <ServiceRequestImageManager
+            images={uploadedImages}
+            onChange={(nextImages) => setUploadedImages(nextImages)}
+            onUploadingChange={setIsUploadingImages}
+            requestKey={formState.propertyId || 'new'}
             disabled={isLoading}
           />
         )}
@@ -575,7 +538,7 @@ export default function ServiceRequestWizard({
       >
         <Button
           onClick={handleCancel}
-          disabled={isLoading || uploadingPhotos}
+          disabled={isLoading || isUploadingImages}
           fullWidth={isMobile}
           sx={{ m: 0 }}
         >
@@ -590,7 +553,7 @@ export default function ServiceRequestWizard({
           {activeStep > 0 && (
             <Button
               onClick={handleBack}
-              disabled={isLoading || uploadingPhotos}
+              disabled={isLoading || isUploadingImages}
               fullWidth={isMobile}
               variant={isMobile ? 'outlined' : 'text'}
             >
@@ -601,7 +564,7 @@ export default function ServiceRequestWizard({
             <Button
               variant="contained"
               onClick={handleNext}
-              disabled={isLoading || uploadingPhotos}
+              disabled={isLoading || isUploadingImages}
               fullWidth={isMobile}
             >
               Next
@@ -610,17 +573,17 @@ export default function ServiceRequestWizard({
             <Button
               variant="contained"
               onClick={handleFinish}
-              disabled={isLoading || uploadingPhotos}
+              disabled={isLoading || isUploadingImages}
               fullWidth={isMobile}
               startIcon={
-                isLoading || uploadingPhotos ? (
+                isLoading || isUploadingImages ? (
                   <CircularProgress size={16} />
                 ) : (
                   <CheckCircleIcon />
                 )
               }
             >
-              {uploadingPhotos ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
+              {isUploadingImages ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
             </Button>
           )}
         </Stack>

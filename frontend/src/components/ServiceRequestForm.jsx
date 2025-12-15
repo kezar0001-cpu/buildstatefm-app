@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -11,11 +11,10 @@ import {
   Alert,
   CircularProgress,
   Typography,
-  Stack,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import PropertyPhotoUpload from './PropertyPhotoUpload';
+import { ServiceRequestImageManager } from '../features/images';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import ensureArray from '../utils/ensureArray';
@@ -23,7 +22,7 @@ import { queryKeys } from '../utils/queryKeys.js';
 
 const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  useMediaQuery(theme.breakpoints.down('md'));
   
   const [formData, setFormData] = useState({
     title: '',
@@ -36,8 +35,8 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   });
 
   const [errors, setErrors] = useState({});
-  const [photoFiles, setPhotoFiles] = useState([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Fetch properties
   const { data: properties = [], isLoading: loadingProperties } = useQuery({
@@ -115,58 +114,6 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePhotosChange = (newPhotos) => {
-    setPhotoFiles(newPhotos);
-  };
-
-  // Cleanup photo preview URLs on unmount
-  useEffect(() => {
-    return () => {
-      photoFiles.forEach(photo => {
-        if (photo.preview) {
-          URL.revokeObjectURL(photo.preview);
-        }
-      });
-    };
-  }, []); // Only cleanup on unmount
-
-  const uploadPhotos = async () => {
-    if (photoFiles.length === 0) return [];
-
-    setUploadingPhotos(true);
-    try {
-      const formData = new FormData();
-      photoFiles.forEach(photo => {
-        formData.append('files', photo.file);
-      });
-
-      const response = await apiClient.post('/api/uploads/multiple', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      // Support both new standardized format and legacy format
-      let uploadedUrls = [];
-      if (response.data?.files && Array.isArray(response.data.files) && response.data.files.length > 0) {
-        // New standardized format: { success: true, files: [{ url, key, size, type, ... }] }
-        uploadedUrls = response.data.files.map(f => f.url);
-      } else if (response.data?.urls && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
-        // Legacy format: { success: true, urls: ["url1", "url2"] }
-        uploadedUrls = response.data.urls;
-      }
-      
-      return uploadedUrls;
-    } catch (error) {
-      console.error('Error uploading photos:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload photos';
-      setErrors(prev => ({ ...prev, photos: errorMessage }));
-      return [];
-    } finally {
-      setUploadingPhotos(false);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -174,15 +121,14 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       return;
     }
 
-    // Upload photos first if there are any
-    let photoUrls = [];
-    if (photoFiles.length > 0) {
-      photoUrls = await uploadPhotos();
-      if (photoUrls.length === 0 && photoFiles.length > 0) {
-        // Upload failed
-        return;
-      }
+    if (isUploadingImages) {
+      setErrors((prev) => ({ ...prev, photos: 'Please wait for images to finish uploading' }));
+      return;
     }
+
+    const photoUrls = uploadedImages
+      .map((img) => img.imageUrl || img.url)
+      .filter(Boolean);
 
     const payload = {
       title: formData.title.trim(),
@@ -342,13 +288,12 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
           </Grid>
 
           <Grid item xs={12}>
-            <PropertyPhotoUpload
-              photos={photoFiles}
-              onPhotosChange={handlePhotosChange}
-              maxFiles={50}
-              maxSizeMB={10}
+            <ServiceRequestImageManager
+              images={uploadedImages}
+              onChange={(nextImages) => setUploadedImages(nextImages)}
+              onUploadingChange={setIsUploadingImages}
+              requestKey={formData.propertyId || 'new'}
               disabled={isLoading}
-              uploading={uploadingPhotos}
             />
             {errors.photos && (
               <Alert severity="error" sx={{ mt: 2 }}>
@@ -360,16 +305,16 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onCancel} disabled={isLoading || uploadingPhotos}>
+        <Button onClick={onCancel} disabled={isLoading || isUploadingImages}>
           Cancel
         </Button>
         <Button
           type="submit"
           variant="contained"
-          disabled={isLoading || uploadingPhotos}
-          startIcon={(isLoading || uploadingPhotos) && <CircularProgress size={16} />}
+          disabled={isLoading || isUploadingImages}
+          startIcon={(isLoading || isUploadingImages) && <CircularProgress size={16} />}
         >
-          {uploadingPhotos ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
+          {isUploadingImages ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
         </Button>
       </DialogActions>
     </Box>

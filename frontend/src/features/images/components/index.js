@@ -7,4 +7,5 @@ export { ResumeUploadsDialog } from './ResumeUploadsDialog';
 export { DuplicateFilesDialog } from './DuplicateFilesDialog';
 export { PropertyImageManager } from './PropertyImageManager';
 export { UnitImageManager } from './UnitImageManager';
+export { ServiceRequestImageManager } from './ServiceRequestImageManager';
 export { LazyImage } from './LazyImage';

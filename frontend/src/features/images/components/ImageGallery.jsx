@@ -43,7 +43,7 @@ export function ImageGallery({
   allowCaptions = false,
   allowReordering = true,
   enableBulkOperations = true,
-  entityType = 'property', // 'property' or 'unit'
+  entityType = 'property', // 'property' | 'unit' | 'serviceRequest'
 }) {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -486,6 +486,12 @@ export function ImageGallery({
   if (!hasImages) {
     const currentTip = onboardingTips[emptyStateStep];
 
+    const entityLabel = entityType === 'unit'
+      ? 'Unit'
+      : entityType === 'serviceRequest'
+      ? 'Service Request'
+      : 'Property';
+
     return (
       <Paper
         elevation={emptyStateDragging ? 4 : 1}
@@ -575,11 +581,13 @@ export function ImageGallery({
 
         {/* Main Heading */}
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-          {emptyStateDragging ? 'Drop your images here!' : `Add Your ${entityType === 'unit' ? 'Unit' : 'Property'} Photos`}
+          {emptyStateDragging ? 'Drop your images here!' : `Add Your ${entityLabel} Photos`}
         </Typography>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Showcase your {entityType === 'unit' ? 'unit' : 'property'} with stunning images
+          {entityType === 'serviceRequest'
+            ? 'Add photos to help describe the issue'
+            : `Showcase your ${entityType === 'unit' ? 'unit' : 'property'} with stunning images`}
         </Typography>
 
         {/* Large Choose Files Button */}
@@ -753,25 +761,26 @@ export function ImageGallery({
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {/* Category Filter */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel id="category-filter-label">Category</InputLabel>
-            <Select
-              labelId="category-filter-label"
-              id="category-filter"
-              value={categoryFilter}
-              label="Category"
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <MenuItem value="ALL">All Categories</MenuItem>
-              <MenuItem value="EXTERIOR">Exterior</MenuItem>
-              <MenuItem value="INTERIOR">Interior</MenuItem>
-              <MenuItem value="KITCHEN">Kitchen</MenuItem>
-              <MenuItem value="BATHROOM">Bathroom</MenuItem>
-              <MenuItem value="BEDROOM">Bedroom</MenuItem>
-              <MenuItem value="OTHER">Other</MenuItem>
-            </Select>
-          </FormControl>
+          {entityType !== 'serviceRequest' && (
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="category-filter-label">Category</InputLabel>
+              <Select
+                labelId="category-filter-label"
+                id="category-filter"
+                value={categoryFilter}
+                label="Category"
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <MenuItem value="ALL">All Categories</MenuItem>
+                <MenuItem value="EXTERIOR">Exterior</MenuItem>
+                <MenuItem value="INTERIOR">Interior</MenuItem>
+                <MenuItem value="KITCHEN">Kitchen</MenuItem>
+                <MenuItem value="BATHROOM">Bathroom</MenuItem>
+                <MenuItem value="BEDROOM">Bedroom</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
+              </Select>
+            </FormControl>
+          )}
 
           {/* Edit All Captions Button */}
           {allowCaptions && (
