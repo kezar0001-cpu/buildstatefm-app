@@ -18,6 +18,7 @@
   - Uses `/api/dashboard/summary` to detect step completion.
   - Step completion is *sticky* per-user: once a step is observed as complete, its step id is persisted in `localStorage` under `onboarding:completed:<userId|email>` so it never reverts to unchecked.
   - Checklist hides once all steps are complete.
+  - Inspection step uses `summary.inspections.completedAllTime` so completed inspections still count even after archiving.
 
 - **Standardized FilterBar (app-wide):** `frontend/src/components/FilterBar/FilterBar.tsx`
   - Desktop: single-line, no wrapping; secondary filters live in a "More filters" Popover.

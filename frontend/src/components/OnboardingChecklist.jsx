@@ -72,7 +72,7 @@ const ONBOARDING_STEPS = {
       icon: AssignmentIcon,
       action: '/inspections',
       actionLabel: 'Schedule Inspection',
-      checkFn: (data) => (data?.inspections?.total || 0) > 0,
+      checkFn: (data) => ((data?.inspections?.completedAllTime ?? data?.inspections?.total) || 0) > 0,
     },
     {
       id: 'create_job',

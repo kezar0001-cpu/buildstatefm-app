@@ -162,6 +162,8 @@ export const getDashboardSummary = async (req, res) => {
     if (role !== 'TENANT' || tenantHasAccessibleProperties) {
       const inspectionWhere = { ...inspectionFilter, archivedAt: null };
 
+      const inspectionAllTimeWhere = { ...inspectionFilter };
+
       const byStatus = await prisma.inspection.groupBy({
         by: ['status'],
         where: inspectionWhere,
@@ -173,6 +175,17 @@ export const getDashboardSummary = async (req, res) => {
         if (r.status === 'IN_PROGRESS') summary.inspections.inProgress = r._count._all;
         if (r.status === 'COMPLETED')   summary.inspections.completed = r._count._all;
       }
+
+      // All-time counts (include archived inspections) used for onboarding progress.
+      summary.inspections.totalAllTime = await prisma.inspection.count({
+        where: inspectionAllTimeWhere,
+      });
+      summary.inspections.completedAllTime = await prisma.inspection.count({
+        where: {
+          ...inspectionAllTimeWhere,
+          status: 'COMPLETED',
+        },
+      });
 
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
