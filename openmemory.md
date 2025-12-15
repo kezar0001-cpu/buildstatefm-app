@@ -14,6 +14,16 @@
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
   - Swipe uses pointer capture (no framer drag) for smoothness; snap-on-release removed.
 
+- **Admin Analytics (platform metrics):** `frontend/src/pages/admin/AdminAnalyticsPage.jsx`
+  - Route: `/admin/analytics` (wrapped by `AdminLayout` in `frontend/src/App.jsx`).
+  - V1 Tabs: Overview, Users, Subscriptions, System.
+  - Data sources (backend):
+    - `GET /api/admin/dashboard` (KPI overview + subscription breakdown)
+    - `GET /api/admin/analytics/users?period=7d|30d|90d` (user growth + top PMs)
+    - `GET /api/admin/analytics/subscriptions` (plan distribution + conversion/churn counts)
+    - `GET /api/admin/health` (system health snapshot)
+  - Uses `recharts` for simple v1 charts (user growth line chart, plan distribution pie chart).
+
 - **Getting Started checklist (Dashboard):** `frontend/src/components/OnboardingChecklist.jsx`
   - Uses `/api/dashboard/summary` to detect step completion.
   - Step completion is *sticky* per-user: once a step is observed as complete, its step id is persisted in `localStorage` under `onboarding:completed:<userId|email>` so it never reverts to unchecked.
