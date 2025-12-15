@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import axios from 'axios';
 import logger from '../utils/logger.js';
 
 class BlogAIService {
@@ -6,6 +7,8 @@ class BlogAIService {
     this.client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
+
+    this.tavilyApiKey = process.env.TAVILY_API_KEY;
 
     // List of deprecated/unavailable Claude 3.x models that return 404 errors
     // These models are deprecated as of 2025 and being retired
@@ -430,6 +433,229 @@ Respond ONLY with a valid JSON object (no markdown, no code blocks):
 
     } catch (error) {
       logger.error('Error generating blog content', {
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
+  }
+
+  async generateResearch(topic, options = {}) {
+    const {
+      maxResults = 12,
+      searchDepth = 'advanced',
+    } = options;
+
+    if (!this.tavilyApiKey) {
+      logger.warn('TAVILY_API_KEY is not set; blog research will be skipped');
+      return {
+        provider: 'tavily',
+        query: null,
+        maxResults,
+        searchDepth,
+        sources: [],
+        fetchedAt: new Date().toISOString(),
+        skipped: true,
+      };
+    }
+
+    const keywordQuery = Array.isArray(topic.keywords) && topic.keywords.length > 0
+      ? topic.keywords.slice(0, 5).join(', ')
+      : '';
+
+    const query = [topic.title, keywordQuery].filter(Boolean).join(' — ');
+
+    try {
+      const response = await axios.post(
+        'https://api.tavily.com/search',
+        {
+          api_key: this.tavilyApiKey,
+          query,
+          search_depth: searchDepth,
+          max_results: maxResults,
+          include_answer: false,
+          include_raw_content: false,
+        },
+        {
+          timeout: 30000,
+        }
+      );
+
+      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+
+      const sources = results
+        .map((r) => ({
+          title: r?.title || '',
+          url: r?.url || '',
+          snippet: r?.content || r?.snippet || '',
+        }))
+        .filter((s) => s.url);
+
+      logger.info('Fetched Tavily research results', {
+        title: topic.title,
+        query,
+        sourcesCount: sources.length,
+      });
+
+      return {
+        provider: 'tavily',
+        query,
+        maxResults,
+        searchDepth,
+        sources,
+        fetchedAt: new Date().toISOString(),
+        skipped: false,
+      };
+    } catch (error) {
+      logger.error('Tavily research failed', {
+        error: error.message,
+        title: topic.title,
+      });
+
+      return {
+        provider: 'tavily',
+        query,
+        maxResults,
+        searchDepth,
+        sources: [],
+        fetchedAt: new Date().toISOString(),
+        skipped: true,
+        error: error.message,
+      };
+    }
+  }
+
+  async generateReportContent(topic, research, targetWordCount = 1800) {
+    try {
+      logger.info('Stage 1: Generating report-style article content in markdown...');
+
+      const sources = Array.isArray(research?.sources) ? research.sources.slice(0, 15) : [];
+
+      const sourcesText = sources.length > 0
+        ? sources
+            .map((s, idx) => {
+              const title = (s.title || '').replace(/\s+/g, ' ').trim();
+              const snippet = (s.snippet || '').replace(/\s+/g, ' ').trim();
+              return `[${idx + 1}] ${title}\nURL: ${s.url}\nNotes: ${snippet}`;
+            })
+            .join('\n\n')
+        : 'No sources available.';
+
+      const contentPrompt = `You are a senior industry analyst and technical writer. Write a thoroughly researched, report-style article about "${topic.title}".
+
+Target audience: ${topic.targetAudience}
+Keywords to naturally include: ${topic.keywords.join(', ')}
+Target word count: ${targetWordCount} words
+
+Use ONLY the source list below for factual claims. If the sources do not support a claim, do NOT state it as fact.
+
+When referencing information from a source, cite it inline using bracketed numbers like [1], [2]. Do not fabricate citations.
+
+IMPORTANT: Write the entire article in clean Markdown format. DO NOT wrap it in JSON or code blocks.
+
+Required structure:
+- # Title
+- ## Executive Summary (5-8 bullets)
+- ## Context (why this matters now)
+- ## Key Findings (3-7 findings, each with citations)
+- ## Deep Dive Analysis (multiple sections with ## headers)
+- ## Practical Recommendations (grouped by role: Property Managers, Owners, Maintenance Teams)
+- ## Implementation Checklist (numbered steps)
+- ## Risks, Tradeoffs, and Compliance Notes
+- ## Conclusion
+
+Source list:
+${sourcesText}
+
+START WRITING THE ARTICLE NOW:`;
+
+      const contentMessage = await this._callWithRetry(
+        async (model) => {
+          return await this.client.messages.create({
+            model: model,
+            max_tokens: 4096,
+            messages: [{
+              role: 'user',
+              content: contentPrompt
+            }]
+          });
+        },
+        'generateReportContent-markdown'
+      );
+
+      let markdownContent = contentMessage.content[0].text.trim();
+      markdownContent = markdownContent.replace(/^```markdown?\n/i, '').replace(/\n```$/i, '');
+
+      if (sources.length > 0) {
+        const sourcesSection = sources
+          .map((s, idx) => {
+            const title = (s.title || s.url).replace(/\s+/g, ' ').trim();
+            return `${idx + 1}. ${title} — ${s.url}`;
+          })
+          .join('\n');
+
+        if (!/\n##\s+Sources\s*\n/i.test(markdownContent)) {
+          markdownContent = `${markdownContent}\n\n## Sources\n${sourcesSection}\n`;
+        }
+      }
+
+      logger.info('Generated report markdown content', {
+        title: topic.title,
+        contentLength: markdownContent.length,
+        wordCount: markdownContent.split(/\s+/).length,
+        sourcesCount: sources.length,
+        preview: markdownContent.substring(0, 300) + '...'
+      });
+
+      logger.info('Stage 2: Converting markdown to HTML...');
+      const htmlContent = this._markdownToHtml(markdownContent);
+
+      logger.info('Stage 3: Generating metadata...');
+      const metadataPrompt = `For this blog post titled "${topic.title}", generate SEO metadata and additional information.
+
+Respond ONLY with a valid JSON object (no markdown, no code blocks):
+{
+  "metaTitle": "SEO title 60 chars max",
+  "metaDescription": "Meta description 155 chars max",
+  "suggestedTags": ["tag1", "tag2", "tag3", "tag4"],
+  "readingTime": "5",
+  "keyTakeaways": ["takeaway1", "takeaway2", "takeaway3"]
+}`;
+
+      const metadataMessage = await this._callWithRetry(
+        async (model) => {
+          return await this.client.messages.create({
+            model: model,
+            max_tokens: 512,
+            messages: [{
+              role: 'user',
+              content: metadataPrompt
+            }]
+          });
+        },
+        'generateReportContent-metadata'
+      );
+
+      const metadataText = metadataMessage.content[0].text.trim();
+      const metadata = this._parseAIJsonResponse(metadataText, 'generateReportContent-metadata');
+
+      return {
+        content: markdownContent,
+        htmlContent: htmlContent,
+        metaTitle: metadata.metaTitle || topic.title,
+        metaDescription: metadata.metaDescription || topic.excerpt,
+        suggestedTags: metadata.suggestedTags || [],
+        readingTime: metadata.readingTime || '5',
+        keyTakeaways: metadata.keyTakeaways || [],
+        researchSummary: {
+          provider: research?.provider || 'tavily',
+          query: research?.query || null,
+          sourcesCount: sources.length,
+          skipped: !!research?.skipped,
+        },
+      };
+    } catch (error) {
+      logger.error('Error generating report-style blog content', {
         error: error.message,
         stack: error.stack
       });

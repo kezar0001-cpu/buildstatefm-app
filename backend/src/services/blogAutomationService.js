@@ -116,9 +116,12 @@ class BlogAutomationService {
         industry: this.industry
       });
 
-      // Step 4: Generate full content
-      logger.info('Generating blog content...', { topic: topic.title });
-      const content = await blogAIService.generateContent(topic, this.targetWordCount);
+      // Step 4: Research + generate report-style content
+      logger.info('Researching blog topic...', { topic: topic.title });
+      const research = await blogAIService.generateResearch(topic);
+
+      logger.info('Generating blog content (report style)...', { topic: topic.title });
+      const content = await blogAIService.generateReportContent(topic, research, this.targetWordCount);
 
       // Debug logging for content
       logger.info('Generated content details:', {
@@ -167,6 +170,7 @@ class BlogAutomationService {
           automationMetadata: {
             generatedAt: new Date().toISOString(),
             topic,
+            research,
             contentAnalysis: {
               readingTime: content.readingTime,
               keyTakeaways: content.keyTakeaways
