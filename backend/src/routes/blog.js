@@ -127,9 +127,9 @@ router.get('/posts', async (req, res) => {
     }
 
     if (category) {
-      where.categories = {
+      where.BlogPostCategory = {
         some: {
-          category: {
+          BlogCategory: {
             slug: category
           }
         }
@@ -137,9 +137,9 @@ router.get('/posts', async (req, res) => {
     }
 
     if (tag) {
-      where.tags = {
+      where.BlogPostTag = {
         some: {
-          tag: {
+          BlogTag: {
             slug: tag
           }
         }
@@ -153,24 +153,24 @@ router.get('/posts', async (req, res) => {
         take,
         orderBy: { publishedAt: 'desc' },
         include: {
-          author: {
+          User: {
             select: {
               id: true,
               firstName: true,
               lastName: true,
             }
           },
-          categories: {
+          BlogPostCategory: {
             include: {
-              category: true
+              BlogCategory: true
             }
           },
-          tags: {
+          BlogPostTag: {
             include: {
-              tag: true
+              BlogTag: true
             }
           },
-          media: {
+          BlogMedia: {
             orderBy: { order: 'asc' }
           }
         }
@@ -178,8 +178,22 @@ router.get('/posts', async (req, res) => {
       prisma.blogPost.count({ where })
     ]);
 
+    const normalizedPosts = posts.map((post) => {
+      return {
+        ...post,
+        author: post.User,
+        categories: post.BlogPostCategory,
+        tags: post.BlogPostTag,
+        media: post.BlogMedia,
+        User: undefined,
+        BlogPostCategory: undefined,
+        BlogPostTag: undefined,
+        BlogMedia: undefined,
+      };
+    });
+
     res.json({
-      posts,
+      posts: normalizedPosts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -204,24 +218,24 @@ router.get('/posts/:slug', async (req, res) => {
     const post = await prisma.blogPost.findUnique({
       where: { slug },
       include: {
-        author: {
+        User: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           }
         },
-        categories: {
+        BlogPostCategory: {
           include: {
-            category: true
+            BlogCategory: true
           }
         },
-        tags: {
+        BlogPostTag: {
           include: {
-            tag: true
+            BlogTag: true
           }
         },
-        media: {
+        BlogMedia: {
           orderBy: { order: 'asc' }
         }
       }
@@ -242,7 +256,17 @@ router.get('/posts/:slug', async (req, res) => {
       data: { viewCount: { increment: 1 } }
     });
 
-    res.json(post);
+    res.json({
+      ...post,
+      author: post.User,
+      categories: post.BlogPostCategory,
+      tags: post.BlogPostTag,
+      media: post.BlogMedia,
+      User: undefined,
+      BlogPostCategory: undefined,
+      BlogPostTag: undefined,
+      BlogMedia: undefined,
+    });
   } catch (error) {
     console.error('Error fetching blog post:', error);
     return sendError(res, 500, 'Failed to fetch blog post', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -255,24 +279,29 @@ router.get('/posts/:slug', async (req, res) => {
  */
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await prisma.blogCategory.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: {
-            posts: {
-              where: {
-                post: {
-                  status: 'PUBLISHED'
-                }
-              }
-            }
-          }
-        }
-      }
-    });
+    const [categories, categoryCounts] = await Promise.all([
+      prisma.blogCategory.findMany({
+        orderBy: { name: 'asc' },
+      }),
+      prisma.blogPostCategory.groupBy({
+        by: ['categoryId'],
+        where: {
+          BlogPost: {
+            status: 'PUBLISHED',
+            publishedAt: { lte: new Date() },
+          },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-    res.json(categories);
+    const countByCategoryId = new Map(categoryCounts.map((r) => [r.categoryId, r._count._all]));
+    res.json(
+      categories.map((c) => ({
+        ...c,
+        publishedPostsCount: countByCategoryId.get(c.id) || 0,
+      }))
+    );
   } catch (error) {
     console.error('Error fetching categories:', error);
     return sendError(res, 500, 'Failed to fetch categories', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -285,24 +314,29 @@ router.get('/categories', async (req, res) => {
  */
 router.get('/tags', async (req, res) => {
   try {
-    const tags = await prisma.blogTag.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: {
-            posts: {
-              where: {
-                post: {
-                  status: 'PUBLISHED'
-                }
-              }
-            }
-          }
-        }
-      }
-    });
+    const [tags, tagCounts] = await Promise.all([
+      prisma.blogTag.findMany({
+        orderBy: { name: 'asc' },
+      }),
+      prisma.blogPostTag.groupBy({
+        by: ['tagId'],
+        where: {
+          BlogPost: {
+            status: 'PUBLISHED',
+            publishedAt: { lte: new Date() },
+          },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-    res.json(tags);
+    const countByTagId = new Map(tagCounts.map((r) => [r.tagId, r._count._all]));
+    res.json(
+      tags.map((t) => ({
+        ...t,
+        publishedPostsCount: countByTagId.get(t.id) || 0,
+      }))
+    );
   } catch (error) {
     console.error('Error fetching tags:', error);
     return sendError(res, 500, 'Failed to fetch tags', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -347,26 +381,26 @@ router.get('/admin/posts', requireAdmin, logAdminAction('view_all_posts'), async
         take,
         orderBy: { createdAt: 'desc' },
         include: {
-          author: {
+          User: {
             select: {
               id: true,
               firstName: true,
               lastName: true
             }
           },
-          categories: {
+          BlogPostCategory: {
             include: {
-              category: true
+              BlogCategory: true
             }
           },
-          tags: {
+          BlogPostTag: {
             include: {
-              tag: true
+              BlogTag: true
             }
           },
           _count: {
             select: {
-              media: true
+              BlogMedia: true
             }
           }
         }
@@ -374,8 +408,24 @@ router.get('/admin/posts', requireAdmin, logAdminAction('view_all_posts'), async
       prisma.blogPost.count({ where })
     ]);
 
+    const normalizedPosts = posts.map((post) => {
+      return {
+        ...post,
+        author: post.User,
+        categories: post.BlogPostCategory,
+        tags: post.BlogPostTag,
+        _count: {
+          ...(post._count || {}),
+          media: post._count?.BlogMedia ?? 0,
+        },
+        User: undefined,
+        BlogPostCategory: undefined,
+        BlogPostTag: undefined,
+      };
+    });
+
     res.json({
-      posts,
+      posts: normalizedPosts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -400,7 +450,7 @@ router.get('/admin/posts/:id', requireAuth, requireRole('ADMIN'), async (req, re
     const post = await prisma.blogPost.findUnique({
       where: { id },
       include: {
-        author: {
+        User: {
           select: {
             id: true,
             firstName: true,
@@ -408,17 +458,17 @@ router.get('/admin/posts/:id', requireAuth, requireRole('ADMIN'), async (req, re
             email: true
           }
         },
-        categories: {
+        BlogPostCategory: {
           include: {
-            category: true
+            BlogCategory: true
           }
         },
-        tags: {
+        BlogPostTag: {
           include: {
-            tag: true
+            BlogTag: true
           }
         },
-        media: {
+        BlogMedia: {
           orderBy: { order: 'asc' }
         }
       }
@@ -428,7 +478,17 @@ router.get('/admin/posts/:id', requireAuth, requireRole('ADMIN'), async (req, re
       return sendError(res, 404, 'Blog post not found', ErrorCodes.RES_NOT_FOUND);
     }
 
-    res.json(post);
+    res.json({
+      ...post,
+      author: post.User,
+      categories: post.BlogPostCategory,
+      tags: post.BlogPostTag,
+      media: post.BlogMedia,
+      User: undefined,
+      BlogPostCategory: undefined,
+      BlogPostTag: undefined,
+      BlogMedia: undefined,
+    });
   } catch (error) {
     console.error('Error fetching blog post:', error);
     return sendError(res, 500, 'Failed to fetch blog post', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -484,17 +544,17 @@ router.post('/admin/posts', requireAuth, requireRole('ADMIN'), validate(blogPost
     const post = await prisma.blogPost.create({
       data: {
         ...postData,
-        categories: {
+        BlogPostCategory: {
           create: categoryIds.map(categoryId => ({
-            category: { connect: { id: categoryId } }
+            BlogCategory: { connect: { id: categoryId } }
           }))
         },
-        tags: {
+        BlogPostTag: {
           create: tagIds.map(tagId => ({
-            tag: { connect: { id: tagId } }
+            BlogTag: { connect: { id: tagId } }
           }))
         },
-        media: {
+        BlogMedia: {
           create: media.map((item, index) => ({
             url: item.url,
             type: item.type || 'IMAGE',
@@ -507,28 +567,38 @@ router.post('/admin/posts', requireAuth, requireRole('ADMIN'), validate(blogPost
         }
       },
       include: {
-        author: {
+        User: {
           select: {
             id: true,
             firstName: true,
             lastName: true
           }
         },
-        categories: {
+        BlogPostCategory: {
           include: {
-            category: true
+            BlogCategory: true
           }
         },
-        tags: {
+        BlogPostTag: {
           include: {
-            tag: true
+            BlogTag: true
           }
         },
-        media: true
+        BlogMedia: true
       }
     });
 
-    res.status(201).json(post);
+    res.status(201).json({
+      ...post,
+      author: post.User,
+      categories: post.BlogPostCategory,
+      tags: post.BlogPostTag,
+      media: post.BlogMedia,
+      User: undefined,
+      BlogPostCategory: undefined,
+      BlogPostTag: undefined,
+      BlogMedia: undefined,
+    });
   } catch (error) {
     console.error('Error creating blog post:', error);
     return sendError(res, 500, 'Failed to create blog post', ErrorCodes.ERR_INTERNAL_SERVER);
@@ -599,27 +669,27 @@ router.put('/admin/posts/:id', requireAuth, requireRole('ADMIN'), validate(blogP
 
     // Handle categories update
     if (categoryIds !== undefined) {
-      updateData.categories = {
+      updateData.BlogPostCategory = {
         deleteMany: {},
         create: categoryIds.map(categoryId => ({
-          category: { connect: { id: categoryId } }
+          BlogCategory: { connect: { id: categoryId } }
         }))
       };
     }
 
     // Handle tags update
     if (tagIds !== undefined) {
-      updateData.tags = {
+      updateData.BlogPostTag = {
         deleteMany: {},
         create: tagIds.map(tagId => ({
-          tag: { connect: { id: tagId } }
+          BlogTag: { connect: { id: tagId } }
         }))
       };
     }
 
     // Handle media update
     if (media !== undefined) {
-      updateData.media = {
+      updateData.BlogMedia = {
         deleteMany: {},
         create: media.map((item, index) => ({
           url: item.url,
@@ -637,30 +707,40 @@ router.put('/admin/posts/:id', requireAuth, requireRole('ADMIN'), validate(blogP
       where: { id },
       data: updateData,
       include: {
-        author: {
+        User: {
           select: {
             id: true,
             firstName: true,
             lastName: true
           }
         },
-        categories: {
+        BlogPostCategory: {
           include: {
-            category: true
+            BlogCategory: true
           }
         },
-        tags: {
+        BlogPostTag: {
           include: {
-            tag: true
+            BlogTag: true
           }
         },
-        media: {
+        BlogMedia: {
           orderBy: { order: 'asc' }
         }
       }
     });
 
-    res.json(post);
+    res.json({
+      ...post,
+      author: post.User,
+      categories: post.BlogPostCategory,
+      tags: post.BlogPostTag,
+      media: post.BlogMedia,
+      User: undefined,
+      BlogPostCategory: undefined,
+      BlogPostTag: undefined,
+      BlogMedia: undefined,
+    });
   } catch (error) {
     console.error('Error updating blog post:', error);
     return sendError(res, 500, 'Failed to update blog post', ErrorCodes.ERR_INTERNAL_SERVER);

@@ -61,7 +61,7 @@ export async function generateRecurringInspections() {
         ]
       },
       include: {
-        template: {
+        InspectionTemplate: {
           include: {
             rooms: {
               include: {
@@ -109,8 +109,8 @@ export async function generateRecurringInspections() {
           });
 
           // If there's a template, copy rooms and checklist items
-          if (recurring.template && recurring.template.rooms) {
-            for (const templateRoom of recurring.template.rooms) {
+          if (recurring.InspectionTemplate && recurring.InspectionTemplate.rooms) {
+            for (const templateRoom of recurring.InspectionTemplate.rooms) {
               const room = await prisma.inspectionRoom.create({
                 data: {
                   id: randomUUID(),
