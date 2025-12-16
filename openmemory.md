@@ -16,13 +16,14 @@
 
 - **Admin Analytics (platform metrics):** `frontend/src/pages/admin/AdminAnalyticsPage.jsx`
   - Route: `/admin/analytics` (wrapped by `AdminLayout` in `frontend/src/App.jsx`).
-  - Tabs: Overview, Product, Operations, Users, Subscriptions, Revenue, System.
+  - Tabs: Overview, Product, Operations, Users, Subscriptions, Revenue, System, Traffic.
   - Data sources (backend):
     - `GET /api/admin/analytics/users?period=7d|30d|90d` (user growth)
     - `GET /api/admin/analytics/subscriptions` (plan distribution + conversion/churn counts)
     - `GET /api/admin/analytics/operations?period=7d|30d|90d` (volume + backlog + cycle times)
     - `GET /api/admin/analytics/product?period=7d|30d|90d` (activation funnel + weekly active PMs)
     - `GET /api/admin/analytics/revenue?period=7d|30d|90d` (MRR/ARR + churn + MRR movement)
+    - `GET /api/admin/analytics/traffic?period=7d|30d|90d` (unique visitors + total visits + top pages/referrers)
     - `GET /api/admin/health` (system health snapshot)
     - `GET /api/admin/observability?windowMs=...` (API telemetry + Stripe webhooks backlog + subscription consistency data quality)
   - Uses `recharts` for simple charts (user growth, plan distribution, operations volume, product weekly active, revenue MRR movement). System tab also shows observability + data quality signals.
@@ -165,6 +166,12 @@
 - **Canonical auth middleware (backend):**
   - Prefer `requireAuth` from `backend/src/middleware/auth.js` for protected routes to ensure DB user lookup + `isActive` enforcement.
   - Billing routes in `backend/src/routes/billing.js` standardized on `requireAuth` across `/checkout`, `/confirm`, `/invoices`, `/payment-method`, `/portal`, `/change-plan`, `/cancel`.
+
+## Traffic Analytics
+- **Pageview ingestion (backend):** `backend/src/routes/analytics.js`
+  - `POST /api/analytics/pageview` stores a `PageView` row (rate-limited).
+- **Traffic data model (Prisma):** `backend/prisma/schema.prisma`
+  - `model PageView` stores `{timestamp, path, referrer, userAgent, ipAddress, sessionId}`.
 
 - **Production-safe health endpoints (backend):**
   - `GET /api/v2/uploads/health` in `backend/src/routes/uploadsV2.js` avoids leaking storage configuration in production (returns only `ok` + `timestamp`).

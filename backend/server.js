@@ -210,7 +210,7 @@ import jobTemplatesRoutes from './src/routes/jobTemplates.js';
 import notificationPreferencesRoutes from './src/routes/notificationPreferences.js';
 import adminRoutes from './src/routes/admin.js';
 import blogRoutes from './src/routes/blog.js';
-const analyticsRoutes = require('./routes/analytics');
+import analyticsRoutes from './src/routes/analytics.js';
 
 // ----------------------
 // Stripe Webhook (Raw Body required)

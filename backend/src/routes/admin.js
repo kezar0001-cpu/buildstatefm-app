@@ -1472,6 +1472,55 @@ router.get('/invites', requireAdmin, logAdminAction('view_invites'), async (req,
   }
 });
 
+router.get('/analytics/traffic', requireAdmin, logAdminAction('view_traffic_analytics'), async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [totalVisits, uniqueVisitors, topPages, topReferrers] = await Promise.all([
+      prisma.pageView.count({ where: { timestamp: { gte: startDate } } }),
+      prisma.pageView.count({
+        distinct: ['sessionId'],
+        where: { timestamp: { gte: startDate } },
+      }),
+      prisma.pageView.groupBy({
+        by: ['path'],
+        _count: { path: true },
+        where: { timestamp: { gte: startDate } },
+        orderBy: { _count: { path: 'desc' } },
+        take: 10,
+      }),
+      prisma.pageView.groupBy({
+        by: ['referrer'],
+        _count: { referrer: true },
+        where: {
+          timestamp: { gte: startDate },
+          referrer: { not: null },
+        },
+        orderBy: { _count: { referrer: 'desc' } },
+        take: 10,
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalVisits,
+        uniqueVisitors,
+        topPages,
+        topReferrers,
+        period,
+        startDate: startDate.toISOString(),
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Traffic analytics error:', error);
+    return sendError(res, 500, 'Failed to load traffic analytics', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 router.get('/analytics/operations', requireAdmin, logAdminAction('view_operations_analytics'), async (req, res) => {
   try {
     const { period = '30d' } = req.query;

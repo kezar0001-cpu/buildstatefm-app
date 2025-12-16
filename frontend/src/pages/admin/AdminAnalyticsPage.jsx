@@ -1425,7 +1425,7 @@ export default function AdminAnalyticsPage() {
         </Grid>
       </TabPanel>
 
-      <TabPanel value={tab} tabValue="traffic">
+      <TabPanel value="traffic">
         {trafficAnalytics ? (
           <div className={styles.trafficContainer}>
             <div className={styles.trafficStats}>
@@ -1468,7 +1468,9 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
         ) : (
-          <LoadingIndicator />
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
         )}
       </TabPanel>
     </Box>
