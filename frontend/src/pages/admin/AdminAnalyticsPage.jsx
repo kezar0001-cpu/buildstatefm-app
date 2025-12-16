@@ -30,6 +30,7 @@ import {
   Work,
   Assignment,
   Build,
+  Insights,
 } from '@mui/icons-material';
 import {
   CartesianGrid,
@@ -127,6 +128,7 @@ export default function AdminAnalyticsPage() {
   const [userAnalytics, setUserAnalytics] = useState(null);
   const [subscriptionAnalytics, setSubscriptionAnalytics] = useState(null);
   const [operationsAnalytics, setOperationsAnalytics] = useState(null);
+  const [productAnalytics, setProductAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
 
   const userGrowth = userAnalytics?.userGrowth || [];
@@ -196,21 +198,31 @@ export default function AdminAnalyticsPage() {
   const operationsBacklog = operationsAnalytics?.backlog || {};
   const operationsCycleTimes = operationsAnalytics?.cycleTimes || {};
 
+  const productFunnel = productAnalytics?.funnel || {};
+  const productFunnelSteps = Array.isArray(productFunnel?.steps) ? productFunnel.steps : [];
+  const productRetentionSeries = useMemo(() => {
+    const series = productAnalytics?.retention?.series;
+    if (!Array.isArray(series)) return [];
+    return [...series].sort((a, b) => String(a.week).localeCompare(String(b.week)));
+  }, [productAnalytics]);
+
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const [usersRes, subsRes, opsRes, healthRes] = await Promise.all([
+      const [usersRes, subsRes, opsRes, productRes, healthRes] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
         apiClient.get('/admin/analytics/operations', { params: { period } }),
+        apiClient.get('/admin/analytics/product', { params: { period } }),
         apiClient.get('/admin/health'),
       ]);
 
       setUserAnalytics(usersRes?.data?.data || null);
       setSubscriptionAnalytics(subsRes?.data?.data || null);
       setOperationsAnalytics(opsRes?.data?.data || null);
+      setProductAnalytics(productRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
     } catch (err) {
       logger.error('Failed to fetch admin analytics:', err);
@@ -282,6 +294,7 @@ export default function AdminAnalyticsPage() {
 
       <Tabs value={tab} onChange={(_, next) => setTab(next)} sx={{ mb: 1 }}>
         <Tab value="overview" label="Overview" />
+        <Tab value="product" label="Product" />
         <Tab value="operations" label="Operations" />
         <Tab value="users" label="Users" />
         <Tab value="subscriptions" label="Subscriptions" />
@@ -813,6 +826,165 @@ export default function AdminAnalyticsPage() {
                     />
                   </Stack>
                 </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      <TabPanel value={tab} tabValue="product">
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  What this measures
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Lightweight product analytics derived from core workflow activity.
+                </Typography>
+                <Stack spacing={1.25}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Insights />}
+                    onClick={() => setTab('overview')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Back to Overview
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="New PM signups"
+                  value={(productFunnel.cohortNewPropertyManagers ?? 0).toLocaleString()}
+                  icon={<People />}
+                  color="primary"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Activated (completed workflow)"
+                  value={(productFunnelSteps.find((s) => s.key === 'completed_workflow')?.count ?? 0).toLocaleString()}
+                  icon={<Insights />}
+                  color="success"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Latest weekly active PMs"
+                  value={(productRetentionSeries[productRetentionSeries.length - 1]?.activePropertyManagers ?? 0).toLocaleString()}
+                  icon={<Insights />}
+                  color="info"
+                  loading={loading}
+                />
+              </Grid>
+            </Grid>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Activation funnel
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  New property managers in the selected period
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Step</TableCell>
+                      <TableCell align="right">Count</TableCell>
+                      <TableCell align="right">Conversion</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                          <CircularProgress size={22} />
+                        </TableCell>
+                      </TableRow>
+                    ) : productFunnelSteps.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                          No data
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      productFunnelSteps.map((step, idx) => {
+                        const denom = idx === 0 ? step.count : productFunnelSteps[idx - 1]?.count;
+                        const conversion = denom > 0 ? (step.count / denom) * 100 : null;
+                        return (
+                          <TableRow key={step.key || step.label} hover>
+                            <TableCell>{step.label}</TableCell>
+                            <TableCell align="right">{Number(step.count || 0).toLocaleString()}</TableCell>
+                            <TableCell align="right">{conversion == null ? '—' : `${conversion.toFixed(1)}%`}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Weekly active property managers
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Managers with at least one core workflow action (properties/units/jobs/inspections)
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : productRetentionSeries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No data
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={productRetentionSeries}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="activePropertyManagers"
+                          name="Active PMs"
+                          stroke={PIE_COLORS[0]}
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Grid>

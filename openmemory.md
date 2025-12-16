@@ -16,13 +16,14 @@
 
 - **Admin Analytics (platform metrics):** `frontend/src/pages/admin/AdminAnalyticsPage.jsx`
   - Route: `/admin/analytics` (wrapped by `AdminLayout` in `frontend/src/App.jsx`).
-  - V1 Tabs: Overview, Users, Subscriptions, System.
+  - Tabs: Overview, Product, Operations, Users, Subscriptions, System.
   - Data sources (backend):
-    - `GET /api/admin/dashboard` (KPI overview + subscription breakdown)
-    - `GET /api/admin/analytics/users?period=7d|30d|90d` (user growth + top PMs)
+    - `GET /api/admin/analytics/users?period=7d|30d|90d` (user growth)
     - `GET /api/admin/analytics/subscriptions` (plan distribution + conversion/churn counts)
+    - `GET /api/admin/analytics/operations?period=7d|30d|90d` (volume + backlog + cycle times)
+    - `GET /api/admin/analytics/product?period=7d|30d|90d` (activation funnel + weekly active PMs)
     - `GET /api/admin/health` (system health snapshot)
-  - Uses `recharts` for simple v1 charts (user growth line chart, plan distribution pie chart).
+  - Uses `recharts` for simple charts (user growth, plan distribution, operations volume, product weekly active).
 
 - **Getting Started checklist (Dashboard):** `frontend/src/components/OnboardingChecklist.jsx`
   - Uses `/api/dashboard/summary` to detect step completion.

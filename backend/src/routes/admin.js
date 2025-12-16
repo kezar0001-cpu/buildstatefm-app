@@ -278,6 +278,197 @@ router.get('/analytics/subscriptions', requireAdmin, logAdminAction('view_subscr
   }
 });
 
+router.get('/analytics/product', requireAdmin, logAdminAction('view_product_analytics'), async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+
+    const now = new Date();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const startOfWeekKey = (value) => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      d.setHours(0, 0, 0, 0);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const propertyManagers = await prisma.user.findMany({
+      where: { role: 'PROPERTY_MANAGER' },
+      select: { id: true },
+    });
+    const propertyManagerIds = propertyManagers.map((u) => u.id);
+
+    const newPropertyManagers = await prisma.user.findMany({
+      where: {
+        role: 'PROPERTY_MANAGER',
+        createdAt: { gte: startDate },
+      },
+      select: { id: true, createdAt: true },
+    });
+    const newPropertyManagerIds = newPropertyManagers.map((u) => u.id);
+
+    const [
+      propertiesByNewPms,
+      unitsByNewPms,
+      inspectionsByNewPms,
+      jobsByNewPms,
+      completedJobsByNewPms,
+      completedInspectionsByNewPms,
+    ] = await Promise.all([
+      prisma.property.findMany({
+        where: { managerId: { in: newPropertyManagerIds }, createdAt: { gte: startDate } },
+        select: { managerId: true, createdAt: true },
+      }),
+      prisma.unit.findMany({
+        where: { createdAt: { gte: startDate }, property: { managerId: { in: newPropertyManagerIds } } },
+        select: { createdAt: true, property: { select: { managerId: true } } },
+      }),
+      prisma.inspection.findMany({
+        where: { createdAt: { gte: startDate }, property: { managerId: { in: newPropertyManagerIds } } },
+        select: { createdAt: true, property: { select: { managerId: true } } },
+      }),
+      prisma.job.findMany({
+        where: { createdAt: { gte: startDate }, createdById: { in: newPropertyManagerIds } },
+        select: { createdAt: true, createdById: true },
+      }),
+      prisma.job.findMany({
+        where: {
+          status: 'COMPLETED',
+          completedDate: { gte: startDate },
+          createdById: { in: newPropertyManagerIds },
+        },
+        select: { completedDate: true, createdById: true },
+      }),
+      prisma.inspection.findMany({
+        where: {
+          status: 'COMPLETED',
+          completedDate: { gte: startDate },
+          property: { managerId: { in: newPropertyManagerIds } },
+        },
+        select: { completedDate: true, property: { select: { managerId: true } } },
+      }),
+    ]);
+
+    const createdPropertyManagers = new Set(propertiesByNewPms.map((p) => p.managerId).filter(Boolean));
+    const createdUnitManagers = new Set(unitsByNewPms.map((u) => u.property?.managerId).filter(Boolean));
+    const createdInspectionManagers = new Set(inspectionsByNewPms.map((i) => i.property?.managerId).filter(Boolean));
+    const createdJobManagers = new Set(jobsByNewPms.map((j) => j.createdById).filter(Boolean));
+    const completedWorkflowManagers = new Set([
+      ...completedJobsByNewPms.map((j) => j.createdById).filter(Boolean),
+      ...completedInspectionsByNewPms.map((i) => i.property?.managerId).filter(Boolean),
+    ]);
+
+    const funnelSteps = [
+      { key: 'signed_up', label: 'Signed up', count: newPropertyManagerIds.length },
+      { key: 'created_property', label: 'Created property', count: createdPropertyManagers.size },
+      { key: 'created_unit', label: 'Created unit', count: createdUnitManagers.size },
+      { key: 'scheduled_inspection', label: 'Scheduled inspection', count: createdInspectionManagers.size },
+      { key: 'created_job', label: 'Created job', count: createdJobManagers.size },
+      { key: 'completed_workflow', label: 'Completed job/inspection', count: completedWorkflowManagers.size },
+    ];
+
+    const weeksToShow = period === '7d' ? 4 : period === '90d' ? 14 : 8;
+    const retentionStart = new Date(now);
+    retentionStart.setDate(retentionStart.getDate() - weeksToShow * 7);
+
+    const [propertiesForRetention, unitsForRetention, inspectionsForRetention, jobsForRetention] = await Promise.all([
+      prisma.property.findMany({
+        where: { createdAt: { gte: retentionStart }, managerId: { in: propertyManagerIds } },
+        select: { managerId: true, createdAt: true },
+      }),
+      prisma.unit.findMany({
+        where: { createdAt: { gte: retentionStart } },
+        select: { createdAt: true, property: { select: { managerId: true } } },
+      }),
+      prisma.inspection.findMany({
+        where: { createdAt: { gte: retentionStart } },
+        select: { createdAt: true, property: { select: { managerId: true } } },
+      }),
+      prisma.job.findMany({
+        where: { createdAt: { gte: retentionStart }, createdById: { in: propertyManagerIds } },
+        select: { createdById: true, createdAt: true },
+      }),
+    ]);
+
+    const weekLabels = (() => {
+      const labels = [];
+      const cursor = new Date(retentionStart);
+      cursor.setHours(0, 0, 0, 0);
+      const day = cursor.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      cursor.setDate(cursor.getDate() + diff);
+
+      const endCursor = new Date(now);
+      endCursor.setHours(0, 0, 0, 0);
+
+      while (cursor <= endCursor) {
+        const key = startOfWeekKey(cursor);
+        if (key) labels.push(key);
+        cursor.setDate(cursor.getDate() + 7);
+      }
+      return labels;
+    })();
+
+    const activeManagersByWeek = new Map();
+    weekLabels.forEach((label) => activeManagersByWeek.set(label, new Set()));
+
+    propertiesForRetention.forEach((row) => {
+      const key = startOfWeekKey(row.createdAt);
+      if (!key || !activeManagersByWeek.has(key) || !row.managerId) return;
+      activeManagersByWeek.get(key).add(row.managerId);
+    });
+
+    unitsForRetention.forEach((row) => {
+      const managerId = row.property?.managerId;
+      const key = startOfWeekKey(row.createdAt);
+      if (!key || !activeManagersByWeek.has(key) || !managerId) return;
+      activeManagersByWeek.get(key).add(managerId);
+    });
+
+    inspectionsForRetention.forEach((row) => {
+      const managerId = row.property?.managerId;
+      const key = startOfWeekKey(row.createdAt);
+      if (!key || !activeManagersByWeek.has(key) || !managerId) return;
+      activeManagersByWeek.get(key).add(managerId);
+    });
+
+    jobsForRetention.forEach((row) => {
+      const key = startOfWeekKey(row.createdAt);
+      if (!key || !activeManagersByWeek.has(key) || !row.createdById) return;
+      activeManagersByWeek.get(key).add(row.createdById);
+    });
+
+    const retentionSeries = weekLabels.map((label) => ({
+      week: label,
+      activePropertyManagers: activeManagersByWeek.get(label)?.size || 0,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        startDate: startDate.toISOString(),
+        funnel: {
+          cohortNewPropertyManagers: newPropertyManagerIds.length,
+          steps: funnelSteps,
+        },
+        retention: {
+          series: retentionSeries,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Product analytics error:', error);
+    return sendError(res, 500, 'Failed to load product analytics', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 /**
  * GET /api/admin/users
  * Get all users with filtering and pagination
