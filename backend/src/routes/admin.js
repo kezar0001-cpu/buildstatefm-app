@@ -278,8 +278,6 @@ router.get('/analytics/subscriptions', requireAdmin, logAdminAction('view_subscr
   }
 });
 
-// ==================== USER MANAGEMENT ====================
-
 /**
  * GET /api/admin/users
  * Get all users with filtering and pagination
@@ -877,7 +875,231 @@ router.get('/invites', requireAdmin, logAdminAction('view_invites'), async (req,
   }
 });
 
-// ==================== SYSTEM HEALTH ====================
+router.get('/analytics/operations', requireAdmin, logAdminAction('view_operations_analytics'), async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+
+    const now = new Date();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const dateKey = (value) => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const dayLabels = (() => {
+      const labels = [];
+      const cursor = new Date(now);
+      cursor.setHours(0, 0, 0, 0);
+      cursor.setDate(cursor.getDate() - (days - 1));
+      for (let i = 0; i < days; i += 1) {
+        const key = dateKey(cursor);
+        if (key) labels.push(key);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return labels;
+    })();
+
+    const summarizeDurationsHours = (values) => {
+      const clean = (Array.isArray(values) ? values : [])
+        .map((v) => Number(v))
+        .filter((v) => Number.isFinite(v) && v >= 0);
+
+      const count = clean.length;
+      if (count === 0) return { count: 0 };
+
+      clean.sort((a, b) => a - b);
+      const sum = clean.reduce((acc, v) => acc + v, 0);
+      const avgHours = sum / count;
+      const medianHours = count % 2 === 1
+        ? clean[(count - 1) / 2]
+        : (clean[count / 2 - 1] + clean[count / 2]) / 2;
+      const p90Idx = Math.max(0, Math.ceil(0.9 * count) - 1);
+      const p90Hours = clean[p90Idx];
+
+      return {
+        count,
+        avgHours: Number(avgHours.toFixed(2)),
+        medianHours: Number(medianHours.toFixed(2)),
+        p90Hours: Number(p90Hours.toFixed(2)),
+      };
+    };
+
+    const diffHours = (start, end) => {
+      if (!start || !end) return null;
+      const s = new Date(start);
+      const e = new Date(end);
+      if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
+      return (e.getTime() - s.getTime()) / (1000 * 60 * 60);
+    };
+
+    const [
+      jobsCreatedRows,
+      jobsCompletedRows,
+      inspectionsCreatedRows,
+      inspectionsCompletedRows,
+      serviceRequestsRows,
+      conversionJobRows,
+      openJobs,
+      unassignedJobs,
+      overdueJobs,
+      pendingInspections,
+      serviceRequestsBacklog,
+    ] = await Promise.all([
+      prisma.job.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: { createdAt: true },
+      }),
+      prisma.job.findMany({
+        where: { status: 'COMPLETED', completedDate: { gte: startDate } },
+        select: { createdAt: true, completedDate: true },
+      }),
+      prisma.inspection.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: { createdAt: true },
+      }),
+      prisma.inspection.findMany({
+        where: { status: 'COMPLETED', completedDate: { gte: startDate } },
+        select: { createdAt: true, completedDate: true },
+      }),
+      prisma.serviceRequest.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: { id: true, createdAt: true, approvedAt: true },
+      }),
+      prisma.job.findMany({
+        where: { serviceRequestId: { not: null }, createdAt: { gte: startDate } },
+        select: { createdAt: true, serviceRequestId: true },
+      }),
+      prisma.job.count({
+        where: { archivedAt: null, status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS'] } },
+      }),
+      prisma.job.count({
+        where: { archivedAt: null, status: 'OPEN', assignedToId: null },
+      }),
+      prisma.job.count({
+        where: {
+          archivedAt: null,
+          status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS'] },
+          scheduledDate: { lt: now },
+        },
+      }),
+      prisma.inspection.count({
+        where: { archivedAt: null, status: { in: ['SCHEDULED', 'IN_PROGRESS', 'PENDING_APPROVAL'] } },
+      }),
+      prisma.serviceRequest.count({
+        where: {
+          archivedAt: null,
+          status: {
+            in: [
+              'SUBMITTED',
+              'UNDER_REVIEW',
+              'PENDING_MANAGER_REVIEW',
+              'PENDING_OWNER_APPROVAL',
+              'APPROVED',
+              'APPROVED_BY_OWNER',
+            ],
+          },
+        },
+      }),
+    ]);
+
+    const seriesMap = new Map();
+    dayLabels.forEach((label) => {
+      seriesMap.set(label, {
+        date: label,
+        jobsCreated: 0,
+        jobsCompleted: 0,
+        inspectionsCreated: 0,
+        inspectionsCompleted: 0,
+        serviceRequestsCreated: 0,
+        serviceRequestsConverted: 0,
+      });
+    });
+
+    jobsCreatedRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).jobsCreated += 1;
+    });
+
+    jobsCompletedRows.forEach((row) => {
+      const key = dateKey(row.completedDate);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).jobsCompleted += 1;
+    });
+
+    inspectionsCreatedRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).inspectionsCreated += 1;
+    });
+
+    inspectionsCompletedRows.forEach((row) => {
+      const key = dateKey(row.completedDate);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).inspectionsCompleted += 1;
+    });
+
+    serviceRequestsRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).serviceRequestsCreated += 1;
+    });
+
+    conversionJobRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key || !seriesMap.has(key)) return;
+      seriesMap.get(key).serviceRequestsConverted += 1;
+    });
+
+    const jobCycleHours = jobsCompletedRows
+      .map((row) => diffHours(row.createdAt, row.completedDate))
+      .filter((v) => Number.isFinite(v));
+
+    const inspectionCycleHours = inspectionsCompletedRows
+      .map((row) => diffHours(row.createdAt, row.completedDate))
+      .filter((v) => Number.isFinite(v));
+
+    const serviceRequestApprovalHours = serviceRequestsRows
+      .filter((row) => row.approvedAt && new Date(row.approvedAt) >= startDate)
+      .map((row) => diffHours(row.createdAt, row.approvedAt))
+      .filter((v) => Number.isFinite(v));
+
+    const srCreatedMap = new Map(serviceRequestsRows.map((sr) => [sr.id, sr.createdAt]));
+    const serviceRequestConversionHours = conversionJobRows
+      .map((job) => diffHours(srCreatedMap.get(job.serviceRequestId), job.createdAt))
+      .filter((v) => Number.isFinite(v));
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        startDate: startDate.toISOString(),
+        timeSeries: Array.from(seriesMap.values()),
+        backlog: {
+          openJobs,
+          unassignedJobs,
+          overdueJobs,
+          pendingInspections,
+          serviceRequestsBacklog,
+        },
+        cycleTimes: {
+          jobCompletion: summarizeDurationsHours(jobCycleHours),
+          inspectionCompletion: summarizeDurationsHours(inspectionCycleHours),
+          serviceRequestApproval: summarizeDurationsHours(serviceRequestApprovalHours),
+          serviceRequestConversion: summarizeDurationsHours(serviceRequestConversionHours),
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Operations analytics error:', error);
+    return sendError(res, 500, 'Failed to load operations analytics', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
 
 /**
  * GET /api/admin/health

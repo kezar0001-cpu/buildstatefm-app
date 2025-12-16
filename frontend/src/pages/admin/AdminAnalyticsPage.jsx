@@ -27,6 +27,9 @@ import {
   Dashboard as DashboardIcon,
   People,
   MonitorHeart,
+  Work,
+  Assignment,
+  Build,
 } from '@mui/icons-material';
 import {
   CartesianGrid,
@@ -65,6 +68,12 @@ function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString();
+}
+
+function formatHours(value) {
+  if (!Number.isFinite(value)) return '—';
+  if (value < 24) return `${value.toFixed(1)}h`;
+  return `${(value / 24).toFixed(1)}d`;
 }
 
 function StatCard({ title, value, icon, color = 'primary', loading }) {
@@ -117,6 +126,7 @@ export default function AdminAnalyticsPage() {
 
   const [userAnalytics, setUserAnalytics] = useState(null);
   const [subscriptionAnalytics, setSubscriptionAnalytics] = useState(null);
+  const [operationsAnalytics, setOperationsAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
 
   const userGrowth = userAnalytics?.userGrowth || [];
@@ -177,19 +187,30 @@ export default function AdminAnalyticsPage() {
 
   const subscriptionMetrics = subscriptionAnalytics?.metrics || {};
 
+  const operationsSeries = useMemo(() => {
+    const series = operationsAnalytics?.timeSeries;
+    if (!Array.isArray(series)) return [];
+    return [...series].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [operationsAnalytics]);
+
+  const operationsBacklog = operationsAnalytics?.backlog || {};
+  const operationsCycleTimes = operationsAnalytics?.cycleTimes || {};
+
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const [usersRes, subsRes, healthRes] = await Promise.all([
+      const [usersRes, subsRes, opsRes, healthRes] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
+        apiClient.get('/admin/analytics/operations', { params: { period } }),
         apiClient.get('/admin/health'),
       ]);
 
       setUserAnalytics(usersRes?.data?.data || null);
       setSubscriptionAnalytics(subsRes?.data?.data || null);
+      setOperationsAnalytics(opsRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
     } catch (err) {
       logger.error('Failed to fetch admin analytics:', err);
@@ -261,6 +282,7 @@ export default function AdminAnalyticsPage() {
 
       <Tabs value={tab} onChange={(_, next) => setTab(next)} sx={{ mb: 1 }}>
         <Tab value="overview" label="Overview" />
+        <Tab value="operations" label="Operations" />
         <Tab value="users" label="Users" />
         <Tab value="subscriptions" label="Subscriptions" />
         <Tab value="system" label="System" />
@@ -491,6 +513,306 @@ export default function AdminAnalyticsPage() {
                 >
                   Open User Management
                 </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      <TabPanel value={tab} tabValue="operations">
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Drilldowns
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Use these pages for operational queues and individual records.
+                </Typography>
+                <Stack spacing={1.25}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Work />}
+                    onClick={() => navigate('/jobs')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Jobs
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Assignment />}
+                    onClick={() => navigate('/inspections')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Inspections
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Build />}
+                    onClick={() => navigate('/service-requests')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Service Requests
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Open Jobs"
+                  value={(operationsBacklog.openJobs ?? 0).toLocaleString()}
+                  icon={<Work />}
+                  color="warning"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Unassigned Jobs"
+                  value={(operationsBacklog.unassignedJobs ?? 0).toLocaleString()}
+                  icon={<Work />}
+                  color="error"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Overdue Jobs"
+                  value={(operationsBacklog.overdueJobs ?? 0).toLocaleString()}
+                  icon={<Work />}
+                  color="error"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={6}>
+                <StatCard
+                  title="Pending Inspections"
+                  value={(operationsBacklog.pendingInspections ?? 0).toLocaleString()}
+                  icon={<Assignment />}
+                  color="info"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={6}>
+                <StatCard
+                  title="Service Requests Backlog"
+                  value={(operationsBacklog.serviceRequestsBacklog ?? 0).toLocaleString()}
+                  icon={<Build />}
+                  color="secondary"
+                  loading={loading}
+                />
+              </Grid>
+            </Grid>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Jobs Volume
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Created vs completed per day ({period})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : operationsSeries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No operations data available
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={operationsSeries}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="jobsCreated" name="Created" stroke={PIE_COLORS[1]} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="jobsCompleted" name="Completed" stroke={PIE_COLORS[3]} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Inspections Volume
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Created vs completed per day ({period})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : operationsSeries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No operations data available
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={operationsSeries}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="inspectionsCreated" name="Created" stroke={PIE_COLORS[0]} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="inspectionsCompleted" name="Completed" stroke={PIE_COLORS[4]} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Service Requests Volume
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Created vs converted to jobs per day ({period})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : operationsSeries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No operations data available
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={operationsSeries}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="serviceRequestsCreated" name="Created" stroke={PIE_COLORS[2]} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="serviceRequestsConverted" name="Converted" stroke={PIE_COLORS[5]} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Cycle Times
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Average / median / p90
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1.25}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      label={`Job completion avg: ${formatHours(operationsCycleTimes.jobCompletion?.avgHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`median: ${formatHours(operationsCycleTimes.jobCompletion?.medianHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`p90: ${formatHours(operationsCycleTimes.jobCompletion?.p90Hours)}`}
+                      size="small"
+                    />
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      label={`Inspection completion avg: ${formatHours(operationsCycleTimes.inspectionCompletion?.avgHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`median: ${formatHours(operationsCycleTimes.inspectionCompletion?.medianHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`p90: ${formatHours(operationsCycleTimes.inspectionCompletion?.p90Hours)}`}
+                      size="small"
+                    />
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      label={`SR approval avg: ${formatHours(operationsCycleTimes.serviceRequestApproval?.avgHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`median: ${formatHours(operationsCycleTimes.serviceRequestApproval?.medianHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`p90: ${formatHours(operationsCycleTimes.serviceRequestApproval?.p90Hours)}`}
+                      size="small"
+                    />
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      label={`SR conversion avg: ${formatHours(operationsCycleTimes.serviceRequestConversion?.avgHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`median: ${formatHours(operationsCycleTimes.serviceRequestConversion?.medianHours)}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`p90: ${formatHours(operationsCycleTimes.serviceRequestConversion?.p90Hours)}`}
+                      size="small"
+                    />
+                  </Stack>
+                </Stack>
               </CardContent>
             </Card>
           </Grid>
