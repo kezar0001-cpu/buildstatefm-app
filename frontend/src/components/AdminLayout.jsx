@@ -65,11 +65,6 @@ const adminMenuItems = [
     divider: true,
     label: 'System'
   },
-  {
-    title: 'Settings',
-    path: '/admin/settings',
-    icon: <SettingsIcon />,
-  },
 ];
 
 function AdminLayout({ children }) {

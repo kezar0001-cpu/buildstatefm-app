@@ -198,6 +198,21 @@ function extractErrorDetails(error) {
   };
 }
 
+function isRetryableEmailError(errorDetails) {
+  const statusCode = Number(errorDetails?.statusCode);
+  const message = String(errorDetails?.message || '').toLowerCase();
+
+  if (message.includes('domain is not verified')) return false;
+  if (message.includes('add and verify your domain')) return false;
+
+  // Treat most 4xx as non-retryable except rate limiting.
+  if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Send email with retry logic and exponential backoff
  * @param {string} to - Recipient email address
@@ -208,7 +223,7 @@ function extractErrorDetails(error) {
  */
 async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumber = 1) {
   const emailId = metadata.emailId || generateEmailId(to, subject);
-  const emailFrom = process.env.EMAIL_FROM || 'Buildstate <no-reply@buildtstate.com.au>';
+  const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || 'Buildstate <onboarding@resend.dev>';
 
   const logContext = {
     emailId,
@@ -235,6 +250,7 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
 
     if (error) {
       const errorDetails = extractErrorDetails(error);
+      const retryable = isRetryableEmailError(errorDetails);
 
       logger.error('[Email] Resend API returned error', {
         ...logContext,
@@ -245,7 +261,7 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
       await emailRetryQueue.storeRetryAttempt(emailId, attemptNumber, emailData, errorDetails);
 
       // Determine if we should retry
-      if (attemptNumber < RETRY_CONFIG.MAX_RETRIES) {
+      if (retryable && attemptNumber < RETRY_CONFIG.MAX_RETRIES) {
         const delay = emailRetryQueue.calculateBackoffDelay(attemptNumber);
 
         logger.warn('[Email] Retrying email after delay', {
@@ -258,12 +274,14 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
 
         return sendEmailWithRetry(to, subject, html, { ...metadata, emailId }, attemptNumber + 1);
       } else {
-        logger.error('[Email] Max retry attempts reached, email failed permanently', {
+        logger.error('[Email] Email failed permanently', {
           ...logContext,
           error: errorDetails,
+          retryable,
         });
 
-        throw new Error(`Failed to send email after ${RETRY_CONFIG.MAX_RETRIES} attempts: ${errorDetails.message}`);
+        const suffix = retryable ? `after ${RETRY_CONFIG.MAX_RETRIES} attempts` : 'without retry (non-retryable error)';
+        throw new Error(`Failed to send email ${suffix}: ${errorDetails.message}`);
       }
     }
 
@@ -278,6 +296,7 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
     return data;
   } catch (error) {
     const errorDetails = extractErrorDetails(error);
+    const retryable = isRetryableEmailError(errorDetails);
 
     logger.error('[Email] Exception while sending email', {
       ...logContext,
@@ -294,7 +313,7 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
     );
 
     // Determine if we should retry
-    if (attemptNumber < RETRY_CONFIG.MAX_RETRIES) {
+    if (retryable && attemptNumber < RETRY_CONFIG.MAX_RETRIES) {
       const delay = emailRetryQueue.calculateBackoffDelay(attemptNumber);
 
       logger.warn('[Email] Retrying email after exception', {
@@ -307,9 +326,10 @@ async function sendEmailWithRetry(to, subject, html, metadata = {}, attemptNumbe
 
       return sendEmailWithRetry(to, subject, html, { ...metadata, emailId }, attemptNumber + 1);
     } else {
-      logger.error('[Email] Max retry attempts reached after exception', {
+      logger.error('[Email] Email failed permanently after exception', {
         ...logContext,
         error: errorDetails,
+        retryable,
       });
 
       throw error;
