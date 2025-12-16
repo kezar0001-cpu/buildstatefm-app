@@ -69,9 +69,11 @@ function useElementWidth<T extends HTMLElement>() {
 
 function resolveFooterItemsForRole(role: string | undefined): RotaryNavItem[] {
   const dashboardHref = getDefaultRouteForRole(role || 'PROPERTY_MANAGER');
+  const dashboardLabel = role === 'TECHNICIAN' ? 'My Jobs' : 'Dashboard';
+  const DashboardRoleIcon = role === 'TECHNICIAN' ? BuildIcon : DashboardIcon;
 
   const ordered: RotaryNavItem[] = [
-    { key: 'dashboard', label: 'Dashboard', href: dashboardHref, Icon: DashboardIcon },
+    { key: 'dashboard', label: dashboardLabel, href: dashboardHref, Icon: DashboardRoleIcon },
     { key: 'properties', label: 'Properties', href: '/properties', Icon: HomeIcon },
     { key: 'tenant-home', label: 'My Home', href: '/tenant/home', Icon: HomeIcon },
     { key: 'inspections', label: 'Inspections', href: '/inspections', Icon: AssignmentIcon },

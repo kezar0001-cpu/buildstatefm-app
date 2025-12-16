@@ -23,7 +23,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import { useCurrentUser } from '../context/UserContext';
-import { getNavigationForRole, getUserMenuForRole, getRoleLabel } from '../utils/navigationConfig';
+import { getDefaultRouteForRole, getNavigationForRole, getUserMenuForRole, getRoleLabel } from '../utils/navigationConfig';
 
 import { useTheme } from '../context/ThemeContext';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
@@ -122,7 +122,7 @@ function NavBar() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
             variant="h6"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(getDefaultRouteForRole(user?.role))}
             sx={{
               fontWeight: 800,
               cursor: 'pointer',

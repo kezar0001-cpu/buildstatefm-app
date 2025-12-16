@@ -54,6 +54,12 @@
   - Fetches technicians via `GET /api/users?role=TECHNICIAN` (also OWNER/TENANT) and renders tabs.
   - Backend scoping for technicians is primarily by property manager `orgId`.
 
+- **Technician workflow/navigation:**
+  - Technician home route is `/technician/dashboard` (My Jobs).
+  - `frontend/src/utils/navigationConfig.js` hides generic `Dashboard` nav for technicians and adds technician access to `Properties` and `Inspections`.
+  - `frontend/src/components/NavBar.jsx` logo click navigates to `getDefaultRouteForRole(user.role)` (technicians land on My Jobs).
+  - `frontend/src/components/RotaryFooter.tsx` shows the first item as `My Jobs` (not `Dashboard`) for technicians.
+
 ## RBAC
 - **Option 1 (Technician/Tenant read-only):** Technicians and tenants can access Properties/Units pages but only in read-only mode.
   - **No create/edit/delete/assignment UI** is shown for read-only roles.

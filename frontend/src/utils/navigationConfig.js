@@ -32,19 +32,19 @@ export const NAVIGATION_ITEMS = [
     href: '/dashboard',
     icon: DashboardIcon,
     roles: [], // All roles can see dashboard
-    excludeRoles: ['TENANT'],
+    excludeRoles: ['TENANT', 'TECHNICIAN'],
   },
   {
     name: 'Properties',
     href: '/properties',
     icon: HomeIcon,
-    roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
+    roles: ['PROPERTY_MANAGER', 'OWNER', 'TECHNICIAN', 'ADMIN'],
   },
   {
     name: 'Inspections',
     href: '/inspections',
     icon: AssignmentIcon,
-    roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'],
+    roles: ['PROPERTY_MANAGER', 'OWNER', 'TECHNICIAN', 'ADMIN'],
   },
   {
     name: 'Recommendations',
@@ -143,7 +143,9 @@ export const MOBILE_NAV_ITEMS = {
     { name: 'Profile', href: '/profile', icon: PersonIcon },
   ],
   TECHNICIAN: [
-    { name: 'My Jobs', href: '/technician/dashboard', icon: DashboardIcon },
+    { name: 'My Jobs', href: '/technician/dashboard', icon: BuildIcon },
+    { name: 'Inspections', href: '/inspections', icon: AssignmentIcon },
+    { name: 'Properties', href: '/properties', icon: HomeIcon },
     { name: 'Profile', href: '/profile', icon: PersonIcon },
   ],
   ADMIN: [
