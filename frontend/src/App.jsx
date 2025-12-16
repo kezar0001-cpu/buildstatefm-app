@@ -17,7 +17,7 @@ import AdminLayout from './components/AdminLayout';
 import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
 import * as Sentry from '@sentry/react';
-import apiClient from './apiClient'; // Assuming apiClient is defined in this file
+import apiClient from './api/client.js';
 
 // Modern loading fallback - theme-aware, works in light and dark mode
 function RouteFallback() {
@@ -404,7 +404,6 @@ const getSessionId = () => {
       return id;
     })();
   } catch (e) {
-    // Fallback for older browsers
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 };
@@ -422,23 +421,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const getSessionId = () => {
-      try {
-        return sessionStorage.getItem('sessionId') || (() => {
-          const id = window.crypto.randomUUID();
-          sessionStorage.setItem('sessionId', id);
-          return id;
-        })();
-      } catch (e) {
-        return Math.random().toString(36).substring(2) + Date.now().toString(36);
-      }
-    };
-
     if (process.env.NODE_ENV === 'production') {
-      apiClient.post('/api/analytics/pageview', {
+      apiClient.post('/analytics/pageview', {
         path: location.pathname,
-        sessionId: getSessionId()
-      }).catch(() => {}); // Silent fail for analytics
+        sessionId: getSessionId(),
+        referrer: typeof document !== 'undefined' ? document.referrer : undefined,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      }).catch(() => {});
     }
   }, [location.pathname]);
 
