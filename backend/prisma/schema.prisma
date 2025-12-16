@@ -1087,6 +1087,20 @@ model UnitOwner {
   @@index([unitId])
 }
 
+model PageView {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  path      String
+  referrer  String?
+  userAgent String?
+  ipAddress String?
+  sessionId String
+  
+  @@index([sessionId])
+  @@index([timestamp])
+  @@index([path])
+}
+
 enum Role {
   PROPERTY_MANAGER
   OWNER

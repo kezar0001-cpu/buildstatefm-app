@@ -210,6 +210,7 @@ import jobTemplatesRoutes from './src/routes/jobTemplates.js';
 import notificationPreferencesRoutes from './src/routes/notificationPreferences.js';
 import adminRoutes from './src/routes/admin.js';
 import blogRoutes from './src/routes/blog.js';
+const analyticsRoutes = require('./routes/analytics');
 
 // ----------------------
 // Stripe Webhook (Raw Body required)
@@ -252,6 +253,7 @@ app.use('/api/job-templates', jobTemplatesRoutes);
 app.use('/api/notification-preferences', notificationPreferencesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // ----------------------
 // Health Check

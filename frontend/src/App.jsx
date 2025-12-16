@@ -1,6 +1,6 @@
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { Box, Button, Paper, Stack, Typography, Divider, CircularProgress, useTheme, alpha } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
@@ -17,6 +17,8 @@ import AdminLayout from './components/AdminLayout';
 import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
 import * as Sentry from '@sentry/react';
+import apiClient from './apiClient'; // Assuming apiClient is defined in this file
+import crypto from 'crypto';
 
 // Modern loading fallback - theme-aware, works in light and dark mode
 function RouteFallback() {
@@ -396,6 +398,8 @@ const CategoryEditorPage = lazy(() => import('./pages/admin/CategoryEditorPage.j
 const TagEditorPage = lazy(() => import('./pages/admin/TagEditorPage.jsx'));
 
 export default function App() {
+  const location = useLocation();
+
   useEffect(() => {
     logger.log('App mounted successfully');
 
@@ -404,6 +408,36 @@ export default function App() {
 
     return () => window.removeEventListener('error', errorHandler);
   }, []);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      apiClient.post('/api/analytics/pageview', {
+        path: location.pathname,
+        sessionId: sessionStorage.getItem('sessionId') || (() => {
+          const id = crypto.randomUUID();
+          sessionStorage.setItem('sessionId', id);
+          return id;
+        })()
+      }).catch(() => {}); // Silent fail for analytics
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      const handleRouteChange = () => {
+        apiClient.post('/api/analytics/pageview', {
+          path: location.pathname,
+          sessionId: sessionStorage.getItem('sessionId') || (() => {
+            const id = crypto.randomUUID();
+            sessionStorage.setItem('sessionId', id);
+            return id;
+          })()
+        }).catch(() => {}); // Silent fail for analytics
+      };
+      window.addEventListener('routeChange', handleRouteChange);
+      return () => window.removeEventListener('routeChange', handleRouteChange);
+    }
+  }, [location.pathname]);
 
   return (
     <ErrorBoundary>

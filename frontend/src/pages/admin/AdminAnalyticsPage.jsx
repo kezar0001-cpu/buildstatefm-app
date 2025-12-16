@@ -133,6 +133,7 @@ export default function AdminAnalyticsPage() {
   const [revenueAnalytics, setRevenueAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
   const [observability, setObservability] = useState(null);
+  const [trafficAnalytics, setTrafficAnalytics] = useState(null);
 
   const userGrowth = userAnalytics?.userGrowth || [];
 
@@ -238,7 +239,16 @@ export default function AdminAnalyticsPage() {
       setLoading(true);
       setError('');
 
-      const [usersRes, subsRes, opsRes, productRes, revenueRes, healthRes, obsRes] = await Promise.all([
+      const [
+        usersRes,
+        subsRes,
+        opsRes,
+        productRes,
+        revenueRes,
+        healthRes,
+        obsRes,
+        trafficRes,
+      ] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
         apiClient.get('/admin/analytics/operations', { params: { period } }),
@@ -246,6 +256,7 @@ export default function AdminAnalyticsPage() {
         apiClient.get('/admin/analytics/revenue', { params: { period } }),
         apiClient.get('/admin/health'),
         apiClient.get('/admin/observability', { params: { windowMs: 15 * 60 * 1000 } }),
+        apiClient.get('/admin/analytics/traffic', { params: { period } }),
       ]);
 
       setUserAnalytics(usersRes?.data?.data || null);
@@ -255,6 +266,7 @@ export default function AdminAnalyticsPage() {
       setRevenueAnalytics(revenueRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
       setObservability(obsRes?.data?.data || null);
+      setTrafficAnalytics(trafficRes?.data?.data || null);
     } catch (err) {
       logger.error('Failed to fetch admin analytics:', err);
       setError(err?.response?.data?.message || 'Failed to load analytics');
@@ -331,6 +343,7 @@ export default function AdminAnalyticsPage() {
         <Tab value="subscriptions" label="Subscriptions" />
         <Tab value="revenue" label="Revenue" />
         <Tab value="system" label="System" />
+        <Tab value="traffic" label="Traffic" />
       </Tabs>
 
       <TabPanel value={tab} tabValue="overview">
@@ -1410,6 +1423,53 @@ export default function AdminAnalyticsPage() {
             </Card>
           </Grid>
         </Grid>
+      </TabPanel>
+
+      <TabPanel value={tab} tabValue="traffic">
+        {trafficAnalytics ? (
+          <div className={styles.trafficContainer}>
+            <div className={styles.trafficStats}>
+              <StatCard 
+                title="Total Visits" 
+                value={trafficAnalytics.totalVisits} 
+                trend={null}
+              />
+              <StatCard 
+                title="Unique Visitors" 
+                value={trafficAnalytics.uniqueVisitors} 
+                trend={null}
+              />
+            </div>
+            
+            <div className={styles.trafficCharts}>
+              <div className={styles.chartContainer}>
+                <h3>Top Pages</h3>
+                <ul className={styles.topList}>
+                  {trafficAnalytics.topPages.map((page, i) => (
+                    <li key={i}>
+                      <span className={styles.pagePath}>{page.path}</span>
+                      <span className={styles.pageCount}>{page._count.path}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className={styles.chartContainer}>
+                <h3>Top Referrers</h3>
+                <ul className={styles.topList}>
+                  {trafficAnalytics.topReferrers.map((ref, i) => (
+                    <li key={i}>
+                      <span className={styles.referrer}>{ref.referrer}</span>
+                      <span className={styles.refCount}>{ref._count.referrer}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <LoadingIndicator />
+        )}
       </TabPanel>
     </Box>
   );
