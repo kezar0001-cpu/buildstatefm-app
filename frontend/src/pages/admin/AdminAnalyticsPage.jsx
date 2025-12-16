@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -23,11 +24,8 @@ import {
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
+  Dashboard as DashboardIcon,
   People,
-  TrendingUp,
-  Business,
-  Assessment,
-  Work,
   MonitorHeart,
 } from '@mui/icons-material';
 import {
@@ -111,19 +109,16 @@ function TabPanel({ children, value, tabValue }) {
 }
 
 export default function AdminAnalyticsPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [period, setPeriod] = useState('30d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [dashboardData, setDashboardData] = useState(null);
   const [userAnalytics, setUserAnalytics] = useState(null);
   const [subscriptionAnalytics, setSubscriptionAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
 
-  const overview = dashboardData?.overview || {};
-  const subscriptionOverviewRows = dashboardData?.subscriptions || [];
-  const topPropertyManagers = userAnalytics?.topPropertyManagers || [];
   const userGrowth = userAnalytics?.userGrowth || [];
 
   const subscriptionDistribution = useMemo(() => {
@@ -168,6 +163,18 @@ export default function AdminAnalyticsPage() {
       .filter((row) => row.value > 0);
   }, [subscriptionDistribution]);
 
+  const signupsByRole = useMemo(() => {
+    if (!Array.isArray(userGrowth) || userGrowth.length === 0) return [];
+    const totals = new Map();
+    userGrowth.forEach((row) => {
+      const role = row.role || 'UNKNOWN';
+      totals.set(role, (totals.get(role) || 0) + (Number(row.count) || 0));
+    });
+    return Array.from(totals.entries())
+      .map(([role, count]) => ({ role, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [userGrowth]);
+
   const subscriptionMetrics = subscriptionAnalytics?.metrics || {};
 
   const fetchAll = async () => {
@@ -175,14 +182,12 @@ export default function AdminAnalyticsPage() {
       setLoading(true);
       setError('');
 
-      const [dashboardRes, usersRes, subsRes, healthRes] = await Promise.all([
-        apiClient.get('/admin/dashboard'),
+      const [usersRes, subsRes, healthRes] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
         apiClient.get('/admin/health'),
       ]);
 
-      setDashboardData(dashboardRes?.data?.data || null);
       setUserAnalytics(usersRes?.data?.data || null);
       setSubscriptionAnalytics(subsRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
@@ -262,99 +267,101 @@ export default function AdminAnalyticsPage() {
       </Tabs>
 
       <TabPanel value={tab} tabValue="overview">
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Users"
-              value={(overview.totalUsers || 0).toLocaleString()}
-              icon={<People />}
-              color="primary"
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Active Users (30d)"
-              value={(overview.activeUsers || 0).toLocaleString()}
-              icon={<People />}
-              color="success"
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="New Signups (7d)"
-              value={(overview.recentSignups || 0).toLocaleString()}
-              icon={<TrendingUp />}
-              color="info"
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Properties"
-              value={(overview.totalProperties || 0).toLocaleString()}
-              icon={<Business />}
-              color="secondary"
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Inspections"
-              value={(overview.totalInspections || 0).toLocaleString()}
-              icon={<Assessment />}
-              color="warning"
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Jobs"
-              value={(overview.totalJobs || 0).toLocaleString()}
-              icon={<Work />}
-              color="error"
-              loading={loading}
-            />
-          </Grid>
-        </Grid>
-
         <Grid container spacing={3}>
-          <Grid item xs={12} md={7}>
-            <Card>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Subscription Overview
+                  Drilldowns
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Property manager plan/status distribution
+                  Use Analytics for trends. Use these pages for operational detail.
                 </Typography>
+                <Stack spacing={1.25}>
+                  <Button
+                    variant="contained"
+                    startIcon={<DashboardIcon />}
+                    onClick={() => navigate('/admin/dashboard')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    View Admin Dashboard
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<People />}
+                    onClick={() => navigate('/admin/users')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Open User Management
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<MonitorHeart />}
+                    onClick={() => setTab('system')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    System Health
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  User Signups Trend
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  New users created per day (by role) for {period}
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
                 {loading ? (
-                  <CircularProgress size={24} />
-                ) : subscriptionOverviewRows.length === 0 ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : userGrowthSeries.data.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    No subscription data available
+                    No signup data available
                   </Typography>
                 ) : (
-                  <Stack spacing={1.25}>
-                    {subscriptionOverviewRows.map((row) => (
-                      <Stack
-                        key={`${row.subscriptionPlan}-${row.subscriptionStatus}`}
-                        direction="row"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        spacing={1}
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="body2" fontWeight={500}>
-                            {String(row.subscriptionPlan || '').replace('_', ' ')}
-                          </Typography>
-                          <Chip label={row.subscriptionStatus} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
-                        </Stack>
-                        <Typography variant="body2" color="text.secondary">
-                          {(row._count || 0).toLocaleString()}
-                        </Typography>
-                      </Stack>
+                  <Box sx={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={userGrowthSeries.data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        {userGrowthSeries.roles.map((role, index) => (
+                          <Line
+                            key={role}
+                            type="monotone"
+                            dataKey={role}
+                            stroke={PIE_COLORS[index % PIE_COLORS.length]}
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+
+                {signupsByRole.length > 0 && (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 2 }}>
+                    {signupsByRole.slice(0, 6).map((row) => (
+                      <Chip key={row.role} label={`${row.role}: ${row.count}`} size="small" />
                     ))}
                   </Stack>
                 )}
@@ -362,15 +369,74 @@ export default function AdminAnalyticsPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={5}>
+          <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  System Status
+                  Plan Mix
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Backend health snapshot
+                  Distribution of property manager subscription plans
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : subscriptionPieData.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No subscription distribution available
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 240 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={subscriptionPieData} dataKey="value" nameKey="name" outerRadius={90}>
+                          {subscriptionPieData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Conversion & Churn
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Based on current subscription statuses
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1}>
+                  <Chip label={`Trial users: ${subscriptionMetrics.trialUsers ?? 0}`} />
+                  <Chip label={`Converted (active with trialEndDate): ${subscriptionMetrics.convertedUsers ?? 0}`} />
+                  <Chip label={`Conversion rate: ${(subscriptionMetrics.conversionRate ?? 0).toFixed(2)}%`} />
+                  <Chip label={`Suspended: ${subscriptionMetrics.suspendedUsers ?? 0}`} color="warning" />
+                  <Chip label={`Canceled: ${subscriptionMetrics.canceledUsers ?? 0}`} color="default" />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  System Snapshot
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Basic health status (see System tab for details)
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
                 {loading ? (
                   <CircularProgress size={24} />
                 ) : !health ? (
@@ -408,103 +474,23 @@ export default function AdminAnalyticsPage() {
 
       <TabPanel value={tab} tabValue="users">
         <Grid container spacing={3}>
-          <Grid item xs={12} lg={7}>
+          <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Top Property Managers
+                  User Management
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Ranked by number of managed properties
+                  For user-level details and actions, use the Users page.
                 </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Plan</TableCell>
-                      <TableCell align="right">Managed Properties</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                          <CircularProgress />
-                        </TableCell>
-                      </TableRow>
-                    ) : topPropertyManagers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                          No data
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      topPropertyManagers.map((u) => (
-                        <TableRow key={u.id} hover>
-                          <TableCell>{u.email}</TableCell>
-                          <TableCell>{[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}</TableCell>
-                          <TableCell>
-                            <Chip label={u.subscriptionPlan || '—'} size="small" />
-                          </TableCell>
-                          <TableCell align="right">{u._count?.managedProperties ?? 0}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} lg={5}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  User Growth
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Daily counts by role for {period}
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : userGrowthSeries.data.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No user growth data available
-                  </Typography>
-                ) : (
-                  <Box sx={{ height: 260 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={userGrowthSeries.data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
-                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" allowDecimals={false} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#fff',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: 8,
-                          }}
-                        />
-                        <Legend />
-                        {userGrowthSeries.roles.map((role, index) => (
-                          <Line
-                            key={role}
-                            type="monotone"
-                            dataKey={role}
-                            stroke={PIE_COLORS[index % PIE_COLORS.length]}
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </Box>
-                )}
+                <Button
+                  variant="contained"
+                  startIcon={<People />}
+                  onClick={() => navigate('/admin/users')}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Open User Management
+                </Button>
               </CardContent>
             </Card>
           </Grid>
