@@ -31,6 +31,7 @@ import {
   Assignment,
   Build,
   Insights,
+  Paid,
 } from '@mui/icons-material';
 import {
   CartesianGrid,
@@ -129,6 +130,7 @@ export default function AdminAnalyticsPage() {
   const [subscriptionAnalytics, setSubscriptionAnalytics] = useState(null);
   const [operationsAnalytics, setOperationsAnalytics] = useState(null);
   const [productAnalytics, setProductAnalytics] = useState(null);
+  const [revenueAnalytics, setRevenueAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
 
   const userGrowth = userAnalytics?.userGrowth || [];
@@ -206,16 +208,37 @@ export default function AdminAnalyticsPage() {
     return [...series].sort((a, b) => String(a.week).localeCompare(String(b.week)));
   }, [productAnalytics]);
 
+  const revenueSummary = revenueAnalytics?.summary || {};
+  const revenueSeries = useMemo(() => {
+    const series = revenueAnalytics?.timeSeries;
+    if (!Array.isArray(series)) return [];
+    return [...series].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [revenueAnalytics]);
+
+  const revenueMrrByPlan = useMemo(() => {
+    const byPlan = revenueAnalytics?.mrrByPlan;
+    if (!byPlan || typeof byPlan !== 'object') return [];
+    return Object.entries(byPlan)
+      .map(([plan, row]) => ({
+        plan,
+        count: Number(row?.count) || 0,
+        price: Number(row?.price) || 0,
+        revenue: Number(row?.revenue) || 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [revenueAnalytics]);
+
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const [usersRes, subsRes, opsRes, productRes, healthRes] = await Promise.all([
+      const [usersRes, subsRes, opsRes, productRes, revenueRes, healthRes] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
         apiClient.get('/admin/analytics/operations', { params: { period } }),
         apiClient.get('/admin/analytics/product', { params: { period } }),
+        apiClient.get('/admin/analytics/revenue', { params: { period } }),
         apiClient.get('/admin/health'),
       ]);
 
@@ -223,6 +246,7 @@ export default function AdminAnalyticsPage() {
       setSubscriptionAnalytics(subsRes?.data?.data || null);
       setOperationsAnalytics(opsRes?.data?.data || null);
       setProductAnalytics(productRes?.data?.data || null);
+      setRevenueAnalytics(revenueRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
     } catch (err) {
       logger.error('Failed to fetch admin analytics:', err);
@@ -298,6 +322,7 @@ export default function AdminAnalyticsPage() {
         <Tab value="operations" label="Operations" />
         <Tab value="users" label="Users" />
         <Tab value="subscriptions" label="Subscriptions" />
+        <Tab value="revenue" label="Revenue" />
         <Tab value="system" label="System" />
       </Tabs>
 
@@ -985,6 +1010,172 @@ export default function AdminAnalyticsPage() {
                     </ResponsiveContainer>
                   </Box>
                 )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      <TabPanel value={tab} tabValue="revenue">
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Notes
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Revenue metrics are derived from stored subscription state (Stripe-synced) and plan price assumptions.
+                </Typography>
+                <Stack spacing={1.25}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Paid />}
+                    onClick={() => navigate('/subscriptions')}
+                    sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                    fullWidth
+                  >
+                    Open Billing (User)
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="MRR"
+                  value={`$${Number(revenueSummary.currentMRR ?? 0).toLocaleString()}`}
+                  icon={<Paid />}
+                  color="success"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="ARR"
+                  value={`$${Number(revenueSummary.arr ?? 0).toLocaleString()}`}
+                  icon={<Paid />}
+                  color="success"
+                  loading={loading}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <StatCard
+                  title="Churn rate"
+                  value={`${Number(revenueSummary.churnRate ?? 0).toFixed(2)}%`}
+                  icon={<Paid />}
+                  color="warning"
+                  loading={loading}
+                />
+              </Grid>
+            </Grid>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Subscription movement ({period})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1}>
+                  <Chip label={`New subscriptions: ${revenueSummary.newSubscriptionsInPeriod ?? 0}`} />
+                  <Chip label={`Cancellations: ${revenueSummary.cancellationsInPeriod ?? 0}`} />
+                  <Chip label={`Reactivations: ${revenueSummary.reactivationsInPeriod ?? 0}`} />
+                  <Chip label={`Suspended: ${revenueSummary.suspendedCount ?? 0}`} color="warning" />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Net MRR movement
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  New MRR minus churned MRR per day
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : revenueSeries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No data
+                  </Typography>
+                ) : (
+                  <Box sx={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={revenueSeries}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="netMRR" name="Net MRR" stroke={PIE_COLORS[3]} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="newMRR" name="New MRR" stroke={PIE_COLORS[1]} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="churnedMRR" name="Churned MRR" stroke={PIE_COLORS[0]} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  MRR by plan
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Plan</TableCell>
+                      <TableCell align="right">Count</TableCell>
+                      <TableCell align="right">Price</TableCell>
+                      <TableCell align="right">MRR</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                          <CircularProgress size={22} />
+                        </TableCell>
+                      </TableRow>
+                    ) : revenueMrrByPlan.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                          No data
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      revenueMrrByPlan.map((row) => (
+                        <TableRow key={row.plan} hover>
+                          <TableCell>{String(row.plan).replace('_', ' ')}</TableCell>
+                          <TableCell align="right">{row.count.toLocaleString()}</TableCell>
+                          <TableCell align="right">${row.price.toLocaleString()}</TableCell>
+                          <TableCell align="right">${row.revenue.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </Grid>

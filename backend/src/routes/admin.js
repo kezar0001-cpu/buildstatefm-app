@@ -469,6 +469,255 @@ router.get('/analytics/product', requireAdmin, logAdminAction('view_product_anal
   }
 });
 
+router.get('/analytics/revenue', requireAdmin, logAdminAction('view_revenue_analytics'), async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+
+    const now = new Date();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const planPrices = {
+      STARTER: 29,
+      BASIC: 29,
+      PROFESSIONAL: 79,
+      ENTERPRISE: 149,
+      FREE_TRIAL: 0,
+    };
+
+    const normalisePlan = (value) => {
+      if (!value) return null;
+      const upper = String(value).trim().toUpperCase();
+      if (upper === 'BASIC') return 'STARTER';
+      return upper;
+    };
+
+    const dateKey = (value) => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const dayLabels = (() => {
+      const labels = [];
+      const cursor = new Date(now);
+      cursor.setHours(0, 0, 0, 0);
+      cursor.setDate(cursor.getDate() - (days - 1));
+      for (let i = 0; i < days; i += 1) {
+        const key = dateKey(cursor);
+        if (key) labels.push(key);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return labels;
+    })();
+
+    const [
+      activePlanCounts,
+      activePaidCount,
+      trialCount,
+      suspendedCount,
+      cancelledCount,
+      cancellationsInPeriod,
+      cancellationsByPlanInPeriod,
+      newSubscriptionsInPeriod,
+      reactivationsInPeriod,
+      createdSubsRows,
+      cancelledSubsRows,
+    ] = await Promise.all([
+      prisma.user.groupBy({
+        by: ['subscriptionPlan'],
+        _count: true,
+        where: {
+          role: 'PROPERTY_MANAGER',
+          subscriptionStatus: 'ACTIVE',
+        },
+      }),
+      prisma.user.count({
+        where: {
+          role: 'PROPERTY_MANAGER',
+          subscriptionStatus: 'ACTIVE',
+          subscriptionPlan: { not: 'FREE_TRIAL' },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          role: 'PROPERTY_MANAGER',
+          subscriptionStatus: 'TRIAL',
+        },
+      }),
+      prisma.user.count({
+        where: {
+          role: 'PROPERTY_MANAGER',
+          subscriptionStatus: 'SUSPENDED',
+        },
+      }),
+      prisma.user.count({
+        where: {
+          role: 'PROPERTY_MANAGER',
+          subscriptionStatus: 'CANCELLED',
+        },
+      }),
+      prisma.subscription.count({
+        where: {
+          status: 'CANCELLED',
+          cancelledAt: {
+            gte: startDate,
+            lte: now,
+          },
+        },
+      }),
+      prisma.subscription.groupBy({
+        by: ['planName'],
+        _count: { planName: true },
+        where: {
+          status: 'CANCELLED',
+          cancelledAt: {
+            gte: startDate,
+            lte: now,
+          },
+        },
+      }),
+      prisma.subscription.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: now,
+          },
+          status: { in: ['ACTIVE', 'TRIAL'] },
+        },
+      }),
+      prisma.subscription.count({
+        where: {
+          status: 'ACTIVE',
+          updatedAt: {
+            gte: startDate,
+            lte: now,
+          },
+          user: {
+            subscriptions: {
+              some: {
+                status: 'CANCELLED',
+                cancelledAt: { lt: startDate },
+              },
+            },
+          },
+        },
+      }),
+      prisma.subscription.findMany({
+        where: {
+          createdAt: { gte: startDate, lte: now },
+          status: { in: ['ACTIVE', 'TRIAL'] },
+        },
+        select: {
+          createdAt: true,
+          planName: true,
+          status: true,
+        },
+      }),
+      prisma.subscription.findMany({
+        where: {
+          status: 'CANCELLED',
+          cancelledAt: { gte: startDate, lte: now },
+        },
+        select: {
+          cancelledAt: true,
+          planName: true,
+        },
+      }),
+    ]);
+
+    let currentMRR = 0;
+    const mrrByPlan = {};
+    activePlanCounts.forEach((row) => {
+      const plan = normalisePlan(row.subscriptionPlan) || 'UNKNOWN';
+      const count = Number(row._count) || 0;
+      const price = planPrices[plan] || 0;
+      const revenue = price * count;
+      mrrByPlan[plan] = { count, price, revenue };
+      currentMRR += revenue;
+    });
+
+    const churnedMRRInPeriod = cancellationsByPlanInPeriod.reduce((acc, row) => {
+      const plan = normalisePlan(row.planName) || 'UNKNOWN';
+      const price = planPrices[plan] || 0;
+      return acc + price * (Number(row._count?.planName) || 0);
+    }, 0);
+
+    const totalActiveOrTrial = await prisma.user.count({
+      where: {
+        role: 'PROPERTY_MANAGER',
+        subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] },
+      },
+    });
+
+    const churnRate = totalActiveOrTrial > 0 ? (cancellationsInPeriod / totalActiveOrTrial) * 100 : 0;
+
+    const seriesMap = new Map();
+    dayLabels.forEach((label) => {
+      seriesMap.set(label, {
+        date: label,
+        newSubscriptions: 0,
+        cancellations: 0,
+        newMRR: 0,
+        churnedMRR: 0,
+        netMRR: 0,
+      });
+    });
+
+    createdSubsRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key || !seriesMap.has(key)) return;
+      const entry = seriesMap.get(key);
+      entry.newSubscriptions += 1;
+      const plan = normalisePlan(row.planName);
+      const price = planPrices[plan] || 0;
+      if (String(row.status) === 'ACTIVE') entry.newMRR += price;
+    });
+
+    cancelledSubsRows.forEach((row) => {
+      const key = dateKey(row.cancelledAt);
+      if (!key || !seriesMap.has(key)) return;
+      const entry = seriesMap.get(key);
+      entry.cancellations += 1;
+      const plan = normalisePlan(row.planName);
+      const price = planPrices[plan] || 0;
+      entry.churnedMRR += price;
+    });
+
+    Array.from(seriesMap.values()).forEach((row) => {
+      row.netMRR = row.newMRR - row.churnedMRR;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        startDate: startDate.toISOString(),
+        timeSeries: Array.from(seriesMap.values()),
+        summary: {
+          currentMRR,
+          arr: currentMRR * 12,
+          activePaidCount,
+          trialCount,
+          suspendedCount,
+          cancelledCount,
+          newSubscriptionsInPeriod,
+          cancellationsInPeriod,
+          reactivationsInPeriod,
+          churnRate: Number(churnRate.toFixed(2)),
+          churnedMRRInPeriod,
+        },
+        mrrByPlan,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Revenue analytics error:', error);
+    return sendError(res, 500, 'Failed to load revenue analytics', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
 /**
  * GET /api/admin/users
  * Get all users with filtering and pagination
