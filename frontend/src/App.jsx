@@ -18,7 +18,6 @@ import SectionCard from './components/SectionCard.jsx';
 import logger from './utils/logger';
 import * as Sentry from '@sentry/react';
 import apiClient from './apiClient'; // Assuming apiClient is defined in this file
-import crypto from 'crypto';
 
 // Modern loading fallback - theme-aware, works in light and dark mode
 function RouteFallback() {
@@ -397,6 +396,19 @@ const BlogPostEditorPage = lazy(() => import('./pages/admin/BlogPostEditorPage.j
 const CategoryEditorPage = lazy(() => import('./pages/admin/CategoryEditorPage.jsx'));
 const TagEditorPage = lazy(() => import('./pages/admin/TagEditorPage.jsx'));
 
+const getSessionId = () => {
+  try {
+    return sessionStorage.getItem('sessionId') || (() => {
+      const id = window.crypto.randomUUID();
+      sessionStorage.setItem('sessionId', id);
+      return id;
+    })();
+  } catch (e) {
+    // Fallback for older browsers
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }
+};
+
 export default function App() {
   const location = useLocation();
 
@@ -410,32 +422,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const getSessionId = () => {
+      try {
+        return sessionStorage.getItem('sessionId') || (() => {
+          const id = window.crypto.randomUUID();
+          sessionStorage.setItem('sessionId', id);
+          return id;
+        })();
+      } catch (e) {
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+      }
+    };
+
     if (process.env.NODE_ENV === 'production') {
       apiClient.post('/api/analytics/pageview', {
         path: location.pathname,
-        sessionId: sessionStorage.getItem('sessionId') || (() => {
-          const id = crypto.randomUUID();
-          sessionStorage.setItem('sessionId', id);
-          return id;
-        })()
+        sessionId: getSessionId()
       }).catch(() => {}); // Silent fail for analytics
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'production') {
-      const handleRouteChange = () => {
-        apiClient.post('/api/analytics/pageview', {
-          path: location.pathname,
-          sessionId: sessionStorage.getItem('sessionId') || (() => {
-            const id = crypto.randomUUID();
-            sessionStorage.setItem('sessionId', id);
-            return id;
-          })()
-        }).catch(() => {}); // Silent fail for analytics
-      };
-      window.addEventListener('routeChange', handleRouteChange);
-      return () => window.removeEventListener('routeChange', handleRouteChange);
     }
   }, [location.pathname]);
 
