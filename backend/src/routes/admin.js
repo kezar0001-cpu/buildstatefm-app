@@ -200,6 +200,21 @@ router.get('/dashboard', requireAdmin, logAdminAction('view_dashboard'), async (
       ? ((currentMonthSignups - lastMonthSignups) / lastMonthSignups * 100).toFixed(2)
       : 0;
 
+    const normalizeGroupCount = (value) => {
+      if (typeof value === 'number') return value;
+      if (value && typeof value === 'object') {
+        if (typeof value._all === 'number') return value._all;
+        const first = Object.values(value).find((v) => typeof v === 'number');
+        if (typeof first === 'number') return first;
+      }
+      return 0;
+    };
+
+    const normalizedSubscriptionStats = (Array.isArray(subscriptionStats) ? subscriptionStats : []).map((row) => ({
+      ...row,
+      _count: normalizeGroupCount(row?._count),
+    }));
+
     res.json({
       success: true,
       data: {
@@ -212,7 +227,7 @@ router.get('/dashboard', requireAdmin, logAdminAction('view_dashboard'), async (
           recentSignups,
           growthRate: parseFloat(growthRate)
         },
-        subscriptions: subscriptionStats,
+        subscriptions: normalizedSubscriptionStats,
         revenue: revenueStats,
         recentActivity,
         timestamp: new Date().toISOString()
@@ -236,30 +251,50 @@ router.get('/analytics/users', requireAdmin, logAdminAction('view_user_analytics
     const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    // User growth over time
-    const userGrowth = await prisma.$queryRaw`
-      SELECT 
-        DATE(created_at) as date,
-        COUNT(*) as count,
-        role
-      FROM "User"
-      WHERE created_at >= ${startDate}
-      GROUP BY DATE(created_at), role
-      ORDER BY date ASC
-    `;
+    const dateKey = (value) => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
 
-    // User activity metrics
+    // User growth over time (avoid raw SQL to prevent column naming mismatches)
+    const userGrowthRows = await prisma.user.findMany({
+      where: {
+        createdAt: { gte: startDate },
+      },
+      select: {
+        createdAt: true,
+        role: true,
+      },
+    });
+
+    const growthMap = new Map();
+    userGrowthRows.forEach((row) => {
+      const key = dateKey(row.createdAt);
+      if (!key) return;
+      const role = row.role || 'UNKNOWN';
+      const mapKey = `${key}:${role}`;
+      growthMap.set(mapKey, (growthMap.get(mapKey) || 0) + 1);
+    });
+
+    const userGrowth = Array.from(growthMap.entries())
+      .map(([mapKey, count]) => {
+        const [date, role] = mapKey.split(':');
+        return { date, role, count };
+      })
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.role).localeCompare(String(b.role)));
+
+    // User activity metrics (DateTime cannot be averaged; provide counts + most recent login)
     const activityMetrics = await prisma.user.groupBy({
       by: ['role'],
-      _count: true,
-      _avg: {
-        lastLoginAt: true
-      },
+      _count: { _all: true },
+      _max: { lastLoginAt: true },
       where: {
         lastLoginAt: {
-          gte: startDate
-        }
-      }
+          gte: startDate,
+        },
+      },
     });
 
     // Top users by activity (most properties, inspections, etc.)
@@ -318,6 +353,21 @@ router.get('/analytics/subscriptions', requireAdmin, logAdminAction('view_subscr
       }
     });
 
+    const normalizeGroupCount = (value) => {
+      if (typeof value === 'number') return value;
+      if (value && typeof value === 'object') {
+        if (typeof value._all === 'number') return value._all;
+        const first = Object.values(value).find((v) => typeof v === 'number');
+        if (typeof first === 'number') return first;
+      }
+      return 0;
+    };
+
+    const normalizedDistribution = (Array.isArray(subscriptionDistribution) ? subscriptionDistribution : []).map((row) => ({
+      ...row,
+      _count: normalizeGroupCount(row?._count),
+    }));
+
     // Trial conversion rate
     const trialUsers = await prisma.user.count({
       where: {
@@ -350,7 +400,7 @@ router.get('/analytics/subscriptions', requireAdmin, logAdminAction('view_subscr
 
     const canceledUsers = await prisma.user.count({
       where: {
-        subscriptionStatus: 'CANCELED',
+        subscriptionStatus: 'CANCELLED',
         role: 'PROPERTY_MANAGER'
       }
     });
@@ -358,7 +408,7 @@ router.get('/analytics/subscriptions', requireAdmin, logAdminAction('view_subscr
     res.json({
       success: true,
       data: {
-        distribution: subscriptionDistribution,
+        distribution: normalizedDistribution,
         metrics: {
           trialUsers,
           convertedUsers,
@@ -728,7 +778,17 @@ router.get('/analytics/revenue', requireAdmin, logAdminAction('view_revenue_anal
     const mrrByPlan = {};
     activePlanCounts.forEach((row) => {
       const plan = normalisePlan(row.subscriptionPlan) || 'UNKNOWN';
-      const count = Number(row._count) || 0;
+      const count = (() => {
+        const value = row?._count;
+        if (typeof value === 'number') return value;
+        if (value && typeof value === 'object') {
+          if (typeof value._all === 'number') return value._all;
+          if (typeof value.subscriptionPlan === 'number') return value.subscriptionPlan;
+          const first = Object.values(value).find((v) => typeof v === 'number');
+          if (typeof first === 'number') return first;
+        }
+        return 0;
+      })();
       const price = planPrices[plan] || 0;
       const revenue = price * count;
       mrrByPlan[plan] = { count, price, revenue };

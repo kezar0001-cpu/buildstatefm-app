@@ -26,6 +26,10 @@
     - `GET /api/admin/health` (system health snapshot)
     - `GET /api/admin/observability?windowMs=...` (API telemetry + Stripe webhooks backlog + subscription consistency data quality)
   - Uses `recharts` for simple charts (user growth, plan distribution, operations volume, product weekly active, revenue MRR movement). System tab also shows observability + data quality signals.
+  - Fixes:
+    - `/api/admin/analytics/users` avoids raw SQL column mismatches and avoids averaging DateTime fields (uses JS aggregation + Prisma groupBy `_max:lastLoginAt`).
+    - `/api/admin/analytics/subscriptions` uses `SubscriptionStatus.CANCELLED` (not `CANCELED`) and normalizes Prisma groupBy `_count` shape.
+    - If `/api/admin/analytics/revenue` returns 404 in production but exists in repo, redeploy backend (production running older build).
 
 - **Getting Started checklist (Dashboard):** `frontend/src/components/OnboardingChecklist.jsx`
   - Uses `/api/dashboard/summary` to detect step completion.
