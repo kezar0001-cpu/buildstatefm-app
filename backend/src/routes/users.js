@@ -144,6 +144,27 @@ router.get('/', asyncHandler(async (req, res) => {
         select: BASIC_USER_SELECT,
       });
     }
+
+    // Include technicians who accepted an invite created by the current property manager.
+    // This avoids "missing" technicians if an older invite-signup flow didn't stamp orgId.
+    const invitedTechnicians = await prisma.invite.findMany({
+      where: {
+        invitedById: req.user.id,
+        role: 'TECHNICIAN',
+        status: 'ACCEPTED',
+        invitedUserId: { not: null },
+      },
+      include: {
+        invitedUser: {
+          select: BASIC_USER_SELECT,
+        },
+      },
+    });
+
+    rawUsers = [
+      ...rawUsers,
+      ...invitedTechnicians.map((record) => record.invitedUser).filter(Boolean),
+    ];
   } else {
     rawUsers = await fetchUsersForManagedProperties(prisma, propertyIds, requestedRole);
 

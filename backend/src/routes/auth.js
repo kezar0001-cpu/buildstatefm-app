@@ -377,6 +377,15 @@ router.post('/register', async (req, res) => {
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
+    let orgId = null;
+    if (invite && userRole === 'TECHNICIAN') {
+      const inviter = await prisma.user.findUnique({
+        where: { id: invite.invitedById },
+        select: { orgId: true },
+      });
+      orgId = inviter?.orgId ?? null;
+    }
+
     const user = await prisma.user.create({
       data: {
         firstName,
@@ -385,6 +394,7 @@ router.post('/register', async (req, res) => {
         passwordHash,
         phone,
         role: userRole,
+        orgId,
         subscriptionPlan: 'FREE_TRIAL',
         subscriptionStatus: 'TRIAL',
         trialEndDate,

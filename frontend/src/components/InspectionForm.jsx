@@ -31,8 +31,23 @@ const INSPECTION_TYPE_OPTIONS = [
   { value: 'COMPLIANCE', label: 'Compliance' },
 ];
 
-const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues = {} }) => {
+const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues }) => {
   const isEditing = Boolean(inspection);
+
+  const initialFormValues = useMemo(
+    () => ({ ...inspectionDefaultValues, ...(initialValues || {}) }),
+    [
+      initialValues?.propertyId,
+      initialValues?.unitId,
+      initialValues?.assignedToId,
+      initialValues?.templateId,
+      initialValues?.type,
+      initialValues?.scheduledDate,
+      initialValues?.title,
+      initialValues?.notes,
+      Array.isArray(initialValues?.tags) ? initialValues.tags.join('|') : undefined,
+    ]
+  );
 
   const {
     control,
@@ -44,7 +59,7 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues = {} })
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(inspectionSchema),
-    defaultValues: { ...inspectionDefaultValues, ...initialValues },
+    defaultValues: initialFormValues,
     mode: 'onBlur',
   });
 
@@ -149,9 +164,9 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues = {} })
         templateId: inspection.templateId || '',
       });
     } else {
-      reset({ ...inspectionDefaultValues, ...initialValues });
+      reset(initialFormValues);
     }
-  }, [inspection, reset, initialValues]);
+  }, [inspection, reset, initialFormValues]);
 
   // Auto-focus on first error field
   useEffect(() => {

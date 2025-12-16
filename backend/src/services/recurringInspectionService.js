@@ -63,9 +63,9 @@ export async function generateRecurringInspections() {
       include: {
         InspectionTemplate: {
           include: {
-            rooms: {
+            InspectionTemplateRoom: {
               include: {
-                checklistItems: {
+                InspectionTemplateChecklistItem: {
                   orderBy: { order: 'asc' }
                 }
               },
@@ -109,8 +109,8 @@ export async function generateRecurringInspections() {
           });
 
           // If there's a template, copy rooms and checklist items
-          if (recurring.InspectionTemplate && recurring.InspectionTemplate.rooms) {
-            for (const templateRoom of recurring.InspectionTemplate.rooms) {
+          if (recurring.InspectionTemplate && recurring.InspectionTemplate.InspectionTemplateRoom) {
+            for (const templateRoom of recurring.InspectionTemplate.InspectionTemplateRoom) {
               const room = await prisma.inspectionRoom.create({
                 data: {
                   id: randomUUID(),
@@ -123,14 +123,13 @@ export async function generateRecurringInspections() {
               });
 
               // Copy checklist items
-              if (templateRoom.checklistItems) {
-                for (const templateItem of templateRoom.checklistItems) {
+              if (templateRoom.InspectionTemplateChecklistItem) {
+                for (const templateItem of templateRoom.InspectionTemplateChecklistItem) {
                   await prisma.inspectionChecklistItem.create({
                     data: {
                       roomId: room.id,
                       description: templateItem.description,
                       order: templateItem.order,
-                      status: 'PENDING'
                     }
                   });
                 }

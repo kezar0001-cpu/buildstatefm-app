@@ -41,8 +41,18 @@
   - Desktop: single-line, no wrapping; secondary filters live in a "More filters" Popover.
   - Mobile: search full-width + a single "Filters" button (Drawer) + optional Clear; never overflows.
   - View toggles are desktop-only (FilterBar enforces this).
+
+- **InspectionForm (create/edit inspection dialog):** `frontend/src/components/InspectionForm.jsx`
+  - Avoid defaulting `initialValues` to `{}` in props; that creates a new object each render and can trigger `reset(...)` effects that clear user typing.
+  - Uses a memoized `initialFormValues` merged from `inspectionDefaultValues` + `initialValues` and resets only when those primitive fields change.
+  - Fix: reset-on-render gotcha resolved by memoizing `initialFormValues` to prevent unnecessary resets that cleared user typing.
+
 - **Navigation config:** `frontend/src/utils/navigationConfig.js`
   - Defines `NAVIGATION_ITEMS` and `MOBILE_NAV_ITEMS` by role.
+
+- **Team Management (technicians list):** `frontend/src/pages/TeamManagementPage.jsx`
+  - Fetches technicians via `GET /api/users?role=TECHNICIAN` (also OWNER/TENANT) and renders tabs.
+  - Backend scoping for technicians is primarily by property manager `orgId`.
 
 ## RBAC
 - **Option 1 (Technician/Tenant read-only):** Technicians and tenants can access Properties/Units pages but only in read-only mode.
