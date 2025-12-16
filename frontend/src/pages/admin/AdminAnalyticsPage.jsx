@@ -132,6 +132,7 @@ export default function AdminAnalyticsPage() {
   const [productAnalytics, setProductAnalytics] = useState(null);
   const [revenueAnalytics, setRevenueAnalytics] = useState(null);
   const [health, setHealth] = useState(null);
+  const [observability, setObservability] = useState(null);
 
   const userGrowth = userAnalytics?.userGrowth || [];
 
@@ -228,18 +229,23 @@ export default function AdminAnalyticsPage() {
       .sort((a, b) => b.revenue - a.revenue);
   }, [revenueAnalytics]);
 
+  const telemetry = observability?.telemetry;
+  const dq = observability?.dataQuality?.subscriptionConsistency;
+  const stripeWebhooks = observability?.stripeWebhooks;
+
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const [usersRes, subsRes, opsRes, productRes, revenueRes, healthRes] = await Promise.all([
+      const [usersRes, subsRes, opsRes, productRes, revenueRes, healthRes, obsRes] = await Promise.all([
         apiClient.get('/admin/analytics/users', { params: { period } }),
         apiClient.get('/admin/analytics/subscriptions'),
         apiClient.get('/admin/analytics/operations', { params: { period } }),
         apiClient.get('/admin/analytics/product', { params: { period } }),
         apiClient.get('/admin/analytics/revenue', { params: { period } }),
         apiClient.get('/admin/health'),
+        apiClient.get('/admin/observability', { params: { windowMs: 15 * 60 * 1000 } }),
       ]);
 
       setUserAnalytics(usersRes?.data?.data || null);
@@ -248,6 +254,7 @@ export default function AdminAnalyticsPage() {
       setProductAnalytics(productRes?.data?.data || null);
       setRevenueAnalytics(revenueRes?.data?.data || null);
       setHealth(healthRes?.data?.data || null);
+      setObservability(obsRes?.data?.data || null);
     } catch (err) {
       logger.error('Failed to fetch admin analytics:', err);
       setError(err?.response?.data?.message || 'Failed to load analytics');
@@ -1271,47 +1278,138 @@ export default function AdminAnalyticsPage() {
       </TabPanel>
 
       <TabPanel value={tab} tabValue="system">
-        <Card>
-          <CardContent>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              System Health
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Current backend + database status
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {loading ? (
-              <CircularProgress />
-            ) : !health ? (
-              <Typography variant="body2" color="text.secondary">
-                No health data available
-              </Typography>
-            ) : (
-              <Stack spacing={1}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip
-                    icon={<MonitorHeart />}
-                    label={health.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
-                    color={health.status === 'healthy' ? 'success' : 'error'}
-                  />
-                  <Chip
-                    label={`DB: ${health.database || 'unknown'}`}
-                    color={health.database === 'connected' ? 'success' : 'warning'}
-                  />
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  Uptime: {Number.isFinite(health.uptime) ? `${Math.round(health.uptime)}s` : '—'}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={5}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  System Health
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Memory RSS: {formatBytes(health.memory?.rss)}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Current backend + database status
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Generated: {formatDateTime(health.timestamp)}
+                <Divider sx={{ mb: 2 }} />
+                {loading ? (
+                  <CircularProgress />
+                ) : !health ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No health data available
+                  </Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        icon={<MonitorHeart />}
+                        label={health.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                        color={health.status === 'healthy' ? 'success' : 'error'}
+                      />
+                      <Chip
+                        label={`DB: ${health.database || 'unknown'}`}
+                        color={health.database === 'connected' ? 'success' : 'warning'}
+                      />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      Uptime: {Number.isFinite(health.uptime) ? `${Math.round(health.uptime)}s` : '—'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Memory RSS: {formatBytes(health.memory?.rss)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Generated: {formatDateTime(health.timestamp)}
+                    </Typography>
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={7}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Observability (last 15m)
                 </Typography>
-              </Stack>
-            )}
-          </CardContent>
-        </Card>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  API latency, error rate, Stripe webhook backlog, and data quality checks
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                {loading ? (
+                  <CircularProgress />
+                ) : !telemetry && !stripeWebhooks && !dq ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No observability data available
+                  </Typography>
+                ) : (
+                  <Stack spacing={2}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                      <Chip label={`Requests: ${telemetry?.totals?.requests ?? 0}`} />
+                      <Chip
+                        label={`Error rate: ${(((telemetry?.totals?.errorRate ?? 0) * 100) || 0).toFixed(2)}%`}
+                        color={(telemetry?.totals?.errorRate ?? 0) > 0.02 ? 'warning' : 'success'}
+                      />
+                      <Chip label={`p95: ${telemetry?.latencyMs?.p95 != null ? `${Math.round(telemetry.latencyMs.p95)}ms` : '—'}`} />
+                      <Chip label={`max: ${telemetry?.latencyMs?.max != null ? `${Math.round(telemetry.latencyMs.max)}ms` : '—'}`} />
+                    </Stack>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                      <Chip
+                        label={`Stripe webhooks unprocessed: ${stripeWebhooks?.unprocessedCount ?? 0}`}
+                        color={(stripeWebhooks?.unprocessedCount ?? 0) > 50 ? 'warning' : 'default'}
+                      />
+                      <Chip
+                        label={
+                          stripeWebhooks?.oldestUnprocessed
+                            ? `Oldest: ${stripeWebhooks.oldestUnprocessed.eventType} (${stripeWebhooks.oldestUnprocessed.ageMinutes ?? '?'}m)`
+                            : 'Oldest: —'
+                        }
+                      />
+                    </Stack>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                      <Chip
+                        label={`PMs missing subscription record: ${dq?.missingSubscriptionCount ?? 0}`}
+                        color={(dq?.missingSubscriptionCount ?? 0) > 0 ? 'warning' : 'success'}
+                      />
+                      <Chip
+                        label={`PM subscription mismatches: ${dq?.mismatchCount ?? 0}`}
+                        color={(dq?.mismatchCount ?? 0) > 0 ? 'warning' : 'success'}
+                      />
+                    </Stack>
+
+                    {Array.isArray(telemetry?.topRoutes) && telemetry.topRoutes.length > 0 && (
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                          Top routes
+                        </Typography>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Route</TableCell>
+                              <TableCell align="right">Count</TableCell>
+                              <TableCell align="right">Errors</TableCell>
+                              <TableCell align="right">p95</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {telemetry.topRoutes.map((row) => (
+                              <TableRow key={`${row.method}-${row.path}`} hover>
+                                <TableCell>{`${row.method} ${row.path}`}</TableCell>
+                                <TableCell align="right">{Number(row.count || 0).toLocaleString()}</TableCell>
+                                <TableCell align="right">{Number(row.errors || 0).toLocaleString()}</TableCell>
+                                <TableCell align="right">{row.p95Ms != null ? `${Math.round(row.p95Ms)}ms` : '—'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    )}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </TabPanel>
     </Box>
   );

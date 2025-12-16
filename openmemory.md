@@ -24,7 +24,8 @@
     - `GET /api/admin/analytics/product?period=7d|30d|90d` (activation funnel + weekly active PMs)
     - `GET /api/admin/analytics/revenue?period=7d|30d|90d` (MRR/ARR + churn + MRR movement)
     - `GET /api/admin/health` (system health snapshot)
-  - Uses `recharts` for simple charts (user growth, plan distribution, operations volume, product weekly active, revenue MRR movement).
+    - `GET /api/admin/observability?windowMs=...` (API telemetry + Stripe webhooks backlog + subscription consistency data quality)
+  - Uses `recharts` for simple charts (user growth, plan distribution, operations volume, product weekly active, revenue MRR movement). System tab also shows observability + data quality signals.
 
 - **Getting Started checklist (Dashboard):** `frontend/src/components/OnboardingChecklist.jsx`
   - Uses `/api/dashboard/summary` to detect step completion.

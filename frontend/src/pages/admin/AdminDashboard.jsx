@@ -21,6 +21,22 @@ import {
 import { apiClient } from '../../api/client';
 import logger from '../../utils/logger';
 
+function formatTimeAgo(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+}
+
 function StatCard({ title, value, icon, trend, color = 'primary', loading }) {
   return (
     <Card sx={{ height: '100%' }}>
@@ -239,25 +255,11 @@ export default function AdminDashboard() {
 
   const overview = dashboardData?.overview || {};
   const subscriptions = dashboardData?.subscriptions || [];
-
-  // Mock recent activities (replace with real data from backend)
-  const recentActivities = [
-    {
-      title: 'New user registered',
-      description: 'john@example.com signed up as Property Manager',
-      time: '2 min ago',
-    },
-    {
-      title: 'Blog post published',
-      description: 'New post: "Property Management Best Practices"',
-      time: '1 hour ago',
-    },
-    {
-      title: 'Subscription upgraded',
-      description: 'User upgraded to Professional plan',
-      time: '3 hours ago',
-    },
-  ];
+  const recentActivitiesRaw = Array.isArray(dashboardData?.recentActivity) ? dashboardData.recentActivity : [];
+  const recentActivities = recentActivitiesRaw.map((row) => ({
+    ...row,
+    time: formatTimeAgo(row.createdAt),
+  }));
 
   return (
     <Box>

@@ -27,6 +27,7 @@ const PRODUCTION_REQUIRED_VARS = [
 
 const OPTIONAL_VARS = {
   'RESEND_API_KEY': 'Email notifications',
+  'ALERT_EMAIL': 'System alerts',
   'STRIPE_SECRET_KEY': 'Payment processing',
   'STRIPE_WEBHOOK_SECRET': 'Stripe webhooks',
   'GOOGLE_CLIENT_ID': 'Google OAuth',

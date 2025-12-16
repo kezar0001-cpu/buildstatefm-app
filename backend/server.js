@@ -19,6 +19,7 @@ import mongoSanitize from 'express-mongo-sanitize';
 import compression from 'compression';
 import prisma, { prisma as prismaInstance } from './src/config/prismaClient.js';
 import logger from './src/utils/logger.js';
+import requestLogger, { errorLogger } from './src/middleware/logger.js';
 
 import scheduleMaintenancePlanCron from './src/cron/maintenancePlans.js';
 import { startRecurringInspectionCron } from './src/services/recurringInspectionService.js';
@@ -179,6 +180,8 @@ app.use(
 import './src/config/passport.js';
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use(requestLogger);
 
 // ----------------------
 // Routes
@@ -360,6 +363,8 @@ app.get('/', (_req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
+
+app.use(errorLogger);
 
 // ===================================================================
 //  Sentry Error Handler (before final error handler)

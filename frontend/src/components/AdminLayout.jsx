@@ -29,9 +29,6 @@ import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   AdminPanelSettings as AdminIcon,
-  Category as CategoryIcon,
-  LocalOffer as TagIcon,
-  AutoAwesome as AutoAwesomeIcon
 } from '@mui/icons-material';
 import { getCurrentUser, removeAuthToken } from '../lib/auth';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -63,21 +60,6 @@ const adminMenuItems = [
     title: 'Blog Posts',
     path: '/admin/blog',
     icon: <ArticleIcon />,
-  },
-  {
-    title: 'Categories',
-    path: '/admin/blog/categories',
-    icon: <CategoryIcon />,
-  },
-  {
-    title: 'Tags',
-    path: '/admin/blog/tags',
-    icon: <TagIcon />,
-  },
-  {
-    title: 'Automation',
-    path: '/admin/blog/automation',
-    icon: <AutoAwesomeIcon />,
   },
   {
     divider: true,

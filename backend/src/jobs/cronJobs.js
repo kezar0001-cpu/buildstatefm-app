@@ -13,6 +13,116 @@
 import cron from 'node-cron';
 import { checkAndSendTrialReminders, expireTrials } from '../utils/trialReminders.js';
 import { prisma } from '../config/prismaClient.js';
+import { sendEmail } from '../utils/email.js';
+import { getApiTelemetrySnapshot } from '../middleware/logger.js';
+
+let lastAlertSentAtMs = 0;
+
+async function checkAndSendSystemAlerts() {
+  const alertTo = process.env.ALERT_EMAIL?.trim();
+  if (!alertTo) return;
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  if (!resendApiKey) return;
+
+  const now = Date.now();
+  const cooldownMs = 6 * 60 * 60 * 1000;
+  if (lastAlertSentAtMs && now - lastAlertSentAtMs < cooldownMs) {
+    return;
+  }
+
+  const telemetry = getApiTelemetrySnapshot({ windowMs: 15 * 60 * 1000, now });
+
+  const [unprocessedStripeWebhooks, oldestUnprocessedWebhook, propertyManagers] = await Promise.all([
+    prisma.stripeWebhookEvent.count({ where: { processed: false } }),
+    prisma.stripeWebhookEvent.findFirst({
+      where: { processed: false },
+      orderBy: { createdAt: 'asc' },
+      select: { eventType: true, createdAt: true },
+    }),
+    prisma.user.findMany({
+      where: { role: 'PROPERTY_MANAGER' },
+      select: {
+        id: true,
+        email: true,
+        subscriptionStatus: true,
+        subscriptionPlan: true,
+        subscriptions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { status: true, planName: true },
+        },
+      },
+    }),
+  ]);
+
+  const normalise = (value) => {
+    if (!value) return null;
+    return String(value).trim().toUpperCase();
+  };
+
+  let missingSubscriptionCount = 0;
+  let mismatchCount = 0;
+  propertyManagers.forEach((pm) => {
+    const latest = Array.isArray(pm.subscriptions) ? pm.subscriptions[0] : null;
+    if (!latest) {
+      missingSubscriptionCount += 1;
+      return;
+    }
+
+    const userStatus = normalise(pm.subscriptionStatus);
+    const subStatus = normalise(latest.status);
+    const userPlan = normalise(pm.subscriptionPlan);
+    const subPlan = normalise(latest.planName);
+
+    const isMismatch = (userStatus && subStatus && userStatus !== subStatus) || (userPlan && subPlan && userPlan !== subPlan);
+    if (isMismatch) mismatchCount += 1;
+  });
+
+  const oldestCreatedAt = oldestUnprocessedWebhook?.createdAt ? new Date(oldestUnprocessedWebhook.createdAt) : null;
+  const oldestAgeMinutes = oldestCreatedAt ? Math.round((now - oldestCreatedAt.getTime()) / (60 * 1000)) : null;
+
+  const shouldAlert =
+    (telemetry?.sampleSize || 0) >= 50 &&
+    ((telemetry?.totals?.errorRate || 0) > 0.05 ||
+      (telemetry?.latencyMs?.p95 != null && telemetry.latencyMs.p95 > 2000) ||
+      unprocessedStripeWebhooks > 50 ||
+      (oldestAgeMinutes != null && oldestAgeMinutes > 30) ||
+      missingSubscriptionCount > 0 ||
+      mismatchCount > 0);
+
+  if (!shouldAlert) return;
+
+  const subject = 'Buildstate FM: System alerts triggered';
+  const html = `
+    <h2>System alerts triggered</h2>
+    <p><strong>Timestamp:</strong> ${new Date(now).toISOString()}</p>
+    <h3>API telemetry (last 15m)</h3>
+    <ul>
+      <li>Requests: ${telemetry?.totals?.requests ?? 0}</li>
+      <li>Error rate: ${(((telemetry?.totals?.errorRate ?? 0) * 100) || 0).toFixed(2)}%</li>
+      <li>p95 latency: ${telemetry?.latencyMs?.p95 != null ? Math.round(telemetry.latencyMs.p95) + 'ms' : '—'}</li>
+      <li>max latency: ${telemetry?.latencyMs?.max != null ? Math.round(telemetry.latencyMs.max) + 'ms' : '—'}</li>
+    </ul>
+    <h3>Stripe webhook backlog</h3>
+    <ul>
+      <li>Unprocessed: ${unprocessedStripeWebhooks}</li>
+      <li>Oldest: ${oldestUnprocessedWebhook ? `${oldestUnprocessedWebhook.eventType} (${oldestAgeMinutes ?? '?'}m)` : '—'}</li>
+    </ul>
+    <h3>Data quality</h3>
+    <ul>
+      <li>PMs missing subscription record: ${missingSubscriptionCount}</li>
+      <li>PM subscription mismatches: ${mismatchCount}</li>
+    </ul>
+    <p>Check Admin Analytics → System for more details.</p>
+  `;
+
+  await sendEmail(alertTo, subject, html, {
+    event: 'system_alert',
+    windowMs: telemetry?.windowMs,
+  });
+  lastAlertSentAtMs = now;
+}
 
 /**
  * Initialize all cron jobs
@@ -77,12 +187,22 @@ export function initializeCronJobs() {
     }
   });
 
+  // System alert checks - runs every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      await checkAndSendSystemAlerts();
+    } catch (error) {
+      console.error('Error in system alert cron job:', error);
+    }
+  });
+
   console.log('Cron jobs initialized successfully');
   console.log('- Trial reminders: Daily at 9:00 AM');
   console.log('- Recommendation archiving: Every hour');
   console.log('- Service request archiving: Every hour');
   console.log('- Inspection archiving: Every hour');
   console.log('- Job archiving: Every hour');
+  console.log('- System alerts: Every 15 minutes (requires ALERT_EMAIL + RESEND_API_KEY)');
 }
 
 /**

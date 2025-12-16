@@ -1,5 +1,79 @@
 import logger from '../utils/logger.js';
 
+const MAX_TELEMETRY_SAMPLES = 1000;
+const telemetrySamples = [];
+
+function recordTelemetrySample(sample) {
+  telemetrySamples.push(sample);
+  if (telemetrySamples.length > MAX_TELEMETRY_SAMPLES) {
+    telemetrySamples.splice(0, telemetrySamples.length - MAX_TELEMETRY_SAMPLES);
+  }
+}
+
+function percentile(values, p) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.max(0, Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx];
+}
+
+export function getApiTelemetrySnapshot({ windowMs = 15 * 60 * 1000, now = Date.now() } = {}) {
+  const windowStart = now - windowMs;
+  const windowed = telemetrySamples.filter((s) => s && s.timestampMs >= windowStart && s.timestampMs <= now);
+
+  const durations = windowed.map((s) => s.durationMs).filter((v) => Number.isFinite(v));
+  const total = windowed.length;
+  const errors = windowed.filter((s) => (s.statusCode || 0) >= 500).length;
+  const warnings = windowed.filter((s) => (s.statusCode || 0) >= 400 && (s.statusCode || 0) < 500).length;
+
+  const byRoute = new Map();
+  windowed.forEach((s) => {
+    const key = `${s.method} ${s.path}`;
+    if (!byRoute.has(key)) {
+      byRoute.set(key, { key, method: s.method, path: s.path, count: 0, errors: 0, durations: [] });
+    }
+    const entry = byRoute.get(key);
+    entry.count += 1;
+    if ((s.statusCode || 0) >= 500) entry.errors += 1;
+    if (Number.isFinite(s.durationMs)) entry.durations.push(s.durationMs);
+  });
+
+  const topRoutes = Array.from(byRoute.values())
+    .map((row) => {
+      const d = row.durations;
+      return {
+        method: row.method,
+        path: row.path,
+        count: row.count,
+        errors: row.errors,
+        avgMs: d.length ? Math.round(d.reduce((a, b) => a + b, 0) / d.length) : null,
+        p95Ms: percentile(d, 95),
+        maxMs: d.length ? Math.max(...d) : null,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+
+  return {
+    windowMs,
+    sampleSize: total,
+    totals: {
+      requests: total,
+      errors,
+      warnings,
+      errorRate: total > 0 ? errors / total : 0,
+    },
+    latencyMs: {
+      p50: percentile(durations, 50),
+      p95: percentile(durations, 95),
+      p99: percentile(durations, 99),
+      max: durations.length ? Math.max(...durations) : null,
+    },
+    topRoutes,
+    timestamp: new Date(now).toISOString(),
+  };
+}
+
 /**
  * Request/Response logging middleware
  * Logs all API requests with detailed information including:
@@ -29,13 +103,23 @@ const requestLogger = (req, res, next) => {
 
     const duration = Date.now() - startTime;
     const userId = req.user?.id || req.session?.userId || 'anonymous';
+    const endpoint = req.originalUrl || req.url;
+    const pathOnly = String(endpoint).split('?')[0];
+
+    recordTelemetrySample({
+      timestampMs: Date.now(),
+      method: req.method,
+      path: pathOnly,
+      statusCode,
+      durationMs: duration,
+    });
 
     // Build log data
     const logData = {
       timestamp: new Date().toISOString(),
       userId,
       method: req.method,
-      endpoint: req.originalUrl || req.url,
+      endpoint,
       path: req.path,
       statusCode,
       responseTime: `${duration}ms`,
@@ -49,7 +133,13 @@ const requestLogger = (req, res, next) => {
     }
 
     // Add request body for non-GET requests (sanitize sensitive data)
-    if (req.method !== 'GET' && req.body && Object.keys(req.body).length > 0) {
+    if (
+      req.method !== 'GET' &&
+      req.body &&
+      !Buffer.isBuffer(req.body) &&
+      typeof req.body === 'object' &&
+      Object.keys(req.body).length > 0
+    ) {
       const sanitizedBody = { ...req.body };
       // Remove sensitive fields from logging
       const sensitiveFields = ['password', 'token', 'secret', 'apiKey', 'authorization'];

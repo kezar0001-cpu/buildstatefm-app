@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import prisma from '../config/prismaClient.js';
 import { requireAdmin, logAdminAction } from '../middleware/adminAuth.js';
+import { getApiTelemetrySnapshot } from '../middleware/logger.js';
 import { sendError, ErrorCodes } from '../utils/errorHandler.js';
 
 const router = express.Router();
@@ -33,7 +34,8 @@ router.get('/dashboard', requireAdmin, logAdminAction('view_dashboard'), async (
       totalJobs,
       recentSignups,
       subscriptionStats,
-      revenueStats
+      revenueStats,
+      recentActivity
     ] = await Promise.all([
       // Total users count
       prisma.user.count(),
@@ -79,7 +81,101 @@ router.get('/dashboard', requireAdmin, logAdminAction('view_dashboard'), async (
         mrr: 0, // Monthly Recurring Revenue
         arr: 0, // Annual Recurring Revenue
         churnRate: 0
-      })
+      }),
+
+      (async () => {
+        const now = Date.now();
+        const windowStart = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+        const [recentUsers, recentBlogPosts, recentSubscriptions] = await Promise.all([
+          prisma.user.findMany({
+            where: {
+              createdAt: { gte: windowStart },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: {
+              email: true,
+              role: true,
+              createdAt: true,
+            },
+          }),
+          prisma.blogPost.findMany({
+            where: {
+              status: 'PUBLISHED',
+              publishedAt: { not: null, gte: windowStart },
+            },
+            orderBy: { publishedAt: 'desc' },
+            take: 10,
+            select: {
+              title: true,
+              publishedAt: true,
+            },
+          }),
+          prisma.subscription.findMany({
+            where: {
+              updatedAt: { gte: windowStart },
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 10,
+            select: {
+              status: true,
+              planName: true,
+              createdAt: true,
+              updatedAt: true,
+              cancelledAt: true,
+              user: {
+                select: { email: true },
+              },
+            },
+          }),
+        ]);
+
+        const activity = [];
+
+        recentUsers.forEach((u) => {
+          activity.push({
+            type: 'USER_REGISTERED',
+            title: 'New user registered',
+            description: `${u.email || 'Unknown'} signed up as ${String(u.role || 'USER').replace('_', ' ')}`,
+            createdAt: u.createdAt,
+          });
+        });
+
+        recentBlogPosts.forEach((p) => {
+          activity.push({
+            type: 'BLOG_PUBLISHED',
+            title: 'Blog post published',
+            description: `New post: "${p.title || 'Untitled'}"`,
+            createdAt: p.publishedAt,
+          });
+        });
+
+        recentSubscriptions.forEach((s) => {
+          const status = String(s.status || 'UNKNOWN');
+          const plan = String(s.planName || 'UNKNOWN');
+          const email = s.user?.email || 'Unknown user';
+
+          let title = 'Subscription updated';
+          if (status === 'CANCELLED') title = 'Subscription cancelled';
+          if (status === 'SUSPENDED') title = 'Subscription suspended';
+          if (status === 'ACTIVE' && s.createdAt && s.updatedAt && s.createdAt.getTime() === s.updatedAt.getTime()) {
+            title = 'Subscription started';
+          }
+
+          activity.push({
+            type: 'SUBSCRIPTION_UPDATED',
+            title,
+            description: `${email} → ${plan} (${status})`,
+            createdAt: s.cancelledAt || s.updatedAt || s.createdAt,
+          });
+        });
+
+        return activity
+          .filter((row) => row.createdAt)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 10);
+      })(),
     ]);
 
     // Calculate growth metrics
@@ -118,6 +214,7 @@ router.get('/dashboard', requireAdmin, logAdminAction('view_dashboard'), async (
         },
         subscriptions: subscriptionStats,
         revenue: revenueStats,
+        recentActivity,
         timestamp: new Date().toISOString()
       }
     });
@@ -1538,6 +1635,113 @@ router.get('/analytics/operations', requireAdmin, logAdminAction('view_operation
   } catch (error) {
     console.error('[Admin] Operations analytics error:', error);
     return sendError(res, 500, 'Failed to load operations analytics', ErrorCodes.ERR_INTERNAL_SERVER);
+  }
+});
+
+router.get('/observability', requireAdmin, logAdminAction('view_observability'), async (req, res) => {
+  try {
+    const windowMsRaw = Number(req.query.windowMs);
+    const windowMs = Number.isFinite(windowMsRaw) && windowMsRaw > 0 ? windowMsRaw : 15 * 60 * 1000;
+
+    const telemetry = getApiTelemetrySnapshot({ windowMs });
+
+    const [unprocessedStripeWebhooks, oldestUnprocessedWebhook, propertyManagers] = await Promise.all([
+      prisma.stripeWebhookEvent.count({ where: { processed: false } }),
+      prisma.stripeWebhookEvent.findFirst({
+        where: { processed: false },
+        orderBy: { createdAt: 'asc' },
+        select: { eventType: true, createdAt: true },
+      }),
+      prisma.user.findMany({
+        where: { role: 'PROPERTY_MANAGER' },
+        select: {
+          id: true,
+          email: true,
+          subscriptionStatus: true,
+          subscriptionPlan: true,
+          subscriptions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { status: true, planName: true, updatedAt: true, createdAt: true },
+          },
+        },
+      }),
+    ]);
+
+    let missingSubscriptionCount = 0;
+    let mismatchCount = 0;
+    const mismatchExamples = [];
+
+    const normalise = (value) => {
+      if (!value) return null;
+      return String(value).trim().toUpperCase();
+    };
+
+    propertyManagers.forEach((pm) => {
+      const latest = Array.isArray(pm.subscriptions) ? pm.subscriptions[0] : null;
+      if (!latest) {
+        missingSubscriptionCount += 1;
+        if (mismatchExamples.length < 10) {
+          mismatchExamples.push({
+            userId: pm.id,
+            email: pm.email,
+            user: { status: pm.subscriptionStatus, plan: pm.subscriptionPlan },
+            subscription: null,
+          });
+        }
+        return;
+      }
+
+      const userStatus = normalise(pm.subscriptionStatus);
+      const subStatus = normalise(latest.status);
+      const userPlan = normalise(pm.subscriptionPlan);
+      const subPlan = normalise(latest.planName);
+
+      const isMismatch = (userStatus && subStatus && userStatus !== subStatus) || (userPlan && subPlan && userPlan !== subPlan);
+      if (!isMismatch) return;
+
+      mismatchCount += 1;
+      if (mismatchExamples.length < 10) {
+        mismatchExamples.push({
+          userId: pm.id,
+          email: pm.email,
+          user: { status: pm.subscriptionStatus, plan: pm.subscriptionPlan },
+          subscription: { status: latest.status, plan: latest.planName, updatedAt: latest.updatedAt, createdAt: latest.createdAt },
+        });
+      }
+    });
+
+    const oldestCreatedAt = oldestUnprocessedWebhook?.createdAt ? new Date(oldestUnprocessedWebhook.createdAt) : null;
+    const oldestAgeMinutes = oldestCreatedAt ? Math.round((Date.now() - oldestCreatedAt.getTime()) / (60 * 1000)) : null;
+
+    res.json({
+      success: true,
+      data: {
+        telemetry,
+        stripeWebhooks: {
+          unprocessedCount: unprocessedStripeWebhooks,
+          oldestUnprocessed: oldestUnprocessedWebhook
+            ? {
+                eventType: oldestUnprocessedWebhook.eventType,
+                createdAt: oldestUnprocessedWebhook.createdAt,
+                ageMinutes: oldestAgeMinutes,
+              }
+            : null,
+        },
+        dataQuality: {
+          subscriptionConsistency: {
+            propertyManagers: propertyManagers.length,
+            missingSubscriptionCount,
+            mismatchCount,
+            examples: mismatchExamples,
+          },
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Admin] Observability error:', error);
+    return sendError(res, 500, 'Failed to load observability', ErrorCodes.ERR_INTERNAL_SERVER);
   }
 });
 
