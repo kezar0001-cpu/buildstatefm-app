@@ -116,6 +116,15 @@ router.post('/checkout', requireAuth, async (req, res) => {
       );
     }
 
+    if (dbUser.isLifetime) {
+      return sendError(
+        res,
+        400,
+        'Lifetime accounts do not have recurring subscriptions to manage.',
+        ErrorCodes.VAL_INVALID_REQUEST
+      );
+    }
+
     const { plan = 'BASIC', successUrl, cancelUrl, addOns = [], promoCode } = req.body || {};
     const normalisedPlan = normalisePlan(plan) || 'BASIC';
 
@@ -466,6 +475,10 @@ router.get('/invoices', requireAuth, async (req, res) => {
   try {
     const user = req.user;
 
+    if (user.isLifetime) {
+      return res.json({ invoices: [] });
+    }
+
     // Verify user is a property manager or admin and load latest subscription with a Stripe customer ID
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -535,6 +548,15 @@ router.post('/payment-method', requireAuth, async (req, res) => {
   try {
     const user = req.user;
 
+    if (user.isLifetime) {
+      return sendError(
+        res,
+        400,
+        'Lifetime accounts do not have recurring billing to manage.',
+        ErrorCodes.VAL_INVALID_REQUEST
+      );
+    }
+
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -595,6 +617,15 @@ router.get('/portal', requireAuth, async (req, res) => {
   try {
     const user = req.user;
 
+    if (user.isLifetime) {
+      return sendError(
+        res,
+        400,
+        'Lifetime accounts do not have recurring billing to manage.',
+        ErrorCodes.VAL_INVALID_REQUEST
+      );
+    }
+
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -654,6 +685,15 @@ router.get('/portal', requireAuth, async (req, res) => {
 router.post('/change-plan', requireAuth, async (req, res) => {
   try {
     const user = req.user;
+
+    if (user.isLifetime) {
+      return sendError(
+        res,
+        400,
+        'Lifetime accounts do not have recurring subscriptions to change.',
+        ErrorCodes.VAL_INVALID_REQUEST
+      );
+    }
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
@@ -782,6 +822,15 @@ router.post('/change-plan', requireAuth, async (req, res) => {
 router.post('/cancel', requireAuth, async (req, res) => {
   try {
     const user = req.user;
+
+    if (user.isLifetime) {
+      return sendError(
+        res,
+        400,
+        'Lifetime accounts do not have recurring subscriptions to cancel.',
+        ErrorCodes.VAL_INVALID_REQUEST
+      );
+    }
 
     // Verify user is a property manager or admin
     const dbUser = await prisma.user.findUnique({
@@ -1185,13 +1234,112 @@ export async function webhook(req, res) {
         const session = event.data.object;
         let userId = session.metadata?.userId;
         let orgId  = session.metadata?.orgId || session.client_reference_id;
+
         const subscriptionId = typeof session.subscription === 'string' 
           ? session.subscription 
           : session.subscription?.id || session.subscription;
         const customerId = typeof session.customer === 'string'
           ? session.customer
           : session.customer?.id || session.customer;
+        const paymentIntentId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id || session.payment_intent;
         let subscription;
+
+        if (session.mode === 'payment' && session.payment_status === 'paid') {
+          const lifetimePaymentLinkId = process.env.STRIPE_LIFETIME_PAYMENT_LINK_ID;
+          const lifetimePriceId = process.env.STRIPE_LIFETIME_PRICE_ID;
+          const sessionPaymentLinkId = typeof session.payment_link === 'string'
+            ? session.payment_link
+            : session.payment_link?.id || session.payment_link;
+
+          let matchesLifetime = false;
+
+          if (lifetimePaymentLinkId && sessionPaymentLinkId) {
+            matchesLifetime = lifetimePaymentLinkId === sessionPaymentLinkId;
+          } else if (lifetimePriceId) {
+            try {
+              const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 25 });
+              matchesLifetime = (lineItems?.data || []).some((item) => item?.price?.id === lifetimePriceId);
+            } catch (error) {
+              console.error('Failed to list line items for payment session', error);
+            }
+          } else {
+            matchesLifetime = session.amount_total === 40000;
+          }
+
+          if (matchesLifetime) {
+            const userEmailRaw = session.customer_email || session.customer_details?.email;
+            const userEmail = typeof userEmailRaw === 'string' ? userEmailRaw.trim() : null;
+
+            if (!userEmail) {
+              console.error('Lifetime checkout completed but no customer email is available');
+              break;
+            }
+
+            try {
+              const paidAt = typeof session.created === 'number' ? new Date(session.created * 1000) : null;
+
+              const existingUser = await prisma.user.findFirst({
+                where: {
+                  email: {
+                    equals: userEmail,
+                    mode: 'insensitive',
+                  },
+                },
+                select: { id: true, orgId: true },
+              });
+
+              const upserted = await prisma.lifetimePurchase.upsert({
+                where: { stripeCheckoutSessionId: session.id },
+                create: {
+                  email: userEmail,
+                  stripeCheckoutSessionId: session.id,
+                  stripeCustomerId: customerId || null,
+                  stripePaymentIntentId: paymentIntentId || null,
+                  stripePaymentLinkId: sessionPaymentLinkId || null,
+                  amount: typeof session.amount_total === 'number' ? session.amount_total : null,
+                  currency: typeof session.currency === 'string' ? session.currency : null,
+                  paidAt,
+                  userId: existingUser?.id || null,
+                  consumedAt: existingUser?.id ? new Date() : null,
+                },
+                update: {
+                  email: userEmail,
+                  stripeCustomerId: customerId || null,
+                  stripePaymentIntentId: paymentIntentId || null,
+                  stripePaymentLinkId: sessionPaymentLinkId || null,
+                  amount: typeof session.amount_total === 'number' ? session.amount_total : null,
+                  currency: typeof session.currency === 'string' ? session.currency : null,
+                  paidAt,
+                  userId: existingUser?.id || null,
+                  consumedAt: existingUser?.id ? new Date() : undefined,
+                },
+              });
+
+              if (existingUser?.id) {
+                await applySubscriptionUpdate({
+                  userId: existingUser.id,
+                  orgId: existingUser.orgId,
+                  data: {
+                    subscriptionStatus: 'ACTIVE',
+                    subscriptionPlan: 'ENTERPRISE',
+                    trialEndDate: null,
+                    isLifetime: true,
+                  },
+                });
+              } else {
+                console.log(`Lifetime purchase recorded for ${userEmail} (awaiting signup)`);
+              }
+
+              console.log(`Lifetime checkout recorded: ${upserted.stripeCheckoutSessionId}`);
+            } catch (error) {
+              console.error('Failed to record lifetime purchase', error);
+            }
+
+            break;
+          }
+        }
 
         // If userId/orgId missing, try to find user by customer ID
         if (!userId && !orgId && customerId) {

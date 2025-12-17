@@ -26,6 +26,7 @@ model User {
   subscriptionPlan                                     SubscriptionPlan        @default(FREE_TRIAL)
   subscriptionStatus                                   SubscriptionStatus      @default(TRIAL)
   trialEndDate                                         DateTime?
+  isLifetime                                           Boolean                 @default(false)
   emailVerified                                        Boolean                 @default(false)
   AuditLog                                             AuditLog[]
   BlogPost                                             BlogPost[]
@@ -72,6 +73,26 @@ model User {
   @@index([email])
   @@index([role])
   @@index([refreshTokenHash])
+}
+
+model LifetimePurchase {
+  id                    String   @id @default(cuid())
+  email                 String
+  stripeCheckoutSessionId String  @unique
+  stripeCustomerId      String?
+  stripePaymentIntentId String?
+  stripePaymentLinkId   String?
+  amount                Int?
+  currency              String?
+  paidAt                DateTime?
+  userId                String?
+  consumedAt            DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([userId])
 }
 
 model Invite {

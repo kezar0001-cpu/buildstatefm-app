@@ -386,7 +386,7 @@ router.post('/register', async (req, res) => {
       orgId = inviter?.orgId ?? null;
     }
 
-    const user = await prisma.user.create({
+    let user = await prisma.user.create({
       data: {
         firstName,
         lastName,
@@ -400,6 +400,46 @@ router.post('/register', async (req, res) => {
         trialEndDate,
       },
     });
+
+    try {
+      const lifetimePurchase = await prisma.lifetimePurchase.findFirst({
+        where: {
+          email: {
+            equals: email,
+            mode: 'insensitive',
+          },
+          consumedAt: null,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (lifetimePurchase) {
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: user.id },
+            data: {
+              subscriptionStatus: 'ACTIVE',
+              subscriptionPlan: 'ENTERPRISE',
+              trialEndDate: null,
+              isLifetime: true,
+            },
+          }),
+          prisma.lifetimePurchase.update({
+            where: { stripeCheckoutSessionId: lifetimePurchase.stripeCheckoutSessionId },
+            data: {
+              userId: user.id,
+              consumedAt: new Date(),
+            },
+          }),
+        ]);
+
+        user = await prisma.user.findUnique({
+          where: { id: user.id },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to apply lifetime purchase on registration:', error);
+    }
 
     // If this was an invite-based signup, update the invite status
     if (invite) {
@@ -725,6 +765,7 @@ router.get('/me', requireAuth, async (req, res) => {
         updatedAt: true,
         subscriptionStatus: true,
         subscriptionPlan: true,
+        isLifetime: true,
         trialEndDate: true,
       },
     });

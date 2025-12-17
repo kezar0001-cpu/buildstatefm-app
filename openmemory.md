@@ -10,6 +10,12 @@
 - **Mobile footer nav:** `frontend/src/components/RotaryFooter.tsx` (fixed bottom, mobile only).
  - **Public lifetime welcome page:** `frontend/src/pages/WelcomeLifetime.jsx` served at `/welcome-lifetime`.
 
+- **Lifetime purchases (Stripe Payment Link):**
+  - Webhook handler: `backend/src/routes/billing.js` (`checkout.session.completed`, `mode=payment`).
+  - Entitlement storage: `backend/prisma/schema.prisma` `LifetimePurchase` + `User.isLifetime`.
+  - Signup consumption: `backend/src/routes/auth.js` applies unconsumed lifetime purchases on `POST /api/auth/register`.
+  - UI behavior: `frontend/src/pages/SubscriptionsPage.jsx` hides recurring billing management when `user.isLifetime` is true.
+
 ## Components
 - **RotaryFooter (mobile nav):** `frontend/src/components/RotaryFooter.tsx`
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
@@ -98,6 +104,11 @@
 
 - **Auth registration (backend) gotcha:**
   - `backend/src/routes/auth.js` must only write fields that exist in Prisma `User` model; writing non-existent fields will throw and surface as 500 `Registration failed`.
+
+- **Lifetime purchase env vars (backend):**
+  - `STRIPE_LIFETIME_PAYMENT_LINK_ID` (preferred; matches `session.payment_link`).
+  - `STRIPE_LIFETIME_PRICE_ID` (fallback; checks checkout session line items).
+  - If neither is set, lifetime matching falls back to `session.amount_total === 40000`.
 
 - **Tenant routing + My Unit empty-state:**
   - Tenant **Dashboard** lives at `/tenant/dashboard`.

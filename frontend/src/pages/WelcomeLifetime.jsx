@@ -27,8 +27,7 @@ export default function WelcomeLifetime() {
   const rawEmail = searchParams.get('email');
   const email = typeof rawEmail === 'string' && rawEmail.includes('@') ? rawEmail : null;
 
-  const mobileAppUrl = 'https://www.buildstate.com.au';
-  const gettingStartedVideoUrl = 'https://www.buildstate.com.au';
+  const howItWorksUrl = '/#how-it-works';
 
   return (
     <Box
@@ -106,43 +105,19 @@ export default function WelcomeLifetime() {
                   <ListItemText
                     primary={
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Download the mobile app
+                        Watch the quick demo (How it works)
                       </Typography>
                     }
                     secondary={
                       <Typography
                         variant="caption"
                         component="a"
-                        href={mobileAppUrl}
+                        href={howItWorksUrl}
                         target="_blank"
                         rel="noreferrer"
                         sx={{ color: 'primary.main', textDecoration: 'none' }}
                       >
-                        {mobileAppUrl}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-                <ListItem disableGutters>
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <CheckCircleIcon color="success" fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Watch our 3-minute getting started video
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography
-                        variant="caption"
-                        component="a"
-                        href={gettingStartedVideoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        sx={{ color: 'primary.main', textDecoration: 'none' }}
-                      >
-                        {gettingStartedVideoUrl}
+                        buildstate.com.au/#how-it-works
                       </Typography>
                     }
                   />
@@ -177,11 +152,11 @@ export default function WelcomeLifetime() {
               <Button
                 variant="text"
                 component="a"
-                href="mailto:support@buildstate.com.au"
+                href="mailto:admin@buildstate.com.au"
                 startIcon={<EmailIcon />}
                 sx={{ textTransform: 'none', alignSelf: 'center', fontWeight: 600 }}
               >
-                support@buildstate.com.au
+                admin@buildstate.com.au
               </Button>
             </Stack>
 

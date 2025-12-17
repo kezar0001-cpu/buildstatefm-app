@@ -610,6 +610,7 @@ export default function SubscriptionsPage() {
   const subscriptionStatus = currentUser?.subscriptionStatus;
   const hasActiveSubscription = subscriptionStatus === 'ACTIVE';
   const isTrialActive = subscriptionStatus === 'TRIAL';
+  const isLifetime = Boolean(currentUser?.isLifetime);
   const trialDaysRemaining = calculateDaysRemaining(currentUser?.trialEndDate);
 
   // Don't render if user is not a property manager
@@ -669,7 +670,7 @@ export default function SubscriptionsPage() {
       const response = await apiClient.get('/billing/invoices');
       return response.data;
     },
-    enabled: hasActiveSubscription,
+    enabled: hasActiveSubscription && !isLifetime,
     staleTime: 5 * 60 * 1000, // 5 minutes (invoices change less frequently)
   });
 
@@ -972,12 +973,14 @@ export default function SubscriptionsPage() {
           {/* Header */}
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' } }}>
-              {hasActiveSubscription ? 'Manage Your Subscription' : 'Choose Your Plan'}
+              {isLifetime ? 'Lifetime Access' : hasActiveSubscription ? 'Manage Your Subscription' : 'Choose Your Plan'}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto', fontSize: { xs: '0.95rem', sm: '1.15rem', md: '1.25rem' }, px: { xs: 1, sm: 0 } }}>
-              {hasActiveSubscription
-                ? 'Manage your subscription, view usage, and update billing information'
-                : 'Start with a free trial. All plans include every feature - only usage limits differ.'}
+              {isLifetime
+                ? 'Your account has lifetime Enterprise access. There are no recurring charges.'
+                : hasActiveSubscription
+                  ? 'Manage your subscription, view usage, and update billing information'
+                  : 'Start with a free trial. All plans include every feature - only usage limits differ.'}
             </Typography>
           </Box>
 
@@ -1149,7 +1152,7 @@ export default function SubscriptionsPage() {
           )}
 
           {/* Plan Comparison for Active Subscribers - No white background, just plan cards */}
-          {hasActiveSubscription && (
+          {hasActiveSubscription && !isLifetime && (
             <Box>
               <Box sx={{ textAlign: 'center', mb: 3 }}>
                 <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
@@ -1229,7 +1232,7 @@ export default function SubscriptionsPage() {
                             Subscription Details
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                            Your current plan and billing information
+                            {isLifetime ? 'Your current plan and access details' : 'Your current plan and billing information'}
                           </Typography>
                         </Box>
                         <Stack spacing={2}>
@@ -1241,17 +1244,17 @@ export default function SubscriptionsPage() {
                           <DetailRow
                             icon={<PaymentIcon fontSize="small" />}
                             label="Price"
-                            value={`${formatCurrency(currentPlanDetails.price)}/month`}
+                            value={isLifetime ? 'One-time (lifetime)' : `${formatCurrency(currentPlanDetails.price)}/month`}
                           />
                           <DetailRow
                             icon={<AutorenewIcon fontSize="small" />}
                             label="Billing Cycle"
-                            value="Monthly"
+                            value={isLifetime ? 'None' : 'Monthly'}
                           />
                           <DetailRow
                             icon={<CalendarMonthIcon fontSize="small" />}
                             label="Next Billing Date"
-                            value={nextBillingDate ? formatDateDisplay(nextBillingDate) : 'Managed via Stripe'}
+                            value={isLifetime ? 'Never' : nextBillingDate ? formatDateDisplay(nextBillingDate) : 'Managed via Stripe'}
                           />
                           <DetailRow
                             icon={<PersonIcon fontSize="small" />}
@@ -1264,89 +1267,91 @@ export default function SubscriptionsPage() {
                 </Grid>
 
                 {/* Billing Actions */}
-                <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
-                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', flex: 1 }}>
-                      <Stack spacing={3}>
-                        <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                            Billing Management
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                            Update payment method or manage your subscription
-                          </Typography>
-                        </Box>
-                        {/* Desktop: Vertical Stack */}
-                        <Stack spacing={2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<CreditCardIcon />}
-                            onClick={handleManageBilling}
-                            fullWidth
-                            size="large"
-                          >
-                            Manage Billing Portal
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            startIcon={<CreditCardIcon />}
-                            onClick={handleUpdatePaymentMethod}
-                            disabled={updatePaymentMutation.isPending}
-                            fullWidth
-                            size="large"
-                          >
-                            {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<CancelIcon />}
-                            onClick={() => openCancelDialog(false)}
-                            disabled={cancelMutation.isPending}
-                            fullWidth
-                            size="large"
-                          >
-                            Cancel Subscription
-                          </Button>
+                {!isLifetime && (
+                  <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                    <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, height: '100%', width: '100%', flex: 1 }}>
+                        <Stack spacing={3}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                              Billing Management
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                              Update payment method or manage your subscription
+                            </Typography>
+                          </Box>
+                          {/* Desktop: Vertical Stack */}
+                          <Stack spacing={2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+                            <Button
+                              variant="outlined"
+                              startIcon={<CreditCardIcon />}
+                              onClick={handleManageBilling}
+                              fullWidth
+                              size="large"
+                            >
+                              Manage Billing Portal
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              startIcon={<CreditCardIcon />}
+                              onClick={handleUpdatePaymentMethod}
+                              disabled={updatePaymentMutation.isPending}
+                              fullWidth
+                              size="large"
+                            >
+                              {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              startIcon={<CancelIcon />}
+                              onClick={() => openCancelDialog(false)}
+                              disabled={cancelMutation.isPending}
+                              fullWidth
+                              size="large"
+                            >
+                              Cancel Subscription
+                            </Button>
+                          </Stack>
+                          {/* Mobile: Vertical Stack (same as desktop for better UX) */}
+                          <Stack spacing={2} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                            <Button
+                              variant="outlined"
+                              startIcon={<CreditCardIcon />}
+                              onClick={handleManageBilling}
+                              fullWidth
+                              size="large"
+                              sx={{ py: 1.5 }}
+                            >
+                              Manage Billing Portal
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              startIcon={<CreditCardIcon />}
+                              onClick={handleUpdatePaymentMethod}
+                              disabled={updatePaymentMutation.isPending}
+                              fullWidth
+                              size="large"
+                              sx={{ py: 1.5 }}
+                            >
+                              {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              startIcon={<CancelIcon />}
+                              onClick={() => openCancelDialog(false)}
+                              disabled={cancelMutation.isPending}
+                              fullWidth
+                              size="large"
+                              sx={{ py: 1.5 }}
+                            >
+                              Cancel Subscription
+                            </Button>
+                          </Stack>
                         </Stack>
-                        {/* Mobile: Vertical Stack (same as desktop for better UX) */}
-                        <Stack spacing={2} sx={{ display: { xs: 'flex', sm: 'none' } }}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<CreditCardIcon />}
-                            onClick={handleManageBilling}
-                            fullWidth
-                            size="large"
-                            sx={{ py: 1.5 }}
-                          >
-                            Manage Billing Portal
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            startIcon={<CreditCardIcon />}
-                            onClick={handleUpdatePaymentMethod}
-                            disabled={updatePaymentMutation.isPending}
-                            fullWidth
-                            size="large"
-                            sx={{ py: 1.5 }}
-                          >
-                            {updatePaymentMutation.isPending ? 'Processing...' : 'Update Payment Method'}
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<CancelIcon />}
-                            onClick={() => openCancelDialog(false)}
-                            disabled={cancelMutation.isPending}
-                            fullWidth
-                            size="large"
-                            sx={{ py: 1.5 }}
-                          >
-                            Cancel Subscription
-                          </Button>
-                        </Stack>
-                      </Stack>
-                    </Paper>
-                </Grid>
+                      </Paper>
+                  </Grid>
+                )}
               </Grid>
 
               {/* Second Row: Usage Statistics */}
@@ -1490,158 +1495,160 @@ export default function SubscriptionsPage() {
               )}
 
               {/* Third Row: Invoice History */}
-              <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', mt: { xs: 2, sm: 3 } }}>
-                <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%' }}>
-                  <Stack spacing={3}>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                        Invoice History
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
-                        View and download your billing invoices
-                      </Typography>
-                    </Box>
-                    <DataState
-                      isLoading={invoicesQuery.isLoading}
-                      isError={invoicesQuery.isError}
-                      error={invoicesQuery.error}
-                      isEmpty={!invoicesQuery.isLoading && !invoicesQuery.isError && (!invoicesQuery.data?.invoices || invoicesQuery.data.invoices.length === 0)}
-                      emptyMessage="No invoices found"
-                      onRetry={invoicesQuery.refetch}
-                    >
-                      {invoicesQuery.data?.invoices && invoicesQuery.data.invoices.length > 0 && (
-                        <>
-                          {/* Desktop: Table View */}
-                          <TableContainer sx={{ display: { xs: 'none', md: 'block' } }}>
-                            <Table>
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell><strong>Invoice #</strong></TableCell>
-                                  <TableCell><strong>Date</strong></TableCell>
-                                  <TableCell><strong>Description</strong></TableCell>
-                                  <TableCell align="right"><strong>Amount</strong></TableCell>
-                                  <TableCell><strong>Status</strong></TableCell>
-                                  <TableCell align="center"><strong>Actions</strong></TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {invoicesQuery.data.invoices.map((invoice) => (
-                                  <TableRow key={invoice.id} hover>
-                                    <TableCell>{invoice.number || invoice.id.slice(-8)}</TableCell>
-                                    <TableCell>
-                                      {formatDate(new Date(invoice.created * 1000))}
-                                    </TableCell>
-                                    <TableCell>{invoice.description}</TableCell>
-                                    <TableCell align="right">
-                                      {formatCurrency(invoice.amount, invoice.currency)}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={invoice.status.toUpperCase()}
-                                        color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
-                                        size="small"
-                                      />
-                                    </TableCell>
-                                    <TableCell align="center">
-                                      {invoice.invoicePdf && (
-                                        <Link
-                                          href={invoice.invoicePdf}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                                        >
-                                          <DownloadIcon fontSize="small" />
-                                          PDF
-                                        </Link>
-                                      )}
-                                    </TableCell>
+              {!isLifetime && (
+                <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', mt: { xs: 2, sm: 3 } }}>
+                  <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, borderRadius: 3, boxShadow: 2, width: '100%' }}>
+                    <Stack spacing={3}>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                          Invoice History
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.9rem' } }}>
+                          View and download your billing invoices
+                        </Typography>
+                      </Box>
+                      <DataState
+                        isLoading={invoicesQuery.isLoading}
+                        isError={invoicesQuery.isError}
+                        error={invoicesQuery.error}
+                        isEmpty={!invoicesQuery.isLoading && !invoicesQuery.isError && (!invoicesQuery.data?.invoices || invoicesQuery.data.invoices.length === 0)}
+                        emptyMessage="No invoices found"
+                        onRetry={invoicesQuery.refetch}
+                      >
+                        {invoicesQuery.data?.invoices && invoicesQuery.data.invoices.length > 0 && (
+                          <>
+                            {/* Desktop: Table View */}
+                            <TableContainer sx={{ display: { xs: 'none', md: 'block' } }}>
+                              <Table>
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell><strong>Invoice #</strong></TableCell>
+                                    <TableCell><strong>Date</strong></TableCell>
+                                    <TableCell><strong>Description</strong></TableCell>
+                                    <TableCell align="right"><strong>Amount</strong></TableCell>
+                                    <TableCell><strong>Status</strong></TableCell>
+                                    <TableCell align="center"><strong>Actions</strong></TableCell>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                          {/* Mobile: Card View */}
-                          <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
-                            {invoicesQuery.data.invoices.map((invoice) => (
-                              <Card key={invoice.id} sx={{ boxShadow: 2 }}>
-                                <CardContent sx={{ p: 2.5 }}>
-                                  <Stack spacing={2}>
-                                    {/* Header Row */}
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
-                                      <Box>
-                                        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                          Invoice Number
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
-                                          {invoice.number || invoice.id.slice(-8)}
-                                        </Typography>
+                                </TableHead>
+                                <TableBody>
+                                  {invoicesQuery.data.invoices.map((invoice) => (
+                                    <TableRow key={invoice.id} hover>
+                                      <TableCell>{invoice.number || invoice.id.slice(-8)}</TableCell>
+                                      <TableCell>
+                                        {formatDate(new Date(invoice.created * 1000))}
+                                      </TableCell>
+                                      <TableCell>{invoice.description}</TableCell>
+                                      <TableCell align="right">
+                                        {formatCurrency(invoice.amount, invoice.currency)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={invoice.status.toUpperCase()}
+                                          color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
+                                          size="small"
+                                        />
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        {invoice.invoicePdf && (
+                                          <Link
+                                            href={invoice.invoicePdf}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                                          >
+                                            <DownloadIcon fontSize="small" />
+                                            PDF
+                                          </Link>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                            {/* Mobile: Card View */}
+                            <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
+                              {invoicesQuery.data.invoices.map((invoice) => (
+                                <Card key={invoice.id} sx={{ boxShadow: 2 }}>
+                                  <CardContent sx={{ p: 2.5 }}>
+                                    <Stack spacing={2}>
+                                      {/* Header Row */}
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                                        <Box>
+                                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                            Invoice Number
+                                          </Typography>
+                                          <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
+                                            {invoice.number || invoice.id.slice(-8)}
+                                          </Typography>
+                                        </Box>
+                                        <Chip
+                                          label={invoice.status.toUpperCase()}
+                                          color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
+                                          size="small"
+                                          sx={{ fontWeight: 600 }}
+                                        />
                                       </Box>
-                                      <Chip
-                                        label={invoice.status.toUpperCase()}
-                                        color={invoice.status === 'paid' ? 'success' : invoice.status === 'open' ? 'warning' : 'default'}
-                                        size="small"
-                                        sx={{ fontWeight: 600 }}
-                                      />
-                                    </Box>
-                                    <Divider />
-                                    {/* Description */}
-                                    <Box>
-                                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                        Description
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
-                                        {invoice.description}
-                                      </Typography>
-                                    </Box>
-                                    {/* Date and Amount Row */}
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                      <Divider />
+                                      {/* Description */}
                                       <Box>
                                         <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                          Date
+                                          Description
                                         </Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
-                                          {formatDate(new Date(invoice.created * 1000))}
+                                          {invoice.description}
                                         </Typography>
                                       </Box>
-                                      <Box sx={{ textAlign: 'right' }}>
-                                        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
-                                          Amount
-                                        </Typography>
-                                        <Typography variant="h6" sx={{ mt: 0.5, fontWeight: 700, color: 'primary.main' }}>
-                                          {formatCurrency(invoice.amount, invoice.currency)}
-                                        </Typography>
+                                      {/* Date and Amount Row */}
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                        <Box>
+                                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                            Date
+                                          </Typography>
+                                          <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                                            {formatDate(new Date(invoice.created * 1000))}
+                                          </Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: 'right' }}>
+                                          <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.7rem', letterSpacing: 0.5 }}>
+                                            Amount
+                                          </Typography>
+                                          <Typography variant="h6" sx={{ mt: 0.5, fontWeight: 700, color: 'primary.main' }}>
+                                            {formatCurrency(invoice.amount, invoice.currency)}
+                                          </Typography>
+                                        </Box>
                                       </Box>
-                                    </Box>
-                                    {/* Action Button */}
-                                    {invoice.invoicePdf && (
-                                      <>
-                                        <Divider />
-                                        <Button
-                                          variant="outlined"
-                                          startIcon={<DownloadIcon />}
-                                          href={invoice.invoicePdf}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          fullWidth
-                                          size="medium"
-                                          component="a"
-                                          sx={{ mt: 1 }}
-                                        >
-                                          Download PDF
-                                        </Button>
-                                      </>
-                                    )}
-                                  </Stack>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </Stack>
-                        </>
-                      )}
-                    </DataState>
-                  </Stack>
-                </Paper>
-              </Box>
+                                      {/* Action Button */}
+                                      {invoice.invoicePdf && (
+                                        <>
+                                          <Divider />
+                                          <Button
+                                            variant="outlined"
+                                            startIcon={<DownloadIcon />}
+                                            href={invoice.invoicePdf}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            fullWidth
+                                            size="medium"
+                                            component="a"
+                                            sx={{ mt: 1 }}
+                                          >
+                                            Download PDF
+                                          </Button>
+                                        </>
+                                      )}
+                                    </Stack>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+                      </DataState>
+                    </Stack>
+                  </Paper>
+                </Box>
+              )}
             </>
           )}
 
