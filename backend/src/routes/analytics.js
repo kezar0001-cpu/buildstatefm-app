@@ -8,11 +8,11 @@ import { redisRateLimiter } from '../middleware/redisRateLimiter.js';
 const router = Router();
 
 const pageViewSchema = z.object({
-  path: z.string(),
+  path: z.string().min(1),
   referrer: z.string().optional(),
   userAgent: z.string().optional(),
   ipAddress: z.string().optional(),
-  sessionId: z.string()
+  sessionId: z.string().min(1).optional(),
 });
 
 // Public endpoint for tracking pageviews
@@ -21,12 +21,27 @@ router.post('/pageview',
   asyncHandler(async (req, res) => {
     const data = pageViewSchema.safeParse(req.body);
     if (!data.success) {
-      return res.status(400).json({ success: false, error: 'Invalid data' });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid data',
+        details: data.error.errors,
+      });
     }
+
+    const inferredUserAgent =
+      (typeof req.get === 'function' ? req.get('user-agent') : undefined) || undefined;
+    const inferredIpAddress = req.ip || undefined;
+
+    const sessionId =
+      data.data.sessionId ||
+      `${(inferredIpAddress || 'unknown').toString()}|${(data.data.userAgent || inferredUserAgent || 'unknown').toString()}`.slice(0, 255);
 
     await prisma.pageView.create({
       data: {
         ...data.data,
+        sessionId,
+        userAgent: data.data.userAgent || inferredUserAgent,
+        ipAddress: data.data.ipAddress || inferredIpAddress,
         timestamp: new Date()
       }
     });

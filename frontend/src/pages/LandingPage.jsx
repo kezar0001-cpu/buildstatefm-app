@@ -1037,66 +1037,71 @@ const Hero = () => (
     </Container>
 
     {/* Scroll indicator */}
-    <Box
-      sx={{
-        position: 'absolute',
-        bottom: 30,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 2,
-        display: { xs: 'none', md: 'block' }
-      }}
-    >
+    {false && (
       <Box
-        component="a"
-        href="#how-it-works"
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          color: 'rgba(255,255,255,0.7)',
-          textDecoration: 'none',
-          transition: 'color 0.3s',
-          '&:hover': { color: 'white' }
+          position: 'absolute',
+          bottom: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 2,
+          display: { xs: 'none', md: 'block' }
         }}
       >
-        <Typography variant="caption" sx={{ mb: 1, letterSpacing: 2, textTransform: 'uppercase' }}>
-          Scroll
-        </Typography>
         <Box
+          component="a"
+          href="#how-it-works"
           sx={{
-            width: 24,
-            height: 40,
-            border: '2px solid currentColor',
-            borderRadius: 12,
             display: 'flex',
-            justifyContent: 'center',
-            pt: 1
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: 'rgba(255,255,255,0.7)',
+            textDecoration: 'none',
+            transition: 'color 0.3s',
+            '&:hover': { color: 'white' }
           }}
         >
+          <Typography variant="caption" sx={{ mb: 1, letterSpacing: 2, textTransform: 'uppercase' }}>
+            Scroll
+          </Typography>
           <Box
             sx={{
-              width: 4,
-              height: 8,
-              bgcolor: 'currentColor',
-              borderRadius: 2,
-              animation: 'scrollBounce 2s infinite',
-              '@keyframes scrollBounce': {
-                '0%, 100%': { transform: 'translateY(0)', opacity: 1 },
-                '50%': { transform: 'translateY(12px)', opacity: 0.3 }
-              }
+              width: 24,
+              height: 40,
+              border: '2px solid currentColor',
+              borderRadius: 12,
+              display: 'flex',
+              justifyContent: 'center',
+              pt: 1
             }}
-          />
+          >
+            <Box
+              sx={{
+                width: 4,
+                height: 8,
+                bgcolor: 'currentColor',
+                borderRadius: 2,
+                animation: 'scrollBounce 2s infinite',
+                '@keyframes scrollBounce': {
+                  '0%, 100%': { transform: 'translateY(0)', opacity: 1 },
+                  '50%': { transform: 'translateY(12px)', opacity: 0.3 }
+                }
+              }}
+            />
+          </Box>
         </Box>
       </Box>
-    </Box>
+    )}
   </Box>
 );
 
 // Workflow demonstration component
 const HowItWorks = () => {
   const [activeStep, setActiveStep] = useState(0);
+  const [isInView, setIsInView] = useState(false);
   const sectionRef = React.useRef(null);
+  const autoAdvanceIntervalRef = React.useRef(null);
+  const lastInteractionRef = React.useRef(Date.now());
 
   const steps = [
     {
@@ -1133,38 +1138,55 @@ const HowItWorks = () => {
     const sectionEl = sectionRef.current;
     if (!sectionEl) return;
 
-    const handleScroll = () => {
-      const sectionTop = sectionEl.offsetTop;
-      const sectionHeight = sectionEl.offsetHeight;
-      const scrollY = window.scrollY || window.pageYOffset;
-      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setIsInView(Boolean(entry?.isIntersecting));
+      },
+      { threshold: 0.25 }
+    );
 
-      if (!sectionHeight) return;
-
-      // Only react when the section is at least partially in view
-      if (scrollY + windowHeight < sectionTop || scrollY > sectionTop + sectionHeight) {
-        return;
-      }
-
-      // Use the position of the viewport center within the section to determine the active step.
-      // Divide the section height into equal vertical bands, one for each step.
-      const centerInSection = scrollY + windowHeight / 2 - sectionTop;
-      const stepHeight = sectionHeight / steps.length;
-      let index = Math.floor(centerInSection / stepHeight);
-
-      if (index < 0) index = 0;
-      if (index >= steps.length) index = steps.length - 1;
-
-      setActiveStep((prev) => (index === prev ? prev : index));
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
+    observer.observe(sectionEl);
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      observer.disconnect();
     };
-  }, [steps.length]);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isInView) {
+      if (autoAdvanceIntervalRef.current) {
+        clearInterval(autoAdvanceIntervalRef.current);
+        autoAdvanceIntervalRef.current = null;
+      }
+      return;
+    }
+
+    if (autoAdvanceIntervalRef.current) {
+      clearInterval(autoAdvanceIntervalRef.current);
+      autoAdvanceIntervalRef.current = null;
+    }
+
+    const AUTO_ADVANCE_MS = 4500;
+    const PAUSE_AFTER_INTERACTION_MS = 12000;
+
+    autoAdvanceIntervalRef.current = setInterval(() => {
+      const timeSinceInteraction = Date.now() - (lastInteractionRef.current || 0);
+      if (timeSinceInteraction < PAUSE_AFTER_INTERACTION_MS) return;
+      setActiveStep((prev) => (prev + 1) % steps.length);
+    }, AUTO_ADVANCE_MS);
+
+    return () => {
+      if (autoAdvanceIntervalRef.current) {
+        clearInterval(autoAdvanceIntervalRef.current);
+        autoAdvanceIntervalRef.current = null;
+      }
+    };
+  }, [isInView, steps.length]);
+
+  const markInteracted = () => {
+    lastInteractionRef.current = Date.now();
+  };
 
   return (
     <Box
@@ -1216,7 +1238,10 @@ const HowItWorks = () => {
                 {steps.map((step, index) => (
                   <Box
                     key={step.label}
-                    onClick={() => setActiveStep(index)}
+                    onClick={() => {
+                      markInteracted();
+                      setActiveStep(index);
+                    }}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1414,7 +1439,10 @@ const HowItWorks = () => {
                   <Button
                     variant="outlined"
                     startIcon={<ArrowForwardIcon sx={{ transform: 'rotate(180deg)' }} />}
-                    onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
+                    onClick={() => {
+                      markInteracted();
+                      setActiveStep(prev => Math.max(0, prev - 1));
+                    }}
                     disabled={activeStep === 0}
                     sx={{ 
                       borderRadius: 2,
@@ -1429,7 +1457,10 @@ const HowItWorks = () => {
                     {steps.map((_, index) => (
                       <Box
                         key={index}
-                        onClick={() => setActiveStep(index)}
+                        onClick={() => {
+                          markInteracted();
+                          setActiveStep(index);
+                        }}
                         sx={{
                           width: 10,
                           height: 10,
@@ -1447,6 +1478,7 @@ const HowItWorks = () => {
                     variant={activeStep === steps.length - 1 ? 'contained' : 'outlined'}
                     endIcon={<ArrowForwardIcon />}
                     onClick={() => {
+                      markInteracted();
                       if (activeStep === steps.length - 1) {
                         window.location.href = '/signup';
                       } else {
