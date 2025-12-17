@@ -72,10 +72,7 @@ router.get('/admin/traffic',
       topReferrers
     ] = await Promise.all([
       prisma.pageView.count({ where: { timestamp: { gte: startDate } } }),
-      prisma.pageView.count({
-        distinct: ['sessionId'],
-        where: { timestamp: { gte: startDate } }
-      }),
+      prisma.$queryRaw`SELECT COUNT(DISTINCT "sessionId")::int AS "count" FROM "PageView" WHERE "timestamp" >= ${startDate}`,
       prisma.pageView.groupBy({
         by: ['path'],
         _count: { path: true },
@@ -95,11 +92,13 @@ router.get('/admin/traffic',
       })
     ]);
 
+    const uniqueVisitorsCount = Number(uniqueVisitors?.[0]?.count ?? 0);
+
     res.json({
       success: true,
       data: {
         totalVisits,
-        uniqueVisitors,
+        uniqueVisitors: uniqueVisitorsCount,
         topPages,
         topReferrers,
         period,
