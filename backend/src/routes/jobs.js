@@ -109,6 +109,7 @@ const jobListQuerySchema = z.object({
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
   propertyId: z.string().optional(),
+  unitId: z.string().optional(),
   assignedToId: z.string().optional(),
   filter: z.enum(['overdue', 'unassigned']).optional(),
   search: z.string().trim().min(1).optional(),
@@ -152,6 +153,7 @@ router.get('/', requireAuth, async (req, res) => {
       status,
       priority,
       propertyId,
+      unitId,
       assignedToId,
       filter,
       search,
@@ -218,6 +220,10 @@ router.get('/', requireAuth, async (req, res) => {
 
     if (propertyId) {
       where.propertyId = propertyId;
+    }
+
+    if (unitId) {
+      where.unitId = unitId;
     }
 
     if (assignedToId && (req.user.role === 'PROPERTY_MANAGER' || req.user.role === 'OWNER')) {

@@ -266,7 +266,14 @@ const PropertyDocumentManager = ({ propertyId, canEdit = false }) => {
       {/* Add Document button, list, dialogs – all exactly as you had */}
       {canEdit && (
         <Box mb={2}>
-          <Button variant="contained" startIcon={<CloudUploadIcon />} onClick={() => setUploadDialogOpen(true)}>
+          <Button
+            variant="contained"
+            startIcon={<CloudUploadIcon />}
+            onClick={(event) => {
+              event?.currentTarget?.blur?.();
+              setUploadDialogOpen(true);
+            }}
+          >
             Add Document
           </Button>
         </Box>

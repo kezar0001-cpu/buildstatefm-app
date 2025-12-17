@@ -86,6 +86,20 @@
   - OWNER/TECHNICIAN reads and technician actions (`/accept`, `/reject`, status updates) are gated by the *property manager* subscription (ACTIVE or TRIAL not expired).
   - ADMIN is not subscription-gated.
 
+- **Property Documents (upload flow):**
+  - Upload file binary first: `POST /api/uploads/documents` (FormData field: `files`) -> returns `{ files: [{ url, size, type, ... }], urls: [...] }`.
+  - Create DB record(s): `POST /api/properties/:id/documents` with `{ fileName, fileUrl, fileSize, mimeType, category, description?, accessLevel, unitId? }`.
+  - Backend creates `PropertyDocument` rows and returns `documents` (includes uploader + unit).
+  - Fix: `POST /api/properties/:id/documents` must generate `PropertyDocument.id` (no Prisma default) or it will 500.
+  - Backwards-compat: server also accepts `{ data: { ...fields } }` request bodies.
+  - Frontend modal `PropertyDocumentManager.jsx` blurs the trigger button before opening the MUI `Dialog` to avoid `aria-hidden` focus warnings.
+
+- **Property Notes (feature):**
+  - List: `GET /api/properties/:id/notes`.
+  - Create: `POST /api/properties/:id/notes` with `{ content }`.
+  - Prisma gotcha: `PropertyNote.id` has no default, and `PropertyNote.updatedAt` also has no default/`@updatedAt`, so create/update handlers must set `id` + `updatedAt` explicitly.
+  - Frontend `PropertyNotesSection.jsx` blurs the Add Note button before firing the request to mitigate `aria-hidden` focus warnings.
+
 - **Inspections (backend):**
   - `backend/src/routes/inspections.js` gates non-PM/non-admin inspection access by the *property manager* subscription (not technician subscription).
   - `backend/src/controllers/inspectionController.js` filters technician list results to only properties whose manager subscription is active.

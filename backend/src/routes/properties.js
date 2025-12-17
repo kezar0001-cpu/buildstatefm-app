@@ -3311,7 +3311,15 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActive
 
   try {
     // Support both single document and array of documents
-    const documents = Array.isArray(req.body) ? req.body : [req.body];
+    const rawDocuments = Array.isArray(req.body) ? req.body : [req.body];
+    const documents = rawDocuments.map((doc) => {
+      if (!doc || typeof doc !== 'object') return doc;
+      // Backwards/alternate client shape support: { data: { ...documentFields } }
+      if (!doc.fileName && doc.data && typeof doc.data === 'object') {
+        return doc.data;
+      }
+      return doc;
+    });
 
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
@@ -3343,6 +3351,7 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActive
       parsedDocuments.map(parsed =>
         prisma.propertyDocument.create({
           data: {
+            id: randomUUID(),
             propertyId,
             unitId: parsed.unitId || null,
             fileName: parsed.fileName,
@@ -3386,6 +3395,16 @@ propertyDocumentsRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActive
   } catch (error) {
     if (error instanceof z.ZodError) {
       return sendError(res, 400, 'Validation error', ErrorCodes.VAL_VALIDATION_ERROR, error.flatten());
+    }
+
+    // Provide more helpful error message if the table/columns don't exist (migration not applied)
+    if (error?.code === 'P2021' || error?.code === 'P2022') {
+      return sendError(
+        res,
+        503,
+        'Documents feature is not yet available. Please ensure database migrations have been applied.',
+        ErrorCodes.ERR_INTERNAL_SERVER
+      );
     }
 
     console.error('Create property document error:', error);
@@ -3595,9 +3614,11 @@ propertyNotesRouter.post('/', requireRole('PROPERTY_MANAGER'), requireActiveSubs
 
     const note = await prisma.propertyNote.create({
       data: {
+        id: randomUUID(),
         propertyId,
         authorId: req.user.id,
         content,
+        updatedAt: new Date(),
       },
       include: propertyNoteInclude,
     });
@@ -3674,7 +3695,7 @@ propertyNotesRouter.patch('/:noteId', requireRole('PROPERTY_MANAGER'), requireAc
 
     const updatedNote = await prisma.propertyNote.update({
       where: { id: noteId },
-      data: { content },
+      data: { content, updatedAt: new Date() },
       include: propertyNoteInclude,
     });
 

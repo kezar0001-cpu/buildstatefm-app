@@ -1403,47 +1403,35 @@ const ServiceRequestKanban = ({
 
   // Render a kanban column
   const renderKanbanColumn = (column) => (
-    <Box
-      key={column.id}
+    <Paper
       sx={{
-        flex: '0 0 auto',
-        width: { xs: 320, sm: 340, md: 360 },
-        minWidth: { xs: 320, sm: 340, md: 360 },
+        p: 2,
+        bgcolor: 'background.default',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
       }}
     >
-      <Paper
-        sx={{
-          p: 2,
-          height: '100%',
-          minHeight: 400,
-          bgcolor: 'background.default',
-          borderRadius: 2,
-        }}
-      >
-        {/* Column Header */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
-            {column.title}
-          </Typography>
-          <Chip
-            label={column.requests.length}
-            size="small"
-            color={column.color}
-          />
-        </Box>
+      {/* Column Header */}
+      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+          {column.title}
+        </Typography>
+        <Chip
+          label={column.requests.length}
+          size="small"
+          color={column.color}
+        />
+      </Box>
 
-        {/* Column Cards */}
-        <Stack spacing={2} sx={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
+      {/* Column Cards */}
+      <Stack spacing={2}>
           {column.requests.map(request => {
             const statusLabel = request.status ? request.status.replace(/_/g, ' ') : 'Unknown';
             const categoryLabel = request.category ? request.category.replace(/_/g, ' ') : 'Uncategorized';
             const priorityLabel = request.priority ? request.priority.replace(/_/g, ' ') : null;
             const description = typeof request.description === 'string' ? request.description : '';
-            const displayDescription = description
-              ? description.length > 100
-                ? `${description.substring(0, 100)}...`
-                : description
-              : 'No description provided.';
+            const displayDescription = description || 'No description provided.';
 
             return (
               <Card
@@ -1487,10 +1475,7 @@ const ServiceRequestKanban = ({
                         fontWeight: 600,
                         flex: 1,
                         pr: 1,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
+                        wordBreak: 'break-word',
                       }}
                     >
                       {request.title}
@@ -1583,10 +1568,8 @@ const ServiceRequestKanban = ({
                     variant="body2"
                     color="text.secondary"
                     sx={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
                       fontSize: '0.875rem',
                     }}
                   >
@@ -1644,9 +1627,8 @@ const ServiceRequestKanban = ({
               </Card>
             );
           })}
-        </Stack>
-      </Paper>
-    </Box>
+      </Stack>
+    </Paper>
   );
 
   return (
@@ -1656,18 +1638,13 @@ const ServiceRequestKanban = ({
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
           By Status
         </Typography>
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            pb: 1,
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
-          {columns.map(renderKanbanColumn)}
-        </Box>
+        <Grid container spacing={2}>
+          {columns.map((column) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={column.id}>
+              {renderKanbanColumn(column)}
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     </Stack>
   );

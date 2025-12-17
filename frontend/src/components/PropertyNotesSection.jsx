@@ -262,7 +262,10 @@ const PropertyNotesSection = ({ propertyId, canEdit = false }) => {
             <Button
               variant="contained"
               startIcon={isAdding ? <CircularProgress size={20} /> : <AddIcon />}
-              onClick={handleAddNote}
+              onClick={(event) => {
+                event?.currentTarget?.blur?.();
+                handleAddNote();
+              }}
               disabled={isAdding || !newNoteContent.trim()}
             >
               Add Note
