@@ -1,34 +1,37 @@
-
 import React from 'react';
-import { Grid, TextField } from '@mui/material';
+import { Grid } from '@mui/material';
 import { Controller } from 'react-hook-form';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { enGB } from 'date-fns/locale/en-GB';
 
 const JobSchedule = ({ control }) => (
   <Grid item xs={12} sm={6}>
-    <Controller
-      name="scheduledDate"
-      control={control}
-      render={({ field, fieldState: { error } }) => (
-        <TextField
-          {...field}
-          fullWidth
-          type="datetime-local"
-          label="Scheduled Date (Optional)"
-          error={!!error}
-          helperText={error?.message}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{
-            'aria-invalid': !!error,
-            'aria-describedby': error ? 'scheduledDate-error' : undefined,
-          }}
-          FormHelperTextProps={{
-            id: error ? 'scheduledDate-error' : undefined,
-            role: error ? 'alert' : undefined,
-            'aria-live': error ? 'polite' : undefined,
-          }}
-        />
-      )}
-    />
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
+      <Controller
+        name="scheduledDate"
+        control={control}
+        render={({ field, fieldState: { error } }) => (
+          <DateTimePicker
+            {...field}
+            label="Scheduled Date (Optional)"
+            format="dd/MM/yyyy HH:mm"
+            onChange={(newValue) => {
+              field.onChange(newValue);
+            }}
+            value={field.value ? new Date(field.value) : null}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+                error: !!error,
+                helperText: error?.message,
+              },
+            }}
+          />
+        )}
+      />
+    </LocalizationProvider>
   </Grid>
 );
 

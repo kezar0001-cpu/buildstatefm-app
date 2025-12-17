@@ -304,7 +304,7 @@ const JobsPage = () => {
   };
 
   const selectedTechnician = useMemo(() => {
-    return technicians.find((tech) => tech.id === bulkTechnicianId) || null;
+    return Array.isArray(technicians) ? technicians.find((tech) => tech.id === bulkTechnicianId) || null : null;
   }, [technicians, bulkTechnicianId]);
 
   const bulkAssignMutation = useMutation({
@@ -316,10 +316,10 @@ const JobsPage = () => {
     onMutate: async ({ jobIds, technicianId }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.jobs.list(queryFilters) });
-      
+
       // Snapshot previous value
       const previousData = queryClient.getQueryData(queryKeys.jobs.list(queryFilters));
-      
+
       // Optimistically update jobs in cache
       queryClient.setQueryData(queryKeys.jobs.list(queryFilters), (old) => {
         if (!old?.pages) return old;
@@ -327,15 +327,15 @@ const JobsPage = () => {
           ...old,
           pages: old.pages.map(page => ({
             ...page,
-            items: page.items.map(job => 
-              jobIds.includes(job.id) 
+            items: page.items.map(job =>
+              jobIds.includes(job.id)
                 ? { ...job, assignedToId: technicianId, status: job.status === 'OPEN' ? 'ASSIGNED' : job.status }
                 : job
             ),
           })),
         };
       });
-      
+
       return { previousData };
     },
     onError: (err, variables, context) => {
@@ -766,821 +766,545 @@ const JobsPage = () => {
           />
         </Box>
 
-      {selectedCount > 0 && (
-        <Paper
-          elevation={2}
-          sx={{
-            mb: 3,
-            px: { xs: 2, md: 3 },
-            py: { xs: 2, md: 2.5 },
-            borderRadius: 3,
-          }}
-        >
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={{ xs: 2, md: 3 }}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-            justifyContent="space-between"
+        {selectedCount > 0 && (
+          <Paper
+            elevation={2}
+            sx={{
+              mb: 3,
+              px: { xs: 2, md: 3 },
+              py: { xs: 2, md: 2.5 },
+              borderRadius: 3,
+            }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Checkbox
-                color="primary"
-                checked={allVisibleSelected}
-                indeterminate={isSelectionIndeterminate}
-                onChange={handleToggleSelectAllVisible}
-                inputProps={{ 'aria-label': 'Select all visible jobs' }}
-              />
-              <Box>
-                <Typography variant="subtitle1">{selectedCount} selected</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Assign to technician or delete selected jobs
-                </Typography>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={{ xs: 2, md: 3 }}
+              alignItems={{ xs: 'stretch', md: 'center' }}
+              justifyContent="space-between"
+            >
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Checkbox
+                  color="primary"
+                  checked={allVisibleSelected}
+                  indeterminate={isSelectionIndeterminate}
+                  onChange={handleToggleSelectAllVisible}
+                  inputProps={{ 'aria-label': 'Select all visible jobs' }}
+                />
+                <Box>
+                  <Typography variant="subtitle1">{selectedCount} selected</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Assign to technician or delete selected jobs
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                alignItems="stretch"
+              >
+                <TextField
+                  select
+                  size="small"
+                  value={bulkTechnicianId}
+                  onChange={(e) => setBulkTechnicianId(e.target.value)}
+                  placeholder="Select Technician"
+                  sx={{
+                    minWidth: { xs: '100%', sm: 200 },
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: 'background.paper',
+                    },
+                  }}
+                >
+                  <MenuItem value="" disabled>Select Technician</MenuItem>
+                  {ensureArray(technicians).map((tech) => (
+                    <MenuItem key={tech.id} value={tech.id}>
+                      {tech.firstName} {tech.lastName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={handleBulkDelete}
+                  >
+                    Delete ({selectedCount})
+                  </Button>
+                  <GradientButton
+                    variant="contained"
+                    onClick={handleOpenBulkAssignConfirm}
+                    disabled={!bulkTechnicianId}
+                  >
+                    Assign ({selectedCount})
+                  </GradientButton>
+                </Stack>
+              </Stack>
+            </Stack>
+          </Paper>
+        )}
+
+        {/* Confirmation Dialogs */}
+        <Dialog
+          open={isConfirmBulkAssignOpen}
+          onClose={handleCloseBulkAssignConfirm}
+        >
+          <DialogTitle>Confirm Assignment</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Are you sure you want to assign <strong>{selectedJobIds.length} job(s)</strong> to{' '}
+              <strong>{selectedTechnician?.firstName} {selectedTechnician?.lastName}</strong>?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseBulkAssignConfirm}>Cancel</Button>
+            <Button onClick={handleConfirmBulkAssign} variant="contained" autoFocus>
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+        >
+          <DialogTitle>Delete Job</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Are you sure you want to delete <strong>{jobToDelete?.title}</strong>? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={confirmDelete} color="error" variant="contained">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bulk Delete Progress Dialog */}
+        <Dialog
+          open={bulkDeleteOpen}
+          // Don't allow closing while deleting
+          onClose={!isBulkDeleting ? closeBulkDeleteDialog : undefined}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            {isBulkDeleting ? 'Deleting Jobs...' : 'Delete Jobs'}
+          </DialogTitle>
+          <DialogContent>
+            {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 ? (
+              <DialogContentText>
+                Are you sure you want to delete <strong>{selectedJobIds.length}</strong> selected jobs? This action cannot be undone.
+              </DialogContentText>
+            ) : (
+              <Box sx={{ mt: 2 }}>
+                {isBulkDeleting && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Processing {bulkDeleteProgress.current} of {bulkDeleteProgress.total}...
+                    </Typography>
+                    <LinearProgress
+                      variant="determinate"
+                      value={(bulkDeleteProgress.current / bulkDeleteProgress.total) * 100}
+                    />
+                  </Box>
+                )}
+
+                {!isBulkDeleting && (
+                  <>
+                    {bulkDeleteResults.failed.length > 0 && (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        Failed to delete {bulkDeleteResults.failed.length} jobs.
+                      </Alert>
+                    )}
+                    {bulkDeleteResults.succeeded.length > 0 && (
+                      <Alert severity="success" sx={{ mb: 2 }}>
+                        Successfully deleted {bulkDeleteResults.succeeded.length} jobs.
+                      </Alert>
+                    )}
+
+                    {bulkDeleteResults.failed.length > 0 && (
+                      <Box sx={{ maxHeight: 200, overflow: 'auto', mt: 2 }}>
+                        <Typography variant="subtitle2" gutterBottom>Failed Items:</Typography>
+                        <List dense>
+                          {bulkDeleteResults.failed.map(item => (
+                            <ListItem key={item.id}>
+                              <ListItemText
+                                primary={item.title}
+                                secondary={item.error}
+                                primaryTypographyProps={{ color: 'error' }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    )}
+                  </>
+                )}
               </Box>
-            </Stack>
+            )}
+          </DialogContent>
+          <DialogActions>
+            {isBulkDeleting ? (
+              <Button disabled>Processing...</Button>
+            ) : (
+              <>
+                <Button onClick={closeBulkDeleteDialog}>
+                  {bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0 ? 'Close' : 'Cancel'}
+                </Button>
+                {bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
+                  <Button onClick={confirmBulkDelete} color="error" variant="contained">
+                    Delete
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogActions>
+        </Dialog>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <TextField
-                select
-                label="Assign to technician"
-                size="small"
-                value={bulkTechnicianId}
-                onChange={(event) => setBulkTechnicianId(event.target.value)}
-                sx={{ minWidth: { xs: '100%', sm: 240 } }}
-                helperText={!bulkTechnicianId ? 'Select a technician' : ' '}
-              >
-                <MenuItem value="">
-                  Select technician
-                </MenuItem>
-                {technicians.map((tech) => (
-                  <MenuItem key={tech.id} value={tech.id}>
-                    {tech.firstName} {tech.lastName}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleOpenBulkAssignConfirm}
-                disabled={!bulkTechnicianId || bulkAssignMutation.isPending}
-                startIcon={
-                  bulkAssignMutation.isPending ? (
-                    <CircularProgress size={18} color="inherit" />
-                  ) : (
-                    <BuildIcon />
-                  )
-                }
-              >
-                {bulkAssignMutation.isPending ? 'Assigning...' : 'Assign Jobs'}
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={handleBulkDelete}
-                startIcon={<DeleteIcon />}
-              >
-                Delete
-              </Button>
-            </Stack>
-          </Stack>
-        </Paper>
-      )}
 
-      {/* Jobs List / Views */}
-      {!filteredJobs || filteredJobs.length === 0 ? (
-        <EmptyState
-          icon={BuildIcon}
-          iconColor="#dc2626"
-          title={hasActiveFilters ? 'No jobs match your filters' : 'No jobs yet'}
-          description={
-            hasActiveFilters
-              ? 'Try adjusting your search terms or filters to find what you\'re looking for. Clear filters to see all jobs, or create a new one to get started.'
-              : 'Get started by creating your first maintenance job. Track work orders, assign technicians, and monitor progress all in one place.'
-          }
-          actionLabel={user?.role === 'PROPERTY_MANAGER' ? 'Create Job' : undefined}
-          onAction={user?.role === 'PROPERTY_MANAGER' ? handleCreate : undefined}
-          helperText={
-            hasActiveFilters
-              ? 'Filters are still applied. Clear them to view all jobs or create a new job from here.'
-              : undefined
-          }
-        />
-      ) : (
-        <>
-          {/* Kanban View */}
+        {/* Main Content */}
+        <Box>
           {view === 'kanban' && (
             <DragDropContext onDragEnd={onDragEnd}>
-              <Grid container spacing={2}>
-                {KANBAN_STATUSES.map((status) => (
-                  <Grid item xs={12} md={6} lg={3} key={status}>
-                    <Paper
-                      sx={{
-                        p: 2,
-                        height: '100%',
-                        minHeight: 400,
-                        bgcolor: 'background.default',
-                        borderRadius: 2,
-                      }}
-                    >
-                      {/* Column Header */}
-                      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                          {JOB_STATUS_LABELS[status] || status.replace('_', ' ')}
-                        </Typography>
-                        <Chip
-                          label={filteredJobs.filter((job) => job.status === status).length}
-                          size="small"
-                          color={getStatusColor(status)}
-                        />
-                      </Box>
-                      <Droppable droppableId={status}>
-                        {(provided) => (
-                          <Box
-                            {...provided.droppableProps}
-                            ref={provided.innerRef}
-                            sx={{ minHeight: '500px' }}
-                          >
-                            {filteredJobs
-                              .filter((job) => job.status === status)
-                              .map((job, index) => {
-                                const isSelected = selectedJobIds.includes(job.id);
-                                return (
-                                  <Draggable
-                                    key={job.id}
-                                    draggableId={job.id.toString()}
-                                    index={index}
-                                    isDragDisabled={(VALID_STATUS_TRANSITIONS[job.status] || []).length === 0}
-                                  >
-                                    {(provided) => (
-                                      <Card
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                        sx={{
-                                          mb: 2,
-                                          cursor: 'pointer',
-                                          transition: 'all 0.3s ease-in-out',
-                                          borderRadius: 2,
-                                          border: '1px solid',
-                                          borderColor: 'divider',
-                                          '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: 6,
-                                            borderColor: 'primary.main',
-                                          },
-                                        }}
-                                        onClick={() => handleOpenDetailModal(job)}
-                                      >
-                                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                                          {/* Header */}
-                                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
-                                              {job.title}
-                                            </Typography>
-                                            <IconButton
-                                              size="small"
-                                              onClick={(e) => handleStatusMenuOpen(e, job)}
-                                              aria-label={`Change status for ${job.title}`}
-                                            >
-                                              <MoreVertIcon fontSize="small" />
-                                            </IconButton>
-                                          </Box>
-
-                                          {/* Priority Chip */}
-                                          <Chip
-                                            icon={getPriorityIcon(job.priority)}
-                                            label={job.priority}
-                                            size="small"
-                                            color={getPriorityColor(job.priority)}
-                                            sx={{ mb: 1.5 }}
-                                          />
-
-                                          {/* Overdue Warning */}
-                                          {isOverdue(job) && (
-                                            <Alert severity="error" sx={{ mb: 1.5, py: 0 }}>
-                                              <Typography variant="caption">Overdue</Typography>
-                                            </Alert>
-                                          )}
-
-                                          {/* Details */}
-                                          <Stack spacing={1}>
-                                            {/* Property */}
-                                            <Box>
-                                              <Typography variant="caption" color="text.secondary" display="block">
-                                                Property
-                                              </Typography>
-                                              <Typography variant="body2">
-                                                {job.property?.name || 'N/A'}
-                                              </Typography>
-                                            </Box>
-
-                                            {/* Scheduled Date */}
-                                            {job.scheduledDate && (
+              <Grid container spacing={3} sx={{ height: 'calc(100vh - 280px)', minHeight: 600, overflowX: 'auto', flexWrap: 'nowrap', pb: 2 }}>
+                {KANBAN_STATUSES.map((status) => {
+                  const statusJobs = filteredJobs.filter((job) => job.status === status);
+                  return (
+                    <Grid item key={status} sx={{ minWidth: 320, width: 320, height: '100%' }}>
+                      <Paper
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          bgcolor: 'background.default',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Chip
+                              label={statusJobs.length}
+                              size="small"
+                              color={getStatusColor(status)}
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {JOB_STATUS_LABELS[status]}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                        <Droppable droppableId={status}>
+                          {(provided, snapshot) => (
+                            <Box
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              sx={{
+                                p: 1,
+                                flexGrow: 1,
+                                overflowY: 'auto',
+                                transition: 'background-color 0.2s',
+                                bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'inherit',
+                              }}
+                            >
+                              <Stack spacing={2}>
+                                {statusJobs.map((job, index) => {
+                                  const isSelected = selectedJobIds.includes(job.id);
+                                  return (
+                                    <Draggable key={job.id} draggableId={job.id.toString()} index={index} isDragDisabled={user?.role === 'TECHNICIAN'}>
+                                      {(provided, snapshot) => (
+                                        <Card
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          {...provided.dragHandleProps}
+                                          elevation={snapshot.isDragging ? 8 : 1}
+                                          sx={{
+                                            cursor: 'grab',
+                                            border: isSelected ? `2px solid ${theme.palette.primary.main}` : '1px solid transparent',
+                                            '&:hover': {
+                                              borderColor: theme.palette.divider,
+                                              boxShadow: 3
+                                            },
+                                            transition: 'all 0.2s'
+                                          }}
+                                          onClick={(e) => {
+                                            if (e.ctrlKey || e.metaKey) {
+                                              handleToggleJobSelection(job.id);
+                                            } else {
+                                              handleOpenDetailModal(job);
+                                            }
+                                          }}
+                                        >
+                                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                                               <Box>
-                                                <Typography variant="caption" color="text.secondary" display="block">
-                                                  Scheduled
+                                                <Typography variant="subtitle2" gutterBottom>
+                                                  {job.title}
                                                 </Typography>
-                                                <Typography variant="body2">
-                                                  {moment(job.scheduledDate).format('MMM D, YYYY')}
+                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                  {job.property?.name ?? 'No Property'}
+                                                  {job.unit ? ` • Unit ${job.unit.unitNumber}` : ''}
                                                 </Typography>
                                               </Box>
-                                            )}
+                                              {isSelected && <CheckCircleIcon color="primary" fontSize="small" />}
+                                            </Stack>
 
-                                            {/* Assigned To */}
-                                            {job.assignedTo && (
-                                              <Box>
-                                                <Typography variant="caption" color="text.secondary" display="block">
-                                                  Assigned To
-                                                </Typography>
-                                                <Typography variant="body2">
-                                                  {job.assignedTo.firstName} {job.assignedTo.lastName}
-                                                </Typography>
-                                              </Box>
-                                            )}
-                                          </Stack>
-
-                                          {/* Actions */}
-                                          <Box
-                                            sx={{ display: 'flex', gap: 0.5, mt: 2, justifyContent: 'flex-end' }}
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <Tooltip title="View Details">
-                                              <IconButton
+                                            <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
+                                              <Chip
+                                                label={job.priority}
                                                 size="small"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleOpenDetailModal(job);
-                                                }}
-                                                aria-label={`View details for ${job.title}`}
-                                              >
-                                                <VisibilityIcon fontSize="small" />
-                                              </IconButton>
-                                            </Tooltip>
-                                            {job.status !== 'COMPLETED' && (
-                                              <Tooltip title="Edit">
-                                                <IconButton
-                                                  size="small"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(job);
-                                                  }}
-                                                  aria-label={`Edit ${job.title}`}
-                                                >
-                                                  <EditIcon fontSize="small" />
-                                                </IconButton>
-                                              </Tooltip>
-                                            )}
-                                            <Tooltip title="Delete">
-                                              <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDeleteClick(job);
-                                                }}
-                                                aria-label={`Delete ${job.title}`}
-                                              >
-                                                <DeleteIcon fontSize="small" />
-                                              </IconButton>
-                                            </Tooltip>
-                                          </Box>
-                                        </CardContent>
-                                      </Card>
-                                    )}
-                                  </Draggable>
-                                );
-                              })}
-                            {provided.placeholder}
-                            {filteredJobs.filter((job) => job.status === status).length === 0 && (
-                              <Box
-                                sx={{
-                                  p: 3,
-                                  textAlign: 'center',
-                                  color: 'text.secondary',
-                                  bgcolor: 'background.paper',
-                                  borderRadius: 1,
-                                  border: '1px dashed',
-                                  borderColor: 'divider',
-                                }}
-                              >
-                                <Typography variant="body2">
-                                  No jobs
-                                </Typography>
-                              </Box>
-                            )}
-                          </Box>
-                        )}
-                      </Droppable>
-                    </Paper>
-                  </Grid>
-                ))}
+                                                color={getPriorityColor(job.priority)}
+                                                variant="outlined"
+                                                sx={{ height: 24, fontSize: '0.7rem' }}
+                                              />
+                                              {job.assignedTo && (
+                                                <Tooltip title={`Assigned to ${job.assignedTo.firstName}`}>
+                                                  <PersonIcon fontSize="small" color="action" />
+                                                </Tooltip>
+                                              )}
+                                              {isOverdue(job) && (
+                                                <Tooltip title="Overdue">
+                                                  <ErrorIcon fontSize="small" color="error" />
+                                                </Tooltip>
+                                              )}
+                                            </Stack>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                    </Draggable>
+                                  );
+                                })}
+                                {provided.placeholder}
+                              </Stack>
+                            </Box>
+                          )}
+                        </Droppable>
+                      </Paper>
+                    </Grid>
+                  );
+                })}
               </Grid>
             </DragDropContext>
           )}
 
           {view === 'list' && (
-            <Stack spacing={1.5}>
-              {filteredJobs.map((job) => {
-                const isSelected = selectedJobIds.includes(job.id);
-                return (
-                  <Card
-                    key={job.id}
-                    sx={{
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      transition: 'all 0.3s ease-in-out',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: 6,
-                        borderColor: 'primary.main',
-                      },
-                    }}
-                    onClick={() => handleOpenDetailModal(job)}
-                  >
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                      <Stack
-                        direction={{ xs: 'column', md: 'row' }}
-                        spacing={2}
-                        alignItems={{ xs: 'flex-start', md: 'center' }}
-                      >
-                        {/* Job Title & Property */}
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                          >
-                            {job.title}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {job.property?.name || 'No property assigned'}
-                          </Typography>
-                        </Box>
-
-                        {/* Status */}
-                        <Stack spacing={0.5} sx={{ minWidth: 120 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Status
-                          </Typography>
-                          <Chip
-                            label={job.status}
-                            size="small"
-                            color={getStatusColor(job.status)}
-                          />
-                        </Stack>
-
-                        {/* Priority */}
-                        <Stack spacing={0.5} sx={{ minWidth: 120 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Priority
-                          </Typography>
-                          <Chip
-                            icon={getPriorityIcon(job.priority)}
-                            label={job.priority}
-                            size="small"
-                            color={getPriorityColor(job.priority)}
-                          />
-                        </Stack>
-
-                        {/* Scheduled */}
-                        <Stack spacing={0.5} sx={{ minWidth: 140 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Scheduled
-                          </Typography>
-                          <Typography variant="body2">
-                            {job.scheduledDate
-                              ? moment(job.scheduledDate).format('MMM D, YYYY')
-                              : 'Not scheduled'}
-                          </Typography>
-                        </Stack>
-
-                        {/* Technician */}
-                        <Stack spacing={0.5} sx={{ minWidth: 140 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Technician
-                          </Typography>
-                          <Typography variant="body2">
-                            {job.assignedTo
-                              ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                              : 'Unassigned'}
-                          </Typography>
-                        </Stack>
-
-                        {/* Actions */}
-                        <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
-                          <Tooltip title="View details">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenDetailModal(job);
-                              }}
-                              aria-label="View job"
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          {job.status !== 'COMPLETED' && (
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(job);
-                                }}
-                                aria-label="Edit job"
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Change status">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusMenuOpen(e, job);
-                              }}
-                              aria-label="Change status"
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
+            <Stack spacing={2}>
+              {filteredJobs.map((job) => (
+                <Card
+                  key={job.id}
+                  variant="outlined"
+                  sx={{
+                    borderColor: selectedJobIds.includes(job.id) ? 'primary.main' : 'divider',
+                    borderWidth: selectedJobIds.includes(job.id) ? 2 : 1,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                  onClick={(e) => {
+                    // Multi-select on list view via click
+                    if (e.target.closest('.MuiCheckbox-root') || e.target.closest('.MuiIconButton-root')) return;
+                    handleOpenDetailModal(job);
+                  }}
+                >
+                  <CardContent sx={{ py: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Checkbox
+                      checked={selectedJobIds.includes(job.id)}
+                      onChange={() => handleToggleJobSelection(job.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+                        <Typography variant="subtitle1" fontWeight="bold">{job.title}</Typography>
+                        {isOverdue(job) && <Chip label="Overdue" color="error" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />}
                       </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      <Typography variant="body2" color="text.secondary">
+                        {job.property?.name} {job.unit && `• Unit ${job.unit.unitNumber}`}
+                      </Typography>
+                    </Box>
+
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box sx={{ textAlign: 'right', minWidth: 120 }}>
+                        <Typography variant="caption" display="block" color="text.secondary">Priority</Typography>
+                        <Chip size="small" label={job.priority} color={getPriorityColor(job.priority)} variant="outlined" />
+                      </Box>
+                      <Box sx={{ textAlign: 'right', minWidth: 120 }}>
+                        <Typography variant="caption" display="block" color="text.secondary">Status</Typography>
+                        <Chip size="small" label={JOB_STATUS_LABELS[job.status]} color={getStatusColor(job.status)} />
+                      </Box>
+                      <Box sx={{ textAlign: 'right', minWidth: 140 }}>
+                        <Typography variant="caption" display="block" color="text.secondary">Assigned To</Typography>
+                        <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={0.5}>
+                          {job.assignedTo ? (
+                            <>
+                              <PersonIcon fontSize="small" color="action" />
+                              <Typography variant="body2">{job.assignedTo.firstName} {job.assignedTo.lastName}</Typography>
+                            </>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">Unassigned</Typography>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      <IconButton size="small" onClick={(e) => handleStatusMenuOpen(e, job)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+              {filteredJobs.length === 0 && <EmptyState title="No Jobs Found" description="Try adjusting your filters" icon={<BuildIcon fontSize="large" />} />}
             </Stack>
           )}
 
           {view === 'table' && (
-            <Paper>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
+            <TableContainer component={Paper} variant="outlined">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        indeterminate={isSelectionIndeterminate}
+                        onChange={handleToggleSelectAllVisible}
+                      />
+                    </TableCell>
+                    <TableCell>Title</TableCell>
+                    <TableCell>Property</TableCell>
+                    <TableCell>Priority</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Assigned To</TableCell>
+                    <TableCell>Created</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredJobs.map((job) => (
+                    <TableRow key={job.id} hover selected={selectedJobIds.includes(job.id)}>
                       <TableCell padding="checkbox">
                         <Checkbox
-                          indeterminate={isSelectionIndeterminate}
-                          checked={allVisibleSelected}
-                          onChange={handleToggleSelectAllVisible}
-                          inputProps={{ 'aria-label': 'Select all visible jobs' }}
+                          checked={selectedJobIds.includes(job.id)}
+                          onChange={() => handleToggleJobSelection(job.id)}
                         />
                       </TableCell>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Property</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Priority</TableCell>
-                      <TableCell>Scheduled</TableCell>
-                      <TableCell>Technician</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                          onClick={() => handleOpenDetailModal(job)}
+                        >
+                          {job.title}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {job.property?.name}
+                        {job.unit && <Typography variant="caption" display="block" color="text.secondary">Unit {job.unit.unitNumber}</Typography>}
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={job.priority} size="small" color={getPriorityColor(job.priority)} variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={JOB_STATUS_LABELS[job.status]} size="small" color={getStatusColor(job.status)} />
+                      </TableCell>
+                      <TableCell>
+                        {job.assignedTo ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}` : '-'}
+                      </TableCell>
+                      <TableCell>{moment(job.createdAt).format('MMM D, YYYY')}</TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" onClick={(e) => handleStatusMenuOpen(e, job)}>
+                          <MoreVertIcon />
+                        </IconButton>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredJobs.map((job) => {
-                      const isSelected = selectedJobIds.includes(job.id);
-                      return (
-                        <TableRow key={job.id} hover selected={isSelected}>
-                          <TableCell padding="checkbox">
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={() => handleToggleJobSelection(job.id)}
-                              inputProps={{ 'aria-label': `Select job ${job.title}` }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {job.title}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">
-                              {job.property?.name || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={job.status}
-                              size="small"
-                              color={getStatusColor(job.status)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              icon={getPriorityIcon(job.priority)}
-                              label={job.priority}
-                              size="small"
-                              color={getPriorityColor(job.priority)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {job.scheduledDate
-                                ? moment(job.scheduledDate).format('MMM D, YYYY')
-                                : 'Not scheduled'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {job.assignedTo
-                                ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-                                : 'Unassigned'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenDetailModal(job)}
-                              aria-label={`View details for ${job.title}`}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                            {job.status !== 'COMPLETED' && (
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEdit(job)}
-                                aria-label={`Edit ${job.title}`}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteClick(job)}
-                              aria-label={`Delete ${job.title}`}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
+                  ))}
+                  {filteredJobs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                        <EmptyState title="No jobs found" description="Try adjusting your filters" icon={<BuildIcon fontSize="large" />} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
 
-          {/* Add other view modes here when implemented */}
-
-        </>
-      )}
+          {/* Status Menu */}
+          <Menu
+            anchorEl={statusMenuAnchor}
+            open={Boolean(statusMenuAnchor)}
+            onClose={handleStatusMenuClose}
+          >
+            {['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map((status) => (
+              <MenuItem
+                key={status}
+                onClick={() => handleStatusChange(statusMenuJob, status)}
+                selected={statusMenuJob?.status === status}
+                disabled={statusMenuJob?.status === status}
+              >
+                <ListItemIcon>
+                  {status === 'COMPLETED' ? <CheckCircleIcon fontSize="small" color="success" /> :
+                    status === 'CANCELLED' ? <CloseIcon fontSize="small" color="error" /> :
+                      <BuildIcon fontSize="small" />}
+                </ListItemIcon>
+                <ListItemText>{JOB_STATUS_LABELS[status]}</ListItemText>
+              </MenuItem>
+            ))}
+            <MenuItem divider />
+            <MenuItem onClick={() => {
+              handleDeleteClick(statusMenuJob);
+              handleStatusMenuClose();
+            }} sx={{ color: 'error.main' }}>
+              <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+              <ListItemText>Delete Job</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Box>
 
       </PageShell>
 
+      {/* Forms & Dialogs */}
       <Dialog
-        open={isConfirmBulkAssignOpen}
-        onClose={handleCloseBulkAssignConfirm}
-        maxWidth="xs"
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
         fullWidth
+        keepMounted={false}
       >
-        <DialogTitle>Confirm bulk assignment</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to assign {selectedCount} job{selectedCount === 1 ? '' : 's'} to{' '}
-            {selectedTechnician
-              ? `${selectedTechnician.firstName} ${selectedTechnician.lastName}`
-              : 'the selected technician'}
-            ? This will replace any existing assignments for those jobs.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseBulkAssignConfirm} disabled={bulkAssignMutation.isPending}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirmBulkAssign}
-            variant="contained"
-            color="primary"
-            disabled={bulkAssignMutation.isPending}
-            startIcon={
-              bulkAssignMutation.isPending ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : (
-                <BuildIcon />
-              )
-            }
-          >
-            {bulkAssignMutation.isPending ? 'Assigning...' : 'Assign Jobs'}
-          </Button>
-        </DialogActions>
+        <JobForm
+          job={selectedJob}
+          onSuccess={handleSuccess}
+          onCancel={handleCloseDialog}
+        />
       </Dialog>
 
-      {/* Create/Edit Dialog */}
-      {openDialog && (
-        <Dialog
-          open={openDialog}
-          onClose={handleCloseDialog}
-          maxWidth="md"
-          fullWidth
-          fullScreen={isMobile}
-        >
-          <JobForm
-            job={selectedJob}
-            onSuccess={handleSuccess}
-            onCancel={handleCloseDialog}
-          />
-        </Dialog>
+      {detailModalOpen && selectedJob && (
+        <JobDetailModal
+          open={detailModalOpen}
+          onClose={handleCloseDetailModal}
+          jobId={selectedJob.id}
+          onStatusChange={refetch}
+          onEdit={() => {
+            handleCloseDetailModal();
+            handleEdit(selectedJob);
+          }}
+          onViewFull={() => handleOpenFullDetailPage(selectedJob.id)}
+        />
       )}
 
-      {/* Job Detail Modal */}
-      <JobDetailModal
-        job={selectedJob}
-        open={detailModalOpen}
-        onClose={handleCloseDetailModal}
-        returnPath={detailReturnPath}
-        onViewFullPage={(jobId) => {
-          handleCloseDetailModal();
-          handleOpenFullDetailPage(jobId);
-        }}
-      />
-
-      {/* Job Status Confirmation Dialog */}
+      {/* Confirmation Dialog for Status Change (from hook) */}
       <JobStatusConfirmDialog
         open={confirmDialogState.open}
         onClose={closeConfirmDialog}
         onConfirm={confirmStatusUpdate}
-        currentStatus={confirmDialogState.currentStatus}
         newStatus={confirmDialogState.newStatus}
         jobTitle={confirmDialogState.jobTitle}
-        isLoading={isStatusUpdating}
+        isUpdating={isStatusUpdating}
       />
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Job</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete the job{' '}
-            <strong>{jobToDelete?.title}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This action cannot be undone.
-          </Typography>
-          {deleteMutation.isError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {deleteMutation.error?.response?.data?.message ||
-               deleteMutation.error?.message ||
-               'Failed to delete job. Please try again.'}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={confirmDelete}
-            color="error"
-            variant="contained"
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Bulk Delete Dialog with Progress */}
-      <Dialog
-        open={bulkDeleteOpen}
-        onClose={isBulkDeleting ? undefined : closeBulkDeleteDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {isBulkDeleting
-            ? `Deleting Jobs (${bulkDeleteProgress.current}/${bulkDeleteProgress.total})`
-            : bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0
-            ? 'Bulk Delete Results'
-            : 'Confirm Bulk Delete'
-          }
-        </DialogTitle>
-        <DialogContent>
-          {/* Initial confirmation */}
-          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
-            <>
-              <Typography>
-                Are you sure you want to delete <strong>{selectedJobIds.length}</strong> job{selectedJobIds.length !== 1 ? 's' : ''}?
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                This action cannot be undone.
-              </Typography>
-            </>
-          )}
-
-          {/* Progress indicator */}
-          {isBulkDeleting && (
-            <Box sx={{ width: '100%', mt: 2 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Deleting job {bulkDeleteProgress.current} of {bulkDeleteProgress.total}...
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={(bulkDeleteProgress.current / bulkDeleteProgress.total) * 100}
-              />
-            </Box>
-          )}
-
-          {/* Results summary */}
-          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
-            <Box sx={{ mt: 2 }}>
-              {bulkDeleteResults.succeeded.length > 0 && (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  Successfully deleted {bulkDeleteResults.succeeded.length} job{bulkDeleteResults.succeeded.length !== 1 ? 's' : ''}
-                </Alert>
-              )}
-
-              {bulkDeleteResults.failed.length > 0 && (
-                <>
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    Failed to delete {bulkDeleteResults.failed.length} job{bulkDeleteResults.failed.length !== 1 ? 's' : ''}
-                  </Alert>
-
-                  <Typography variant="subtitle2" gutterBottom>
-                    Failed items:
-                  </Typography>
-                  <List dense>
-                    {bulkDeleteResults.failed.map((item) => (
-                      <ListItem key={item.id}>
-                        <ErrorIcon color="error" sx={{ mr: 1, fontSize: 20 }} />
-                        <Typography variant="body2">
-                          <strong>{item.title}</strong>: {item.error}
-                        </Typography>
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
-              )}
-
-              {bulkDeleteResults.succeeded.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-                    Successfully deleted:
-                  </Typography>
-                  <List dense>
-                    {bulkDeleteResults.succeeded.map((item) => (
-                      <ListItem key={item.id}>
-                        <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
-                        <Typography variant="body2">{item.title}</Typography>
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          {!isBulkDeleting && bulkDeleteResults.succeeded.length === 0 && bulkDeleteResults.failed.length === 0 && (
-            <>
-              <Button onClick={closeBulkDeleteDialog}>Cancel</Button>
-              <Button
-                onClick={confirmBulkDelete}
-                color="error"
-                variant="contained"
-              >
-                Delete {selectedJobIds.length} Item{selectedJobIds.length !== 1 ? 's' : ''}
-              </Button>
-            </>
-          )}
-
-          {!isBulkDeleting && (bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0) && (
-            <Button onClick={closeBulkDeleteDialog} variant="contained">
-              Close
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
-
-      {/* Status Change Menu */}
-      <Menu
-        anchorEl={statusMenuAnchor}
-        open={Boolean(statusMenuAnchor)}
-        onClose={handleStatusMenuClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        MenuListProps={{
-          'aria-labelledby': 'status-menu-button',
-          dense: true,
-        }}
-      >
-        {statusMenuJob && getAllowedStatuses(statusMenuJob.status).map((statusOption) => (
-          <MenuItem
-            key={statusOption}
-            onClick={() => handleStatusChange(statusMenuJob, statusOption)}
-            disabled={statusMenuJob.status === statusOption}
-          >
-            <ListItemText>{statusOption.replace('_', ' ')}</ListItemText>
-          </MenuItem>
-        ))}
-      </Menu>
     </Container>
   );
 };
