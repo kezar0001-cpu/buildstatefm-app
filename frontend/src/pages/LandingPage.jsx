@@ -2150,6 +2150,53 @@ const Pricing = () => {
             </Box>
           </FadeIn>
 
+          <FadeIn delay={0.1}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'rgba(255,255,255,0.9)',
+              }}
+            >
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={{ xs: 2, md: 3 }}
+                alignItems={{ xs: 'stretch', md: 'center' }}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
+                    Lifetime Offer
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                    One-time $400 lifetime access for Product Hunt supporters.
+                  </Typography>
+                </Box>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                  <Button
+                    variant="contained"
+                    component={RouterLink}
+                    to="/welcome-lifetime"
+                    sx={{ textTransform: 'none', fontWeight: 700, px: 2.5 }}
+                  >
+                    I already purchased
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    component={RouterLink}
+                    to="/signin"
+                    sx={{ textTransform: 'none', fontWeight: 700, px: 2.5 }}
+                  >
+                    Sign In
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+          </FadeIn>
+
           {/* Pricing Cards */}
           <Grid container spacing={{ xs: 3, sm: 3, md: 4 }} alignItems="stretch" sx={{ pt: 2 }} justifyContent="center">
             {PRICING_TIERS.map((tier) => (

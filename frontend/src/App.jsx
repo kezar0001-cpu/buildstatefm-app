@@ -362,6 +362,7 @@ const SignUp = lazy(() => import('./pages/SignUp.jsx'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.tsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.tsx'));
+const WelcomeLifetime = lazy(() => import('./pages/WelcomeLifetime.jsx'));
 const Dashboard = lazy(() => import('./pages/DashboardPage.jsx'));
 const PropertiesPage = lazy(() => import('./pages/PropertiesPage.jsx'));
 const PropertyDetailPage = lazy(() => import('./pages/PropertyDetailPage.jsx'));
@@ -491,6 +492,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/welcome-lifetime" element={<WelcomeLifetime />} />
 
           {/* Landing */}
           <Route path="/" element={<LandingPage />} />

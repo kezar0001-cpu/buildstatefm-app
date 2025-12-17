@@ -8,11 +8,16 @@
 - **Frontend routing:** `frontend/src/App.jsx` defines `react-router-dom` routes.
 - **Main layout:** `frontend/src/components/Layout.jsx` wraps app content and renders the mobile footer nav.
 - **Mobile footer nav:** `frontend/src/components/RotaryFooter.tsx` (fixed bottom, mobile only).
+ - **Public lifetime welcome page:** `frontend/src/pages/WelcomeLifetime.jsx` served at `/welcome-lifetime`.
 
 ## Components
 - **RotaryFooter (mobile nav):** `frontend/src/components/RotaryFooter.tsx`
   - Collapsible state persisted in `localStorage` key `ui:rotaryFooterCollapsed` via `Layout.jsx`.
   - Swipe uses pointer capture (no framer drag) for smoothness; snap-on-release removed.
+
+- **WelcomeLifetime (public post-purchase page):** `frontend/src/pages/WelcomeLifetime.jsx`
+  - Route: `/welcome-lifetime` (public, in `frontend/src/App.jsx`).
+  - Purpose: Post-purchase handoff for Lifetime purchases (shows next steps + CTA to login/signup).
 
 - **Admin Analytics (platform metrics):** `frontend/src/pages/admin/AdminAnalyticsPage.jsx`
   - Route: `/admin/analytics` (wrapped by `AdminLayout` in `frontend/src/App.jsx`).
