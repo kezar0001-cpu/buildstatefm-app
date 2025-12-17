@@ -28,6 +28,7 @@ model User {
   trialEndDate                                         DateTime?
   isLifetime                                           Boolean                 @default(false)
   emailVerified                                        Boolean                 @default(false)
+  lifetimePurchases                                    LifetimePurchase[]
   AuditLog                                             AuditLog[]
   BlogPost                                             BlogPost[]
   Inspection_Inspection_approvedByIdToUser             Inspection[]            @relation("Inspection_approvedByIdToUser")
