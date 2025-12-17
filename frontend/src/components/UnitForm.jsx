@@ -19,7 +19,7 @@ import {
   FormTextField,
   FormSelect,
   FormAreaField,
-} from './FormFields';
+} from './form';
 import UnitImageManager from './UnitImageManager';
 import apiClient from '../api/client';
 
