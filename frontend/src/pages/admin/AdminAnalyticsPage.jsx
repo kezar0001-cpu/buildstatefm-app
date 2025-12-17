@@ -1425,8 +1425,12 @@ export default function AdminAnalyticsPage() {
         </Grid>
       </TabPanel>
 
-      <TabPanel value="traffic">
-        {trafficAnalytics ? (
+      <TabPanel value={tab} tabValue="traffic">
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : trafficAnalytics ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -1516,9 +1520,9 @@ export default function AdminAnalyticsPage() {
             </Grid>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            No traffic data is available yet for this period.
+          </Alert>
         )}
       </TabPanel>
     </Box>
