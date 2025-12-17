@@ -153,6 +153,39 @@ export function createRedisRateLimiter(options = {}) {
   };
 }
 
+export function redisRateLimiter(options = {}) {
+  const {
+    windowMs = 60 * 1000,
+    max = 30,
+    keyPrefix = 'public_rate_limit',
+    message,
+    keyGenerator,
+  } = options;
+
+  const duration = Math.max(1, Math.ceil(windowMs / 1000));
+
+  return createRedisRateLimiter({
+    keyPrefix,
+    points: max,
+    duration,
+    errorMessage: message,
+    keyGenerator:
+      keyGenerator ||
+      ((req) => {
+        const sessionId = req.body?.sessionId;
+        if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
+          return `session:${sessionId.trim()}`;
+        }
+
+        if (req.ip) {
+          return `ip:${req.ip}`;
+        }
+
+        return null;
+      }),
+  });
+}
+
 /**
  * Pre-configured rate limiters for common use cases
  * 
