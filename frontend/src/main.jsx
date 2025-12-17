@@ -13,6 +13,42 @@ import { UserProvider } from "./context/UserContext.jsx";
 import LightThemeWrapper from "./components/LightThemeWrapper.jsx";
 import { isRetryableError } from "./utils/errorMessages.js";
 
+const CHUNK_RECOVERY_FLAG = "app:chunk-recovery-attempted";
+
+const attemptChunkRecoveryReload = () => {
+  try {
+    if (sessionStorage.getItem(CHUNK_RECOVERY_FLAG) === "1") return;
+    sessionStorage.setItem(CHUNK_RECOVERY_FLAG, "1");
+  } catch {
+    // ignore
+  }
+
+  try {
+    window.location.reload();
+  } catch {
+    window.location.href = window.location.href;
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event?.preventDefault?.();
+    attemptChunkRecoveryReload();
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event?.reason;
+    const message = typeof reason?.message === "string" ? reason.message : "";
+    if (
+      reason?.name === "ChunkLoadError" ||
+      message.includes("Loading chunk") ||
+      message.includes("Failed to fetch dynamically imported module")
+    ) {
+      attemptChunkRecoveryReload();
+    }
+  });
+}
+
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [
