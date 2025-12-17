@@ -36,15 +36,22 @@ router.post('/pageview',
       data.data.sessionId ||
       `${(inferredIpAddress || 'unknown').toString()}|${(data.data.userAgent || inferredUserAgent || 'unknown').toString()}`.slice(0, 255);
 
-    await prisma.pageView.create({
-      data: {
-        ...data.data,
-        sessionId,
-        userAgent: data.data.userAgent || inferredUserAgent,
-        ipAddress: data.data.ipAddress || inferredIpAddress,
-        timestamp: new Date()
+    try {
+      await prisma.pageView.create({
+        data: {
+          ...data.data,
+          sessionId,
+          userAgent: data.data.userAgent || inferredUserAgent,
+          ipAddress: data.data.ipAddress || inferredIpAddress,
+          timestamp: new Date()
+        }
+      });
+    } catch (error) {
+      if (error?.code === 'P2021') {
+        return res.json({ success: true });
       }
-    });
+      throw error;
+    }
 
     res.json({ success: true });
   })

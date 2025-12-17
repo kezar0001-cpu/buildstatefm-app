@@ -1110,7 +1110,7 @@ model UnitOwner {
 }
 
 model PageView {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   timestamp DateTime @default(now())
   path      String
   referrer  String?

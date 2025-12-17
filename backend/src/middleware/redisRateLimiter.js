@@ -70,6 +70,7 @@ export function createRedisRateLimiter(options = {}) {
       if (redisClient && redisClient.isOpen) {
         rateLimiter = new RateLimiterRedis({
           storeClient: redisClient,
+          useRedisPackage: true,
           keyPrefix,
           points,
           duration,
