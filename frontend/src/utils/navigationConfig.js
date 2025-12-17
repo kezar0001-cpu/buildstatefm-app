@@ -90,7 +90,7 @@ export const NAVIGATION_ITEMS = [
   },
   {
     name: 'Users',
-    href: '/users',
+    href: '/admin/users',
     icon: PeopleIcon,
     roles: ['ADMIN'],
   },
@@ -114,7 +114,7 @@ export const USER_MENU_ITEMS = [
   },
   {
     name: 'Admin Panel',
-    href: '/admin',
+    href: '/admin/dashboard',
     icon: SettingsIcon,
     roles: ['ADMIN'],
   },
@@ -151,8 +151,8 @@ export const MOBILE_NAV_ITEMS = {
   ADMIN: [
     { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
     { name: 'Properties', href: '/properties', icon: HomeIcon },
-    { name: 'Users', href: '/users', icon: PeopleIcon },
-    { name: 'Admin', href: '/admin', icon: SettingsIcon },
+    { name: 'Users', href: '/admin/users', icon: PeopleIcon },
+    { name: 'Admin', href: '/admin/dashboard', icon: SettingsIcon },
   ],
 };
 

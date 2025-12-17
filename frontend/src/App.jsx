@@ -1,6 +1,6 @@
 // frontend/src/App.jsx
 import React, { useEffect, Suspense, lazy } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Box, Button, Paper, Stack, Typography, Divider, CircularProgress, useTheme, alpha } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
@@ -506,6 +506,8 @@ export default function App() {
 
           {/* Blog Admin Login */}
           <Route path="/admin/blog/login" element={<BlogAdminLoginPage />} />
+
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
           {/* Admin Panel - Dedicated admin routes with AdminLayout */}
           <Route path="/admin/dashboard" element={<AuthGate><AdminLayout><AdminDashboard /></AdminLayout></AuthGate>} />
