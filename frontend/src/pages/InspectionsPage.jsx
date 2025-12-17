@@ -610,21 +610,21 @@ const InspectionsPage = () => {
                     <VisibilityIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-        {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
-          <Tooltip title="Cancel inspection">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCancelInspection(inspection);
-              }}
-              aria-label={`Cancel ${inspection.title}`}
-            >
-              <CancelIcon />
-            </IconButton>
-          </Tooltip>
-        )}
+                {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+                  <Tooltip title="Cancel inspection">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCancelInspection(inspection);
+                      }}
+                      aria-label={`Cancel ${inspection.title}`}
+                    >
+                      <CancelIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Edit">
                   <IconButton
                     size="small"
@@ -752,9 +752,8 @@ const InspectionsPage = () => {
         title="Inspections"
         subtitle="Schedule and manage property inspections"
         actions={
-          isOwner
-            ? undefined
-            : (
+          ['PROPERTY_MANAGER', 'ADMIN'].includes(currentUser?.role)
+            ? (
               <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
                 <GradientButton
                   startIcon={<AddIcon />}
@@ -766,6 +765,7 @@ const InspectionsPage = () => {
                 </GradientButton>
               </Stack>
             )
+            : undefined
         }
         contentSpacing={{ xs: 3, md: 3 }}
       >
@@ -924,127 +924,127 @@ const InspectionsPage = () => {
           />
         </Box>
 
-      {/* Bulk Actions Toolbar - only show when items are selected */}
-      {!isOwner && selectedIds.length > 0 && (
-        <Paper
-          sx={{
-            mb: 2,
-            p: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            bgcolor: 'action.selected',
-          }}
-        >
-          <Typography variant="body2" sx={{ flexGrow: 1 }}>
-            {selectedIds.length} selected
-          </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={handleBulkDelete}
+        {/* Bulk Actions Toolbar - only show when items are selected */}
+        {!isOwner && selectedIds.length > 0 && (
+          <Paper
+            sx={{
+              mb: 2,
+              p: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              bgcolor: 'action.selected',
+            }}
           >
-            Delete
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FileDownloadIcon />}
+            <Typography variant="body2" sx={{ flexGrow: 1 }}>
+              {selectedIds.length} selected
+            </Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleBulkDelete}
+            >
+              Delete
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+            >
+              Export
+            </Button>
+          </Paper>
+        )}
+
+        {/* Error Alerts */}
+        {deleteMutation.isError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            onClose={() => {
+              deleteMutation.reset();
+            }}
           >
-            Export
-          </Button>
-        </Paper>
-      )}
+            {deleteMutation.error?.message || 'An error occurred'}
+          </Alert>
+        )}
 
-      {/* Error Alerts */}
-      {deleteMutation.isError && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => {
-            deleteMutation.reset();
-          }}
-        >
-          {deleteMutation.error?.message || 'An error occurred'}
-        </Alert>
-      )}
-
-      {/* Inspections List */}
-      {inspectionsWithOverdue.length === 0 ? (
-        <EmptyState
-          icon={CheckCircleIcon}
-          title={hasFilters ? 'No inspections match your filters' : 'No inspections yet'}
-          description={
-            hasFilters
-              ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
-              : 'Get started by scheduling your first property inspection. Stay on top of maintenance, document findings, and ensure compliance with ease.'
-          }
-          actionLabel={hasFilters || isOwner ? undefined : 'Schedule First Inspection'}
-          onAction={hasFilters || isOwner ? undefined : handleCreate}
-        />
-      ) : (
-        <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
-          {/* Conditional rendering based on view mode */}
-          {viewMode === 'grid' && (
-            <InspectionKanban
-              inspections={inspectionsWithOverdue}
-              onView={handleView}
-              onViewReport={handleViewReport}
-              onEdit={isOwner ? undefined : handleEdit}
-              onDelete={isOwner ? undefined : handleDeleteClick}
-              onStartInspection={isOwner ? undefined : handleStartInspection}
-              onCompleteInspection={isOwner ? undefined : handleCompleteInspection}
-              onApprove={isOwner ? undefined : handleApprove}
-              onReject={isOwner ? undefined : handleReject}
-              onCancel={isOwner ? undefined : handleCancelInspection}
-              getStatusColor={getStatusColor}
-              getStatusIcon={getStatusIcon}
-              formatStatusText={formatStatusText}
-            />
-          )}
-          {viewMode === 'list' && (
-            <VirtualizedInspectionList
-              inspections={inspectionsWithOverdue}
-              renderItem={renderListItem}
-              scrollKey="inspections-list"
-            />
-          )}
-          {viewMode === 'table' && (
-            <InspectionTable
-              inspections={inspectionsWithOverdue}
-              selectedIds={selectedIds}
-              onSelectAll={handleSelectAll}
-              onSelect={handleSelectOne}
-              onView={handleView}
-              onEdit={isOwner ? undefined : handleEdit}
-              onDelete={isOwner ? undefined : handleDeleteClick}
-              onCancel={isOwner ? undefined : handleCancelInspection}
-              onStatusMenuOpen={isOwner ? undefined : handleStatusMenuOpen}
-              getStatusColor={getStatusColor}
-              formatStatusText={formatStatusText}
-            />
-          )}
+        {/* Inspections List */}
+        {inspectionsWithOverdue.length === 0 ? (
+          <EmptyState
+            icon={CheckCircleIcon}
+            title={hasFilters ? 'No inspections match your filters' : 'No inspections yet'}
+            description={
+              hasFilters
+                ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+                : 'Get started by scheduling your first property inspection. Stay on top of maintenance, document findings, and ensure compliance with ease.'
+            }
+            actionLabel={hasFilters || isOwner ? undefined : 'Schedule First Inspection'}
+            onAction={hasFilters || isOwner ? undefined : handleCreate}
+          />
+        ) : (
+          <Stack spacing={3} sx={{ animation: 'fade-in 0.7s ease-out' }}>
+            {/* Conditional rendering based on view mode */}
+            {viewMode === 'grid' && (
+              <InspectionKanban
+                inspections={inspectionsWithOverdue}
+                onView={handleView}
+                onViewReport={handleViewReport}
+                onEdit={isOwner ? undefined : handleEdit}
+                onDelete={isOwner ? undefined : handleDeleteClick}
+                onStartInspection={isOwner ? undefined : handleStartInspection}
+                onCompleteInspection={isOwner ? undefined : handleCompleteInspection}
+                onApprove={isOwner ? undefined : handleApprove}
+                onReject={isOwner ? undefined : handleReject}
+                onCancel={isOwner ? undefined : handleCancelInspection}
+                getStatusColor={getStatusColor}
+                getStatusIcon={getStatusIcon}
+                formatStatusText={formatStatusText}
+              />
+            )}
+            {viewMode === 'list' && (
+              <VirtualizedInspectionList
+                inspections={inspectionsWithOverdue}
+                renderItem={renderListItem}
+                scrollKey="inspections-list"
+              />
+            )}
+            {viewMode === 'table' && (
+              <InspectionTable
+                inspections={inspectionsWithOverdue}
+                selectedIds={selectedIds}
+                onSelectAll={handleSelectAll}
+                onSelect={handleSelectOne}
+                onView={handleView}
+                onEdit={isOwner ? undefined : handleEdit}
+                onDelete={isOwner ? undefined : handleDeleteClick}
+                onCancel={isOwner ? undefined : handleCancelInspection}
+                onStatusMenuOpen={isOwner ? undefined : handleStatusMenuOpen}
+                getStatusColor={getStatusColor}
+                formatStatusText={formatStatusText}
+              />
+            )}
 
 
 
-          {/* Load More Button */}
-          {hasNextPage && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
-              >
-                {isFetchingNextPage ? 'Loading...' : 'Load More'}
-              </Button>
-            </Box>
-          )}
-        </Stack>
-      )}
+            {/* Load More Button */}
+            {hasNextPage && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
+                >
+                  {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                </Button>
+              </Box>
+            )}
+          </Stack>
+        )}
 
       </PageShell>
 
@@ -1076,8 +1076,8 @@ const InspectionsPage = () => {
           {deleteMutation.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {deleteMutation.error?.response?.data?.message ||
-               deleteMutation.error?.message ||
-               'Failed to delete inspection. Please try again.'}
+                deleteMutation.error?.message ||
+                'Failed to delete inspection. Please try again.'}
             </Alert>
           )}
         </DialogContent>
@@ -1105,8 +1105,8 @@ const InspectionsPage = () => {
           {isBulkDeleting
             ? `Deleting Inspections (${bulkDeleteProgress.current}/${bulkDeleteProgress.total})`
             : bulkDeleteResults.succeeded.length > 0 || bulkDeleteResults.failed.length > 0
-            ? 'Bulk Delete Results'
-            : 'Confirm Bulk Delete'
+              ? 'Bulk Delete Results'
+              : 'Confirm Bulk Delete'
           }
         </DialogTitle>
         <DialogContent>
@@ -1840,54 +1840,33 @@ const InspectionTable = ({
             };
 
             return (
-            <TableRow
-              key={inspection.id}
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => onView(inspection.id)}
-              selected={selectedIds.includes(inspection.id)}
-            >
-              <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  checked={selectedIds.includes(inspection.id)}
-                  onChange={() => onSelect && onSelect(inspection.id)}
-                  aria-label={`Select ${inspection.title}`}
-                />
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {inspection.title}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography
-                  variant="body2"
-                  component={MuiLink}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (inspection.property?.id) {
-                      navigate(`/properties/${inspection.property.id}`);
-                    }
-                  }}
-                  sx={{
-                    cursor: 'pointer',
-                    color: 'primary.main',
-                    textDecoration: 'none',
-                    '&:hover': { textDecoration: 'underline' },
-                  }}
-                >
-                  {inspection.property?.name || '—'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                {inspection.unit ? (
+              <TableRow
+                key={inspection.id}
+                hover
+                sx={{ cursor: 'pointer' }}
+                onClick={() => onView(inspection.id)}
+                selected={selectedIds.includes(inspection.id)}
+              >
+                <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.includes(inspection.id)}
+                    onChange={() => onSelect && onSelect(inspection.id)}
+                    aria-label={`Select ${inspection.title}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {inspection.title}
+                  </Typography>
+                </TableCell>
+                <TableCell>
                   <Typography
                     variant="body2"
                     component={MuiLink}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (inspection.unit?.id) {
-                        navigate(`/units/${inspection.unit.id}`);
+                      if (inspection.property?.id) {
+                        navigate(`/properties/${inspection.property.id}`);
                       }
                     }}
                     sx={{
@@ -1897,96 +1876,117 @@ const InspectionTable = ({
                       '&:hover': { textDecoration: 'underline' },
                     }}
                   >
-                    Unit {inspection.unit.unitNumber}
+                    {inspection.property?.name || '—'}
                   </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    —
-                  </Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2">
-                  {inspection.type?.replace(/_/g, ' ') || '—'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2">
-                  {formatDate(inspection.scheduledDate)}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={formatStatusText(inspection.displayStatus)}
-                  color={getStatusColor(inspection.displayStatus)}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell>
-                <Box sx={{ minWidth: 150 }}>
-                  <InspectionProgressIndicator inspection={inspectionWithRooms} variant="compact" />
-                </Box>
-              </TableCell>
-              <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                  <Tooltip title="View">
-                    <IconButton
-                      size="small"
+                </TableCell>
+                <TableCell>
+                  {inspection.unit ? (
+                    <Typography
+                      variant="body2"
+                      component={MuiLink}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onView(inspection.id);
+                        if (inspection.unit?.id) {
+                          navigate(`/units/${inspection.unit.id}`);
+                        }
                       }}
-                      aria-label={`View ${inspection.title}`}
+                      sx={{
+                        cursor: 'pointer',
+                        color: 'primary.main',
+                        textDecoration: 'none',
+                        '&:hover': { textDecoration: 'underline' },
+                      }}
                     >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && onCancel && (
-                    <Tooltip title="Cancel inspection">
+                      Unit {inspection.unit.unitNumber}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      —
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">
+                    {inspection.type?.replace(/_/g, ' ') || '—'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">
+                    {formatDate(inspection.scheduledDate)}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={formatStatusText(inspection.displayStatus)}
+                    color={getStatusColor(inspection.displayStatus)}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ minWidth: 150 }}>
+                    <InspectionProgressIndicator inspection={inspectionWithRooms} variant="compact" />
+                  </Box>
+                </TableCell>
+                <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                    <Tooltip title="View">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onView(inspection.id);
+                        }}
+                        aria-label={`View ${inspection.title}`}
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && onCancel && (
+                      <Tooltip title="Cancel inspection">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCancel(inspection);
+                          }}
+                          aria-label={`Cancel ${inspection.title}`}
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {inspection.status !== 'COMPLETED' && (
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(inspection);
+                          }}
+                          aria-label={`Edit ${inspection.title}`}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Delete">
                       <IconButton
                         size="small"
                         color="error"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCancel(inspection);
+                          onDelete(inspection);
                         }}
-                        aria-label={`Cancel ${inspection.title}`}
+                        aria-label={`Delete ${inspection.title}`}
                       >
-                        <CancelIcon fontSize="small" />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  )}
-                  {inspection.status !== 'COMPLETED' && (
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(inspection);
-                        }}
-                        aria-label={`Edit ${inspection.title}`}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(inspection);
-                      }}
-                      aria-label={`Delete ${inspection.title}`}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </TableCell>
-            </TableRow>
-          );
+                  </Box>
+                </TableCell>
+              </TableRow>
+            );
           })}
         </TableBody>
       </Table>

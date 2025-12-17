@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -16,6 +16,12 @@ import {
   Menu,
   MenuItem,
   Stack,
+  Paper,
+  Divider,
+  Avatar,
+  AvatarGroup,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Build as BuildIcon,
@@ -24,13 +30,19 @@ import {
   MoreVert as MoreVertIcon,
   LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
+  Directions as DirectionsIcon,
+  PlayArrow as PlayArrowIcon,
+  Map as MapIcon,
+  AccessTime as AccessTimeIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  Phone as PhoneIcon,
+  Message as MessageIcon,
 } from '@mui/icons-material';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import DataState from '../components/DataState';
 import RejectedInspectionsBanner from '../components/RejectedInspectionsBanner';
-import Breadcrumbs from '../components/Breadcrumbs';
-import { format } from 'date-fns';
+import { format, isToday, isTomorrow, parseISO, compareAsc, isValid } from 'date-fns';
 import ensureArray from '../utils/ensureArray';
 import { queryKeys } from '../utils/queryKeys.js';
 import { canTransition } from '../constants/jobStatuses';
@@ -59,12 +71,14 @@ const PRIORITY_COLORS = {
 export default function TechnicianDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useCurrentUser();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  const PAGE_SIZE = 25;
+  const PAGE_SIZE = 50; // Increased page size for "Schedule View"
 
   const {
     data,
@@ -79,6 +93,7 @@ export default function TechnicianDashboard() {
       const params = new URLSearchParams({
         limit: PAGE_SIZE.toString(),
         offset: pageParam.toString(),
+        sort: 'scheduledDate:asc', // Request server-side sort if available
       });
 
       const response = await apiClient.get(`/jobs?${params.toString()}`);
@@ -101,7 +116,64 @@ export default function TechnicianDashboard() {
     initialPageParam: 0,
   });
 
-  const jobs = data?.pages?.flatMap((page) => page.items) || [];
+  const allJobs = useMemo(() => {
+    return data?.pages?.flatMap((page) => page.items) || [];
+  }, [data]);
+
+  // Process Jobs: Sort and Group
+  const { upNextJob, todayJobs, upcomingJobs, completedRecent } = useMemo(() => {
+    // 1. Filter out cancelled
+    const active = allJobs.filter(j => j.status !== 'CANCELLED');
+
+    // 2. Separate completed
+    const completed = active.filter(j => j.status === 'COMPLETED');
+    const incomplete = active.filter(j => j.status !== 'COMPLETED');
+
+    // 3. Sort incomplete by Date, then Priority
+    incomplete.sort((a, b) => {
+      // Sort by status first (IN_PROGRESS on top)
+      if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+      if (b.status === 'IN_PROGRESS' && a.status !== 'IN_PROGRESS') return 1;
+
+      // Then by Date
+      const dateA = a.scheduledDate ? parseISO(a.scheduledDate) : new Date(8640000000000000);
+      const dateB = b.scheduledDate ? parseISO(b.scheduledDate) : new Date(8640000000000000);
+      const dateComp = compareAsc(dateA, dateB);
+      if (dateComp !== 0) return dateComp;
+
+      // Then by Priority
+      const pMap = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      return (pMap[a.priority] || 4) - (pMap[b.priority] || 4);
+    });
+
+    // 4. Identify "Up Next"
+    // First IN_PROGRESS job, or first ASSIGNED/OPEN job
+    const upNext = incomplete.length > 0 ? incomplete[0] : null;
+
+    // 5. Group the rest
+    const today = [];
+    const upcoming = [];
+
+    incomplete.forEach(job => {
+      if (job.id === upNext?.id) return; // Skip the "Up Next" job
+
+      const date = job.scheduledDate ? parseISO(job.scheduledDate) : null;
+      if (!date || !isValid(date)) {
+        upcoming.push(job); // No date goes to upcoming
+      } else if (isToday(date) || date < new Date()) { // Today or Overdue
+        today.push(job);
+      } else {
+        upcoming.push(job);
+      }
+    });
+
+    return {
+      upNextJob: upNext,
+      todayJobs: today,
+      upcomingJobs: upcoming,
+      completedRecent: completed.slice(0, 5), // Last 5 completed
+    };
+  }, [allJobs]);
 
   const statusMutation = useMutation({
     mutationFn: async ({ jobId, status }) => {
@@ -113,7 +185,7 @@ export default function TechnicianDashboard() {
       await queryClient.cancelQueries({ queryKey: ['jobs'] });
 
       const previousJobs = snapshotJobQueries(queryClient);
-      const existingJob = jobs.find((job) => job.id === jobId) || { id: jobId };
+      const existingJob = allJobs.find((job) => job.id === jobId) || { id: jobId };
 
       applyJobUpdateToQueries(queryClient, {
         ...existingJob,
@@ -149,10 +221,8 @@ export default function TechnicianDashboard() {
     setSelectedJob(null);
   };
 
-  const handleViewDetails = () => {
-    if (selectedJob) {
-      navigate(`/technician/jobs/${selectedJob.id}`);
-    }
+  const handleViewDetails = (jobId) => {
+    navigate(`/technician/jobs/${jobId}`);
     handleMenuClose();
   };
 
@@ -161,215 +231,230 @@ export default function TechnicianDashboard() {
     statusMutation.mutate({ jobId: job.id, status: nextStatus });
   };
 
-  const getJobsByStatus = (status) => jobs.filter(job => job.status === status);
+  const handleNavigate = (address) => {
+    if (!address) return;
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+  };
 
-  const openJobs = getJobsByStatus('OPEN');
-  const inProgressJobs = getJobsByStatus('IN_PROGRESS');
-  const completedJobs = getJobsByStatus('COMPLETED');
+  const JobCard = ({ job, isUpNext = false }) => {
+    if (!job) return null;
+    const date = job.scheduledDate ? parseISO(job.scheduledDate) : null;
+    const isOverdue = date && date < new Date() && !isToday(date);
+
+    return (
+      <Card
+        elevation={isUpNext ? 4 : 1}
+        sx={{
+          mb: 2,
+          borderLeft: isUpNext ? `6px solid ${theme.palette.primary.main}` : 'none',
+          position: 'relative',
+          overflow: 'visible'
+        }}
+      >
+        {isUpNext && (
+          <Chip
+            label="UP NEXT"
+            color="primary"
+            size="small"
+            sx={{
+              position: 'absolute',
+              top: -12,
+              left: 16,
+              fontWeight: 'bold',
+              boxShadow: 2
+            }}
+          />
+        )}
+        <CardContent sx={{ pt: isUpNext ? 3 : 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={isUpNext ? 700 : 500} gutterBottom={false}>
+                {job.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {job.property?.name}
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={(e) => handleMenuOpen(e, job)}>
+              <MoreVertIcon />
+            </IconButton>
+          </Stack>
+
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+            <Chip
+              label={job.status.replace('_', ' ')}
+              color={STATUS_COLORS[job.status]}
+              size="small"
+              icon={job.status === 'IN_PROGRESS' ? <PlayArrowIcon /> : undefined}
+            />
+            <Chip
+              label={job.priority}
+              color={PRIORITY_COLORS[job.priority]}
+              size="small"
+              variant="outlined"
+            />
+            {date && (
+              <Chip
+                icon={<AccessTimeIcon />}
+                label={isToday(date) ? 'Today' : isTomorrow(date) ? 'Tomorrow' : format(date, 'MMM dd')}
+                color={isOverdue ? 'error' : 'default'}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Stack>
+
+          <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', mb: 2, bgcolor: isMobile ? 'background.default' : 'transparent' }}>
+            <LocationIcon fontSize="small" color="action" sx={{ mr: 1, flexShrink: 0 }} />
+            <Typography variant="body2" noWrap>
+              {job.property?.address || 'No address provided'}
+            </Typography>
+          </Paper>
+
+          {isUpNext && (
+            <Grid container spacing={1}>
+              <Grid item xs={6}>
+                <Button
+                  variant="contained"
+                  color={job.status === 'IN_PROGRESS' ? 'success' : 'primary'}
+                  fullWidth
+                  startIcon={job.status === 'IN_PROGRESS' ? <CheckCircleIcon /> : <PlayArrowIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (job.status === 'IN_PROGRESS') {
+                      handleStatusUpdate(job, 'COMPLETED');
+                    } else if (job.status === 'ASSIGNED') {
+                      handleStatusUpdate(job, 'IN_PROGRESS');
+                    } else {
+                      handleViewDetails(job.id);
+                    }
+                  }}
+                >
+                  {job.status === 'IN_PROGRESS' ? 'Finish Job' : 'Start Job'}
+                </Button>
+              </Grid>
+              <Grid item xs={6}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<DirectionsIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNavigate(`${job.property?.address} ${job.property?.city || ''}`);
+                  }}
+                >
+                  Navigate
+                </Button>
+              </Grid>
+            </Grid>
+          )}
+
+          {!isUpNext && (
+            <Button
+              variant="text"
+              size="small"
+              fullWidth
+              onClick={() => handleViewDetails(job.id)}
+            >
+              View Details
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Breadcrumbs
-        labelOverrides={{
-          '/technician/dashboard': 'My Jobs',
-        }}
-      />
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom fontWeight={700}>
-          My Jobs
+    <Container maxWidth="md" sx={{ py: 3 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" fontWeight={800} gutterBottom>
+          Hello, {user?.firstName || 'Tech'} 👋
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          View and manage your assigned jobs
+          Ready for your day? You have <Box component="span" fontWeight="bold" color="primary.main">{todayJobs.length + (upNextJob ? 1 : 0)} jobs</Box> scheduled today.
         </Typography>
-        {actionError && (
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setActionError('')}>
-            {actionError}
-          </Alert>
-        )}
       </Box>
 
-      {/* Rejected inspections banner */}
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError('')}>
+          {actionError}
+        </Alert>
+      )}
+
       <RejectedInspectionsBanner currentUser={user} />
 
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <ScheduleIcon color="info" sx={{ fontSize: 40 }} />
-                <Box>
-                  <Typography variant="h4">{openJobs.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Open Jobs
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+      <DataState data={allJobs} isLoading={isLoading} error={error} emptyMessage="No jobs assigned yet.">
+        <Box>
+          {/* UP NEXT SECTION */}
+          <Typography variant="overline" color="text.secondary" fontWeight="bold" sx={{ mb: 1, display: 'block' }}>
+            CURRENTLY ACTIVE / UP NEXT
+          </Typography>
 
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <BuildIcon color="warning" sx={{ fontSize: 40 }} />
-                <Box>
-                  <Typography variant="h4">{inProgressJobs.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    In Progress
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+          {upNextJob ? (
+            <JobCard job={upNextJob} isUpNext={true} />
+          ) : (
+            <Paper sx={{ p: 4, textAlign: 'center', mb: 4, bgcolor: 'background.default' }} variant="outlined">
+              <CheckCircleOutlineIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">All caught up!</Typography>
+              <Typography variant="body2" color="text.secondary">No immediate jobs scheduled.</Typography>
+            </Paper>
+          )}
 
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
-                <Box>
-                  <Typography variant="h4">{completedJobs.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Completed
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+          {/* TODAY'S QUEUE */}
+          {todayJobs.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                Today's Queue
+              </Typography>
+              {todayJobs.map(job => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </>
+          )}
 
-      {/* Jobs List */}
-      <DataState
-        data={jobs}
-        isLoading={isLoading}
-        error={error}
-        emptyMessage="No jobs assigned to you yet"
-      >
-        <Stack spacing={3}>
-          <Grid container spacing={3}>
-            {jobs.map((job) => (
-              <Grid item xs={12} md={6} key={job.id}>
-                <Card
-                  sx={{
-                    cursor: 'pointer',
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'box-shadow 0.3s',
-                  }}
-                  onClick={() => navigate(`/technician/jobs/${job.id}`)}
-                >
-                  <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" gutterBottom>
-                          {job.title}
-                        </Typography>
-
-                        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                          <Chip
-                            label={job.status}
-                            color={STATUS_COLORS[job.status]}
-                            size="small"
-                          />
-                          <Chip
-                            label={job.priority}
-                            color={PRIORITY_COLORS[job.priority]}
-                            size="small"
-                          />
-                        </Stack>
-
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {job.description}
-                        </Typography>
-
-                        {job.property && (
-                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                            <LocationIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary">
-                              {job.property.name}
-                            </Typography>
-                          </Stack>
-                        )}
-
-                        {job.scheduledDate && (
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CalendarIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary">
-                              {format(new Date(job.scheduledDate), 'MMM dd, yyyy')}
-                            </Typography>
-                          </Stack>
-                        )}
-                      </Box>
-
-                      <IconButton
-                        onClick={(e) => handleMenuOpen(e, job)}
-                        size="small"
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
-                    </Stack>
-                  </CardContent>
-
-                  <CardActions>
-                    {job.status === 'ASSIGNED' && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        disabled={!canTransition(job.status, 'IN_PROGRESS') || statusMutation.isPending}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusUpdate(job, 'IN_PROGRESS');
-                        }}
-                      >
-                        Start Job
-                      </Button>
-                    )}
-                    {job.status === 'IN_PROGRESS' && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="success"
-                        disabled={!canTransition(job.status, 'COMPLETED') || statusMutation.isPending}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusUpdate(job, 'COMPLETED');
-                        }}
-                      >
-                        Mark Complete
-                      </Button>
-                    )}
-                    <Button
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/technician/jobs/${job.id}`);
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          {/* UPCOMING */}
+          {upcomingJobs.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: 'text.secondary' }}>
+                Upcoming
+              </Typography>
+              {upcomingJobs.map(job => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </>
+          )}
+          {/* COMPLETED RECENTLY */}
+          {completedRecent.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="caption" fontWeight="bold" sx={{ mb: 2, color: 'text.disabled', display: 'block' }}>
+                RECENTLY COMPLETED
+              </Typography>
+              {completedRecent.map(job => (
+                <Paper key={job.id} sx={{ p: 2, mb: 1, opacity: 0.7 }} variant="outlined">
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="body2" sx={{ textDecoration: 'line-through' }}>{job.title}</Typography>
+                    <Chip label="Done" size="small" color="default" />
+                  </Stack>
+                </Paper>
+              ))}
+            </>
+          )}
 
           {hasNextPage && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : null}
-              >
-                {isFetchingNextPage ? 'Loading...' : 'Load More'}
-              </Button>
-            </Box>
+            <Button
+              fullWidth
+              variant="text"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              sx={{ mt: 2 }}
+            >
+              {isFetchingNextPage ? 'Loading...' : 'Load All Jobs'}
+            </Button>
           )}
-        </Stack>
+        </Box>
       </DataState>
 
       {/* Context Menu */}
@@ -378,15 +463,13 @@ export default function TechnicianDashboard() {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={handleViewDetails}>View Details</MenuItem>
-        {selectedJob && canTransition(selectedJob.status, 'IN_PROGRESS') && (
-          <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'IN_PROGRESS')}>
-            Start Job
-          </MenuItem>
-        )}
-        {selectedJob && canTransition(selectedJob.status, 'COMPLETED') && (
-          <MenuItem onClick={() => handleStatusUpdate(selectedJob, 'COMPLETED')}>
-            Mark Complete
+        <MenuItem onClick={() => handleViewDetails(selectedJob?.id)}>View Details</MenuItem>
+        {selectedJob && (
+          <MenuItem onClick={() => {
+            handleNavigate(`${selectedJob.property?.address} ${selectedJob.property?.city || ''}`);
+            handleMenuClose();
+          }}>
+            Navigate
           </MenuItem>
         )}
       </Menu>
