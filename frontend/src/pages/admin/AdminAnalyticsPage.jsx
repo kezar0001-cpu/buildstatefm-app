@@ -1427,46 +1427,94 @@ export default function AdminAnalyticsPage() {
 
       <TabPanel value="traffic">
         {trafficAnalytics ? (
-          <div className={styles.trafficContainer}>
-            <div className={styles.trafficStats}>
-              <StatCard 
-                title="Total Visits" 
-                value={trafficAnalytics.totalVisits} 
-                trend={null}
-              />
-              <StatCard 
-                title="Unique Visitors" 
-                value={trafficAnalytics.uniqueVisitors} 
-                trend={null}
-              />
-            </div>
-            
-            <div className={styles.trafficCharts}>
-              <div className={styles.chartContainer}>
-                <h3>Top Pages</h3>
-                <ul className={styles.topList}>
-                  {trafficAnalytics.topPages.map((page, i) => (
-                    <li key={i}>
-                      <span className={styles.pagePath}>{page.path}</span>
-                      <span className={styles.pageCount}>{page._count.path}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              <div className={styles.chartContainer}>
-                <h3>Top Referrers</h3>
-                <ul className={styles.topList}>
-                  {trafficAnalytics.topReferrers.map((ref, i) => (
-                    <li key={i}>
-                      <span className={styles.referrer}>{ref.referrer}</span>
-                      <span className={styles.refCount}>{ref._count.referrer}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              sx={{ alignItems: { sm: 'stretch' } }}
+            >
+              <Box sx={{ flex: 1 }}>
+                <StatCard
+                  title="Total Visits"
+                  value={trafficAnalytics.totalVisits}
+                  trend={null}
+                />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <StatCard
+                  title="Unique Visitors"
+                  value={trafficAnalytics.uniqueVisitors}
+                  trend={null}
+                />
+              </Box>
+            </Stack>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      Top Pages
+                    </Typography>
+                    <Stack spacing={0.75}>
+                      {trafficAnalytics.topPages.map((page, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 2,
+                            py: 0.5,
+                            borderBottom: i === trafficAnalytics.topPages.length - 1 ? 'none' : '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                            {page.path}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {page?._count?.path ?? 0}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      Top Referrers
+                    </Typography>
+                    <Stack spacing={0.75}>
+                      {trafficAnalytics.topReferrers.map((ref, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 2,
+                            py: 0.5,
+                            borderBottom: i === trafficAnalytics.topReferrers.length - 1 ? 'none' : '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                            {ref.referrer}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {ref?._count?.referrer ?? 0}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />

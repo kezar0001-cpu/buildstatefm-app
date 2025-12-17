@@ -173,7 +173,8 @@ export async function refreshCurrentUser() {
   } catch (error) {
     console.error('Failed to refresh user data:', error);
 
-    if (error?.status === 401) {
+    const status = error?.response?.status ?? error?.status;
+    if (status === 401) {
       removeAuthToken();
     }
 
