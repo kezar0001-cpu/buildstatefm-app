@@ -14,7 +14,6 @@ import {
   Toolbar,
   useTheme,
   useMediaQuery,
-  Avatar,
   Paper,
   Chip,
   IconButton,
@@ -28,7 +27,6 @@ import {
   StepLabel,
   Tab,
   Tabs,
-  Rating,
   Divider,
   TextField,
   LinearProgress,
@@ -1023,29 +1021,12 @@ const Hero = () => (
                   mx: 'auto'
                 }}
               >
-                <Stack direction="row" spacing={-1.5}>
-                  {[11, 12, 13, 14, 15].map((i) => (
-                    <Avatar
-                      key={i}
-                      src={`https://i.pravatar.cc/100?img=${i}`}
-                      sx={{
-                        border: '3px solid rgba(255,255,255,0.3)',
-                        width: { xs: 40, md: 48 },
-                        height: { xs: 40, md: 48 }
-                      }}
-                    />
-                  ))}
-                </Stack>
-                <Box sx={{ textAlign: 'left' }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
-                    <Rating value={5} size="small" readOnly sx={{ '& .MuiRating-iconFilled': { color: '#fbbf24' } }} />
-                    <Typography variant="caption" fontWeight="bold" sx={{ color: 'white' }}>5.0</Typography>
-                  </Stack>
-                  <Typography variant="body2" fontWeight={600} sx={{ color: 'white' }}>
-                    Trusted by 500+ Property Managers
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="body2" fontWeight={700} sx={{ color: 'white' }}>
+                    Built for modern property teams
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    Managing 10,000+ units worldwide
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                    Inspections, maintenance, and compliance—tracked end-to-end.
                   </Typography>
                 </Box>
               </Box>
@@ -1498,7 +1479,7 @@ const HowItWorks = () => {
             Ready to transform your property management?
           </Typography>
           <Typography variant="body1" color="text.secondary" mb={4} maxWidth={500} mx="auto">
-            Join 500+ property managers who have streamlined their operations with BuildState FM.
+            Start your free trial and get your workflows organised in minutes.
           </Typography>
           <GradientButton
             size="large"
@@ -1652,30 +1633,21 @@ const ImageShowcase = () => (
 
 // Testimonials section
 const Testimonials = () => {
-  const testimonials = [
+  const audiences = [
     {
-      name: 'Sarah Mitchell',
-      role: 'Property Manager',
-      company: 'Urban Living Properties',
-      avatar: 'https://i.pravatar.cc/100?img=25',
-      rating: 5,
-      text: 'BuildState FM has completely transformed how we manage our portfolio. The inspection workflows alone have saved us 15+ hours per week.'
+      title: 'Property Managers',
+      description: 'Run inspections and keep compliance evidence organised without chasing spreadsheets.',
+      bullets: ['Custom checklists', 'Photo evidence & signatures', 'Audit trail by default']
     },
     {
-      name: 'James Rodriguez',
-      role: 'Facilities Director',
-      company: 'Apex Real Estate Group',
-      avatar: 'https://i.pravatar.cc/100?img=33',
-      rating: 5,
-      text: 'The audit trail feature gives us complete peace of mind during compliance reviews. We can track every action, every time. It\'s a game changer.'
+      title: 'Facilities & Operations',
+      description: 'Stay on top of maintenance work orders with clear ownership and real-time status.',
+      bullets: ['Job tracking end-to-end', 'Recurring inspections', 'Portfolio-level visibility']
     },
     {
-      name: 'Emily Chen',
-      role: 'Operations Manager',
-      company: 'Gateway Residential',
-      avatar: 'https://i.pravatar.cc/100?img=45',
-      rating: 5,
-      text: 'Our maintenance costs dropped by 23% in the first quarter after implementing BuildState FM. The analytics help us spot issues before they become expensive problems.'
+      title: 'Technicians & Contractors',
+      description: 'Mobile-first workflows that make it easy to complete inspections and close out jobs in the field.',
+      bullets: ['Fast mobile experience', 'Photo uploads on-site', 'Clear task lists']
     }
   ];
 
@@ -1692,10 +1664,10 @@ const Testimonials = () => {
               fontSize: '0.875rem'
             }}
           >
-            TESTIMONIALS
+            WHO IT’S FOR
           </Typography>
           <Typography variant="h3" fontWeight={800} mb={2} mt={1}>
-            Trusted by Industry Leaders
+            Designed for the workflows you already run
           </Typography>
           <Typography
             variant="h6"
@@ -1704,12 +1676,12 @@ const Testimonials = () => {
             mx="auto"
             sx={{ lineHeight: 1.7, fontWeight: 400 }}
           >
-            See what property management professionals are saying about BuildState FM.
+            We’ve just launched—verified customer stories are coming soon. For now, here’s what teams use BuildState FM for.
           </Typography>
         </Box>
 
         <Grid container spacing={4}>
-          {testimonials.map((testimonial, index) => (
+          {audiences.map((item, index) => (
             <Grid item xs={12} md={4} key={index}>
               <FadeIn delay={index * 0.1}>
                 <Card
@@ -1727,41 +1699,27 @@ const Testimonials = () => {
                     }
                   }}
                 >
-                  <Rating value={testimonial.rating} readOnly sx={{ mb: 2 }} />
                   <Typography
-                    variant="body1"
+                    variant="h6"
+                    fontWeight={800}
                     sx={{
-                      mb: 3,
-                      lineHeight: 1.8,
-                      fontStyle: 'italic',
-                      color: 'text.secondary'
+                      mb: 1
                     }}
                   >
-                    "{testimonial.text}"
+                    {item.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.7 }}>
+                    {item.description}
                   </Typography>
                   <Divider sx={{ my: 2 }} />
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Avatar
-                      src={testimonial.avatar}
-                      sx={{
-                        width: 56,
-                        height: 56,
-                        border: '2px solid',
-                        borderColor: 'primary.main'
-                      }}
-                    />
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={700}>
-                        {testimonial.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {testimonial.role}
-                      </Typography>
-                      <Typography variant="caption" color="primary.main" fontWeight={600}>
-                        {testimonial.company}
-                      </Typography>
-                    </Box>
-                  </Stack>
+                  <List sx={{ py: 0 }}>
+                    {item.bullets.map((b) => (
+                      <ListItem key={b} disableGutters sx={{ py: 0.5 }}>
+                        <CheckCircleIcon color="primary" sx={{ mr: 1.5, fontSize: 18 }} />
+                        <ListItemText primary={b} primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} />
+                      </ListItem>
+                    ))}
+                  </List>
                 </Card>
               </FadeIn>
             </Grid>

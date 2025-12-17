@@ -170,10 +170,14 @@ export default function WelcomeLifetime() {
                 </Typography>
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                If you purchased on a different email address, you can pass it here as
+                Important: Lifetime access is activated for the email address you used at checkout.
+                {' '}
+                If you purchased using a different email to the one you plan to sign up with, open this page with your
+                {' '}
+                purchase email:
                 {' '}
                 <Typography component="span" variant="caption" sx={{ fontFamily: 'monospace' }}>
-                  ?email=you@example.com
+                  /welcome-lifetime?email=you@example.com
                 </Typography>
               </Typography>
             </Stack>
