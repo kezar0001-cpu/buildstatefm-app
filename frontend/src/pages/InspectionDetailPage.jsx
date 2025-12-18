@@ -499,8 +499,14 @@ export default function InspectionDetailPage() {
     scheduledDate: '',
   });
 
+  const isTechnician = user?.role === 'TECHNICIAN';
   const canManage = useMemo(
-    () => user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN',
+    () => user?.role === 'PROPERTY_MANAGER' || user?.role === 'TECHNICIAN' || user?.role === 'ADMIN',
+    [user?.role]
+  );
+
+  const canEdit = useMemo(
+    () => user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN',
     [user?.role]
   );
 
@@ -884,7 +890,8 @@ export default function InspectionDetailPage() {
     canManage && inspection.status !== 'COMPLETED' && inspection.status !== 'CANCELLED';
 
   const canCancel =
-    canManage && (inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS');
+    canEdit &&
+    (inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS');
   const propertyId = normalizedInspection?.property?.id || normalizedInspection?.propertyId || null;
   const rooms = normalizedInspection?.rooms || [];
   const issues = normalizedInspection?.issues || [];
@@ -1004,7 +1011,7 @@ export default function InspectionDetailPage() {
                       View Report
                     </Button>
                   )}
-                  {canManage && (
+                  {canEdit && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -1041,14 +1048,16 @@ export default function InspectionDetailPage() {
                 )}
                 {canManage && (
                   <>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<EditIcon />}
-                      onClick={() => setEditDialogOpen(true)}
-                    >
-                      Edit
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<EditIcon />}
+                        onClick={() => setEditDialogOpen(true)}
+                      >
+                        Edit
+                      </Button>
+                    )}
                     {(inspection.status === 'SCHEDULED' ||
                       inspection.status === 'IN_PROGRESS') && (
                       <Button

@@ -104,6 +104,9 @@
   - `backend/src/routes/inspections.js` gates non-PM/non-admin inspection access by the *property manager* subscription (not technician subscription).
   - `backend/src/controllers/inspectionController.js` filters technician list results to only properties whose manager subscription is active.
   - ADMIN is not subscription-gated (uses `requireActiveSubscriptionUnlessAdmin` where needed).
+  - **Backend cache middleware (Redis) fail-open behavior:**
+  - `backend/src/utils/cache.js` `cacheMiddleware(...)` uses Redis under the hood.
+  - Cache operations (`get`, `set`, `invalidate`, `invalidatePattern`) are wrapped with a short timeout (~750ms) so Redis slowness/unavailability cannot stall API requests like `GET /api/properties`.
 
 ## Patterns
 - **Frontend test patterns (Vitest + Testing Library + MUI):**

@@ -44,6 +44,7 @@ export const InspectionContextActions = ({
 }) => {
   const { user: currentUser } = useCurrentUser();
   const isManager = currentUser?.role === 'PROPERTY_MANAGER' || currentUser?.role === 'ADMIN';
+  const isTechnician = currentUser?.role === 'TECHNICIAN';
   const isAssigned = inspection?.assignedToId === currentUser?.id;
 
   // Determine primary action based on status
@@ -104,7 +105,9 @@ export const InspectionContextActions = ({
     // For scheduled or in-progress, can cancel
     if (
       (status === INSPECTION_STATUS.SCHEDULED || status === INSPECTION_STATUS.IN_PROGRESS) &&
-      (isManager || isAssigned)
+      (isManager || isAssigned) &&
+      !isTechnician &&
+      onCancel
     ) {
       actions.push({
         label: 'Cancel',
@@ -118,7 +121,9 @@ export const InspectionContextActions = ({
     if (
       status !== INSPECTION_STATUS.COMPLETED &&
       status !== INSPECTION_STATUS.CANCELLED &&
-      (isManager || isAssigned)
+      (isManager || isAssigned) &&
+      !isTechnician &&
+      onEdit
     ) {
       actions.push({
         label: 'Edit',

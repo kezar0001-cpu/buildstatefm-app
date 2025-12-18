@@ -1,6 +1,7 @@
 // backend/src/utils/cache.js
 import { redisGet, redisSet, redisDel, redisDelPattern } from '../config/redisClient.js';
 import logger from './logger.js';
+import { withTimeout } from './prismaTimeout.js';
 
 /**
  * Cache utility functions for frequently accessed data
@@ -13,7 +14,11 @@ import logger from './logger.js';
  */
 export async function get(key) {
   try {
-    const cached = await redisGet(key);
+    const cached = await withTimeout(
+      redisGet(key),
+      750,
+      `Cache get timed out for key ${key}`,
+    );
     if (!cached) return null;
 
     return typeof cached === 'string' ? JSON.parse(cached) : cached;
@@ -32,7 +37,11 @@ export async function get(key) {
  */
 export async function set(key, value, ttlSeconds = 300) {
   try {
-    await redisSet(key, value, ttlSeconds);
+    await withTimeout(
+      redisSet(key, value, ttlSeconds),
+      750,
+      `Cache set timed out for key ${key}`,
+    );
   } catch (error) {
     logger.warn(`[Cache] Failed to set key ${key}:`, error.message);
   }
@@ -45,7 +54,11 @@ export async function set(key, value, ttlSeconds = 300) {
  */
 export async function invalidate(key) {
   try {
-    await redisDel(key);
+    await withTimeout(
+      redisDel(key),
+      750,
+      `Cache invalidate timed out for key ${key}`,
+    );
     logger.debug(`[Cache] Invalidated key: ${key}`);
   } catch (error) {
     logger.warn(`[Cache] Failed to invalidate key ${key}:`, error.message);
@@ -54,7 +67,11 @@ export async function invalidate(key) {
 
 export async function invalidatePattern(pattern) {
   try {
-    await redisDelPattern(pattern);
+    await withTimeout(
+      redisDelPattern(pattern),
+      750,
+      `Cache invalidate pattern timed out for pattern ${pattern}`,
+    );
     logger.debug(`[Cache] Invalidated pattern: ${pattern}`);
   } catch (error) {
     logger.warn(`[Cache] Failed to invalidate pattern ${pattern}:`, error.message);

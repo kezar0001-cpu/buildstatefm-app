@@ -125,6 +125,7 @@ const InspectionsPage = () => {
   }
 
   const isOwner = currentUser?.role === 'OWNER';
+  const isTechnician = currentUser?.role === 'TECHNICIAN';
 
   // State management
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
@@ -610,7 +611,7 @@ const InspectionsPage = () => {
                     <VisibilityIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-        {(inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
+        {!isTechnician && (inspection.status === 'SCHEDULED' || inspection.status === 'IN_PROGRESS') && (
           <Tooltip title="Cancel inspection">
             <IconButton
               size="small"
@@ -625,18 +626,20 @@ const InspectionsPage = () => {
             </IconButton>
           </Tooltip>
         )}
-                <Tooltip title="Edit">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit(inspection);
-                    }}
-                    aria-label="Edit inspection"
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {!isTechnician && (
+                  <Tooltip title="Edit">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(inspection);
+                      }}
+                      aria-label="Edit inspection"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Delete">
                   <IconButton
                     size="small"
@@ -992,13 +995,13 @@ const InspectionsPage = () => {
               inspections={inspectionsWithOverdue}
               onView={handleView}
               onViewReport={handleViewReport}
-              onEdit={isOwner ? undefined : handleEdit}
+              onEdit={isOwner || isTechnician ? undefined : handleEdit}
               onDelete={isOwner ? undefined : handleDeleteClick}
               onStartInspection={isOwner ? undefined : handleStartInspection}
               onCompleteInspection={isOwner ? undefined : handleCompleteInspection}
               onApprove={isOwner ? undefined : handleApprove}
               onReject={isOwner ? undefined : handleReject}
-              onCancel={isOwner ? undefined : handleCancelInspection}
+              onCancel={isOwner || isTechnician ? undefined : handleCancelInspection}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               formatStatusText={formatStatusText}
@@ -1018,9 +1021,9 @@ const InspectionsPage = () => {
               onSelectAll={handleSelectAll}
               onSelect={handleSelectOne}
               onView={handleView}
-              onEdit={isOwner ? undefined : handleEdit}
+              onEdit={isOwner || isTechnician ? undefined : handleEdit}
               onDelete={isOwner ? undefined : handleDeleteClick}
-              onCancel={isOwner ? undefined : handleCancelInspection}
+              onCancel={isOwner || isTechnician ? undefined : handleCancelInspection}
               onStatusMenuOpen={isOwner ? undefined : handleStatusMenuOpen}
               getStatusColor={getStatusColor}
               formatStatusText={formatStatusText}
@@ -1956,7 +1959,7 @@ const InspectionTable = ({
                       </IconButton>
                     </Tooltip>
                   )}
-                  {inspection.status !== 'COMPLETED' && (
+                  {inspection.status !== 'COMPLETED' && onEdit && (
                     <Tooltip title="Edit">
                       <IconButton
                         size="small"
