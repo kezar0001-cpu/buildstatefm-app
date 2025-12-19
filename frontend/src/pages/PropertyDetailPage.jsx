@@ -268,30 +268,30 @@ export default function PropertyDetailPage() {
   // This prevents rendering issues in the carousel component and keeps cover image consistent
   const sortedPropertyImages = propertyImages.length
     ? [...propertyImages].sort((a, b) => {
-        const aObj = typeof a === 'object' && a !== null ? a : {};
-        const bObj = typeof b === 'object' && b !== null ? b : {};
+      const aObj = typeof a === 'object' && a !== null ? a : {};
+      const bObj = typeof b === 'object' && b !== null ? b : {};
 
-        const aPrimary = aObj.isPrimary ? 1 : 0;
-        const bPrimary = bObj.isPrimary ? 1 : 0;
-        if (aPrimary !== bPrimary) {
-          return bPrimary - aPrimary; // primary images first
-        }
+      const aPrimary = aObj.isPrimary ? 1 : 0;
+      const bPrimary = bObj.isPrimary ? 1 : 0;
+      if (aPrimary !== bPrimary) {
+        return bPrimary - aPrimary; // primary images first
+      }
 
-        const aOrder = typeof aObj.displayOrder === 'number' ? aObj.displayOrder : 0;
-        const bOrder = typeof bObj.displayOrder === 'number' ? bObj.displayOrder : 0;
-        return aOrder - bOrder;
-      })
+      const aOrder = typeof aObj.displayOrder === 'number' ? aObj.displayOrder : 0;
+      const bOrder = typeof bObj.displayOrder === 'number' ? bObj.displayOrder : 0;
+      return aOrder - bOrder;
+    })
     : [];
 
   const carouselImages = sortedPropertyImages.length
     ? sortedPropertyImages
     : property?.imageUrl
       ? [{
-          id: 'primary',
-          imageUrl: property.imageUrl,
-          caption: null,
-          isPrimary: true,
-        }]
+        id: 'primary',
+        imageUrl: property.imageUrl,
+        caption: null,
+        isPrimary: true,
+      }]
       : [];
 
   // Debug logging for image display
@@ -526,10 +526,10 @@ export default function PropertyDetailPage() {
     equityGain === null
       ? 'text.primary'
       : equityGain > 0
-      ? 'success.main'
-      : equityGain < 0
-      ? 'error.main'
-      : 'text.primary';
+        ? 'success.main'
+        : equityGain < 0
+          ? 'error.main'
+          : 'text.primary';
 
   // Check if current user can edit this property
   // Property managers can edit properties and add notes
@@ -537,6 +537,8 @@ export default function PropertyDetailPage() {
   const canEdit =
     user?.role === 'ADMIN' ||
     (user?.role === 'PROPERTY_MANAGER' && property?.managerId === user?.id);
+
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PROPERTY_MANAGER';
 
   const activities = ensureArray(activityQuery.data, ['activities', 'data.activities', 'items']);
 
@@ -700,18 +702,18 @@ export default function PropertyDetailPage() {
               justifyContent="space-between"
             >
               <Stack direction="row" spacing={2} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' } }}>
-                <IconButton 
-                  onClick={handleBack} 
-                  size="large" 
+                <IconButton
+                  onClick={handleBack}
+                  size="large"
                   sx={{ border: '1px solid', borderColor: 'divider' }}
                   aria-label="Go back to properties list"
                 >
                   <ArrowBackIcon />
                 </IconButton>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography 
-                    variant="h4" 
-                    sx={{ 
+                  <Typography
+                    variant="h4"
+                    sx={{
                       fontWeight: 700,
                       fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
                       wordBreak: 'break-word',
@@ -721,10 +723,10 @@ export default function PropertyDetailPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
                     <LocationIcon fontSize="small" color="action" />
-                    <Typography 
-                      variant="body2" 
+                    <Typography
+                      variant="body2"
                       color="text.secondary"
-                      sx={{ 
+                      sx={{
                         fontSize: { xs: '0.75rem', sm: '0.875rem' },
                         wordBreak: 'break-word',
                       }}
@@ -734,40 +736,44 @@ export default function PropertyDetailPage() {
                   </Box>
                 </Box>
               </Stack>
-              <Stack 
-                direction={{ xs: 'column', sm: 'row' }} 
-                spacing={1} 
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
                 sx={{ width: { xs: '100%', md: 'auto' } }}
               >
-                <Button
-                  variant="contained"
-                  startIcon={<CalendarIcon />}
-                  onClick={() => setInspectionFormDialogOpen(true)}
-                  fullWidth={isSmallScreen}
-                  sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
-                  aria-label="Schedule inspection for this property"
-                >
-                  Schedule Inspection
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<PersonAddIcon />}
-                  onClick={() => navigate('/team')}
-                  fullWidth={isSmallScreen}
-                  sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
-                  aria-label="Manage team members for this property"
-                >
-                  Manage Team
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<EditIcon />}
-                  onClick={handleEditProperty}
-                  fullWidth={isSmallScreen}
-                  sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
-                >
-                  Edit Property
-                </Button>
+                {canManage && (
+                  <>
+                    <Button
+                      variant="contained"
+                      startIcon={<CalendarIcon />}
+                      onClick={() => setInspectionFormDialogOpen(true)}
+                      fullWidth={isSmallScreen}
+                      sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+                      aria-label="Schedule inspection for this property"
+                    >
+                      Schedule Inspection
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<PersonAddIcon />}
+                      onClick={() => navigate('/team')}
+                      fullWidth={isSmallScreen}
+                      sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+                      aria-label="Manage team members for this property"
+                    >
+                      Manage Team
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<EditIcon />}
+                      onClick={handleEditProperty}
+                      fullWidth={isSmallScreen}
+                      sx={{ maxWidth: { xs: '100%', md: 'auto' } }}
+                    >
+                      Edit Property
+                    </Button>
+                  </>
+                )}
               </Stack>
             </Stack>
 
@@ -1522,23 +1528,27 @@ export default function PropertyDetailPage() {
                     Units
                   </Typography>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<CalendarIcon />}
-                      onClick={() => setBulkScheduleDialogOpen(true)}
-                      disabled={units.length === 0}
-                      fullWidth={isSmallScreen}
-                    >
-                      Bulk Schedule Inspections
-                    </Button>
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={handleAddUnit}
-                      fullWidth={isSmallScreen}
-                    >
-                      Add Unit
-                    </Button>
+                    {canManage && (
+                      <Button
+                        variant="outlined"
+                        startIcon={<CalendarIcon />}
+                        onClick={() => setBulkScheduleDialogOpen(true)}
+                        disabled={units.length === 0}
+                        fullWidth={isSmallScreen}
+                      >
+                        Bulk Schedule Inspections
+                      </Button>
+                    )}
+                    {canEdit && (
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleAddUnit}
+                        fullWidth={isSmallScreen}
+                      >
+                        Add Unit
+                      </Button>
+                    )}
                   </Stack>
                 </Stack>
 
@@ -1573,113 +1583,113 @@ export default function PropertyDetailPage() {
                         const hasMultipleUnitImages = unitImages.length > 1;
 
                         return (
-                        <Grid item xs={12} sm={6} md={4} key={unit.id}>
-                          <Card
-                            sx={{
-                              height: '100%',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              cursor: 'pointer',
-                              transition: 'transform 0.2s, box-shadow 0.2s',
-                              '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: 4,
-                              },
-                              '&:focus': {
-                                outline: '2px solid',
-                                outlineColor: 'primary.main',
-                                outlineOffset: '2px',
-                              },
-                            }}
-                            onClick={() => navigate(`/units/${unit.id}`)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                navigate(`/units/${unit.id}`);
-                              }
-                            }}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`View details for unit ${unit.id}`}
-                          >
-                            {/* Unit Image Carousel */}
-                            {unitImages.length > 0 && (
-                              <PropertyImageCarousel
-                                images={unitImages}
-                                fallbackText={`Unit ${unit.unitNumber}`}
-                                height={{ xs: 180, sm: 200 }}
-                                showDots={hasMultipleUnitImages}
-                                showArrows={hasMultipleUnitImages}
-                                showCounter={hasMultipleUnitImages}
-                                containerSx={{
-                                  borderBottom: '1px solid',
-                                  borderColor: 'divider',
-                                }}
-                              />
-                            )}
+                          <Grid item xs={12} sm={6} md={4} key={unit.id}>
+                            <Card
+                              sx={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                  transform: 'translateY(-4px)',
+                                  boxShadow: 4,
+                                },
+                                '&:focus': {
+                                  outline: '2px solid',
+                                  outlineColor: 'primary.main',
+                                  outlineOffset: '2px',
+                                },
+                              }}
+                              onClick={() => navigate(`/units/${unit.id}`)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  navigate(`/units/${unit.id}`);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="button"
+                              aria-label={`View details for unit ${unit.id}`}
+                            >
+                              {/* Unit Image Carousel */}
+                              {unitImages.length > 0 && (
+                                <PropertyImageCarousel
+                                  images={unitImages}
+                                  fallbackText={`Unit ${unit.unitNumber}`}
+                                  height={{ xs: 180, sm: 200 }}
+                                  showDots={hasMultipleUnitImages}
+                                  showArrows={hasMultipleUnitImages}
+                                  showCounter={hasMultipleUnitImages}
+                                  containerSx={{
+                                    borderBottom: '1px solid',
+                                    borderColor: 'divider',
+                                  }}
+                                />
+                              )}
 
-                            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                }}
-                              >
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                  Unit {unit.unitNumber}
-                                </Typography>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUnitMenuOpen(e, unit);
+                              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 1,
                                   }}
                                 >
-                                  <MoreVertIcon />
-                                </IconButton>
-                              </Box>
-
-                              <Stack spacing={1}>
-                                <Chip
-                                  label={unit.status?.replace(/_/g, ' ')}
-                                  color={getStatusColor(unit.status)}
-                                  size="small"
-                                />
-
-                                {unit.bedrooms != null && unit.bathrooms != null && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    {unit.bedrooms} bed • {unit.bathrooms} bath
+                                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                    Unit {unit.unitNumber}
                                   </Typography>
-                                )}
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUnitMenuOpen(e, unit);
+                                    }}
+                                  >
+                                    <MoreVertIcon />
+                                  </IconButton>
+                                </Box>
 
-                                {unit.area != null && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    {unit.area} sq ft
-                                  </Typography>
-                                )}
+                                <Stack spacing={1}>
+                                  <Chip
+                                    label={unit.status?.replace(/_/g, ' ')}
+                                    color={getStatusColor(unit.status)}
+                                    size="small"
+                                  />
 
-                                {unit.rentAmount != null && (
-                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                    ${unit.rentAmount.toLocaleString()}/mo
-                                  </Typography>
-                                )}
-
-                                {unit.tenants?.[0]?.tenant && (
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Tenant
+                                  {unit.bedrooms != null && unit.bathrooms != null && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      {unit.bedrooms} bed • {unit.bathrooms} bath
                                     </Typography>
-                                    <Typography variant="body2">
-                                      {unit.tenants[0].tenant.firstName} {unit.tenants[0].tenant.lastName}
+                                  )}
+
+                                  {unit.area != null && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      {unit.area} sq ft
                                     </Typography>
-                                  </Box>
-                                )}
-                              </Stack>
-                            </CardContent>
-                          </Card>
-                        </Grid>
+                                  )}
+
+                                  {unit.rentAmount != null && (
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                      ${unit.rentAmount.toLocaleString()}/mo
+                                    </Typography>
+                                  )}
+
+                                  {unit.tenants?.[0]?.tenant && (
+                                    <Box>
+                                      <Typography variant="caption" color="text.secondary">
+                                        Tenant
+                                      </Typography>
+                                      <Typography variant="body2">
+                                        {unit.tenants[0].tenant.firstName} {unit.tenants[0].tenant.lastName}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          </Grid>
                         );
                       })}
                     </Grid>
@@ -1826,7 +1836,7 @@ export default function PropertyDetailPage() {
                   Recent Activity
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                
+
                 <DataState
                   isLoading={activityQuery.isLoading}
                   isError={activityQuery.isError}
@@ -1970,7 +1980,7 @@ export default function PropertyDetailPage() {
             color="error"
             variant="contained"
             disabled={
-              deleteUnitMutation.isPending || 
+              deleteUnitMutation.isPending ||
               (selectedUnit?.tenants && selectedUnit.tenants.length > 0)
             }
           >

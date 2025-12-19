@@ -124,30 +124,36 @@ router.get('/', requireAuth, async (req, res) => {
 
     const accessiblePropertyIds = await getAccessiblePropertyIds(req.user);
     const requestedPropertyId = propertyId || null;
+    const isRestrictedUser = !['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role);
 
     if (requestedPropertyId) {
       if (Array.isArray(accessiblePropertyIds) && !accessiblePropertyIds.includes(requestedPropertyId)) {
         return sendError(res, 403, 'Access denied', ErrorCodes.ACC_PROPERTY_ACCESS_DENIED);
       }
+
+      const propertyAccessCondition = isRestrictedUser
+        ? { AND: [{ propertyId: requestedPropertyId }, { property: subscriptionGateForNonManagers() }] }
+        : { propertyId: requestedPropertyId };
+
       where.OR = [
         { isDefault: true },
         { propertyId: null },
-        { propertyId: requestedPropertyId },
+        propertyAccessCondition
       ];
     } else {
       if (Array.isArray(accessiblePropertyIds)) {
+        const propertyAccessCondition = isRestrictedUser
+          ? { AND: [{ propertyId: { in: accessiblePropertyIds } }, { property: subscriptionGateForNonManagers() }] }
+          : { propertyId: { in: accessiblePropertyIds } };
+
         where.OR = [
           { isDefault: true },
           { propertyId: null },
-          { propertyId: { in: accessiblePropertyIds } },
+          propertyAccessCondition
         ];
       } else {
         // ADMIN: show all
       }
-    }
-
-    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(req.user.role)) {
-      where.property = subscriptionGateForNonManagers();
     }
 
     const templates = await prisma.inspectionTemplate.findMany({

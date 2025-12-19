@@ -1,227 +1,154 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
+  Box,
   Grid,
   Alert,
-  Box,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
-import toast from 'react-hot-toast';
-import useApiMutation from '../hooks/useApiMutation';
-import { queryKeys } from '../utils/queryKeys.js';
-import { unitSchema, unitDefaultValues } from '../schemas/unitSchema';
-import { FormTextField, FormSelect, FormAreaField } from './form';
-import { UnitImageManager } from '../features/images';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  FormTextField,
+  FormSelect,
+  FormAreaField,
+} from './form';
+import UnitImageManager from './UnitImageManager';
+import apiClient from '../api/client';
+
+const unitSchema = z.object({
+  unitNumber: z.string().min(1, 'Unit number is required'),
+  status: z.enum(['VACANT', 'OCCUPIED', 'MAINTENANCE']),
+  floor: z.coerce.number().optional(),
+  bedrooms: z.coerce.number().min(0, 'Bedrooms must be positive'),
+  bathrooms: z.coerce.number().min(0, 'Bathrooms must be positive'),
+  area: z.coerce.number().min(0, 'Area must be positive').optional(),
+  areaUnit: z.enum(['SQ_FT', 'SQ_M']).default('SQ_FT'),
+  rentAmount: z.coerce.number().min(0, 'Rent must be positive').optional(),
+  description: z.string().optional(),
+});
 
 const UNIT_STATUSES = [
-  { value: 'AVAILABLE', label: 'Available' },
+  { value: 'VACANT', label: 'Vacant' },
   { value: 'OCCUPIED', label: 'Occupied' },
   { value: 'MAINTENANCE', label: 'Under Maintenance' },
-  { value: 'VACANT', label: 'Vacant' },
 ];
 
 export default function UnitForm({ open, onClose, propertyId, unit, onSuccess }) {
   const isEdit = !!unit;
+  const theme = useTheme();
+  const queryClient = useQueryClient();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [uploadedImages, setUploadedImages] = useState([]);
-  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState(unit?.imageUrl || null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   const {
     control,
     handleSubmit,
     reset,
-    setFocus,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm({
     resolver: zodResolver(unitSchema),
-    defaultValues: unitDefaultValues,
-    mode: 'onBlur',
+    defaultValues: {
+      unitNumber: '',
+      status: 'VACANT',
+      floor: '',
+      bedrooms: 0,
+      bathrooms: 1,
+      area: '',
+      areaUnit: 'SQ_FT',
+      rentAmount: '',
+      description: '',
+    },
   });
 
-  // Create/Update mutation
-  const mutation = useApiMutation({
-    url: isEdit ? `/units/${unit?.id}` : '/units',
-    method: isEdit ? 'patch' : 'post',
-    invalidateKeys: [queryKeys.properties.units(propertyId)],
-  });
-
-  // Initialize form with unit data if editing
   useEffect(() => {
-    // Only reset when dialog opens (not on every render)
-    if (!open) {
-      return;
+    if (open) {
+      if (unit) {
+        reset({
+          unitNumber: unit.unitNumber,
+          status: unit.status,
+          floor: unit.floor,
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          area: unit.area,
+          areaUnit: unit.areaUnit || 'SQ_FT',
+          rentAmount: unit.rentAmount,
+          description: unit.description,
+        });
+        setUploadedImages(unit.images || []);
+        setCoverImageUrl(unit.imageUrl);
+      } else {
+        reset({
+          unitNumber: '',
+          status: 'VACANT',
+          floor: '',
+          bedrooms: 0,
+          bathrooms: 1,
+          area: '',
+          areaUnit: 'SQ_FT',
+          rentAmount: '',
+          description: '',
+        });
+        setUploadedImages([]);
+        setCoverImageUrl(null);
+      }
     }
+  }, [open, unit, reset]);
 
-    if (unit) {
-      console.log('[UnitForm] Resetting form with unit data:', {
-        id: unit.id,
-        unitNumber: unit.unitNumber,
-        floor: unit.floor,
-        bedrooms: unit.bedrooms,
-        bathrooms: unit.bathrooms,
-        area: unit.area,
-        rentAmount: unit.rentAmount,
-        status: unit.status,
-        images: unit.images,
-      });
-
-      const formValues = {
-        unitNumber: unit.unitNumber || '',
-        floor: unit.floor != null ? unit.floor.toString() : '',
-        bedrooms: unit.bedrooms != null ? unit.bedrooms.toString() : '',
-        bathrooms: unit.bathrooms != null ? unit.bathrooms.toString() : '',
-        area: unit.area != null ? unit.area.toString() : '',
-        areaUnit: unit.areaUnit || 'sq_m',
-        rentAmount: unit.rentAmount != null ? unit.rentAmount.toString() : '',
-        status: unit.status || 'AVAILABLE',
-        description: unit.description || '',
-        imageUrl: unit.imageUrl || '',
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const payload = {
+        ...data,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        images: uploadedImages,
+        imageUrl: coverImageUrl,
       };
 
-      console.log('[UnitForm] Form values being set:', formValues);
-
-      // Reset with keepDefaultValues: false to ensure values are properly set
-      reset(formValues, {
-        keepDefaultValues: false,
-        keepErrors: false,
-        keepDirty: false,
-        keepIsSubmitted: false,
-        keepTouched: false,
-        keepIsValid: false,
-        keepSubmitCount: false,
-      });
-
-      // Initialize images from unit data
-      if (unit.images && Array.isArray(unit.images) && unit.images.length > 0) {
-        // Format images to match what UnitImageManager/useImageUpload expects
-        const formattedImages = unit.images.map((img, index) => ({
-          id: img.id || `existing-${index}`,
-          url: img.imageUrl || img.url,
-          imageUrl: img.imageUrl || img.url,
-          altText: img.caption || img.altText || '',
-          caption: img.caption || img.altText || '',
-          isPrimary: img.isPrimary || false,
-          displayOrder: img.displayOrder ?? index,
-        }));
-
-        // Find the primary image's URL, or use the first image as fallback
-        const primaryImage = formattedImages.find(img => img.isPrimary);
-        const primaryImageUrl = primaryImage?.imageUrl || formattedImages[0]?.imageUrl || '';
-
-        console.log('[UnitForm] Setting images:', {
-          count: formattedImages.length,
-          primaryImageUrl: primaryImageUrl ? primaryImageUrl.substring(0, 60) + '...' : 'none',
-          images: formattedImages.map(img => ({
-            id: img.id,
-            isPrimary: img.isPrimary,
-            url: img.imageUrl?.substring(0, 40) + '...'
-          }))
-        });
-
-        setUploadedImages(formattedImages);
-        setCoverImageUrl(primaryImageUrl);
+      if (isEdit) {
+        return apiClient.patch(`/units/${unit.id}`, payload);
       } else {
-        setUploadedImages([]);
-        setCoverImageUrl(unit.imageUrl || '');
+        return apiClient.post('/units', payload);
       }
-    } else {
-      console.log('[UnitForm] Resetting form to default values (create mode)');
-      reset(unitDefaultValues);
-      setUploadedImages([]);
-      setCoverImageUrl('');
-    }
-    // Note: reset function is stable and doesn't need to be in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unit, open]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['units', propertyId]);
+      queryClient.invalidateQueries(['properties', propertyId]);
+      onSuccess?.();
+      onClose();
+    },
+  });
 
-  // Auto-focus on first error field
-  useEffect(() => {
-    const firstErrorField = Object.keys(errors)[0];
-    if (firstErrorField) {
-      setFocus(firstErrorField);
-    }
-  }, [errors, setFocus]);
-
-  // Handle image upload changes
-  const handleUploadedImagesChange = (nextImages = [], nextCover = '') => {
-    // Keep all properties from the image manager, ensuring consistent format
-    // Bug Fix: Remove fallback ID generation to preserve stable IDs
-    const transformedImages = nextImages.map((img, index) => ({
-      id: img.id || img.imageId, // Preserve ID without fallback to prevent re-mounts
-      url: img.imageUrl || img.url || img.remoteUrl,
-      imageUrl: img.imageUrl || img.url || img.remoteUrl,
-      altText: img.caption || img.altText || '',
-      caption: img.caption || img.altText || '',
-      isPrimary: img.isPrimary || false,
-      order: img.order !== undefined ? img.order : index,
-      displayOrder: img.displayOrder ?? img.order ?? index,
-    }));
-
-    console.log('[UnitForm] handleUploadedImagesChange:', {
-      imageCount: transformedImages.length,
-      nextCover: nextCover ? nextCover.substring(0, 60) + '...' : 'none',
-    });
-
-    setUploadedImages(transformedImages);
-    setCoverImageUrl(nextCover || transformedImages[0]?.imageUrl || '');
+  const onSubmit = (data) => {
+    if (isUploadingImages) return;
+    mutation.mutate(data);
   };
 
-  // Handle upload state changes
+  const handleUploadedImagesChange = (newImages) => {
+    setUploadedImages(newImages);
+    // If we have images but no cover image, default to the first one
+    if (newImages.length > 0 && !coverImageUrl) {
+      const firstImg = newImages[0];
+      setCoverImageUrl(firstImg.url || firstImg.imageUrl);
+    }
+  };
+
   const handleUploadingStateChange = (isUploading) => {
     setIsUploadingImages(isUploading);
   };
 
-  const onSubmit = async (data) => {
-    // Prevent submission if images are still uploading
-    if (isUploadingImages) {
-      toast.error('Please wait for images to finish uploading');
-      return;
-    }
-
-    const payload = {
-      unitNumber: data.unitNumber,
-      floor: data.floor,
-      bedrooms: data.bedrooms,
-      bathrooms: data.bathrooms,
-      area: data.area,
-      areaUnit: data.areaUnit,
-      rentAmount: data.rentAmount,
-      status: data.status,
-      description: data.description || null,
-      imageUrl: coverImageUrl || null,
-    };
-
-    // Add images array if there are uploaded images
-    if (uploadedImages.length > 0) {
-      payload.images = uploadedImages.map((image, index) => ({
-        // Fix: Use imageUrl consistently (both url and imageUrl are set in transformedImages)
-        imageUrl: image.imageUrl || image.url,
-        caption: image.caption || image.altText || null,
-        isPrimary: coverImageUrl ? (image.imageUrl || image.url) === coverImageUrl : index === 0,
-      }));
-    }
-
-    // Add propertyId only for creation
-    if (!isEdit) {
-      payload.propertyId = propertyId;
-    }
-
-    try {
-      await mutation.mutateAsync({ data: payload });
-      onSuccess();
-    } catch (error) {
-      // Error is shown via mutation.error
-    }
-  };
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile} aria-labelledby="unit-form-dialog">
+      <DialogTitle id="unit-form-dialog">
         {isEdit ? 'Edit Unit' : 'Add New Unit'}
       </DialogTitle>
 
@@ -229,7 +156,7 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
           {mutation.isError && (
             <Alert severity="error" sx={{ mb: 3 }} role="alert">
-              {mutation.error?.message || 'Failed to save unit'}
+              {mutation.error?.response?.data?.message || mutation.error?.message || 'Failed to save unit'}
             </Alert>
           )}
 
@@ -347,22 +274,35 @@ export default function UnitForm({ open, onClose, propertyId, unit, onSuccess })
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={isSubmitting || mutation.isPending || isUploadingImages}>
+      <DialogActions
+        sx={{
+          px: 3,
+          pb: 2,
+          flexDirection: isMobile ? 'column-reverse' : 'row',
+          gap: isMobile ? 1 : 0
+        }}
+      >
+        <Button
+          onClick={onClose}
+          disabled={isSubmitting || mutation.isPending || isUploadingImages}
+          fullWidth={isMobile}
+          variant={isMobile ? 'outlined' : 'text'}
+        >
           Cancel
         </Button>
         <Button
           variant="contained"
           onClick={handleSubmit(onSubmit)}
           disabled={isSubmitting || mutation.isPending || isUploadingImages}
+          fullWidth={isMobile}
         >
           {mutation.isPending
             ? 'Saving...'
             : isUploadingImages
-            ? 'Uploading images...'
-            : isEdit
-            ? 'Update Unit'
-            : 'Create Unit'}
+              ? 'Uploading images...'
+              : isEdit
+                ? 'Update Unit'
+                : 'Create Unit'}
         </Button>
       </DialogActions>
     </Dialog>

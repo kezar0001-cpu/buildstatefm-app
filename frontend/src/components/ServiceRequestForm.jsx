@@ -22,8 +22,8 @@ import { queryKeys } from '../utils/queryKeys.js';
 
 const ServiceRequestForm = ({ onSuccess, onCancel }) => {
   const theme = useTheme();
-  useMediaQuery(theme.breakpoints.down('md'));
-  
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -74,12 +74,12 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    
+
     // Clear unit if property changes
     if (field === 'propertyId') {
       setFormData((prev) => ({ ...prev, unitId: '' }));
     }
-    
+
     // Clear error for this field
     if (errors[field]) {
       setErrors((prev) => {
@@ -89,7 +89,6 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
       });
     }
   };
-
 
   const validate = () => {
     const newErrors = {};
@@ -306,8 +305,19 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
         </Grid>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onCancel} disabled={isLoading || isUploadingImages}>
+      <DialogActions
+        sx={{
+          p: 2,
+          flexDirection: isMobile ? 'column-reverse' : 'row',
+          gap: isMobile ? 1 : 0
+        }}
+      >
+        <Button
+          onClick={onCancel}
+          disabled={isLoading || isUploadingImages}
+          fullWidth={isMobile}
+          variant={isMobile ? 'outlined' : 'text'}
+        >
           Cancel
         </Button>
         <Button
@@ -315,11 +325,12 @@ const ServiceRequestForm = ({ onSuccess, onCancel }) => {
           variant="contained"
           disabled={isLoading || isUploadingImages}
           startIcon={(isLoading || isUploadingImages) && <CircularProgress size={16} />}
+          fullWidth={isMobile}
         >
           {isUploadingImages ? 'Uploading Photos...' : isLoading ? 'Submitting...' : 'Submit Request'}
         </Button>
       </DialogActions>
-    </Box>
+    </Box >
   );
 };
 

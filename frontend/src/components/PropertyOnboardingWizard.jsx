@@ -26,6 +26,9 @@ import {
   FormControlLabel,
   Tooltip,
   CircularProgress,
+  MobileStepper,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -119,6 +122,8 @@ const getErrorMessage = (error) => {
 
 export default function PropertyOnboardingWizard({ open, onClose }) {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [activeStep, setActiveStep] = useState(0);
   const [formState, setFormState] = useState(initialState);
   const [completed, setCompleted] = useState({});
@@ -983,38 +988,61 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
       default:
         return renderCompletion();
     }
-  // Bug Fix: Include all dependencies to prevent stale closures
-  // The previous incomplete dependency array caused stale state in render functions
+    // Bug Fix: Include all dependencies to prevent stale closures
+    // The previous incomplete dependency array caused stale state in render functions
   }, [activeStep, formState, basicInfoErrors, ownerInviteResults, createdProperty, uploadedImages]);
 
   return (
-    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleCancel}
+      maxWidth="md"
+      fullWidth
+      fullScreen={isMobile}
+    >
       <DialogTitle>Property onboarding</DialogTitle>
-      <DialogContent>
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ py: 2 }}>
-          {steps.map((step, index) => (
-            <Step key={step.label} completed={Boolean(completed[index])}>
-              <StepLabel
-                optional={
-                  index === 0 && activeStep === 0 && isUploadingImages ? (
-                    <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                      <CircularProgress size={12} />
-                      Uploading images...
-                    </Typography>
-                  ) : undefined
-                }
-              >
-                {step.label}
-              </StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {activeStep < steps.length && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: -1, mb: 2 }}>
-            {steps[activeStep].description}
-          </Typography>
+      <DialogContent sx={{ px: isMobile ? 2 : 3 }}>
+        {isMobile ? (
+          <MobileStepper
+            variant="progress"
+            steps={steps.length}
+            position="static"
+            activeStep={activeStep}
+            sx={{ maxWidth: 400, flexGrow: 1, mx: 'auto', mb: 2, bgcolor: 'transparent' }}
+            nextButton={null}
+            backButton={null}
+          />
+        ) : (
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ py: 2 }}>
+            {steps.map((step, index) => (
+              <Step key={step.label} completed={Boolean(completed[index])}>
+                <StepLabel
+                  optional={
+                    index === 0 && activeStep === 0 && isUploadingImages ? (
+                      <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                        <CircularProgress size={12} />
+                        Uploading images...
+                      </Typography>
+                    ) : undefined
+                  }
+                >
+                  {step.label}
+                </StepLabel>
+              </Step>
+            ))}
+          </Stepper>
         )}
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
+            {steps[activeStep]?.label}
+          </Typography>
+          {activeStep < steps.length && (
+            <Typography variant="body2" color="text.secondary">
+              {steps[activeStep].description}
+            </Typography>
+          )}
+        </Box>
 
         {createPropertyMutation.isError && activeStep === steps.length - 1 && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -1025,20 +1053,33 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
         {stepContent}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3 }}>
+      <DialogActions
+        sx={{
+          px: 3,
+          pb: 3,
+          flexDirection: isMobile ? 'column-reverse' : 'row',
+          gap: isMobile ? 1 : 0
+        }}
+      >
         {activeStep < steps.length && (
           <Button
             onClick={handleCancel}
             disabled={createPropertyMutation.isPending || isUploadingImages || isSendingOwnerInvites}
+            fullWidth={isMobile}
+            variant={isMobile ? "outlined" : "text"}
           >
             Cancel
           </Button>
         )}
 
+        {isMobile && <Box sx={{ flexGrow: 1 }} />}
+
         {activeStep > 0 && activeStep < steps.length && (
           <Button
             onClick={handleBack}
             disabled={createPropertyMutation.isPending || isUploadingImages || isSendingOwnerInvites}
+            fullWidth={isMobile}
+            variant="outlined"
           >
             Back
           </Button>
@@ -1050,20 +1091,21 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
               isUploadingImages
                 ? 'Please wait for images to finish uploading before continuing'
                 : isSendingOwnerInvites
-                ? 'Sending owner invitations...'
-                : ''
+                  ? 'Sending owner invitations...'
+                  : ''
             }
             arrow
           >
-            <span>
+            <Box sx={{ width: isMobile ? '100%' : 'auto' }}>
               <Button
                 variant="contained"
                 onClick={handleNext}
                 disabled={isUploadingImages || isSendingOwnerInvites}
+                fullWidth={isMobile}
               >
                 {isUploadingImages ? 'Uploading images...' : 'Save & Continue'}
               </Button>
-            </span>
+            </Box>
           </Tooltip>
         )}
 
@@ -1074,17 +1116,18 @@ export default function PropertyOnboardingWizard({ open, onClose }) {
             disabled={
               isSubmitting || createPropertyMutation.isPending || isUploadingImages || isSendingOwnerInvites
             }
+            fullWidth={isMobile}
           >
             {isSubmitting || createPropertyMutation.isPending
               ? 'Saving...'
               : isSendingOwnerInvites
-              ? 'Sending invites...'
-              : 'Finish setup'}
+                ? 'Sending invites...'
+                : 'Finish setup'}
           </Button>
         )}
 
         {activeStep === steps.length && (
-          <Button variant="contained" onClick={onClose}>
+          <Button variant="contained" onClick={onClose} fullWidth={isMobile}>
             Return to properties
           </Button>
         )}

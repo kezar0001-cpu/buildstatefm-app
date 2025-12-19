@@ -13,6 +13,8 @@ import {
   DialogTitle,
   Grid,
   TextField,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -33,6 +35,8 @@ const INSPECTION_TYPE_OPTIONS = [
 
 const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues }) => {
   const isEditing = Boolean(inspection);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const initialFormValues = useMemo(
     () => ({ ...inspectionDefaultValues, ...(initialValues || {}) }),
@@ -305,9 +309,9 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues }) => {
               options={unitOptions}
               disabled={!propertyId || !units.length}
               helperText={
-                !propertyId 
-                  ? "Select a property first" 
-                  : units.length === 0 
+                !propertyId
+                  ? "Select a property first"
+                  : units.length === 0
                     ? "This property has no units - inspection will be property-wide"
                     : undefined
               }
@@ -458,8 +462,19 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues }) => {
         </Grid>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onCancel} disabled={isSaving || isSubmitting}>
+      <DialogActions
+        sx={{
+          p: 2,
+          flexDirection: isMobile ? 'column-reverse' : 'row',
+          gap: isMobile ? 1 : 0
+        }}
+      >
+        <Button
+          onClick={onCancel}
+          disabled={isSaving || isSubmitting}
+          fullWidth={isMobile}
+          variant={isMobile ? 'outlined' : 'text'}
+        >
           Cancel
         </Button>
         <Button
@@ -467,6 +482,7 @@ const InspectionForm = ({ inspection, onSuccess, onCancel, initialValues }) => {
           variant="contained"
           disabled={isSaving || isSubmitting}
           startIcon={isSaving ? <CircularProgress size={16} /> : null}
+          fullWidth={isMobile}
         >
           {isEditing ? 'Update inspection' : 'Schedule inspection'}
         </Button>
