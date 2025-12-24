@@ -10,6 +10,7 @@ import {
   Stack,
   Tab,
   Tabs,
+  TableContainer,
   Table,
   TableBody,
   TableCell,
@@ -255,151 +256,163 @@ export default function AdminUsersPage() {
       <Tabs
         value={tab}
         onChange={(_, next) => setTab(next)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{ mb: 2 }}
       >
         <Tab value="users" label={`Users (${users.length})`} />
         <Tab value="invites" label={`Invites (${invites.length})`} />
       </Tabs>
 
-      <Paper variant="outlined">
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         {tab === 'users' ? (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Email</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Account</TableCell>
-                <TableCell>Recently Active</TableCell>
-                <TableCell>Last Login</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
+          <TableContainer sx={{ maxHeight: { xs: 480, md: 'none' }, overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 900 }}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <CircularProgress />
-                  </TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell>Account</TableCell>
+                  <TableCell>Recently Active</TableCell>
+                  <TableCell>Last Login</TableCell>
+                  <TableCell>Created</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : users.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    No users found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                users.map((u) => (
-                  <TableRow key={u.id} hover>
-                    <TableCell>{u.email}</TableCell>
-                    <TableCell>{[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}</TableCell>
-                    <TableCell>
-                      <Chip label={u.role} size="small" />
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                        <StatusChip label={u.isActive ? 'Enabled' : 'Disabled'} color={u.isActive ? 'success' : 'warning'} />
-                        <StatusChip label={u.emailVerified ? 'Email verified' : 'Email unverified'} color={u.emailVerified ? 'success' : 'default'} />
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      {isRecentlyActive(u.lastLoginAt) ? (
-                        <StatusChip label="Yes" color="success" />
-                      ) : (
-                        <StatusChip label="No" />
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDateTime(u.lastLoginAt)}</TableCell>
-                    <TableCell>{formatDateTime(u.createdAt)}</TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          startIcon={<DeleteIcon />}
-                          onClick={() => openDeleteDialog(u)}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Delete
-                        </Button>
-                        <Button
-                          variant="contained"
-                          color="error"
-                          size="small"
-                          onClick={() => openHardDeleteDialog(u)}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Hard Delete
-                        </Button>
-                      </Stack>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Expires</TableCell>
-                <TableCell>Invited By</TableCell>
-                <TableCell>Property/Unit</TableCell>
-                <TableCell>Accepted User</TableCell>
-                <TableCell>Created</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : invites.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    No invites found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                invites.map((inv) => {
-                  const isExpired = inv.expiresAt ? new Date(inv.expiresAt).getTime() < Date.now() : false;
-                  const statusColor =
-                    inv.status === 'ACCEPTED' ? 'success' :
-                    inv.status === 'PENDING' ? (isExpired ? 'warning' : 'info') :
-                    'default';
-                  const propertyLabel = inv.property?.name ? `${inv.property.name}` : '';
-                  const unitLabel = inv.unit?.unitNumber ? `Unit ${inv.unit.unitNumber}` : '';
-                  const scope = [propertyLabel, unitLabel].filter(Boolean).join(' · ') || '—';
-                  const invitedBy = inv.invitedBy
-                    ? `${[inv.invitedBy.firstName, inv.invitedBy.lastName].filter(Boolean).join(' ') || inv.invitedBy.email}`
-                    : '—';
-                  const acceptedUser = inv.invitedUser ? inv.invitedUser.email : '—';
-
-                  return (
-                    <TableRow key={inv.id} hover>
-                      <TableCell>{inv.email}</TableCell>
-                      <TableCell><Chip label={inv.role} size="small" /></TableCell>
+                ) : users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((u) => (
+                    <TableRow key={u.id} hover>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell>{[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}</TableCell>
                       <TableCell>
-                        <StatusChip label={isExpired && inv.status === 'PENDING' ? 'EXPIRED' : inv.status} color={statusColor} />
+                        <Chip label={u.role} size="small" />
                       </TableCell>
-                      <TableCell>{formatDateTime(inv.expiresAt)}</TableCell>
-                      <TableCell>{invitedBy}</TableCell>
-                      <TableCell>{scope}</TableCell>
-                      <TableCell>{acceptedUser}</TableCell>
-                      <TableCell>{formatDateTime(inv.createdAt)}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                          <StatusChip label={u.isActive ? 'Enabled' : 'Disabled'} color={u.isActive ? 'success' : 'warning'} />
+                          <StatusChip label={u.emailVerified ? 'Email verified' : 'Email unverified'} color={u.emailVerified ? 'success' : 'default'} />
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        {isRecentlyActive(u.lastLoginAt) ? (
+                          <StatusChip label="Yes" color="success" />
+                        ) : (
+                          <StatusChip label="No" />
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDateTime(u.lastLoginAt)}</TableCell>
+                      <TableCell>{formatDateTime(u.createdAt)}</TableCell>
+                      <TableCell align="right">
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1}
+                          justifyContent="flex-end"
+                          alignItems={{ xs: 'stretch', sm: 'center' }}
+                        >
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => openDeleteDialog(u)}
+                            sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="error"
+                            size="small"
+                            onClick={() => openHardDeleteDialog(u)}
+                            sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                          >
+                            Hard Delete
+                          </Button>
+                        </Stack>
+                      </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <TableContainer sx={{ maxHeight: { xs: 480, md: 'none' }, overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 900 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Expires</TableCell>
+                  <TableCell>Invited By</TableCell>
+                  <TableCell>Property/Unit</TableCell>
+                  <TableCell>Accepted User</TableCell>
+                  <TableCell>Created</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : invites.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      No invites found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  invites.map((inv) => {
+                    const isExpired = inv.expiresAt ? new Date(inv.expiresAt).getTime() < Date.now() : false;
+                    const statusColor =
+                      inv.status === 'ACCEPTED' ? 'success' :
+                      inv.status === 'PENDING' ? (isExpired ? 'warning' : 'info') :
+                      'default';
+                    const propertyLabel = inv.property?.name ? `${inv.property.name}` : '';
+                    const unitLabel = inv.unit?.unitNumber ? `Unit ${inv.unit.unitNumber}` : '';
+                    const scope = [propertyLabel, unitLabel].filter(Boolean).join(' · ') || '—';
+                    const invitedBy = inv.invitedBy
+                      ? `${[inv.invitedBy.firstName, inv.invitedBy.lastName].filter(Boolean).join(' ') || inv.invitedBy.email}`
+                      : '—';
+                    const acceptedUser = inv.invitedUser ? inv.invitedUser.email : '—';
+
+                    return (
+                      <TableRow key={inv.id} hover>
+                        <TableCell>{inv.email}</TableCell>
+                        <TableCell><Chip label={inv.role} size="small" /></TableCell>
+                        <TableCell>
+                          <StatusChip label={isExpired && inv.status === 'PENDING' ? 'EXPIRED' : inv.status} color={statusColor} />
+                        </TableCell>
+                        <TableCell>{formatDateTime(inv.expiresAt)}</TableCell>
+                        <TableCell>{invitedBy}</TableCell>
+                        <TableCell>{scope}</TableCell>
+                        <TableCell>{acceptedUser}</TableCell>
+                        <TableCell>{formatDateTime(inv.createdAt)}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Paper>
 

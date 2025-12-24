@@ -35,6 +35,7 @@ import { ThemeProvider } from '../context/ThemeContext';
 import ThemeWrapper from './ThemeWrapper';
 
 const DRAWER_WIDTH = 260;
+const MOBILE_DRAWER_WIDTH = 320;
 
 const adminMenuItems = [
   {
@@ -104,7 +105,14 @@ function AdminLayout({ children }) {
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       {/* Admin Header */}
       <Box
         sx={{
@@ -127,7 +135,7 @@ function AdminLayout({ children }) {
       <Divider />
 
       {/* Navigation Menu */}
-      <List sx={{ flex: 1, py: 2 }}>
+      <List sx={{ flex: 1, py: 2, overflowY: 'auto', pr: 1 }}>
         {adminMenuItems.map((item, index) => {
           if (item.divider) {
             return (
@@ -249,23 +257,31 @@ function AdminLayout({ children }) {
               bgcolor: 'background.paper',
               color: 'text.primary',
               boxShadow: 1,
+              backdropFilter: 'blur(8px)',
+              zIndex: (theme) => theme.zIndex.drawer + 1,
             }}
           >
-            <Toolbar>
+            <Toolbar sx={{ gap: 1 }}>
               <IconButton
                 color="inherit"
                 edge="start"
                 onClick={handleDrawerToggle}
-                sx={{ mr: 2, display: { md: 'none' } }}
+                sx={{ mr: 1, display: { md: 'none' } }}
+                aria-label="Open admin navigation"
               >
                 <MenuIcon />
               </IconButton>
 
-              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+              <Typography
+                variant="h6"
+                noWrap
+                component="div"
+                sx={{ flexGrow: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}
+              >
                 {adminMenuItems.find(item => item.path === location.pathname)?.title || 'Admin Panel'}
               </Typography>
 
-              <IconButton onClick={handleMenuOpen} color="inherit">
+              <IconButton onClick={handleMenuOpen} color="inherit" aria-label="Account menu">
                 <Avatar
                   sx={{
                     width: 32,
@@ -316,7 +332,8 @@ function AdminLayout({ children }) {
                 display: { xs: 'block', md: 'none' },
                 '& .MuiDrawer-paper': {
                   boxSizing: 'border-box',
-                  width: DRAWER_WIDTH,
+                  width: { xs: '100%', sm: MOBILE_DRAWER_WIDTH },
+                  maxWidth: '100%',
                 },
               }}
             >
@@ -344,13 +361,17 @@ function AdminLayout({ children }) {
             component="main"
             sx={{
               flexGrow: 1,
-              p: 3,
+              px: { xs: 2, sm: 3, md: 4 },
+              py: { xs: 2, md: 3 },
               width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-              mt: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: { xs: 2, md: 3 },
               backgroundColor: 'background.default',
               minHeight: '100vh',
             }}
           >
+            <Toolbar sx={{ minHeight: { xs: 56, sm: 64, md: 72 }, px: 0 }} />
             {children}
           </Box>
         </Box>
