@@ -11,7 +11,8 @@ services:
     plan: free
     # Run migrations during build (preDeploy not available on Free tier)
     # The 'node -e' part ensures the database is awake before running migrations
-    buildCommand: npm ci && npx prisma generate && node -e "const net = require('net'); const host = 'ep-dark-credit-abk6f688.eu-west-2.aws.neon.tech'; const check = (retries = 30) => { if (retries <= 0) process.exit(1); const s = net.connect(5432, host, () => { console.log('Database is reachable'); s.destroy(); process.exit(0); }); s.on('error', (e) => { console.log('Waiting for database... (' + retries + ')'); setTimeout(() => check(retries - 1), 2000); }); s.setTimeout(5000, () => { s.destroy(); check(retries - 1); }); }; check();" && npx prisma migrate deploy
+    # Updated Build Command: Verifies full DB connectivity at the protocol level before migration
+    buildCommand: npm ci && npx prisma generate && node -e "const pg = require('pg'); const url = process.env.DIRECT_URL || process.env.DATABASE_URL; const check = async (retries = 20) => { if (retries <= 0) { console.error('Aborting: Database unreachable'); process.exit(1); } try { const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 10000 }); await client.connect(); console.log('✅ Database protocol handshake successful'); await client.end(); process.exit(0); } catch (e) { console.log('⏳ Waiting for database credentials check... (' + retries + ') ' + e.message); await new Promise(r => setTimeout(r, 3000)); return check(retries - 1); } }; check();" && npx prisma migrate deploy
     startCommand: node server.js
     healthCheckPath: /health
     envVars:
