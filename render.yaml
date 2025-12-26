@@ -46,7 +46,7 @@ services:
     name: agentfm-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
       # Proxy API calls to the backend's public URL
