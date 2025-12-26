@@ -9,12 +9,15 @@ services:
     runtime: node
     rootDir: backend
     plan: free
-    # Run migrations during build (preDeploy not available on Free)
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy
+    # Run migrations during build (preDeploy not available on Free tier)
+    # The 'node -e' part ensures the database is awake before running migrations
+    buildCommand: npm ci && npx prisma generate && node -e "const net = require('net'); const host = 'ep-dark-credit-abk6f688.eu-west-2.aws.neon.tech'; const check = (retries = 30) => { if (retries <= 0) process.exit(1); const s = net.connect(5432, host, () => { console.log('Database is reachable'); s.destroy(); process.exit(0); }); s.on('error', (e) => { console.log('Waiting for database... (' + retries + ')'); setTimeout(() => check(retries - 1), 2000); }); s.setTimeout(5000, () => { s.destroy(); check(retries - 1); }); }; check();" && npx prisma migrate deploy
     startCommand: node server.js
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: JWT_SECRET
         generateValue: true
