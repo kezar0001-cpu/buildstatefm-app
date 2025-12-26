@@ -128,8 +128,8 @@ const PropertyDemo = () => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setShowForm(!showForm)}
-          sx={{ 
-            fontSize: '0.7rem', 
+          sx={{
+            fontSize: '0.7rem',
             py: 0.5,
             background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
           }}
@@ -172,9 +172,9 @@ const PropertyDemo = () => {
                     sx={{ flex: 2, '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.75 } }}
                   />
                 </Stack>
-                <Button 
-                  size="small" 
-                  variant="contained" 
+                <Button
+                  size="small"
+                  variant="contained"
                   onClick={handleAddProperty}
                   disabled={isAdding || !newProperty.name}
                   sx={{ fontSize: '0.7rem' }}
@@ -204,7 +204,7 @@ const PropertyDemo = () => {
                 gap: 1.5,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                '&:hover': { 
+                '&:hover': {
                   bgcolor: '#fff7f2',
                   transform: 'translateX(4px)'
                 }
@@ -238,11 +238,11 @@ const PropertyDemo = () => {
                   </Typography>
                 </Stack>
               </Box>
-              <Chip 
-                label="Active" 
-                size="small" 
-                color="success" 
-                sx={{ fontSize: '0.65rem', height: 20 }} 
+              <Chip
+                label="Active"
+                size="small"
+                color="success"
+                sx={{ fontSize: '0.65rem', height: 20 }}
               />
             </Paper>
           </motion.div>
@@ -281,7 +281,7 @@ const InspectionDemo = () => {
   };
 
   const addPhoto = (id) => {
-    setItems(items.map(item => 
+    setItems(items.map(item =>
       item.id === id ? { ...item, photo: true } : item
     ));
   };
@@ -294,25 +294,25 @@ const InspectionDemo = () => {
           <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
             Move-In Inspection
           </Typography>
-          <Chip 
-            label={`${completedCount}/${items.length}`} 
+          <Chip
+            label={`${completedCount}/${items.length}`}
             size="small"
             color={progress === 100 ? 'success' : 'default'}
             sx={{ fontSize: '0.7rem', height: 22 }}
           />
         </Stack>
-        <LinearProgress 
-          variant="determinate" 
-          value={progress} 
-          sx={{ 
-            height: 6, 
+        <LinearProgress
+          variant="determinate"
+          value={progress}
+          sx={{
+            height: 6,
             borderRadius: 3,
             bgcolor: '#fee2e2',
             '& .MuiLinearProgress-bar': {
               background: 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)',
               borderRadius: 3
             }
-          }} 
+          }}
         />
       </Box>
 
@@ -369,9 +369,9 @@ const InspectionDemo = () => {
                   '&.Mui-checked': { color: '#22c55e' }
                 }}
               />
-              <Typography 
-                variant="body2" 
-                sx={{ 
+              <Typography
+                variant="body2"
+                sx={{
                   flex: 1,
                   textDecoration: item.checked ? 'line-through' : 'none',
                   color: item.checked ? 'text.secondary' : 'text.primary',
@@ -381,10 +381,10 @@ const InspectionDemo = () => {
                 {item.label}
               </Typography>
               <Tooltip title={item.photo ? 'Photo attached' : 'Add photo'}>
-                <IconButton 
-                  size="small" 
+                <IconButton
+                  size="small"
                   onClick={(e) => { e.stopPropagation(); addPhoto(item.id); }}
-                  sx={{ 
+                  sx={{
                     p: 0.5,
                     color: item.photo ? '#22c55e' : '#9ca3af'
                   }}
@@ -421,7 +421,7 @@ const MaintenanceDemo = () => {
   };
 
   const updateStatus = (id, newStatus) => {
-    setJobs(jobs.map(job => 
+    setJobs(jobs.map(job =>
       job.id === id ? { ...job, status: newStatus } : job
     ));
   };
@@ -490,7 +490,7 @@ const MaintenanceDemo = () => {
                   <Select
                     value={job.status}
                     onChange={(e) => updateStatus(job.id, e.target.value)}
-                    sx={{ 
+                    sx={{
                       fontSize: '0.7rem',
                       height: 28,
                       bgcolor: statusColors[job.status].bg,
@@ -531,7 +531,7 @@ const AnalyticsDemo = () => {
     const duration = 1500;
     const steps = 30;
     const interval = duration / steps;
-    
+
     let step = 0;
     const timer = setInterval(() => {
       step++;
@@ -610,7 +610,7 @@ const AnalyticsDemo = () => {
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 style={{
                   flex: 1,
-                  background: index === chartData.length - 1 
+                  background: index === chartData.length - 1
                     ? 'linear-gradient(135deg, #b91c1c 0%, #f97316 100%)'
                     : '#e5e7eb',
                   borderRadius: 4,
@@ -862,7 +862,7 @@ const Hero = () => (
       overflow: 'hidden'
     }}
   >
-    {/* Full-screen Background Video */}
+    {/* Full-screen Background - SaaS Style Gradient */}
     <Box
       sx={{
         position: 'absolute',
@@ -870,24 +870,23 @@ const Hero = () => (
         left: 0,
         width: '100%',
         height: '100%',
-        zIndex: 0
+        zIndex: 0,
+        background: 'radial-gradient(circle at 10% 20%, rgba(185, 28, 28, 0.1) 0%, rgba(0, 0, 0, 0) 50%), radial-gradient(circle at 90% 80%, rgba(249, 115, 22, 0.1) 0%, rgba(0, 0, 0, 0) 50%), #0f172a',
       }}
     >
+      {/* Subtle Grid Pattern for Tech Feel */}
       <Box
-        component="video"
-        autoPlay
-        loop
-        muted
-        playsInline
-        poster="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1920&q=80"
         sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover'
+          opacity: 0.1,
+          backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px)',
+          backgroundSize: '30px 30px'
         }}
-      >
-        <source src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-city-at-night-11748-large.mp4" type="video/mp4" />
-      </Box>
+      />
       {/* Dark overlay for text readability */}
       <Box
         sx={{
@@ -896,7 +895,7 @@ const Hero = () => (
           left: 0,
           width: '100%',
           height: '100%',
-          background: 'linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.6) 100%)',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.4) 50%, rgba(15, 23, 42, 0.8) 100%)',
           zIndex: 1
         }}
       />
@@ -905,19 +904,19 @@ const Hero = () => (
     {/* Hero Content */}
     <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, py: { xs: 10, md: 8 } }}>
       <Grid container spacing={4} alignItems="center" justifyContent="center">
-        <Grid item xs={12} md={10} lg={8}>
+        <Grid item xs={12} md={10} lg={10}>
           <FadeIn>
             <Box sx={{ textAlign: 'center' }}>
               <Chip
                 icon={<AutoAwesomeIcon sx={{ color: 'white !important' }} />}
-                label="New: AI-Powered Inspection Workflows"
+                label="B2B Technology Platform"
                 sx={{
                   mb: 3,
                   fontWeight: 600,
                   px: 2,
                   py: 2.5,
                   fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
                   color: 'white',
                   border: '1px solid rgba(255,255,255,0.2)',
                   backdropFilter: 'blur(10px)'
@@ -935,7 +934,7 @@ const Hero = () => (
                   textShadow: '0 2px 40px rgba(0,0,0,0.3)'
                 }}
               >
-                Property Management{' '}
+                Cloud-Based Property{' '}
                 <Box
                   component="span"
                   sx={{
@@ -944,8 +943,9 @@ const Hero = () => (
                     WebkitTextFillColor: 'transparent'
                   }}
                 >
-                  Built for Trust
-                </Box>
+                  Management Software
+                </Box>{' '}
+                for Australian Agencies
               </Typography>
               <Typography
                 variant="h5"
@@ -955,27 +955,28 @@ const Hero = () => (
                   fontWeight: 400,
                   fontSize: { xs: '1rem', sm: '1.15rem', md: '1.35rem' },
                   color: 'rgba(255,255,255,0.9)',
-                  maxWidth: 700,
+                  maxWidth: 850,
                   mx: 'auto'
                 }}
               >
-                Stop chasing paperwork. Start making data-driven decisions with immutable audit trails,
-                real-time sync, and a platform your entire team will love.
+                The digital command center for Strata and Facilities Managers.
+                We are a technology platform, not a construction firm.
+                Automate inspections, maintenance, and compliance in one place.
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ mb: 5 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ mb: 2 }}>
                 <GradientButton
                   size="large"
                   component={RouterLink}
                   to="/signup"
                   endIcon={<ArrowForwardIcon />}
-                  sx={{ 
-                    px: { xs: 4, md: 5 }, 
-                    py: { xs: 1.5, md: 2 }, 
-                    fontSize: { xs: '1rem', md: '1.15rem' },
+                  sx={{
+                    px: { xs: 4, md: 5 },
+                    py: { xs: 1.5, md: 2 },
+                    fontSize: { xs: '1rem', md: '1.1rem' },
                     boxShadow: '0 8px 32px rgba(249, 115, 22, 0.4)'
                   }}
                 >
-                  Start Free Trial
+                  Start Free Trial — We Set It Up For You
                 </GradientButton>
                 <Button
                   variant="outlined"
@@ -985,7 +986,7 @@ const Hero = () => (
                   sx={{
                     px: { xs: 4, md: 5 },
                     py: { xs: 1.5, md: 2 },
-                    fontSize: { xs: '1rem', md: '1.15rem' },
+                    fontSize: { xs: '1rem', md: '1.1rem' },
                     fontWeight: 600,
                     textTransform: 'none',
                     borderWidth: 2,
@@ -1000,35 +1001,63 @@ const Hero = () => (
                     }
                   }}
                 >
-                  See How It Works
+                  Watch 60-Second Demo
                 </Button>
               </Stack>
-              
-              {/* Social Proof */}
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  gap: { xs: 2, md: 3 }, 
-                  flexWrap: 'wrap',
-                  p: 3,
-                  borderRadius: 3,
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  maxWidth: 500,
-                  mx: 'auto'
+
+              <Box sx={{ mb: 6 }}>
+                <Chip
+                  label="Free Concierge Onboarding: We upload your first property for you in 15 minutes."
+                  sx={{
+                    background: 'rgba(249, 115, 22, 0.1)',
+                    color: '#fbbf24',
+                    fontWeight: 600,
+                    border: '1px solid rgba(249, 115, 22, 0.3)',
+                    py: 2,
+                    height: 'auto',
+                    '& .MuiChip-label': { px: 3, py: 1 }
+                  }}
+                />
+              </Box>
+
+              {/* Dashboard Preview / Mockup Placeholder */}
+              <Box
+                sx={{
+                  mt: 4,
+                  mx: 'auto',
+                  maxWidth: 900,
+                  position: 'relative',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255,255,255,0.1)'
                 }}
               >
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body2" fontWeight={700} sx={{ color: 'white' }}>
-                    Built for modern property teams
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
-                    Inspections, maintenance, and compliance—tracked end-to-end.
-                  </Typography>
-                </Box>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1,
+                    bgcolor: '#1e293b',
+                    display: 'flex',
+                    gap: 1,
+                    borderBottom: '1px solid rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#ff5f56' }} />
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#ffbd2e' }} />
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#27c93f' }} />
+                </Paper>
+                <Box
+                  component="img"
+                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80"
+                  alt="BuildState Dashboard"
+                  sx={{
+                    width: '100%',
+                    height: 'auto',
+                    display: 'block',
+                    filter: 'brightness(0.9)'
+                  }}
+                />
               </Box>
             </Box>
           </FadeIn>
@@ -1279,20 +1308,20 @@ const HowItWorks = () => {
                       {index + 1}
                     </Box>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight={700} 
-                        sx={{ 
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight={700}
+                        sx={{
                           color: activeStep === index ? 'primary.main' : 'text.primary',
                           fontSize: { xs: '0.95rem', md: '1rem' }
                         }}
                       >
                         {step.label}
                       </Typography>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
-                        sx={{ 
+                        sx={{
                           display: { xs: 'none', md: 'block' },
                           lineHeight: 1.4
                         }}
@@ -1300,13 +1329,13 @@ const HowItWorks = () => {
                         {step.description.substring(0, 60)}...
                       </Typography>
                     </Box>
-                    {React.cloneElement(step.icon, { 
-                      sx: { 
-                        fontSize: { xs: 24, md: 28 }, 
+                    {React.cloneElement(step.icon, {
+                      sx: {
+                        fontSize: { xs: 24, md: 28 },
                         color: activeStep === index ? 'primary.main' : 'text.disabled',
                         transition: 'all 0.3s',
                         display: { xs: 'none', sm: 'block' }
-                      } 
+                      }
                     })}
                   </Box>
                 ))}
@@ -1430,9 +1459,9 @@ const HowItWorks = () => {
                 </Card>
 
                 {/* Navigation Buttons */}
-                <Stack 
-                  direction="row" 
-                  justifyContent="space-between" 
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
                   alignItems="center"
                   sx={{ mt: 3 }}
                 >
@@ -1444,7 +1473,7 @@ const HowItWorks = () => {
                       setActiveStep(prev => Math.max(0, prev - 1));
                     }}
                     disabled={activeStep === 0}
-                    sx={{ 
+                    sx={{
                       borderRadius: 2,
                       textTransform: 'none',
                       fontWeight: 600
@@ -1452,7 +1481,7 @@ const HowItWorks = () => {
                   >
                     Previous
                   </Button>
-                  
+
                   <Stack direction="row" spacing={1}>
                     {steps.map((_, index) => (
                       <Box
@@ -1485,7 +1514,7 @@ const HowItWorks = () => {
                         setActiveStep(prev => Math.min(steps.length - 1, prev + 1));
                       }
                     }}
-                    sx={{ 
+                    sx={{
                       borderRadius: 2,
                       textTransform: 'none',
                       fontWeight: 600,
